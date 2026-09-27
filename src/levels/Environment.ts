@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { makeCanvasTexture } from '../rendering/Textures';
-import { lightShaft } from './ArenaKit';
+import { bevelBox, lightShaft } from './ArenaKit';
 
 /** Gradient sky dome with sun / moon / eclipse disc, stars and soft clouds. */
 export function skyDome(opts: {
@@ -259,7 +259,7 @@ export function floodRig(pos: THREE.Vector3, target: THREE.Vector3, heads: numbe
   pole.position.set(pos.x, pos.y / 2, pos.z);
   pole.castShadow = true;
   g.add(pole);
-  const bar = new THREE.Mesh(new THREE.BoxGeometry(heads * 0.7, 0.12, 0.12), metal);
+  const bar = new THREE.Mesh(bevelBox(heads * 0.7, 0.12, 0.12, 0.03), metal);
   bar.position.copy(pos);
   bar.lookAt(target.x, pos.y, target.z);
   bar.rotateY(Math.PI / 2);
@@ -272,7 +272,7 @@ export function floodRig(pos: THREE.Vector3, target: THREE.Vector3, heads: numbe
   for (let i = 0; i < heads; i++) {
     const off = (i - (heads - 1) / 2) * 0.7;
     const hp = pos.clone().addScaledVector(right, off).add(new THREE.Vector3(0, 0.3, 0));
-    const box = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.45, 0.3), housing);
+    const box = new THREE.Mesh(bevelBox(0.55, 0.45, 0.3, 0.06), housing);
     box.position.copy(hp);
     box.lookAt(target);
     g.add(box);
@@ -305,7 +305,7 @@ export function container(color: number, len = 6): THREE.Group {
   tex.wrapS = THREE.RepeatWrapping;
   tex.repeat.set(len / 3, 1);
   const mat = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.6, metalness: 0.5 });
-  const m = new THREE.Mesh(new THREE.BoxGeometry(len, 2.6, 2.44), mat);
+  const m = new THREE.Mesh(bevelBox(len, 2.6, 2.44, 0.05), mat);
   m.position.y = 1.3;
   m.castShadow = true;
   m.receiveShadow = true;

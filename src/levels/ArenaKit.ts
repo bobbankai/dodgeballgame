@@ -1,5 +1,17 @@
 import * as THREE from 'three';
+import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
 import { heightToNormal, makeCanvasTexture } from '../rendering/Textures';
+
+/**
+ * Box with softened edges: every manufactured edge catches a thin highlight instead of
+ * meeting at a razor corner. Radius defaults to a small bevel scaled to the smallest side.
+ */
+export function bevelBox(w: number, h: number, d: number, radius?: number): THREE.BufferGeometry {
+  const m = Math.min(w, h, d);
+  const r = Math.min(radius ?? 0.03, m * 0.45);
+  if (r < 0.004) return new THREE.BoxGeometry(w, h, d);
+  return new RoundedBoxGeometry(w, h, d, m > 0.12 ? 2 : 1, r);
+}
 
 /** Shared procedural building blocks for arenas. */
 
@@ -361,7 +373,7 @@ export function buildBoards(hw: number, hl: number, opts: {
   const rails: THREE.Mesh[] = [];
   const addWall = (len: number, x: number, z: number, rotY: number) => {
     const g = new THREE.Group();
-    const body = new THREE.Mesh(new THREE.BoxGeometry(len, h, t), pad);
+    const body = new THREE.Mesh(bevelBox(len, h, t, 0.035), pad);
     body.position.y = h / 2;
     body.castShadow = true;
     body.receiveShadow = true;
@@ -370,8 +382,9 @@ export function buildBoards(hw: number, hl: number, opts: {
     panel.position.set(0, h * 0.5, -t / 2 - 0.004);
     panel.rotation.y = Math.PI;
     g.add(panel);
-    const rail = new THREE.Mesh(new THREE.BoxGeometry(len + 0.02, 0.07, t + 0.06), railMat);
-    rail.position.y = h + 0.035;
+    // padded cap along the top of the boards
+    const rail = new THREE.Mesh(new RoundedBoxGeometry(len + 0.02, 0.09, t + 0.07, 3, 0.042), railMat);
+    rail.position.y = h + 0.04;
     g.add(rail);
     rails.push(rail);
     if (opts.glass) {
@@ -398,13 +411,13 @@ export function buildBench(length: number, color = 0x6b4a2e): THREE.Group {
   const g = new THREE.Group();
   const wood = new THREE.MeshStandardMaterial({ color, roughness: 0.6 });
   const metal = new THREE.MeshStandardMaterial({ color: 0x3a3f47, roughness: 0.4, metalness: 0.7 });
-  const seat = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.05, length), wood);
+  const seat = new THREE.Mesh(bevelBox(0.42, 0.05, length, 0.02), wood);
   seat.position.y = 0.46;
   seat.castShadow = true;
   seat.receiveShadow = true;
   g.add(seat);
   for (const z of [-length / 2 + 0.2, length / 2 - 0.2]) {
-    const leg = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.44, 0.05), metal);
+    const leg = new THREE.Mesh(bevelBox(0.36, 0.44, 0.05, 0.015), metal);
     leg.position.set(0, 0.22, z);
     leg.castShadow = true;
     g.add(leg);
@@ -425,7 +438,7 @@ export class Scoreboard {
     this.tex = new THREE.CanvasTexture(this.canvas);
     this.tex.colorSpace = THREE.SRGBColorSpace;
     const h = width * 0.375;
-    const box = new THREE.Mesh(new THREE.BoxGeometry(width + 0.3, h + 0.3, 0.35), new THREE.MeshStandardMaterial({ color: housing, roughness: 0.5, metalness: 0.4 }));
+    const box = new THREE.Mesh(bevelBox(width + 0.3, h + 0.3, 0.35, 0.06), new THREE.MeshStandardMaterial({ color: housing, roughness: 0.5, metalness: 0.4 }));
     this.group.add(box);
     const screen = new THREE.Mesh(
       new THREE.PlaneGeometry(width, h),
@@ -517,7 +530,7 @@ export function banner(w: number, h: number, bg: string, fg: string, title: stri
 }
 
 export function box(w: number, h: number, d: number, mat: THREE.Material, x = 0, y = 0, z = 0, shadow = true) {
-  const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
+  const m = new THREE.Mesh(bevelBox(w, h, d), mat);
   m.position.set(x, y, z);
   m.castShadow = shadow;
   m.receiveShadow = true;

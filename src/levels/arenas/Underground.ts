@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import type { QualityProfile } from '../../config/quality';
 import { makeCanvasTexture } from '../../rendering/Textures';
 import { Arena } from '../Arena';
-import { box, buildBench, buildBoards, courtLines, lightShaft, noiseSurface, Scoreboard } from '../ArenaKit';
+import { bevelBox, box, buildBench, buildBoards, courtLines, lightShaft, noiseSurface, Scoreboard } from '../ArenaKit';
 import { Crowd } from '../Crowd';
 import { chainFence, container, graffitiTexture, neonSign } from '../Environment';
 import { createFloorMaterial } from '../FloorMaterial';
@@ -155,7 +155,7 @@ export function buildUnderground(q: QualityProfile, hw: number, hl: number): Are
   for (const sz of [1, -1]) for (const sx of [1, -1]) {
     const x = sx * Math.min(hw * 0.45, 2.9);
     const z = sz * hl * 0.5;
-    const m = new THREE.Mesh(new THREE.BoxGeometry(bw, bh, bd), barrierMat);
+    const m = new THREE.Mesh(bevelBox(bw, bh, bd, 0.07), barrierMat);
     m.position.set(x, bh / 2, z);
     m.castShadow = true;
     m.receiveShadow = true;
