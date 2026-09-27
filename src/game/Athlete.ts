@@ -1146,6 +1146,11 @@ export class Athlete {
     const clip = this.anim.current();
     let emo: Emotion = 'neutral';
     let shut = 0;
+    const show = showClipEmotion(clip);
+    if (show && s !== 'hitstun' && s !== 'knockdown') {
+      this.face.update(dt, this.rig.material, this.rig.boneByName.head, show, this.look, 0);
+      return;
+    }
     switch (s) {
       case 'charging':
         emo = 'strain';
@@ -1196,6 +1201,9 @@ export class Athlete {
   /** What the eyes follow: the aim while throwing, else an incoming ball, else the camera in cutscenes. */
   private lookTarget(): THREE.Vector3 | null {
     const s = this.state;
+    const w0 = this.world;
+    // showing off for a nearby camera (intros, victory shots, the locker-room preview)
+    if (w0 && showClipEmotion(this.anim.current()) && w0.camera.position.distanceToSquared(this.pos) < 49) return w0.camera.position;
     if (s === 'charging' || s === 'throwing' || s === 'power' || s === 'passing' || (this.ball && s === 'free')) return this.aimPoint;
     const w = this.world;
     if (!w) return null;
@@ -1214,5 +1222,23 @@ export class Athlete {
       }
     }
     return best;
+  }
+}
+
+/** Expressive clips carry their own emotion whatever the gameplay state. */
+function showClipEmotion(clip: ClipName | null): Emotion | null {
+  switch (clip) {
+    case 'victory':
+    case 'fistPump':
+    case 'celebrate':
+    case 'sitCheer':
+      return 'joy';
+    case 'point':
+    case 'ballSpin':
+      return 'smirk';
+    case 'defeat':
+      return 'sad';
+    default:
+      return null;
   }
 }
