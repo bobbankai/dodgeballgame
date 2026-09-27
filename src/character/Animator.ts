@@ -29,10 +29,14 @@ export interface AnimInput {
   chargeShake: number;
   /** extra crouch 0..1 */
   crouch: number;
+  /** head/neck turn toward something of interest (relative to body facing, radians) */
+  lookYaw: number;
+  lookPitch: number;
+  lookWeight: number;
 }
 
 export function defaultAnimInput(): AnimInput {
-  return { velX: 0, velZ: 0, accX: 0, accZ: 0, grounded: true, holding: false, alert: 1, aimYaw: 0, aimPitch: 0, aimWeight: 1, chargeShake: 0, crouch: 0 };
+  return { velX: 0, velZ: 0, accX: 0, accZ: 0, grounded: true, holding: false, alert: 1, aimYaw: 0, aimPitch: 0, aimWeight: 1, chargeShake: 0, crouch: 0, lookYaw: 0, lookPitch: 0, lookWeight: 0 };
 }
 
 interface Layer {
@@ -104,6 +108,10 @@ export class Animator {
   // flinch spring (pitch, roll)
   private fx = 0; private fvx = 0;
   private fz = 0; private fvz = 0;
+  // smoothed head look
+  private lookY = 0;
+  private lookP = 0;
+  private lookW = 0;
   /** Phase-crossing callbacks for footsteps. */
   onFootstep: ((side: 1 | -1, intensity: number) => void) | null = null;
   private lastStepSign = 0;
@@ -366,6 +374,18 @@ export class Animator {
       P.preEuler(B.chest, -pitch * 0.35, yaw * 0.35, 0);
       P.preEuler(B.neck, -pitch * 0.3, yaw * 0.15, 0);
       P.preEuler(B.head, -pitch * 0.35, yaw * 0.2, 0);
+    }
+
+    // head look: the eyes lead, neck and head follow with a little lag
+    const lk = 1 - Math.exp(-dt * 7);
+    this.lookW += (inp.lookWeight - this.lookW) * lk;
+    this.lookY += (clamp(inp.lookYaw, -75 * DEG, 75 * DEG) - this.lookY) * lk;
+    this.lookP += (clamp(inp.lookPitch, -35 * DEG, 40 * DEG) - this.lookP) * lk;
+    if (this.lookW > 0.001) {
+      const ly = this.lookY * this.lookW, lp = this.lookP * this.lookW;
+      P.preEuler(B.chest, 0, ly * 0.15, 0);
+      P.preEuler(B.neck, -lp * 0.4, ly * 0.35, 0);
+      P.preEuler(B.head, -lp * 0.5, ly * 0.4, 0);
     }
 
     if (inp.chargeShake > 0.001) {

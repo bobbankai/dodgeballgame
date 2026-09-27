@@ -189,14 +189,18 @@ vec3 paintFace(vec3 base, vec2 f, float aa) {
   }
   // mouth
   float smile = uExpr.z, mo = clamp(uExpr.w, 0.0, 1.0);
-  float mw = 0.017 + 0.003 * abs(smile) + 0.004 * mo;
+  float mw = 0.017 + 0.003 * abs(smile) + 0.005 * mo;
   float xn = f.x / mw;
   if (abs(xn) < 1.25) {
-    float yc = -0.0585 + smile * 0.0065 * (xn * xn - 0.35);
-    float lower = yc - mo * 0.015 * max(0.0, 1.0 - xn * xn);
-    float upper = yc + mo * 0.003 * max(0.0, 1.0 - xn * xn);
+    float yc = -0.0585 + smile * 0.0085 * (xn * xn - 0.35);
+    float bow = pow(max(0.0, 1.0 - xn * xn), 0.65);
+    float lower = yc - mo * 0.03 * bow;
+    float upper = yc + mo * 0.0055 * bow;
     float inside = step(abs(xn), 1.0) * smoothstep(lower - aa, lower + aa, f.y) * (1.0 - smoothstep(upper - aa, upper + aa, f.y));
-    vec3 mouthC = mix(vec3(0.28, 0.07, 0.07), vec3(0.95, 0.93, 0.9), smoothstep(upper - 0.0035, upper - 0.0025, f.y) * step(0.05, mo));
+    // dark mouth, a band of teeth under the upper lip, a tongue at the bottom
+    vec3 mouthC = vec3(0.24, 0.05, 0.06);
+    mouthC = mix(mouthC, vec3(0.72, 0.3, 0.32), smoothstep(lower + 0.006, lower + 0.001, f.y) * smoothstep(0.25, 0.5, mo) * (1.0 - smoothstep(0.55, 0.9, abs(xn))));
+    mouthC = mix(mouthC, vec3(0.95, 0.93, 0.9), smoothstep(upper - 0.0042, upper - 0.003, f.y) * step(0.12, mo));
     col = mix(col, mouthC, inside * step(0.02, mo));
     float lineW = 0.0014 * (1.0 - 0.6 * smoothstep(0.7, 1.2, abs(xn)));
     float line = 1.0 - smoothstep(lineW - aa, lineW + aa, abs(f.y - upper));
@@ -288,7 +292,7 @@ metalnessFactor = uMetal[si];`,
   }
 
   override customProgramCacheKey() {
-    return 'athlete-sculpt-v1';
+    return 'athlete-sculpt-v2';
   }
 
   /** Print the athlete's number (and name on the back) into a small mask texture. */

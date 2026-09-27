@@ -3,6 +3,7 @@ import { REFLECT_LAYER } from '../rendering/FloorReflection';
 import { TUNING } from '../config/tuning';
 import { buildCharacter, CharacterRig, disposeCharacter } from '../character/CharacterBuilder';
 import { Animator, AnimInput, defaultAnimInput } from '../character/Animator';
+import { Emotion, FaceAnimator } from '../character/Face';
 import { Appearance } from '../character/Appearance';
 import { ClipName, CLIP_TIMING } from '../character/Clips';
 import { angleDiff, approachAngle, clamp, clamp01, damp, dampAngle, lerp, rng, solveBallisticLow } from '../core/math';
@@ -77,6 +78,9 @@ export class Athlete {
   perks: Perks;
   readonly rig: CharacterRig;
   readonly anim: Animator;
+  readonly face = new FaceAnimator();
+  /** what the eyes (and head) are tracking this frame */
+  private look: THREE.Vector3 | null = null;
   controller: Controller | null = null;
   world!: World;
 
@@ -1074,6 +1078,16 @@ export class Athlete {
       inp.aimYaw = 0;
       inp.aimPitch = 0;
     }
+    // the head follows whatever the eyes are tracking (incoming balls, the aim)
+    const look = (this.look = this.lookTarget());
+    const st = this.state;
+    const lookW = look && st !== 'scripted' && st !== 'celebrate' && st !== 'knockdown' && st !== 'out' && st !== 'hitstun' ? 1 - aimW : 0;
+    inp.lookWeight = lookW;
+    if (look && lookW > 0) {
+      const dx = look.x - this.pos.x, dz = look.z - this.pos.z;
+      inp.lookYaw = angleDiff(this.yaw, Math.atan2(dx, dz));
+      inp.lookPitch = Math.atan2(look.y - (this.pos.y + this.y + 1.55 * this.rig.height), Math.hypot(dx, dz));
+    }
     this.anim.update(dt, inp);
   }
 
@@ -1107,7 +1121,7 @@ export class Athlete {
     }
     const m = this.rig.material;
     m.u.uDissolve.value = this.dissolve;
-    m.u.uFlash.value = this.hitFlash * 0.9 + (this.invuln > 0 && this.state !== 'hitstun' ? (Math.sin(this.world.time.realTime * 30) > 0 ? 0.25 : 0) : 0);
+    m.u.uFlash.value = this.hitFlash * this.hitFlash * 0.9 + (this.invuln > 0 && this.state !== 'hitstun' ? (Math.sin(this.world.time.realTime * 30) > 0 ? 0.25 : 0) : 0);
     m.u.uTime.value = this.world.time.realTime;
     const energized = this.state === 'ultimate' ? 1 : this.powerArmed || this.state === 'power' ? 0.45 : this.counterTimer > 0 ? 0.35 : 0;
     m.u.uEnergy.value += (energized - m.u.uEnergy.value) * damp(8, dt);
@@ -1123,5 +1137,82 @@ export class Athlete {
     this.ring.visible = !hideDecals && this.state !== 'out';
     this.ring.position.set(this.pos.x, 0.015, this.pos.z);
     this.ring.rotation.z += dt * 0.6;
+    this.updateFace(dt);
+  }
+
+  // ------------------------------------------------------------------ face
+  private updateFace(dt: number) {
+    const s = this.state;
+    const clip = this.anim.current();
+    let emo: Emotion = 'neutral';
+    let shut = 0;
+    switch (s) {
+      case 'charging':
+        emo = 'strain';
+        break;
+      case 'throwing':
+      case 'power':
+      case 'ultimate':
+        emo = 'yell';
+        break;
+      case 'passing':
+      case 'catching':
+      case 'blocking':
+        emo = 'focus';
+        break;
+      case 'fake':
+        emo = 'smirk';
+        break;
+      case 'catchRecover':
+        emo = clip === 'catchPerfect' ? 'joy' : 'smirk';
+        break;
+      case 'whiff':
+      case 'dodging':
+        emo = 'surprise';
+        break;
+      case 'hitstun':
+      case 'stagger':
+        emo = 'pain';
+        break;
+      case 'knockdown':
+        emo = 'daze';
+        shut = this.stateTime > 0.25 ? 0.65 : 0;
+        break;
+      case 'out':
+        emo = clip === 'sitCheer' ? 'joy' : 'sad';
+        break;
+      case 'celebrate':
+        emo = clip === 'defeat' ? 'sad' : 'joy';
+        break;
+      case 'scripted':
+        emo = clip === 'defeat' ? 'sad' : clip === 'victory' || clip === 'fistPump' || clip === 'celebrate' || clip === 'sitCheer' ? 'joy' : clip === 'point' || clip === 'ballSpin' ? 'smirk' : 'neutral';
+        break;
+      default:
+        emo = this.world?.match?.playing ? (this.ball ? 'smirk' : 'focus') : 'neutral';
+    }
+    this.face.update(dt, this.rig.material, this.rig.boneByName.head, emo, this.look, shut);
+  }
+
+  /** What the eyes follow: the aim while throwing, else an incoming ball, else the camera in cutscenes. */
+  private lookTarget(): THREE.Vector3 | null {
+    const s = this.state;
+    if (s === 'charging' || s === 'throwing' || s === 'power' || s === 'passing' || (this.ball && s === 'free')) return this.aimPoint;
+    const w = this.world;
+    if (!w) return null;
+    if (s === 'scripted' || s === 'celebrate') {
+      const cam = w.camera.position;
+      return cam.distanceToSquared(this.pos) < 36 ? cam : null;
+    }
+    let best: THREE.Vector3 | null = null;
+    let bd = 14 * 14;
+    for (const b of w.balls.balls) {
+      if (b.state !== 'thrown' && !(b.state === 'loose' && b.pos.y > 0.4)) continue;
+      const d = b.pos.distanceToSquared(this.pos);
+      if (d < bd) {
+        bd = d;
+        best = b.pos;
+      }
+    }
+    return best;
   }
 }
