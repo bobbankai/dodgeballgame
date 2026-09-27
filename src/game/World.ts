@@ -39,7 +39,7 @@ export class World {
   }
 
   removeAthletes() {
-    for (const a of this.athletes) a.removeFromScene(this.scene);
+    for (const a of this.athletes) a.destroy(this.scene);
     this.athletes = [];
   }
 

@@ -101,6 +101,10 @@ export class Progression {
     return { ok: true, reason: '' };
   }
 
+  anySkillAffordable(): boolean {
+    return SKILLS.some((s) => this.canBuy(s).ok);
+  }
+
   buy(node: SkillNode): boolean {
     if (!this.canBuy(node).ok) return false;
     this.d.cred -= node.cost;

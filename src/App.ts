@@ -8,6 +8,7 @@ import { CareerScreen } from './ui/screens/CareerScreen';
 import { SkillsScreen } from './ui/screens/SkillsScreen';
 import { SettingsScreen } from './ui/screens/SettingsScreen';
 import { PauseMenu } from './ui/screens/PauseMenu';
+import { CreditsScreen } from './ui/screens/CreditsScreen';
 import { ResultsScreen } from './ui/screens/ResultsScreen';
 import { CreateScreen } from './ui/screens/CreateScreen';
 import { QuickMatchScreen, QuickOptions, DIFF_NAMES } from './ui/screens/QuickMatchScreen';
@@ -39,7 +40,7 @@ export class App {
   private results: ResultsScreen;
   private create: CreateScreen;
   private quick: QuickMatchScreen;
-  private credits: Screen;
+  private credits: CreditsScreen;
   private screens: Screen[];
   private currentMatch: { campaign: CampaignMatch | null; config: MatchConfig; quick?: QuickOptions } | null = null;
   private tutorial: Tutorial | null = null;
@@ -98,7 +99,8 @@ export class App {
     this.quick = new QuickMatchScreen(root, audio);
     this.quick.onBack = () => this.openMenu();
     this.quick.onPlay = (o) => this.playQuick(o);
-    this.credits = new Screen(root, audio);
+    this.credits = new CreditsScreen(root, audio);
+    this.credits.onBack = () => this.openMenu();
     this.screens = [this.menu, this.career, this.skills, this.settings, this.pause, this.results, this.create, this.quick, this.credits];
 
     this.applySettings(s, true);
@@ -252,23 +254,13 @@ export class App {
     this.quick.show();
   }
 
-  openCredits() {
+  openCredits(finale = false) {
     this.hideAll();
     this.mode = 'credits';
-    const c = this.credits;
-    c.el.innerHTML = '';
-    c.el.append(
-      h('div', { class: 'screen-dim solid' }),
-      h(
-        'div',
-        { class: 'pause-card panel', style: 'text-align:center' },
-        h('div', { class: 'logo' }, h('div', { class: 'l1', style: 'font-size:90px' }, 'Overthrow')),
-        h('div', { class: 'bs', style: 'line-height:1.8;color:var(--text)' }, 'A dodgeball game built entirely with web technology.', h('br'), 'Rendering: three.js · Post-processing: pmndrs/postprocessing', h('br'), 'Characters, animation, arenas, audio and music are procedurally generated at runtime.'),
-        h('div', { class: 'bs', style: 'color:var(--muted)' }, `Career: ${this.save.data.stats.matches} matches · ${this.save.data.stats.wins} wins · ${this.save.data.stats.perfectCatches} perfect catches`),
-        h('div', { class: 'btn-row', style: 'justify-content:center' }, h('button', { class: 'btn primary', onclick: () => this.openMenu() }, h('span', {}, 'Back'))),
-      ),
-    );
-    c.show();
+    if (finale) this.startAttract('stadium');
+    else if (!this.game.match || this.game.match.config.id !== 'attract') this.startAttract(this.currentChapterArena());
+    this.game.audio.playMusic(finale ? 'final' : 'menu');
+    this.credits.open(this.save.data, finale);
   }
 
   openCreate() {
@@ -518,7 +510,7 @@ export class App {
       g.cinematicActive = false;
       g.endMatch();
       this.currentMatch = null;
-      if (campaign && campaign.id === 'm7-2' && r.won) this.openCredits();
+      if (campaign && campaign.id === 'm7-2' && r.won) this.openCredits(true);
       else if (campaign) {
         this.career.focusNext();
         this.openCareer();

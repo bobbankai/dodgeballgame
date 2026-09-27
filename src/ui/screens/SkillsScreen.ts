@@ -58,8 +58,9 @@ export class SkillsScreen extends Screen {
           'div',
           { class: `skill-node panel ${state}${this.selected === s ? ' selected' : ''}` },
           h('div', { class: 'ic', html: (ICONS as any)[s.icon] ?? ICONS.star }),
-          h('div', {}, h('div', { class: 'sn' }, s.name), h('div', { class: 'sc' }, state === 'owned' ? 'Owned' : `₵${s.cost} · Lv ${s.level}${s.kind === 'ability' ? ' · Ability' : s.kind === 'ultimate' ? ' · Ultimate' : ''}`)),
+          h('div', {}, h('div', { class: 'sn' }, s.name), h('div', { class: 'sc' }, state === 'owned' ? 'Owned' : `₵${s.cost} · Lv ${s.level}`)),
         );
+        if (s.kind === 'ability' || s.kind === 'ultimate') node.append(h('div', { class: `kd ${s.kind}` }, s.kind === 'ability' ? 'Ability' : 'Ult'));
         node.addEventListener('click', () => {
           this.selected = s;
           this.build();

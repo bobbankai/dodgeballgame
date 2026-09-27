@@ -125,6 +125,12 @@ export class CareerScreen extends Screen {
       brief.append(h('div', { class: 'btn-row', style: 'margin-top:10px' }, play));
     }
 
+    const skillsBtn = btn('Skills', () => this.onSkills?.());
+    const unspent = d.attrPoints + (this.prog.anySkillAffordable() ? 1 : 0);
+    if (unspent > 0) {
+      skillsBtn.append(h('span', { class: 'notif' }, d.attrPoints > 0 ? String(d.attrPoints) : '!'));
+      skillsBtn.title = d.attrPoints > 0 ? `${d.attrPoints} attribute points to spend` : 'A new skill is available';
+    }
     this.el.append(
       h('div', { class: 'screen-dim solid', style: 'background:linear-gradient(90deg, rgba(5,7,11,.92) 55%, rgba(5,7,11,.55))' }),
       h(
@@ -133,8 +139,8 @@ export class CareerScreen extends Screen {
         h(
           'div',
           { class: 'page-head' },
-          h('div', { class: 'page-title' }, h('small', {}, `CAREER · LEVEL ${d.level} · ₵${d.cred.toLocaleString()}`), ch.name),
-          h('div', { class: 'btn-row' }, btn('Skills & Stats', () => this.onSkills?.()), btn('Back', () => this.onBack?.())),
+          h('div', { class: 'page-title compact' }, h('small', {}, `CAREER · LEVEL ${d.level} · ₵${d.cred.toLocaleString()}`), ch.name),
+          h('div', { class: 'btn-row' }, skillsBtn, btn('Back', () => this.onBack?.())),
         ),
         h('div', { class: 'bs', style: 'color:var(--muted);margin:-10px 0 16px;font-size:15px' }, `${ch.location} — ${ch.blurb}`),
         chapters,
@@ -142,8 +148,9 @@ export class CareerScreen extends Screen {
       ),
       brief,
     );
-    if (d.attrPoints > 0) this.el.append(h('div', { class: 'toast panel', style: 'top:auto;bottom:30px;right:auto;left:5vw' }, `${d.attrPoints} attribute points to spend`));
     this.sfx();
+    const act = chapters.children[this.chapterIdx] as HTMLElement | undefined;
+    if (act) requestAnimationFrame(() => (chapters.scrollLeft = Math.max(0, act.offsetLeft - chapters.clientWidth / 2 + act.offsetWidth / 2)));
   }
 
   override show() {

@@ -44,6 +44,7 @@ export class Arena {
   marks: Record<string, THREE.Vector3> = {};
   look: ArenaLook;
   envTexture: THREE.Texture | null = null;
+  private envTarget: THREE.WebGLRenderTarget | null = null;
   /** Materials that expose a uTime uniform. */
   timeUniforms: { value: number }[] = [];
 
@@ -88,21 +89,29 @@ export class Arena {
     if (parent) parent.add(this.root);
     else tmp.remove(this.root);
     pmrem.dispose();
+    this.envTarget?.dispose();
+    this.envTarget = rt;
     this.envTexture = rt.texture;
     return rt.texture;
   }
 
   dispose() {
     this.root.traverse((o) => {
+      if ((o as THREE.Light).isLight) (o as THREE.Light).dispose();
       const m = o as THREE.Mesh;
       if (m.geometry) m.geometry.dispose();
       const mat = m.material as THREE.Material | THREE.Material[] | undefined;
       const mats = Array.isArray(mat) ? mat : mat ? [mat] : [];
       for (const mm of mats) {
         for (const v of Object.values(mm)) if (v instanceof THREE.Texture) v.dispose();
+        for (const uniforms of [(mm as THREE.ShaderMaterial).uniforms, (mm as any).floorUniforms]) {
+          if (uniforms) for (const u of Object.values(uniforms) as { value: unknown }[]) if (u && u.value instanceof THREE.Texture) u.value.dispose();
+        }
         mm.dispose();
       }
     });
-    this.envTexture?.dispose();
+    if (this.look.background instanceof THREE.Texture) this.look.background.dispose();
+    this.envTarget?.dispose();
+    this.envTarget = null;
   }
 }

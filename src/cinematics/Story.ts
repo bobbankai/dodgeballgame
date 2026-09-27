@@ -87,6 +87,9 @@ export function matchOutroShots(game: Game, won: boolean): Shot[] {
       look: { at: focus, off: [0, 1.35, 0] },
       fov: 44,
       dof: { range: 2.2, bokeh: 3 },
+      onStart: () => {
+        if (!won) game.desatOverride = 0.45;
+      },
       title: won ? { t1: 'Match won', t2: 'Victory', t3: `${m.score[0]} – ${m.score[1]}` } : { t1: 'Match lost', t2: 'Defeat', t3: `${m.score[0]} – ${m.score[1]}` },
     },
   ];

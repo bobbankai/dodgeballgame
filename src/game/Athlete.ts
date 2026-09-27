@@ -198,6 +198,21 @@ export class Athlete {
     scene.remove(this.ring);
   }
 
+  /** Remove from the scene and free GPU resources (geometry, bone texture, materials). */
+  destroy(scene: THREE.Scene) {
+    this.removeFromScene(scene);
+    this.rig.root.traverse((o) => {
+      const m = o as THREE.SkinnedMesh;
+      if (m.isSkinnedMesh) m.skeleton.dispose();
+      if (m.geometry) m.geometry.dispose();
+    });
+    this.rig.material.dispose();
+    for (const m of [this.blob, this.ring]) {
+      m.geometry.dispose();
+      (m.material as THREE.Material).dispose();
+    }
+  }
+
   // ------------------------------------------------------------------ queries
   get active() {
     return !this.isOut && this.state !== 'knockdown' && this.state !== 'out';

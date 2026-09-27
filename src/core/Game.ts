@@ -58,6 +58,8 @@ export class Game {
   tickers = new Set<(dt: number, realDt: number) => void>();
   /** When set, the gameplay camera is not updated (cinematic in control). */
   cinematicActive = false;
+  /** forces the screen saturation target (defeat outro); null = automatic */
+  desatOverride: number | null = null;
   private raf = 0;
   playerProfile: AthleteProfile | null = null;
   readonly director: CinematicDirector;
@@ -212,6 +214,7 @@ export class Game {
   }
 
   endMatch() {
+    this.desatOverride = null;
     if (this.match) {
       this.match.dispose();
       this.match = null;
@@ -239,7 +242,7 @@ export class Game {
   }
 
   /** Run the simulation headlessly (no rendering) — used by automated balance tests. */
-  simulate(seconds: number, step = 1 / 60) {
+  simulate(seconds: number, step = 1 / 60, stopWhenDone = true) {
     const n = Math.round(seconds / step);
     time.baseScale = 1;
     for (let i = 0; i < n; i++) {
@@ -251,7 +254,7 @@ export class Game {
       this.vfx.update(time.dt, this.world.camera);
       if (!this.cinematicActive) this.cam.update(step);
       for (const t of this.tickers) t(time.dt, step);
-      if (this.match && this.match.phase === 'done') break;
+      if (stopWhenDone && this.match && this.match.phase === 'done') break;
     }
   }
 
@@ -307,6 +310,8 @@ export class Game {
         if (this.arena.crowd) this.arena.crowd.setBase(m.phase === 'playing' ? 0.18 + (m.suddenDeath ? 0.3 : 0) : 0.08);
       }
     }
+    const benched = !!this.player && !!this.match && this.player.isOut && this.match.phase === 'playing';
+    this.renderer.desatTarget = this.desatOverride ?? (benched ? 0.35 : 0);
     this.audio.setListener(this.world.camera);
     this.hud.update(this.world, this.player, this.pc, this.world.camera, time.fps);
     this.renderer.render(realDt, time.fps);

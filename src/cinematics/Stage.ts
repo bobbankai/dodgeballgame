@@ -93,10 +93,10 @@ export class Stage {
       const w = this.game.world;
       for (const a of this.actors) {
         if (!w.match || (!w.match.home.includes(a) && !w.match.away.includes(a))) {
-          a.removeFromScene(w.scene);
           const i = w.athletes.indexOf(a);
           if (i >= 0) w.athletes.splice(i, 1);
           this.game.abilities.ghosts.forget(a);
+          a.destroy(w.scene);
         } else a.releaseScripted();
       }
       for (const b of this.props) {

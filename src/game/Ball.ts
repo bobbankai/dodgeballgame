@@ -118,9 +118,14 @@ export class Ball {
     scene.add(this.shadow);
   }
 
+  /** Remove from the scene and free per-ball GPU resources (geometry of the core/shell is shared). */
   removeFrom(scene: THREE.Scene) {
     scene.remove(this.group);
     scene.remove(this.shadow);
+    this.material.dispose();
+    this.shellMat.dispose();
+    this.shadow.geometry.dispose();
+    (this.shadow.material as THREE.Material).dispose();
   }
 
   get speed() {

@@ -51,6 +51,8 @@ export class Renderer {
   letterbox = 0;
   private letterboxTarget = 0;
   desaturate = 0;
+  /** eased toward by render() — e.g. grey-out while the player is benched */
+  desatTarget = 0;
   bloomBoost = 0;
   private baseBloom = 0.85;
   dofEnabled = false;
@@ -197,6 +199,7 @@ export class Renderer {
     this.radial *= k(5);
     this.vigPulse *= k(3);
     this.letterbox = dampTo(this.letterbox, this.letterboxTarget, 6, realDt);
+    this.desaturate = dampTo(this.desaturate, this.desatTarget, 2.5, realDt);
     const g = this.grade;
     g.u('uFlash').value = Math.min(0.85, this.flash);
     (g.u('uFlashColor').value as THREE.Vector3).set(this.flashColor.r, this.flashColor.g, this.flashColor.b);

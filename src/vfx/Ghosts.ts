@@ -102,6 +102,7 @@ export class GhostPool {
     for (const g of pool) {
       this.root.remove(g.root);
       g.mat.dispose();
+      g.mesh.skeleton.dispose();
     }
     this.pools.delete(a);
     this.active = this.active.filter((g) => g.source !== a);

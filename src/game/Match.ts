@@ -325,7 +325,7 @@ export class Match {
     }
     // Replace away team with the next wave, home keeps hearts (small heal)
     for (const a of this.away) {
-      a.removeFromScene(this.world.scene);
+      a.destroy(this.world.scene);
       this.world.athletes.splice(this.world.athletes.indexOf(a), 1);
     }
     this.away = waves[this.wave].map((p) => this.spawnAthlete(p, 1));
