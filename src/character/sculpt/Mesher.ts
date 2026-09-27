@@ -23,6 +23,8 @@ export interface MeshPart {
   paint?: (slot: number, x: number, y: number, z: number, owner: Prim | null) => number;
   /** cut triangles along slot boundaries (default); off for far-away meshes drawn with flat slots */
   splitSlots?: boolean;
+  /** surface flow direction (hair strands) at a vertex; null = none */
+  flow?: (x: number, y: number, z: number, nx: number, ny: number, nz: number, owner: Prim | null) => [number, number, number] | null;
 }
 
 export class MeshOut {
@@ -32,6 +34,7 @@ export class MeshOut {
   skinIdx: number[] = [];
   skinW: number[] = [];
   detail: number[] = []; // ao, curvature
+  flow: number[] = []; // unit strand direction (hair), zero elsewhere
   idx: number[] = [];
   get count() {
     return this.pos.length / 3;
@@ -43,6 +46,7 @@ export class MeshOut {
       nrm: new Float32Array(this.nrm),
       slot: new Float32Array(this.slot),
       detail: new Float32Array(this.detail),
+      flow: Int8Array.from(this.flow, (v) => Math.round(Math.max(-1, Math.min(1, v)) * 127)),
       skinIdx: new Uint16Array(this.skinIdx),
       skinW: new Float32Array(this.skinW),
       idx: new Uint32Array(this.idx),
@@ -55,13 +59,14 @@ export interface PackedMesh {
   nrm: Float32Array;
   slot: Float32Array;
   detail: Float32Array;
+  flow: Int8Array;
   skinIdx: Uint16Array;
   skinW: Float32Array;
   idx: Uint32Array;
 }
 
 export function packedBuffers(p: PackedMesh): ArrayBuffer[] {
-  return [p.pos, p.nrm, p.slot, p.detail, p.skinIdx, p.skinW, p.idx].map((a) => a.buffer as ArrayBuffer);
+  return [p.pos, p.nrm, p.slot, p.detail, p.flow, p.skinIdx, p.skinW, p.idx].map((a) => a.buffer as ArrayBuffer);
 }
 
 const EDGES: [number, number][] = [
@@ -330,13 +335,29 @@ export function meshPart(part: MeshPart, out: MeshOut) {
     return part.paint ? part.paint(s, x, y, z, owner) : s;
   };
   const slots = new Int8Array(nv);
+  const flows = new Float32Array(nv * 3);
   const skinI = new Uint8Array(nv * 4);
   const skinW = new Float32Array(nv * 4);
   const ao = new Float32Array(nv);
   for (let v = 0; v < nv; v++) {
     const x = vpos[v * 3], y = vpos[v * 3 + 1], z = vpos[v * 3 + 2];
     const nxv = normals[v * 3], nyv = normals[v * 3 + 1], nzv = normals[v * 3 + 2];
-    slots[v] = slotAt(x, y, z);
+    {
+      const owner = evalOwner(listAt(x, y, z), x, y, z);
+      const s0 = owner ? owner.slot : 0;
+      slots[v] = part.paint ? part.paint(s0, x, y, z, owner) : s0;
+      const f = part.flow ? part.flow(x, y, z, nxv, nyv, nzv, owner) : null;
+      if (f) {
+        // keep it in the tangent plane
+        const dn = f[0] * nxv + f[1] * nyv + f[2] * nzv;
+        const fx = f[0] - dn * nxv, fy = f[1] - dn * nyv, fz = f[2] - dn * nzv;
+        // unit direction scaled by the requested strength (the callback's vector length, ≤ 1)
+        const fl = (len3(fx, fy, fz) || 1) / Math.min(1, len3(f[0], f[1], f[2]) || 1);
+        flows[v * 3] = fx / fl;
+        flows[v * 3 + 1] = fy / fl;
+        flows[v * 3 + 2] = fz / fl;
+      }
+    }
 
     // skin weights: soft competition between nearby primitives
     const list = listAt(x, y, z);
@@ -395,8 +416,9 @@ export function meshPart(part: MeshPart, out: MeshOut) {
   }
 
   // ------------------------------------------------ emit, cutting triangles along slot boundaries
-  const emitVertex = (x: number, y: number, z: number, nx: number, ny: number, nz: number, slot: number, a: number, cu: number, si: ArrayLike<number>, sw: ArrayLike<number>) => {
+  const emitVertex = (x: number, y: number, z: number, nx: number, ny: number, nz: number, slot: number, a: number, cu: number, si: ArrayLike<number>, sw: ArrayLike<number>, fx: number, fy: number, fz: number) => {
     out.pos.push(x, y, z);
+    out.flow.push(fx, fy, fz);
     const l = len3(nx, ny, nz) || 1;
     out.nrm.push(nx / l, ny / l, nz / l);
     out.slot.push(slot);
@@ -414,6 +436,7 @@ export function meshPart(part: MeshPart, out: MeshOut) {
       normals[v * 3], normals[v * 3 + 1], normals[v * 3 + 2],
       slots[v], ao[v], curv[v],
       skinI.subarray(v * 4, v * 4 + 4), skinW.subarray(v * 4, v * 4 + 4),
+      flows[v * 3], flows[v * 3 + 1], flows[v * 3 + 2],
     );
 
   // boundary points: found by bisection on the slot classifier along the edge
@@ -447,7 +470,7 @@ export function meshPart(part: MeshPart, out: MeshOut) {
   const wI = [0, 0, 0, 0], wW = [0, 0, 0, 0];
   /** blend of vertices (weights ws) emitted with the given slot */
   const blendVertex = (vs: number[], ws: number[], slot: number) => {
-    let x = 0, y = 0, z = 0, nx = 0, ny = 0, nz = 0, a = 0, cu = 0;
+    let x = 0, y = 0, z = 0, nx = 0, ny = 0, nz = 0, a = 0, cu = 0, fx = 0, fy = 0, fz = 0;
     acc.fill(0);
     for (let q = 0; q < vs.length; q++) {
       const v = vs[q], w = ws[q];
@@ -459,6 +482,9 @@ export function meshPart(part: MeshPart, out: MeshOut) {
       nz += normals[v * 3 + 2] * w;
       a += ao[v] * w;
       cu += curv[v] * w;
+      fx += flows[v * 3] * w;
+      fy += flows[v * 3 + 1] * w;
+      fz += flows[v * 3 + 2] * w;
       for (let r = 0; r < 4; r++) acc[skinI[v * 4 + r]] += skinW[v * 4 + r] * w;
     }
     let tot = 0;
@@ -474,7 +500,16 @@ export function meshPart(part: MeshPart, out: MeshOut) {
       if (best >= 0) acc[best] = 0;
     }
     for (let q = 0; q < 4; q++) wW[q] /= tot || 1;
-    return emitVertex(x, y, z, nx, ny, nz, slot, a, cu, wI, wW);
+    // keep the blended strength, renormalise only the direction
+    const fl = len3(fx, fy, fz);
+    let str = 0;
+    for (let q = 0; q < vs.length; q++) str += len3(flows[vs[q] * 3], flows[vs[q] * 3 + 1], flows[vs[q] * 3 + 2]) * ws[q];
+    if (fl > 1e-6) {
+      fx *= str / fl;
+      fy *= str / fl;
+      fz *= str / fl;
+    }
+    return emitVertex(x, y, z, nx, ny, nz, slot, a, cu, wI, wW, fx, fy, fz);
   };
   const edgeVertex = (a: number, b: number, slot: number) => {
     const e = edgePoint(a, b);

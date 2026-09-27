@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { detailTexturesReady } from './character/DetailTextures';
 import { Game } from './core/Game';
 import { time } from './core/Time';
 import { SaveSystem, Settings } from './progression/SaveSystem';
@@ -163,6 +164,8 @@ export class App {
 
   // ------------------------------------------------------------------ boot / title
   async boot(onProgress: (p: number, msg: string) => void) {
+    onProgress(0.15, 'Loading materials');
+    await detailTexturesReady();
     onProgress(0.2, 'Building arena');
     await nextFrame();
     const arena = this.currentChapterArena();

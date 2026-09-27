@@ -2,13 +2,15 @@
   "name": "overthrow-dodgeball",
   "private": true,
   "version": "1.0.0",
-  "description": "OVERTHROW — a progression-based 3D dodgeball game built with Three.js",
+  "description": "OVERTHROW \u2014 a progression-based 3D dodgeball game built with Three.js",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "blender:install": "bash tools/blender/install.sh",
+    "assets:details": "blender -b -P tools/blender/bake_details.py"
   },
   "dependencies": {
     "@fontsource/barlow-condensed": "^5.3.0",

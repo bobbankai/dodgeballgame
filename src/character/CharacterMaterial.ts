@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { Appearance, SLOT, SLOT_COUNT } from './Appearance';
 import { headCentre } from './sculpt/Anatomy';
+import { DETAIL, detailTextures } from './DetailTextures';
 
 const HEAD_C = headCentre();
 let blankJersey: THREE.Texture | null = null;
@@ -18,6 +19,8 @@ export class CharacterMaterial extends THREE.MeshStandardMaterial {
   /** per-slot shading model weights: subsurface (skin) and sheen (fabric/hair) */
   readonly slotSSS: number[];
   readonly slotSheen: number[];
+  /** per-slot micro detail: (kind, tiles per metre, strength) */
+  readonly slotDetail: THREE.Vector3[];
   readonly u = {
     uRimColor: { value: new THREE.Color(0.6, 0.75, 1) },
     uRimStrength: { value: 0.18 },
@@ -38,6 +41,10 @@ export class CharacterMaterial extends THREE.MeshStandardMaterial {
     uHeadC: { value: new THREE.Vector3(...HEAD_C) },
     uJersey: { value: null as THREE.Texture | null },
     uBulk: { value: 1 },
+    uKnit: { value: null as THREE.Texture | null },
+    uTwill: { value: null as THREE.Texture | null },
+    uSkinTex: { value: null as THREE.Texture | null },
+    uPebble: { value: null as THREE.Texture | null },
   };
   /** resting expression from the character's brow style (gameplay expressions add on top) */
   readonly baseExpr = new THREE.Vector4(0, 0, 0.15, 0);
@@ -50,6 +57,12 @@ export class CharacterMaterial extends THREE.MeshStandardMaterial {
     this.slotEmissive = new Array(SLOT_COUNT).fill(0);
     this.slotSSS = new Array(SLOT_COUNT).fill(0);
     this.slotSheen = new Array(SLOT_COUNT).fill(0);
+    this.slotDetail = Array.from({ length: SLOT_COUNT }, () => new THREE.Vector3());
+    const dt = detailTextures();
+    this.u.uKnit.value = dt.knit;
+    this.u.uTwill.value = dt.twill;
+    this.u.uSkinTex.value = dt.skin;
+    this.u.uPebble.value = dt.pebble;
     this.setAppearance(app);
 
     this.onBeforeCompile = (shader) => {
@@ -59,6 +72,7 @@ export class CharacterMaterial extends THREE.MeshStandardMaterial {
       shader.uniforms.uEmis = { value: this.slotEmissive };
       shader.uniforms.uSSS = { value: this.slotSSS };
       shader.uniforms.uSheen = { value: this.slotSheen };
+      shader.uniforms.uDetail = { value: this.slotDetail };
       for (const [k, v] of Object.entries(this.u)) shader.uniforms[k] = v;
 
       shader.vertexShader = shader.vertexShader
@@ -69,7 +83,23 @@ attribute float aSlot;
 attribute vec2 aDetail;
 varying float vSlot;
 varying vec3 vObjPos;
-varying vec2 vDetail;`,
+varying vec2 vDetail;
+varying vec3 vObjNormal;
+varying mat3 vSkinAxes;
+attribute vec3 aFlow;
+varying vec3 vFlow;`,
+        )
+        .replace(
+          '#include <defaultnormal_vertex>',
+          `#include <defaultnormal_vertex>
+// bind-space frame carried through skinning, so micro detail mapped in bind space sticks to the cloth
+#ifdef USE_SKINNING
+vSkinAxes = normalMatrix * mat3(skinMatrix);
+#else
+vSkinAxes = normalMatrix;
+#endif
+vObjNormal = normal;
+vFlow = aFlow;`,
         )
         .replace(
           '#include <begin_vertex>',
@@ -99,6 +129,26 @@ uniform float uMetal[${SLOT_COUNT}];
 uniform float uEmis[${SLOT_COUNT}];
 uniform float uSSS[${SLOT_COUNT}];
 uniform float uSheen[${SLOT_COUNT}];
+uniform vec3 uDetail[${SLOT_COUNT}];
+uniform sampler2D uKnit;
+uniform sampler2D uTwill;
+uniform sampler2D uSkinTex;
+uniform sampler2D uPebble;
+varying vec3 vObjNormal;
+varying mat3 vSkinAxes;
+varying vec3 vFlow;
+float chCavity = 1.0;
+// hair strands (read by the direct-light function)
+float chHair = 0.0;
+vec3 chHairT = vec3(0.0);
+float chHairShift = 0.0;
+vec3 chHairTint = vec3(0.0);
+vec4 chDetailTex(int k, vec2 uv, vec2 gx, vec2 gy) {
+  if (k == 1) return textureGrad(uKnit, uv, gx, gy);
+  if (k == 2) return textureGrad(uTwill, uv, gx, gy);
+  if (k == 3) return textureGrad(uSkinTex, uv, gx, gy);
+  return textureGrad(uPebble, uv, gx, gy);
+}
 // shading-model globals read by the customised direct-light function below
 float chSSS = 0.0;
 float chSheen = 0.0;
@@ -251,6 +301,64 @@ if (uDissolve > 0.001) {
 }`,
         )
         .replace(
+          '#include <normal_fragment_maps>',
+          `#include <normal_fragment_maps>
+{
+  // Blender-baked micro detail (knit, twill, skin, pebble), triplanar in bind space
+  vec3 dpx = dFdx(vObjPos), dpy = dFdy(vObjPos);
+  vec3 dcfg = uDetail[si];
+  int kind = int(dcfg.x + 0.5);
+  float sc = dcfg.y;
+  // fade out once a tile covers only a few pixels (mips would flatten it anyway)
+  float fp = max(length(dpx), length(dpy)) * sc;
+  float str = dcfg.z * (1.0 - smoothstep(0.07, 0.2, fp));
+  if (kind > 0 && str > 0.002) {
+    vec3 n = normalize(vObjNormal);
+    vec3 w = pow(abs(n), vec3(4.0));
+    w /= w.x + w.y + w.z;
+    vec3 sg = vec3(n.x < 0.0 ? -1.0 : 1.0, n.y < 0.0 ? -1.0 : 1.0, n.z < 0.0 ? -1.0 : 1.0);
+    vec3 p = vObjPos * sc;
+    vec3 gx = dpx * sc, gy = dpy * sc;
+    vec4 flat4 = vec4(0.5, 0.5, 1.0, 1.0);
+    vec4 tX = w.x > 0.02 ? chDetailTex(kind, vec2(-p.z * sg.x, p.y), vec2(-gx.z * sg.x, gx.y), vec2(-gy.z * sg.x, gy.y)) : flat4;
+    vec4 tY = w.y > 0.02 ? chDetailTex(kind, vec2(p.x, -p.z * sg.y), vec2(gx.x, -gx.z * sg.y), vec2(gy.x, -gy.z * sg.y)) : flat4;
+    vec4 tZ = w.z > 0.02 ? chDetailTex(kind, vec2(p.x * sg.z, p.y), vec2(gx.x * sg.z, gx.y), vec2(gy.x * sg.z, gy.y)) : flat4;
+    vec2 aX = tX.xy * 2.0 - 1.0, aY = tY.xy * 2.0 - 1.0, aZ = tZ.xy * 2.0 - 1.0;
+    vec3 d = vec3(0.0, aX.y, -sg.x * aX.x) * w.x + vec3(aY.x, 0.0, -sg.y * aY.y) * w.y + vec3(sg.z * aZ.x, aZ.y, 0.0) * w.z;
+    normal = normalize(normal + vSkinAxes * d * str);
+    chCavity = mix(1.0, tX.a * w.x + tY.a * w.y + tZ.a * w.z, min(1.0, str * 1.2));
+  }
+  // hair: strand tangent from the sculpted flow, strand breakup across it
+  if (si == 6 && dot(vFlow, vFlow) > 0.01) {
+    // flow length = how strongly the strands align (straight hair ~1, curls weaker)
+    float align = min(1.0, length(vFlow));
+    vec3 fb = vFlow / length(vFlow);
+    vec3 T = vSkinAxes * fb;
+    T = normalize(T - normal * dot(T, normal));
+    vec3 bb = normalize(cross(normalize(vObjNormal), fb));
+    float across = dot(vObjPos, bb), along = dot(vObjPos, fb);
+    float fw = fwidth(across) * 650.0;
+    float fade = 1.0 - smoothstep(0.35, 1.2, fw);
+    float st = chNoise(vec3(across * 650.0, along * 22.0, 1.7));
+    float st2 = chNoise(vec3(across * 160.0, along * 7.0, 4.1));
+    // combed clumps: grooves running along the flow, as a normal perturbation across it
+    float fwg = fwidth(across) * 110.0;
+    float gfade = 1.0 - smoothstep(0.4, 1.3, fwg);
+    float g0 = chNoise(vec3(across * 110.0, along * 5.0, 7.3));
+    float g1 = chNoise(vec3((across + 0.0015) * 110.0, along * 5.0, 7.3));
+    float dg = (g1 - g0) / 0.0015;
+    vec3 Bv = normalize(vSkinAxes * bb);
+    normal = normalize(normal - Bv * dg * 0.0016 * gfade * (0.35 + 0.65 * align));
+    diffuseColor.rgb *= mix(1.0, 0.8 + 0.35 * g0, gfade);
+    chHair = align;
+    chHairT = T;
+    chHairShift = ((st - 0.5) * 0.3 + (st2 - 0.5) * 0.35) * fade;
+    diffuseColor.rgb *= 1.0 + ((st - 0.5) * 0.45 + (st2 - 0.5) * 0.35) * fade;
+    chHairTint = mix(diffuseColor.rgb, vec3(1.0), 0.25) * 1.6 + 0.04;
+  }
+}`,
+        )
+        .replace(
           '#include <roughnessmap_fragment>',
           `#include <roughnessmap_fragment>
 roughnessFactor = uRough[si] + chSheen * 0.08 * (chNoise(vObjPos * 19.0) - 0.5);`,
@@ -265,7 +373,7 @@ metalnessFactor = uMetal[si];`,
           `#include <lights_fragment_end>
 {
   // baked sculpt occlusion: armpits, finger gaps, under the chin and hair, ear bowls
-  float ao = clamp(vDetail.x, 0.0, 1.0);
+  float ao = clamp(vDetail.x, 0.0, 1.0) * chCavity;
   reflectedLight.indirectDiffuse *= ao;
   reflectedLight.indirectSpecular *= mix(1.0, ao, 0.8);
   reflectedLight.directDiffuse *= mix(1.0, ao, 0.45);
@@ -292,7 +400,7 @@ metalnessFactor = uMetal[si];`,
   }
 
   override customProgramCacheKey() {
-    return 'athlete-sculpt-v2';
+    return 'athlete-sculpt-v4';
   }
 
   /** Print the athlete's number (and name on the back) into a small mask texture. */
@@ -332,17 +440,28 @@ metalnessFactor = uMetal[si];`,
     };
     this.slotSSS.fill(0);
     this.slotSheen.fill(0);
+    // micro detail per slot: kind, tile size (m), strength
+    const D = (slot: number, kind: number, tile: number, str: number) => this.slotDetail[slot].set(kind, 1 / tile, str);
+    for (const d of this.slotDetail) d.set(0, 1, 0);
+    D(SLOT.skin, DETAIL.skin, 0.045, 0.3);
+    D(SLOT.jersey, DETAIL.knit, 0.028, 0.75);
+    D(SLOT.trim, DETAIL.twill, 0.016, 0.6);
+    D(SLOT.shorts, DETAIL.twill, 0.034, 0.5);
+    D(SLOT.shoes, DETAIL.knit, 0.02, 0.6);
+    D(SLOT.sole, DETAIL.pebble, 0.03, 0.45);
+    D(SLOT.socks, DETAIL.knit, 0.016, 0.7);
+    D(SLOT.accent, DETAIL.pebble, 0.012, 0.65);
     this.slotSSS[SLOT.skin] = 1;
     for (const f of [SLOT.jersey, SLOT.shorts, SLOT.socks]) this.slotSheen[f] = 0.55;
     this.slotSheen[SLOT.trim] = 0.3;
-    this.slotSheen[SLOT.hair] = 0.4;
+    this.slotSheen[SLOT.hair] = 0.15;
     set(SLOT.skin, a.skin, 0.52);
     set(SLOT.jersey, a.jersey, 0.78);
     set(SLOT.trim, a.trim, 0.72, 0, a.glow !== undefined ? 0.0 : 0);
     set(SLOT.shorts, a.shorts, 0.74);
     set(SLOT.shoes, a.shoes, 0.42);
     set(SLOT.sole, a.sole, 0.7);
-    set(SLOT.hair, a.hair, 0.58);
+    set(SLOT.hair, a.hair, 0.82);
     set(SLOT.eyes, a.eyes ?? 0x121418, 0.12);
     set(SLOT.socks, a.socks, 0.85);
     set(SLOT.accent, a.accent, 0.55, 0, a.glow !== undefined ? 1.6 : 0);
@@ -418,7 +537,18 @@ function characterLightsChunk(): string {
     a2,
     `reflectedLight.directDiffuse += sssDiffuse * BRDF_Lambert( material.diffuseContribution ) * ( 1.0 - F );
 	float chNV = saturate( dot( geometryNormal, geometryViewDir ) );
-	reflectedLight.directSpecular += directLight.color * chSheenColor * ( chSheen * 0.5 * pow( 1.0 - chNV, 4.0 ) * saturate( rawNL + 0.4 ) );`,
+	reflectedLight.directSpecular += directLight.color * chSheenColor * ( chSheen * 0.5 * pow( 1.0 - chNV, 4.0 ) * saturate( rawNL + 0.4 ) );
+	if ( chHair > 0.05 ) {
+		// Kajiya-Kay: a sharp white lobe and a softer, shifted, hair-tinted one along the strands
+		vec3 hH = normalize( directLight.direction + geometryViewDir );
+		vec3 t1 = normalize( chHairT + geometryNormal * ( chHairShift + 0.1 ) );
+		vec3 t2 = normalize( chHairT + geometryNormal * ( chHairShift - 0.12 ) );
+		float c1 = dot( t1, hH ), c2 = dot( t2, hH );
+		float s1 = pow( sqrt( max( 0.0, 1.0 - c1 * c1 ) ), 70.0 );
+		float s2 = pow( sqrt( max( 0.0, 1.0 - c2 * c2 ) ), 30.0 );
+		float hv = smoothstep( -0.15, 0.35, rawNL );
+		reflectedLight.directSpecular += directLight.color * ( mix( chHairTint, vec3( 1.0 ), 0.5 ) * s1 * 0.035 + s2 * 0.04 * chHairTint ) * hv * chHair;
+	}`,
   );
   cachedChunk = c;
   return c;

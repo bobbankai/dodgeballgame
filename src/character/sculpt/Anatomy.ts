@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import type { Appearance } from '../Appearance';
 import { SLOT } from '../Appearance';
 import { BONE_DEFS, BONE_INDEX, BoneName } from '../Skeleton';
-import { BoneMix, ellipsoid, group, Op, plane, Prim, rotInv, roundBox, roundCone, sphere, torus } from './Sdf';
+import { BoneMix, ellipsoid, group, Op, PK, plane, Prim, rotInv, roundBox, roundCone, sphere, torus } from './Sdf';
 import type { MeshPart } from './Mesher';
 
 type V3 = [number, number, number];
@@ -205,12 +205,12 @@ function buildAnatomy(app: ShapeApp, detail: Detail): Record<PartKind, MeshPart>
   head.push(
     roundCone([0, 1.415, -0.018], [0, 1.628, -0.004], 0.053, 0.046, { slot: SK, bones: bm(['chest', 0.45], ['neck', 0.55]), bonesB: bm(['neck', 0.35], ['head', 0.65]), t0: 0.35, t1: 0.95 }),
     ellipsoid(H(0, 0.022, -0.012), [0.104, 0.115, 0.118], { k: 0.045, slot: SK, bones: bm(['head', 1]) }),
-    ellipsoid(H(0, -0.03, 0.022), [0.082, 0.088, 0.092], { k: 0.05, slot: SK, bones: bm(['head', 1]) }),
-    ellipsoid(H(0.05, -0.058, 0.008), [0.028, 0.034, 0.044], { k: 0.035, slot: SK, bones: bm(['head', 1]) }),
-    ellipsoid(H(-0.05, -0.058, 0.008), [0.028, 0.034, 0.044], { k: 0.035, slot: SK, bones: bm(['head', 1]) }),
-    ellipsoid(H(0, -0.1, 0.064), [0.027, 0.023, 0.024], { k: 0.035, slot: SK, bones: bm(['head', 1]) }),
-    ellipsoid(H(0.051, -0.008, 0.07), [0.03, 0.022, 0.028], { k: 0.03, slot: SK, bones: bm(['head', 1]) }),
-    ellipsoid(H(-0.051, -0.008, 0.07), [0.03, 0.022, 0.028], { k: 0.03, slot: SK, bones: bm(['head', 1]) }),
+    ellipsoid(H(0, -0.03, 0.02), [0.075, 0.086, 0.09], { k: 0.05, slot: SK, bones: bm(['head', 1]) }),
+    ellipsoid(H(0.047, -0.052, -0.004), [0.026, 0.031, 0.04], { k: 0.035, slot: SK, bones: bm(['head', 1]) }),
+    ellipsoid(H(-0.047, -0.052, -0.004), [0.026, 0.031, 0.04], { k: 0.035, slot: SK, bones: bm(['head', 1]) }),
+    ellipsoid(H(0, -0.101, 0.066), [0.025, 0.022, 0.024], { k: 0.032, slot: SK, bones: bm(['head', 1]) }),
+    ellipsoid(H(0.052, -0.004, 0.066), [0.027, 0.019, 0.026], { k: 0.03, slot: SK, bones: bm(['head', 1]) }),
+    ellipsoid(H(-0.052, -0.004, 0.066), [0.027, 0.019, 0.026], { k: 0.03, slot: SK, bones: bm(['head', 1]) }),
     ellipsoid(H(0, 0.036, 0.087), [0.07, 0.017, 0.022], { k: 0.03, slot: SK, bones: bm(['head', 1]) }),
     // gentle eye recesses for the painted eyes
     ellipsoid(H(0.035, 0.011, 0.119), [0.021, 0.014, 0.011], { op: Op.Subtract, k: 0.012, slot: SK }),
@@ -346,7 +346,7 @@ function buildAnatomy(app: ShapeApp, detail: Detail): Record<PartKind, MeshPart>
 
   return {
     body: { prims: body, cell: detail.body, sigma: 0.016, paint: bodyPaint },
-    head: { prims: head, cell: detail.head, sigma: 0.012 },
+    head: { prims: head, cell: detail.head, sigma: 0.012, flow: hairFlow(app, HC) },
     handL: hands[0],
     handR: hands[1],
     shoeL: shoes[0],
@@ -355,6 +355,38 @@ function buildAnatomy(app: ShapeApp, detail: Detail): Record<PartKind, MeshPart>
 }
 
 // ------------------------------------------------------------------ hair
+/**
+ * Strand direction for the hair shader: clumps and spikes follow their own axis; caps are
+ * combed from the crown, swept styles flow back, tied styles pull toward the tie, afros swirl.
+ */
+function hairFlow(app: ShapeApp, HC: V3): MeshPart['flow'] {
+  const style = app.hairStyle;
+  const at = (dx: number, dy: number, dz: number): V3 => [HC[0] + dx, HC[1] + dy, HC[2] + dz];
+  const crown = at(0, 0.125, -0.03);
+  const tie = style === 'bun' ? at(0, 0.1, -0.1) : at(0, 0.04, -0.118);
+  return (x, y, z, nx, _ny, nz, owner) => {
+    if (!owner || owner.slot !== SLOT.hair) return null;
+    const unit = (v: V3, k = 1): V3 => {
+      const l = Math.hypot(...v) || 1;
+      return [(v[0] / l) * k, (v[1] / l) * k, (v[2] / l) * k];
+    };
+    if (owner.kind === PK.RoundCone) return unit([owner.bx - owner.ax, owner.by - owner.ay, owner.bz - owner.az]);
+    switch (style) {
+      case 'swept':
+        return [0, 0.35, -1];
+      case 'bun':
+      case 'ponytail':
+        return [tie[0] - x, tie[1] - y, tie[2] - z];
+      case 'afro':
+        return unit([-nz, 0.3, nx], 0.2);
+      case 'buzz':
+        return unit([x - crown[0], y - crown[1], z - crown[2]], 0.45);
+      default:
+        return [x - crown[0], y - crown[1], z - crown[2]];
+    }
+  };
+}
+
 function buildHair(app: ShapeApp, HC: V3, bm: (...p: [BoneName, number][]) => BoneMix): Prim[] {
   const style = app.hairStyle;
   if (style === 'bald') return [];
@@ -368,9 +400,9 @@ function buildHair(app: ShapeApp, HC: V3, bm: (...p: [BoneName, number][]) => Bo
         ellipsoid(H(0, 0.024, -0.012), [0.104 + t, 0.116 + t, 0.119 + t], {}),
         ...extra,
         // forehead line
-        plane(H(0, 0.052, 0.092), [0, -0.5, 1], { op: Op.Intersect, k: 0.01 }),
+        plane(H(0, 0.052, 0.092), [0, -0.5, 1], { op: Op.Intersect, k: 0.022 }),
         // temples / above the ears, dropping toward the nape
-        plane(H(0, -0.008, 0.0), [0, -1, 0.95], { op: Op.Intersect, k: 0.012 }),
+        plane(H(0, -0.008, 0.0), [0, -1, 0.95], { op: Op.Intersect, k: 0.02 }),
       ],
       { k: 0.004, slot: HS, bones },
     );
@@ -395,6 +427,13 @@ function buildHair(app: ShapeApp, HC: V3, bm: (...p: [BoneName, number][]) => Bo
       out.push(roundCone(prev, cur, r0 + (r1 - r0) * ((i - 1) / n), r0 + (r1 - r0) * t, { k: 0.007 }));
       prev = cur;
     }
+    return out;
+  };
+  /** locks combed from the hairline back to a tie, tapering into the cap at both ends */
+  const combed = (tie: V3): Prim[] => {
+    const out: Prim[] = [];
+    for (const fx of [-0.8, -0.55, -0.3, -0.08, 0.14, 0.36, 0.6, 0.82]) out.push(...lock([fx, 0.46 - Math.abs(fx) * 0.12, 0.75], [tie[0] + fx * 0.22, tie[1], tie[2]], 0.0, -0.006, 0.02, 0.012, 0.004));
+    for (const sx of [-1, 1]) out.push(...lock([sx * 0.95, 0.12, 0.15], [tie[0] + sx * 0.2, tie[1] - 0.05, tie[2]], 0.0, -0.006, 0.019, 0.012));
     return out;
   };
   switch (style) {
@@ -467,13 +506,13 @@ function buildHair(app: ShapeApp, HC: V3, bm: (...p: [BoneName, number][]) => Bo
     }
     case 'bun':
       return [
-        cap(0.016),
+        cap(0.014, combed([0, 0.62, -0.78])),
         sphere(H(0, 0.1, -0.1), 0.047, { k: 0.014, slot: HS, bones, noise: [0.003, 60] }),
         torus(H(0, 0.075, -0.085), 1, 0.008, { rot: rotInv(1.0, 0, 0), ellipse: [0.03, 0.03], k: 0.004, slot: SLOT.accent, bones }),
       ];
     case 'ponytail':
       return [
-        cap(0.019),
+        cap(0.015, combed([0, 0.12, -0.99])),
         torus(H(0, 0.04, -0.118), 1, 0.009, { rot: rotInv(1.25, 0, 0), ellipse: [0.022, 0.022], k: 0.004, slot: SLOT.accent, bones }),
         clump([0, 0.045, -0.125], [0, -0.02, -0.165], 0.026, 0.024, 0.012),
         clump([0, -0.02, -0.165], [0, -0.1, -0.16], 0.024, 0.016, 0.01),

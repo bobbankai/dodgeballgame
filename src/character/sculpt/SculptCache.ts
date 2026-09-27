@@ -137,7 +137,7 @@ function merge(list: PackedMesh[]): THREE.BufferGeometry {
     ni += p.idx.length;
   }
   const pos = new Float32Array(nv * 3), nrm = new Float32Array(nv * 3), slot = new Float32Array(nv), detail = new Float32Array(nv * 2);
-  const si = new Uint16Array(nv * 4), sw = new Float32Array(nv * 4);
+  const si = new Uint16Array(nv * 4), sw = new Float32Array(nv * 4), flow = new Int8Array(nv * 3);
   const idx = nv > 65535 ? new Uint32Array(ni) : new Uint16Array(ni);
   let v = 0, i = 0;
   for (const p of list) {
@@ -146,6 +146,7 @@ function merge(list: PackedMesh[]): THREE.BufferGeometry {
     nrm.set(p.nrm, v * 3);
     slot.set(p.slot, v);
     detail.set(p.detail, v * 2);
+    flow.set(p.flow, v * 3);
     si.set(p.skinIdx, v * 4);
     sw.set(p.skinW, v * 4);
     for (let k = 0; k < p.idx.length; k++) idx[i + k] = p.idx[k] + v;
@@ -157,6 +158,7 @@ function merge(list: PackedMesh[]): THREE.BufferGeometry {
   g.setAttribute('normal', new THREE.BufferAttribute(nrm, 3));
   g.setAttribute('aSlot', new THREE.BufferAttribute(slot, 1));
   g.setAttribute('aDetail', new THREE.BufferAttribute(detail, 2));
+  g.setAttribute('aFlow', new THREE.BufferAttribute(flow, 3, true));
   g.setAttribute('skinIndex', new THREE.BufferAttribute(si, 4));
   g.setAttribute('skinWeight', new THREE.BufferAttribute(sw, 4));
   g.setIndex(new THREE.BufferAttribute(idx, 1));
