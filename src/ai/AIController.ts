@@ -7,6 +7,8 @@ import type { World } from '../game/World';
 import { AIParams } from './AIProfile';
 import type { TeamBrain } from './TeamBrain';
 
+const _lobA = new THREE.Vector3();
+const _lobB = new THREE.Vector3();
 const _v = new THREE.Vector3();
 const _v2 = new THREE.Vector3();
 const _p = new THREE.Vector3();
@@ -187,7 +189,11 @@ export class AIController implements Controller {
       const eta = Math.max(0, pr.t - catchReach / Math.max(8, b.speed));
       if (!best || eta < best.eta) best = { ball: b, eta, missOffset: pr.offset, heavy: (b.info.power > a.stats.catchStrength) || b.info.kind === 'ultimate' };
     }
-    if (!best || this.responded.has(best.ball)) return;
+    if (!best) {
+      this.tryIntercept(chest);
+      return;
+    }
+    if (this.responded.has(best.ball)) return;
     this.responded.add(best.ball);
     AI_DEBUG.threats++;
     // awareness roll: sometimes the AI simply doesn't react
@@ -196,6 +202,23 @@ export class AIController implements Controller {
       return;
     }
     this.chooseResponse(best);
+  }
+
+  /** Opponent passes that fly within reach: step into a catch at the right moment to steal them. */
+  private tryIntercept(chest: THREE.Vector3) {
+    const a = this.athlete;
+    if (a.ball || this.pending || a.catchCooldown > 0 || (a.state !== 'free' && a.state !== 'catchRecover')) return;
+    for (const b of this.world.balls.balls) {
+      if (b.state !== 'thrown' || !b.info || b.info.kind !== 'pass' || !b.thrower || b.thrower.team === a.team) continue;
+      if (this.responded.has(b)) continue;
+      const pr = this.predict(b, chest, 0.8);
+      if (pr.minD > TUNING.catch.reach) continue;
+      this.responded.add(b);
+      if (Math.random() > this.params.awareness * 0.8) return;
+      const eta = Math.max(0, pr.t - TUNING.catch.reach / Math.max(8, b.speed));
+      this.pending = { kind: 'catch', at: this.now + eta - a.stats.catchWindow * 0.45 + rng.gauss(0, this.params.timingSigma), ball: b };
+      return;
+    }
   }
 
   private chooseResponse(th: Threat) {
@@ -252,7 +275,8 @@ export class AIController implements Controller {
     const a = this.athlete;
     const pd = this.pending!;
     this.pending = null;
-    if (!pd.ball.live) {
+    const passInFlight = pd.ball.state === 'thrown' && pd.ball.info?.kind === 'pass';
+    if (!pd.ball.live && !passInFlight) {
       AI_DEBUG.stale++;
       return;
     }
@@ -384,6 +408,14 @@ export class AIController implements Controller {
       const ready = relay || this.holdTime > 0.35 + (1 - p.aggression - this.rage) * 0.9 || a.pos.distanceTo(this.anchor) < 1.5;
       const volleyWait = this.inVolley && !this.volleyGo;
       if (ready || volleyWait) {
+        // lob over cover, or drop one on a strong catcher (lobs need a perfect catch)
+        if (!relay && !this.inVolley) {
+          const covered = this.world.court.blocked(a.chestPos(_lobA), t.chestPos(_lobB));
+          if ((covered || Math.random() < catchRisk(t) * 0.05 * (0.4 + p.coordination)) && a.lob()) {
+            this.holdTime = 0;
+            return;
+          }
+        }
         if (a.startCharge()) {
           const tend = relay ? 0 : p.chargeTendency;
           this.chargeGoal = t.vulnerable ? Math.min(tend, 0.3) : clamp(tend + (Math.random() - 0.5) * 0.3, 0, 1);

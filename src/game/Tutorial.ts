@@ -138,6 +138,15 @@ export class Tutorial {
         },
       },
       {
+        text: `Press ${K('C')} to LOB — a high arc that drops over cover`,
+        sub: 'The landing ring closes in until impact. Lobs can only be held with a perfect catch.',
+        enter: () => this.resupply(player),
+        update: () => {
+          if (!player.ball && !this.hasLooseBallNear(player)) this.resupply(player);
+          return this.flags.has('throw:lob');
+        },
+      },
+      {
         text: `Coach Marla will throw at you. Press ${K('RIGHT CLICK')} just before it arrives to CATCH`,
         sub: 'Too early and the window closes. Watch her wind up, then time it.',
         enter: () => {

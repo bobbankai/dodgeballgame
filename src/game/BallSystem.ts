@@ -245,6 +245,19 @@ export class BallSystem {
             return true;
           }
         }
+        // interception: an opponent in catch stance snatches the pass out of the air
+        if (b.thrower && a.team !== b.thrower.team && a.state === 'catching' && !a.ball) {
+          const center = _a.copy(chest).addScaledVector(a.forwardVec(_n), 0.3);
+          const { d } = pointSegDist(center, p0, p1);
+          if (d < TUNING.catch.reach + 0.15) {
+            a.grabBall(b, false);
+            a.addEnergy(TUNING.energy.catch);
+            a.addUlt(TUNING.ult.catch);
+            a.stats_.catches++;
+            w.events.emit('intercept', { athlete: a, from: b.thrower, ball: b, point: center.clone() });
+            return true;
+          }
+        }
         continue;
       }
       if (!b.live) continue;

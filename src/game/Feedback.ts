@@ -65,6 +65,10 @@ export class Feedback {
           this.vfx.trailFor(ball, strong ? new THREE.Color(0xffb13b) : col, width, intensity, life);
         }
         const hand = ball.pos;
+        if (info.kind === 'lob' && info.landing && info.flightTime) {
+          this.vfx.landingMarker(info.landing, 0.75, col, info.flightTime);
+          this.vfx.trailFor(ball, col, 0.09, 0.7, 0.16);
+        }
         if (info.perfect || strong) {
           this.vfx.flash(hand, strong ? 1.8 : 1.1, info.perfect ? 0xffffff : col, 0.16);
           this.vfx.add.emit({ pos: hand, count: strong ? 40 : 18, dir: ball.vel.clone().normalize(), spread: 0.5, speed: [4, 12], life: [0.12, 0.3], size: [0.06, 0.01], color: 0xffffff, color2: col, stretch: 0.03, shape: 1, drag: 3 });
@@ -79,7 +83,7 @@ export class Feedback {
             this.cam.addTrauma(0.35);
           }
         }
-        this.audio.play(strong ? 'throwPower' : info.kind === 'pass' ? 'pass' : info.kind === 'quick' ? 'throwQuick' : 'throw', { pos: hand, volume: 0.6 + info.power * 0.3, pitch: 0.9 + Math.random() * 0.2 });
+        this.audio.play(strong ? 'throwPower' : info.kind === 'pass' || info.kind === 'lob' ? 'pass' : info.kind === 'quick' ? 'throwQuick' : 'throw', { pos: hand, volume: 0.6 + info.power * 0.3, pitch: info.kind === 'lob' ? 0.8 : 0.9 + Math.random() * 0.2 });
         if (info.perfect) this.audio.play('perfectRelease', { pos: hand });
       }),
       ev.on('chargeFull', ({ athlete }) => {
@@ -146,9 +150,23 @@ export class Feedback {
         this.arena?.hype(perfect ? 1.1 : 0.55);
         this.audio.play(perfect ? 'catchPerfect' : 'catch', { pos: point, volume: mine ? 1 : 0.75 });
         this.audio.crowd(perfect ? 1.1 : 0.6);
-        if (mine) w.events.emit('announce', { text: perfect ? 'PERFECT CATCH' : 'CAUGHT!', sub: `${thrower.name.toUpperCase()} loses a heart`, style: perfect ? 'perfect' : 'catch' });
+        // catching a throw that was meant for a teammate is an interception
+        const intercepted = !!ball.info?.target && ball.info.target !== catcher && ball.info.target.team === catcher.team;
+        if (mine) w.events.emit('announce', { text: intercepted ? 'INTERCEPTION!' : perfect ? 'PERFECT CATCH' : 'CAUGHT!', sub: intercepted ? `Saved ${ball.info!.target!.name} · ${thrower.name.toUpperCase()} loses a heart` : `${thrower.name.toUpperCase()} loses a heart`, style: perfect || intercepted ? 'perfect' : 'catch' });
         else if (this.isPlayer(thrower)) w.events.emit('announce', { text: 'CAUGHT', sub: `by ${catcher.name}`, style: 'warn' });
         else if (catcher.team === 0) w.events.emit('announce', { text: perfect ? 'PERFECT CATCH' : 'NICE CATCH', sub: catcher.name.toUpperCase(), style: 'info' });
+      }),
+      ev.on('intercept', ({ athlete, from, point }) => {
+        const mine = this.isPlayer(athlete);
+        this.vfx.catchBurst(point, false, this.color(athlete.team), mine ? 1 : 0.6);
+        this.time.hitStop(0.06);
+        this.cam.addTrauma(mine ? 0.14 : 0.04);
+        this.arena?.hype(0.8);
+        this.audio.play('catch', { pos: point, volume: mine ? 1 : 0.75 });
+        this.audio.crowd(0.9);
+        if (mine) w.events.emit('announce', { text: 'INTERCEPTED!', sub: `Stole ${from.name.toUpperCase()}'s pass`, style: 'perfect' });
+        else if (this.isPlayer(from)) w.events.emit('announce', { text: 'PASS STOLEN', sub: `by ${athlete.name}`, style: 'warn' });
+        else if (athlete.team === 0) w.events.emit('announce', { text: 'INTERCEPTION', sub: athlete.name.toUpperCase(), style: 'info' });
       }),
       ev.on('fumble', ({ athlete, ball, point }) => {
         this.vfx.endTrail(ball);

@@ -359,6 +359,19 @@ export class Athlete {
     return true;
   }
 
+  /** High, slow arc that drops over cover onto the aim target (telegraphed landing). */
+  lob(): boolean {
+    if (!this.ball || !this.canAct) return false;
+    if (this.state === 'charging') this.cancelCharge(false);
+    if (this.state !== 'free' && this.state !== 'catchRecover') return false;
+    this.setState('throwing');
+    this.anim.play('pass', { fade: 0.08, legs: 0.3 });
+    this.releaseAt = CLIP_TIMING.passRelease;
+    this.releaseKind = 'lob';
+    this.recoverAt = 0.42;
+    return true;
+  }
+
   passTo(mate: Athlete): boolean {
     if (!this.ball || !this.canAct || !mate.active || mate.ball) return false;
     if (this.state !== 'free' && this.state !== 'catchRecover' && this.state !== 'charging') return false;
@@ -676,6 +689,11 @@ export class Athlete {
       gravityScale = 1;
       power = 0.3;
       damage = 0;
+    } else if (kind === 'lob') {
+      speed = 0; // solved below from flight time
+      gravityScale = 1.8;
+      power = 0.75;
+      damage = 1;
     } else if (kind === 'power') {
       speed = this.stats.maxSpeed * 1.45 * (0.95 + 0.05 * this.stats.abilityPower);
       gravityScale = 0.22;
@@ -702,11 +720,39 @@ export class Athlete {
     if (kind === 'pass' && this.passTarget) this.passTarget.chestPos(aim);
     const dir = new THREE.Vector3();
     const g = TUNING.gravity * gravityScale;
-    solveBallisticLow(from, aim, speed, g, dir);
+    let landing: THREE.Vector3 | undefined;
+    let flightTime: number | undefined;
+    if (kind === 'lob') {
+      // fixed flight time from distance; lead a moving target and aim to drop onto its shoulders
+      if (target) target.chestPos(aim);
+      const d0 = Math.hypot(aim.x - from.x, aim.z - from.z);
+      const T = clamp(0.85 + d0 * 0.028, 0.95, 1.3);
+      if (target) {
+        // modest, capped lead: targets rarely keep running in a straight line for a whole second
+        const lx = target.vel.x * T * 0.45;
+        const lz = target.vel.z * T * 0.45;
+        const ll = Math.hypot(lx, lz);
+        const k = ll > 1.2 ? 1.2 / ll : 1;
+        aim.x += lx * k;
+        aim.z += lz * k;
+        aim.y = 1.45;
+      }
+      const c = this.world.court;
+      aim.x = clamp(aim.x, -c.halfWidth + 0.3, c.halfWidth - 0.3);
+      aim.z = clamp(aim.z, -c.halfLength + 0.3, c.halfLength - 0.3);
+      const vx = (aim.x - from.x) / T;
+      const vz = (aim.z - from.z) / T;
+      const vy = (aim.y - from.y + 0.5 * g * T * T) / T;
+      dir.set(vx, vy, vz);
+      speed = dir.length();
+      dir.divideScalar(speed);
+      landing = new THREE.Vector3(aim.x, 0, aim.z);
+      flightTime = T;
+    } else solveBallisticLow(from, aim, speed, g, dir);
 
     // curve: lateral acceleration with pre-compensated launch direction
     let curve: THREE.Vector3 | null = null;
-    if (this.perks.curve && Math.abs(this.curveInput) > 0.3 && kind !== 'pass') {
+    if (this.perks.curve && Math.abs(this.curveInput) > 0.3 && kind !== 'pass' && kind !== 'lob') {
       // curveInput > 0 bends the ball to the thrower's right: launch rotated left, accelerate right.
       const dist = Math.hypot(aim.x - from.x, aim.z - from.z);
       const tFlight = dist / speed;
@@ -728,6 +774,7 @@ export class Athlete {
       if (kind === 'charged') err *= lerp(1, 0.55, this.charge);
       if (perfect) err *= 0.4;
       if (kind === 'power') err *= 0.5;
+      if (kind === 'lob') err *= 0.35;
       const e = (err * Math.PI) / 180;
       const yawErr = rng.gauss(0, e * 0.6);
       const pitchErr = rng.gauss(0, e * 0.35);
@@ -742,7 +789,8 @@ export class Athlete {
       power,
       damage,
       perfect,
-      heavy: kind === 'power' || (this.perks.guardBreak && kind === 'charged' && this.charge >= 1),
+      // a ball dropping from above is hard to judge: lobs, like power shots, need a perfect catch
+      heavy: kind === 'power' || kind === 'lob' || (this.perks.guardBreak && kind === 'charged' && this.charge >= 1),
       curve,
       homing: null,
       homingStrength: 0,
@@ -755,6 +803,8 @@ export class Athlete {
       wallBounces: 0,
       speed,
       receiver: kind === 'pass' ? this.passTarget : null,
+      landing,
+      flightTime,
     };
 
     ball.state = 'thrown';
@@ -768,14 +818,14 @@ export class Athlete {
     ball.vel.copy(dir).multiplyScalar(speed);
     // carry some body momentum
     const along = this.vel.dot(dir);
-    if (along > 0) ball.vel.addScaledVector(dir, along * T.momentumCarry);
+    if (along > 0 && kind !== 'lob') ball.vel.addScaledVector(dir, along * T.momentumCarry);
     const spinAxis = new THREE.Vector3().crossVectors(dir, UP).normalize();
     ball.angVel.copy(spinAxis).multiplyScalar((-speed / ball.radius) * 0.35);
     if (curve) ball.angVel.addScaledVector(UP, Math.sign(curve.dot(new THREE.Vector3().crossVectors(UP, dir))) * 40);
     ball.airTime = 0;
     ball.grounded = false;
     ball.lastTeam = this.team;
-    ball.energyTarget = kind === 'power' ? 1 : perfect ? 0.6 : kind === 'charged' ? 0.18 * this.charge : 0;
+    ball.energyTarget = kind === 'power' ? 1 : perfect ? 0.6 : kind === 'charged' ? 0.18 * this.charge : kind === 'lob' ? 0.25 : 0;
     this.ball = null;
     this.charge = 0;
     this.powerArmed = false;

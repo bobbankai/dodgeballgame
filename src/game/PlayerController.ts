@@ -111,6 +111,14 @@ export class PlayerController implements Controller {
       }
     }
 
+    // --- lob: a high arc over cover onto the locked target ---
+    if (this.allow.throw && a.ball && inp.buffered('lob', 0.14)) {
+      if (a.lob()) {
+        this.charging = false;
+        inp.consume('lob');
+      }
+    }
+
     // --- abilities ---
     if (this.allow.ability && inp.pressed('ability') && this.abilities) this.abilities.useAbility(a);
     if (this.allow.ultimate && inp.pressed('ultimate') && this.abilities) this.abilities.useUltimate(a);

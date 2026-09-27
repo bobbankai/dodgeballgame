@@ -165,7 +165,7 @@ interface Timed {
   size0: number;
   size1: number;
   alpha: number;
-  kind: 'ring' | 'flash' | 'decal';
+  kind: 'ring' | 'flash' | 'decal' | 'marker';
   mat: THREE.Material & { opacity?: number };
 }
 
@@ -257,6 +257,15 @@ export class VFX {
       m.position.y = Math.max(0.03, pos.y);
     }
     this.timed.push({ obj: m, t: 0, life, size0: radius * 0.15, size1: radius * 2, alpha, kind: 'ring', mat });
+  }
+
+  /** Floor telegraph that closes in on a landing spot and finishes exactly when the ball arrives. */
+  landingMarker(pos: THREE.Vector3, radius: number, color: THREE.ColorRepresentation, life: number) {
+    this.ring(pos, radius, color, life, 0.22, 0.9);
+    const e = this.timed[this.timed.length - 1];
+    e.kind = 'marker';
+    e.size0 = radius * 2.2;
+    e.size1 = radius * 0.5;
   }
 
   flash(pos: THREE.Vector3, size: number, color: THREE.ColorRepresentation, life = 0.18, alpha = 1) {
@@ -374,9 +383,16 @@ export class VFX {
       if (k >= 1) {
         e.obj.visible = false;
         this.timed.splice(i, 1);
-        if (e.kind === 'ring') this.ringPool.push(e.obj as THREE.Mesh);
+        if (e.kind === 'ring' || e.kind === 'marker') this.ringPool.push(e.obj as THREE.Mesh);
         else if (e.kind === 'flash') this.flashPool.push(e.obj as THREE.Sprite);
         else this.decalPool.push(e.obj as THREE.Mesh);
+        continue;
+      }
+      if (e.kind === 'marker') {
+        // linear close-in reads as a countdown; brightens and pulses as impact nears
+        const s = e.size0 + (e.size1 - e.size0) * k;
+        e.obj.scale.set(s, s, s);
+        (e.mat as THREE.ShaderMaterial).uniforms.uAlpha.value = e.alpha * (0.35 + 0.65 * k) * (0.8 + 0.2 * Math.sin(e.t * 22));
         continue;
       }
       const ease = 1 - Math.pow(1 - k, 3);

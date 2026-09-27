@@ -9,11 +9,12 @@ export function controlsList() {
     ['Mouse', 'Aim / camera'],
     ['Left click (tap)', 'Quick throw'],
     ['Left click (hold)', 'Charge throw — release at the flash for a perfect release'],
-    ['Right click', 'Catch — press just before the ball arrives (perfect = last instant)'],
+    ['Right click', 'Catch — press just before the ball arrives (perfect = last instant). Also steals passes and saves teammates'],
     ['Right click while charging', 'Pump fake (skill)'],
     ['Right click while holding', 'Block / reflect (skill)'],
     ['Space', 'Dodge (uses a charge)'],
     ['Shift', 'Sprint'],
+    ['C', 'Lob — high arc over cover; perfect catch only. Watch the landing ring'],
     ['E', 'Pass to teammate / call for pass'],
     ['Q', 'Ability'],
     ['R', 'Ultimate (when meter is full)'],
@@ -23,7 +24,7 @@ export function controlsList() {
   ];
   const el = h('div', { class: 'controls-list' });
   for (const [k, v] of rows) el.append(h('kbd', {}, k), h('span', {}, v));
-  el.append(h('kbd', {}, 'Gamepad'), h('span', {}, 'RT throw · LT catch · A dodge · LB sprint · X ability · Y ultimate · B pass'));
+  el.append(h('kbd', {}, 'Gamepad'), h('span', {}, 'RT throw · LT catch · A dodge · LB sprint · X ability · Y ultimate · B pass · D-pad up lob'));
   return el;
 }
 

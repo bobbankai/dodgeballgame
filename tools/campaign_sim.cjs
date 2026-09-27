@@ -14,7 +14,7 @@ const { chromium } = require('/opt/node22/lib/node_modules/playwright');
         const g = window.__game;
         const counts = {};
         const unsub = [];
-        for (const k of ['throw','hit','catch','ko','ultimateStart','ability','revive','shockwave']) unsub.push(g.world.events.on(k, () => counts[k] = (counts[k]||0)+1));
+        for (const k of ['throw','hit','catch','ko','ultimateStart','ability','revive','shockwave','intercept']) unsub.push(g.world.events.on(k, (e) => { counts[k] = (counts[k]||0)+1; if (k==='throw' && e.info.kind==='lob') counts.lob=(counts.lob||0)+1; if (k==='hit' && e.ball && e.ball.info && e.ball.info.kind==='lob') counts.lobHit=(counts.lobHit||0)+1; if (k==='catch' && e.ball && e.ball.info && e.ball.info.target && e.ball.info.target!==e.catcher && e.ball.info.target.team===e.catcher.team) counts.saveCatch=(counts.saveCatch||0)+1; }));
         const m = window.__debugStart(id, true);
         let res = null; m.onEnd = (x) => res = x;
         g.simulate(420, 1/60);

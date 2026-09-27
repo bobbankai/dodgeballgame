@@ -4,7 +4,7 @@ import type { Ball } from './Ball';
 
 export type TeamId = 0 | 1;
 
-export type ThrowKind = 'quick' | 'charged' | 'power' | 'ultimate' | 'pass' | 'reflect' | 'relay' | 'phantom';
+export type ThrowKind = 'quick' | 'charged' | 'power' | 'ultimate' | 'pass' | 'reflect' | 'relay' | 'phantom' | 'lob';
 
 export interface ThrowInfo {
   kind: ThrowKind;
@@ -27,9 +27,14 @@ export interface ThrowInfo {
   speed: number;
   /** Receiver for passes. */
   receiver: Athlete | null;
+  /** Lobs: where the ball is predicted to come down (telegraphed on the floor). */
+  landing?: THREE.Vector3;
+  /** Lobs: seconds until it lands. */
+  flightTime?: number;
 }
 
 export interface GameEvents {
+  intercept: { athlete: Athlete; from: Athlete; ball: Ball; point: THREE.Vector3 };
   throw: { athlete: Athlete; ball: Ball; info: ThrowInfo };
   chargeStart: { athlete: Athlete };
   chargeFull: { athlete: Athlete };

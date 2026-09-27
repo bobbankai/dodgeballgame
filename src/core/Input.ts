@@ -6,6 +6,7 @@ export type Action =
   | 'dodge'
   | 'sprint'
   | 'pass'
+  | 'lob'
   | 'ability'
   | 'ultimate'
   | 'pause'
@@ -14,13 +15,14 @@ export type Action =
   | 'confirm'
   | 'back';
 
-const ACTIONS: Action[] = ['throw', 'catch', 'dodge', 'sprint', 'pass', 'ability', 'ultimate', 'pause', 'shoulder', 'target', 'confirm', 'back'];
+const ACTIONS: Action[] = ['throw', 'catch', 'dodge', 'sprint', 'pass', 'lob', 'ability', 'ultimate', 'pause', 'shoulder', 'target', 'confirm', 'back'];
 
 const KEY_BINDINGS: Record<string, Action[]> = {
   Space: ['dodge'],
   ShiftLeft: ['sprint'],
   ShiftRight: ['sprint'],
   KeyE: ['pass'],
+  KeyC: ['lob'],
   KeyQ: ['ability'],
   KeyR: ['ultimate'],
   Escape: ['pause', 'back'],
@@ -50,6 +52,7 @@ const PAD_BINDINGS: Record<number, Action[]> = {
   9: ['pause'], // Start
   10: ['sprint'], // L3
   11: ['shoulder'], // R3
+  12: ['lob'], // D-pad up
 };
 
 export interface InputSettings {
