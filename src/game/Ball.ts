@@ -34,6 +34,14 @@ void main() {
 }`;
 
 let sharedGeo: THREE.SphereGeometry | null = null;
+const _dv = new THREE.Vector3();
+const _q = new THREE.Quaternion();
+const _qi = new THREE.Quaternion();
+const _axis = new THREE.Vector3();
+const UP = new THREE.Vector3(0, 1, 0);
+/** squash spring: ~0.2 s period, lightly damped so it jiggles once */
+const SQ_W = 30;
+const SQ_Z = 0.32;
 let shellGeo: THREE.SphereGeometry | null = null;
 
 export type BallState = 'loose' | 'held' | 'thrown';
@@ -42,6 +50,8 @@ export class Ball {
   private static nextId = 1;
   readonly id = Ball.nextId++;
   readonly group = new THREE.Group();
+  /** squash / stretch frame (the spinning core and the energy shell live inside it) */
+  private readonly deform = new THREE.Object3D();
   readonly mesh: THREE.Mesh;
   readonly material: THREE.MeshStandardMaterial;
   readonly shell: THREE.Mesh;
@@ -77,6 +87,12 @@ export class Ball {
   lastTeam: 0 | 1 | -1 = -1;
   /** Decoy balls are visual only. */
   decoy = false;
+  // squash-and-stretch state
+  private sq = 0;
+  private sqV = 0;
+  private readonly sqN = new THREE.Vector3(0, 1, 0);
+  private readonly lastVel = new THREE.Vector3();
+  private lastState: BallState = 'loose';
 
   constructor() {
     const tex = ballTextures();
@@ -92,7 +108,8 @@ export class Ball {
     });
     this.mesh = new THREE.Mesh(sharedGeo, this.material);
     this.mesh.castShadow = true;
-    this.group.add(this.mesh);
+    this.group.add(this.deform);
+    this.deform.add(this.mesh);
 
     this.shellMat = new THREE.ShaderMaterial({
       vertexShader: shellVert,
@@ -106,7 +123,7 @@ export class Ball {
     this.mesh.layers.enable(REFLECT_LAYER);
     this.shell.layers.enable(REFLECT_LAYER);
     this.shell.visible = false;
-    this.group.add(this.shell);
+    this.deform.add(this.shell);
 
     this.shadow = new THREE.Mesh(
       new THREE.PlaneGeometry(1, 1),
@@ -152,7 +169,7 @@ export class Ball {
       this.quat.premultiply(q);
     }
     this.group.position.copy(this.pos);
-    this.mesh.quaternion.copy(this.quat);
+    this.updateDeform(dt);
     this.energy += (this.energyTarget - this.energy) * (1 - Math.exp(-10 * dt));
     const e = this.energy;
     this.shell.visible = e > 0.02;
@@ -169,5 +186,52 @@ export class Ball {
     this.shadow.position.set(this.pos.x, 0.012, this.pos.z);
     this.shadow.scale.setScalar(s);
     (this.shadow.material as THREE.MeshBasicMaterial).opacity = this.group.visible ? Math.max(0.08, 0.55 - h * 0.09) : 0;
+  }
+
+  /**
+   * Squash on every sudden change of velocity (bounces, hits, catches, the release) along
+   * the direction of the change, and stretch along the flight path at speed.
+   */
+  private updateDeform(dt: number) {
+    const jump = _dv.subVectors(this.vel, this.lastVel).length();
+    if (jump > 2.5 && dt > 0) {
+      // the release reads as a push, not a splat
+      const amt = Math.min(0.3, jump / 65) * (this.lastState === 'held' ? 0.5 : 1);
+      if (amt > Math.abs(this.sq) * 0.6) {
+        this.sqN.copy(_dv).divideScalar(jump);
+        this.sqV = amt * SQ_W * 1.35;
+      }
+    }
+    this.lastVel.copy(this.vel);
+    this.lastState = this.state;
+    if (dt > 0) {
+      const h = Math.min(dt, 1 / 30);
+      this.sqV += (-SQ_W * SQ_W * this.sq - 2 * SQ_Z * SQ_W * this.sqV) * h;
+      this.sq += this.sqV * h;
+    }
+    const speed = this.state === 'thrown' ? this.vel.length() : 0;
+    const st = Math.min(0.13, Math.max(0, (speed - 12) / 90));
+    let along = 1, perp = 1;
+    if (Math.abs(this.sq) > st * 0.5) {
+      _axis.copy(this.sqN);
+      const s = THREE.MathUtils.clamp(this.sq, -0.25, 0.3);
+      along = 1 - s;
+      perp = 1 + s * 0.5;
+    } else if (st > 0.001) {
+      _axis.copy(this.vel).divideScalar(speed);
+      along = 1 + st;
+      perp = 1 / Math.sqrt(along);
+    }
+    if (along === 1) {
+      this.deform.quaternion.identity();
+      this.deform.scale.setScalar(1);
+      this.mesh.quaternion.copy(this.quat);
+      return;
+    }
+    _q.setFromUnitVectors(UP, _axis);
+    this.deform.quaternion.copy(_q);
+    this.deform.scale.set(perp, along, perp);
+    // keep the spin in world space inside the rotated deform frame
+    this.mesh.quaternion.copy(_qi.copy(_q).invert().multiply(this.quat));
   }
 }
