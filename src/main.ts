@@ -8,6 +8,8 @@ import '@fontsource/inter/400.css';
 import '@fontsource/inter/600.css';
 import './ui/styles.css';
 import { App } from './App';
+import { detailTexturesReady } from './character/DetailTextures';
+import { propKitReady } from './levels/PropKit';
 import { KITS, filler, makeProfile } from './data/roster';
 import type { MatchConfig } from './game/Match';
 import { h } from './ui/dom';
@@ -41,6 +43,7 @@ async function boot() {
   const debug = params.get('debug');
   if (debug === 'match') {
     // Direct-to-match developer entry: ?debug=match&tier=3&n=3&arena=rec&auto=1
+    await Promise.all([detailTexturesReady(), propKitReady()]);
     const g = app.game;
     const tier = Number(params.get('tier') ?? 2);
     const n = Number(params.get('n') ?? 3);

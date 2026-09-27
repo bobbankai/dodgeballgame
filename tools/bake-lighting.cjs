@@ -26,9 +26,18 @@ const blender = process.env.BLENDER || 'blender';
   page.on('pageerror', (e) => console.error('[page]', e.message));
   for (const id of ids.length ? ids : ALL) {
     const t0 = Date.now();
-    // fresh page per arena: writing a bake makes the dev server hot-reload
-    await page.goto(process.env.GAME_URL || 'http://localhost:5173/?quality=high', { waitUntil: 'load' });
-    await page.waitForFunction(() => window.__ready === true, null, { timeout: 120000 });
+    // fresh page per arena: writing a bake makes the dev server reload the page, which can
+    // interrupt a navigation, so retry until one sticks
+    for (let attempt = 0; ; attempt++) {
+      try {
+        await page.goto(process.env.GAME_URL || 'http://localhost:5173/?quality=high', { waitUntil: 'load' });
+        await page.waitForFunction(() => window.__ready === true, null, { timeout: 120000 });
+        break;
+      } catch (e) {
+        if (attempt >= 4) throw e;
+        await new Promise((r) => setTimeout(r, 2000));
+      }
+    }
     const ex = await page.evaluate(async (id) => {
       const { buildArena } = await import('/src/levels/arenas/index.ts');
       const { QUALITY_PRESETS } = await import('/src/config/quality.ts');

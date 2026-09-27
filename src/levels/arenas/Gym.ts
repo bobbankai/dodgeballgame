@@ -4,6 +4,7 @@ import { makeCanvasTexture } from '../../rendering/Textures';
 import { Arena } from '../Arena';
 import { banner, box, buildBench, buildBoards, courtLines, lightShaft, Scoreboard, woodTextures } from '../ArenaKit';
 import { Crowd, standSeats } from '../Crowd';
+import { placeProp } from '../PropKit';
 import { createFloorMaterial } from '../FloorMaterial';
 
 export interface GymStyle {
@@ -226,6 +227,8 @@ export function buildGym(style: GymStyle, q: QualityProfile): Arena {
   const glassMat = new THREE.MeshStandardMaterial({ color: 0xf4f4f0, roughness: 0.2, metalness: 0.1 });
   const orange = new THREE.MeshStandardMaterial({ color: 0xe35b1f, roughness: 0.4, metalness: 0.4 });
   for (const s of [1, -1]) {
+    // wall-mounted hoop: origin on the wall at rim height, facing the court
+    if (placeProp(R, 'hoop', 0, 4.2, s * GL, s > 0 ? Math.PI : 0)) continue;
     const z = s * (GL - 0.9);
     const bb = box(1.8, 1.05, 0.05, glassMat, 0, 4.6, z, false);
     R.add(bb);
@@ -268,32 +271,38 @@ export function buildGym(style: GymStyle, q: QualityProfile): Arena {
   arena.marks.awayEntrance = new THREE.Vector3(-5.5, 0, -GL + 1.5);
 
   // props: ball cart, mats, cooler, cones
-  const matBlue = new THREE.MeshStandardMaterial({ color: 0x2a58a8, roughness: 0.75 });
-  for (let i = 0; i < 4; i++) R.add(box(2, 0.12, 1.2, matBlue, -GW + 1.3, 0.06 + i * 0.12, GL - 3 + (i % 2) * 0.05));
-  const cooler = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.22, 0.5, 20), new THREE.MeshStandardMaterial({ color: 0xff7a1a, roughness: 0.4 }));
-  cooler.position.set(-(hw + 1.45), 0.75, 7.1);
-  cooler.castShadow = true;
-  R.add(cooler);
-  R.add(box(0.5, 0.5, 0.5, bleachFrame, -(hw + 1.45), 0.25, 7.1));
-  const cartMetal = new THREE.MeshStandardMaterial({ color: 0x8a9099, roughness: 0.3, metalness: 0.8 });
-  const cart = new THREE.Group();
-  cart.add(box(1.0, 0.04, 0.6, cartMetal, 0, 0.35, 0));
-  for (const cx of [-0.48, 0.48]) for (const cz of [-0.28, 0.28]) cart.add(box(0.03, 0.9, 0.03, cartMetal, cx, 0.45, cz));
-  const cartBall = new THREE.MeshStandardMaterial({ color: 0xd9432c, roughness: 0.55 });
-  for (let i = 0; i < 6; i++) {
-    const s = new THREE.Mesh(new THREE.SphereGeometry(0.12, 16, 12), cartBall);
-    s.position.set(-0.3 + (i % 3) * 0.3, 0.5 + Math.floor(i / 3) * 0.2, -0.12 + Math.floor(i / 3) * 0.2);
-    s.castShadow = true;
-    cart.add(s);
-  }
-  cart.position.set(-(hw + 1.6), 0, -7.2);
-  R.add(cart);
-  const coneMat = new THREE.MeshStandardMaterial({ color: 0xff6a1a, roughness: 0.5 });
-  for (let i = 0; i < 5; i++) {
-    const c = new THREE.Mesh(new THREE.ConeGeometry(0.12, 0.3, 12), coneMat);
-    c.position.set(-GW + 0.6 + (i % 2) * 0.3, 0.15, -GL + 1.2 + i * 0.35);
-    c.castShadow = true;
-    R.add(c);
+  if (placeProp(R, 'mat_stack', -GW + 1.3, 0, GL - 3)) {
+    placeProp(R, 'cooler', -(hw + 1.45), 0, 7.1, Math.PI / 2);
+    placeProp(R, 'ball_cart', -(hw + 1.6), 0, -7.2, 0.12);
+    for (let i = 0; i < 5; i++) placeProp(R, 'cone', -GW + 0.6 + (i % 2) * 0.3, 0, -GL + 1.2 + i * 0.35, i * 0.7);
+  } else {
+    const matBlue = new THREE.MeshStandardMaterial({ color: 0x2a58a8, roughness: 0.75 });
+    for (let i = 0; i < 4; i++) R.add(box(2, 0.12, 1.2, matBlue, -GW + 1.3, 0.06 + i * 0.12, GL - 3 + (i % 2) * 0.05));
+    const cooler = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.22, 0.5, 20), new THREE.MeshStandardMaterial({ color: 0xff7a1a, roughness: 0.4 }));
+    cooler.position.set(-(hw + 1.45), 0.75, 7.1);
+    cooler.castShadow = true;
+    R.add(cooler);
+    R.add(box(0.5, 0.5, 0.5, bleachFrame, -(hw + 1.45), 0.25, 7.1));
+    const cartMetal = new THREE.MeshStandardMaterial({ color: 0x8a9099, roughness: 0.3, metalness: 0.8 });
+    const cart = new THREE.Group();
+    cart.add(box(1.0, 0.04, 0.6, cartMetal, 0, 0.35, 0));
+    for (const cx of [-0.48, 0.48]) for (const cz of [-0.28, 0.28]) cart.add(box(0.03, 0.9, 0.03, cartMetal, cx, 0.45, cz));
+    const cartBall = new THREE.MeshStandardMaterial({ color: 0xd9432c, roughness: 0.55 });
+    for (let i = 0; i < 6; i++) {
+      const s = new THREE.Mesh(new THREE.SphereGeometry(0.12, 16, 12), cartBall);
+      s.position.set(-0.3 + (i % 3) * 0.3, 0.5 + Math.floor(i / 3) * 0.2, -0.12 + Math.floor(i / 3) * 0.2);
+      s.castShadow = true;
+      cart.add(s);
+    }
+    cart.position.set(-(hw + 1.6), 0, -7.2);
+    R.add(cart);
+    const coneMat = new THREE.MeshStandardMaterial({ color: 0xff6a1a, roughness: 0.5 });
+    for (let i = 0; i < 5; i++) {
+      const c = new THREE.Mesh(new THREE.ConeGeometry(0.12, 0.3, 12), coneMat);
+      c.position.set(-GW + 0.6 + (i % 2) * 0.3, 0.15, -GL + 1.2 + i * 0.35);
+      c.castShadow = true;
+      R.add(c);
+    }
   }
 
   // ---------------- lights ----------------

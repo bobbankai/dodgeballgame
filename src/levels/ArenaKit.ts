@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
 import { heightToNormal, makeCanvasTexture } from '../rendering/Textures';
+import { kitBench } from './PropKit';
 
 /**
  * Box with softened edges: every manufactured edge catches a thin highlight instead of
@@ -408,6 +409,8 @@ export function buildBoards(hw: number, hl: number, opts: {
 }
 
 export function buildBench(length: number, color = 0x6b4a2e): THREE.Group {
+  const kit = kitBench(length, color);
+  if (kit) return kit;
   const g = new THREE.Group();
   const wood = new THREE.MeshStandardMaterial({ color, roughness: 0.6 });
   const metal = new THREE.MeshStandardMaterial({ color: 0x3a3f47, roughness: 0.4, metalness: 0.7 });

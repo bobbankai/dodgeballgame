@@ -247,10 +247,12 @@ export class Arena {
       if (o === this.bakedGI) return;
       if ((o as THREE.Light).isLight) (o as THREE.Light).dispose();
       const m = o as THREE.Mesh;
-      if (m.geometry) m.geometry.dispose();
+      // prop-kit geometry and materials are shared between arenas (see PropKit)
+      if (m.geometry && !m.geometry.userData.shared) m.geometry.dispose();
       const mat = m.material as THREE.Material | THREE.Material[] | undefined;
       const mats = Array.isArray(mat) ? mat : mat ? [mat] : [];
       for (const mm of mats) {
+        if (mm.userData.shared) continue;
         for (const v of Object.values(mm)) if (v instanceof THREE.Texture) v.dispose();
         for (const uniforms of [(mm as THREE.ShaderMaterial).uniforms, (mm as any).floorUniforms]) {
           if (uniforms) for (const u of Object.values(uniforms) as { value: unknown }[]) if (u && u.value instanceof THREE.Texture) u.value.dispose();
