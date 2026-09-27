@@ -165,7 +165,7 @@ export const MATCHES: CampaignMatch[] = [
   {
     id: 'm2-3', chapter: 'c2', title: 'The Rival', opponent: "Jax 'Ricochet' Rourke", tags: ['Rival', '3v3'], boss: true, requires: ['m2-2'], introCinematic: 'rival',
     desc: 'Jax runs the harbor. He banks throws off the boards and never lets you forget it. Watch the angles.',
-    build: cfg('m2-3', 'The Rival', { arena: 'street', away: [JAX(3), ...team(KITS.ricochet, 2, 2, ['aggressor', 'defender'], 7)], mates: mates(2, 2, 7), tier: 3, xp: 340, cred: 240, balls: 4, subtitle: 'RICOCHET CREW' }),
+    build: cfg('m2-3', 'The Rival', { arena: 'street', away: [JAX(3), ...team(KITS.ricochet, 2, 2, ['aggressor', 'defender'], 7)], mates: mates(2, 3, 7), tier: 3, xp: 340, cred: 240, balls: 4, subtitle: 'RICOCHET CREW' }),
     unlocks: { cred: 150 },
   },
   // ------------------------------------------------------------------ CH3

@@ -6,7 +6,8 @@ import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js
  * arm-raising cheers driven by a global "hype" uniform that reacts to big plays.
  */
 export class Crowd {
-  readonly mesh: THREE.InstancedMesh;
+  /** stand sections (one instanced draw each) so stands behind the camera are frustum-culled */
+  readonly mesh = new THREE.Group();
   readonly uniforms = {
     uTime: { value: 0 },
     uHype: { value: 0 },
@@ -25,7 +26,7 @@ export class Crowd {
     };
     const torso = new THREE.CylinderGeometry(0.17, 0.2, 0.55, 8, 1);
     torso.translate(0, 0.27, 0);
-    const head = new THREE.SphereGeometry(0.11, 10, 8);
+    const head = new THREE.SphereGeometry(0.11, 8, 6);
     head.translate(0, 0.67, 0);
     const armL = new THREE.CylinderGeometry(0.045, 0.04, 0.46, 6, 1);
     armL.translate(0.23, 0.26, 0);
@@ -109,25 +110,49 @@ if (vPartC > 3.5) diffuseColor.rgb *= 0.35;`,
     };
     mat.customProgramCacheKey = () => (ghost ? 'crowd-ghost-v1' : 'crowd-v1');
 
-    this.mesh = new THREE.InstancedMesh(geo, mat, count);
+    // cluster seats into angular sectors around the arena centre
+    const SECTORS = 8;
+    const sectors: number[][] = Array.from({ length: SECTORS }, () => []);
+    seats.forEach((seat, i) => {
+      const a = Math.atan2(seat.pos.z, seat.pos.x) + Math.PI;
+      sectors[Math.min(SECTORS - 1, Math.floor((a / (Math.PI * 2)) * SECTORS))].push(i);
+    });
     const m = new THREE.Matrix4();
     const q = new THREE.Quaternion();
     const s = new THREE.Vector3();
-    seats.forEach((seat, i) => {
-      q.setFromAxisAngle(new THREE.Vector3(0, 1, 0), seat.yaw + (Math.random() - 0.5) * 0.3);
-      const sc = 0.92 + Math.random() * 0.16;
-      s.set(sc, sc, sc);
-      m.compose(seat.pos, q, s);
-      this.mesh.setMatrixAt(i, m);
-      c.setHex(palette[Math.floor(Math.random() * palette.length)]);
-      c.offsetHSL((Math.random() - 0.5) * 0.04, (Math.random() - 0.5) * 0.1, (Math.random() - 0.5) * 0.12);
-      this.mesh.setColorAt(i, c);
-    });
-    this.mesh.instanceMatrix.needsUpdate = true;
-    if (this.mesh.instanceColor) this.mesh.instanceColor.needsUpdate = true;
-    this.mesh.castShadow = false;
-    this.mesh.receiveShadow = true;
-    this.mesh.frustumCulled = false;
+    for (const idx of sectors) {
+      if (!idx.length) continue;
+      const g = geo.clone();
+      // per-instance attributes must follow the sector's own instance order
+      for (const name of ['aPhase', 'aSkin', 'aExcite'] as const) {
+        const src = geo.getAttribute(name) as THREE.InstancedBufferAttribute;
+        const arr = new Float32Array(idx.length * src.itemSize);
+        idx.forEach((si, k) => arr.set((src.array as Float32Array).subarray(si * src.itemSize, (si + 1) * src.itemSize), k * src.itemSize));
+        g.setAttribute(name, new THREE.InstancedBufferAttribute(arr, src.itemSize));
+      }
+      const inst = new THREE.InstancedMesh(g, mat, idx.length);
+      idx.forEach((si, k) => {
+        const seat = seats[si];
+        q.setFromAxisAngle(new THREE.Vector3(0, 1, 0), seat.yaw + (Math.random() - 0.5) * 0.3);
+        const sc = 0.92 + Math.random() * 0.16;
+        s.set(sc, sc, sc);
+        m.compose(seat.pos, q, s);
+        inst.setMatrixAt(k, m);
+        c.setHex(palette[Math.floor(Math.random() * palette.length)]);
+        c.offsetHSL((Math.random() - 0.5) * 0.04, (Math.random() - 0.5) * 0.1, (Math.random() - 0.5) * 0.12);
+        inst.setColorAt(k, c);
+      });
+      inst.instanceMatrix.needsUpdate = true;
+      if (inst.instanceColor) inst.instanceColor.needsUpdate = true;
+      inst.castShadow = false;
+      inst.receiveShadow = true;
+      // bounds padded for the cheering animation (arms up, bounce, stadium wave)
+      inst.computeBoundingSphere();
+      if (inst.boundingSphere) inst.boundingSphere.radius += 1.2;
+      inst.frustumCulled = true;
+      this.mesh.add(inst);
+    }
+    geo.dispose();
   }
 
   /** Short hype spike (hits, KOs); base hype rises with match tension. */
