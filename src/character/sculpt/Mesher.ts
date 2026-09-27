@@ -21,6 +21,8 @@ export interface MeshPart {
   aoContext?: Prim[][];
   /** override the slot after the owning primitive is found */
   paint?: (slot: number, x: number, y: number, z: number, owner: Prim | null) => number;
+  /** cut triangles along slot boundaries (default); off for far-away meshes drawn with flat slots */
+  splitSlots?: boolean;
 }
 
 export class MeshOut {
@@ -487,7 +489,7 @@ export function meshPart(part: MeshPart, out: MeshOut) {
   for (let f = 0; f < tris.length; f += 3) {
     const a = tris[f], b = tris[f + 1], c = tris[f + 2];
     const sa = slots[a], sb = slots[b], sc = slots[c];
-    if (sa === sb && sb === sc) {
+    if ((sa === sb && sb === sc) || part.splitSlots === false) {
       idx.push(vOut[a], vOut[b], vOut[c]);
       continue;
     }
