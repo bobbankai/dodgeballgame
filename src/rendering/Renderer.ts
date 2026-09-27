@@ -12,6 +12,7 @@ import {
 import { QUALITY_PRESETS, QualityLevel, QualityProfile } from '../config/quality';
 import { DistortionEffect, FinishEffect, GradeEffect, GradeSettings, LensEffect, ScreenFxEffect } from './PostEffects';
 import { FloorReflection, reflectionUniforms, REFLECT_LAYER } from './FloorReflection';
+import { AmbientOcclusionEffect } from './AmbientOcclusion';
 import { dampTo } from '../core/math';
 
 /**
@@ -34,6 +35,8 @@ export class Renderer {
   readonly screenFx: ScreenFxEffect;
   readonly finish: FinishEffect;
   readonly lens: LensEffect;
+  readonly ao: AmbientOcclusionEffect;
+  private aoStrength = 0.85;
   readonly dof: DepthOfFieldEffect;
   readonly reflection = new FloorReflection();
   /** set per arena: whether its floor wants planar reflections */
@@ -106,8 +109,9 @@ export class Renderer {
     this.grade = new GradeEffect();
     this.lens = new LensEffect();
     this.finish = new FinishEffect();
-    // one merged fullscreen pass: shock-wave UVs -> bloom -> lens streaks -> tonemap/grade -> vignette/grain/bars
-    this.mainPass = new EffectPass(camera, this.distortion, this.bloom, this.lens, this.grade, this.finish);
+    this.ao = new AmbientOcclusionEffect(camera);
+    // one merged fullscreen pass: shock-wave UVs -> AO -> bloom -> lens streaks -> tonemap/grade -> vignette/grain/bars
+    this.mainPass = new EffectPass(camera, this.distortion, this.ao, this.bloom, this.lens, this.grade, this.finish);
     // bloom's blur chain is skipped entirely on presets without bloom (its blend opacity is 0 there)
     const bloomUpdate = this.bloom.update.bind(this.bloom);
     this.bloom.update = (r, i, d) => {
@@ -132,6 +136,7 @@ export class Renderer {
     this.camera = camera;
     this.renderPass.mainCamera = camera;
     for (const p of [this.mainPass, this.fxPass, this.aaPass, this.dofPass]) p.mainCamera = camera;
+    this.ao.mainCamera = camera;
   }
 
   applyQuality(level: QualityLevel) {
@@ -148,6 +153,8 @@ export class Renderer {
     this.finish.set('uGrain', q.level === 'low' ? 0 : q.level === 'medium' ? 0.035 : 0.045);
     this.lens.strength = q.bloom ? this.lensStrength : 0;
     this.reflection.scale = q.reflectionScale;
+    this.ao.strength = q.ao ? this.aoStrength : 0;
+    this.ao.resolutionScale = q.aoResolution;
     this.resolutionScale = 1;
     this.resize();
     // Force shadow-casting lights to rebuild maps at the new size.
@@ -190,6 +197,13 @@ export class Renderer {
     this.camera.aspect = w / h;
     this.camera.updateProjectionMatrix();
     this.reflection.setSize(w * pr, h * pr);
+  }
+
+  /** Arena-specific ambient occlusion strength and radius (AO presets only). */
+  setAO(strength: number, radius = 0.55) {
+    this.aoStrength = strength;
+    this.ao.strength = this.quality.ao ? strength : 0;
+    this.ao.radius = radius;
   }
 
   /** Arena-specific anamorphic streak strength/tint (bloom presets only). */

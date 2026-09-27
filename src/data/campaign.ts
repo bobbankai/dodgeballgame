@@ -158,7 +158,7 @@ export const MATCHES: CampaignMatch[] = [
     build: cfg('m2-2', 'King of the Court', {
       arena: 'street', mode: 'survival', away: [], tier: 2, xp: 280, cred: 180, balls: 4, time: 0, court: MID, subtitle: 'CHALLENGERS',
       mates: mates(1, 2, 6),
-      waves: [team(KITS.harbor, 1, 2, ['aggressor'], 60), team(KITS.harbor, 2, 2, ['sniper', 'defender'], 61), team(KITS.harbor, 3, 2, ['aggressor', 'speedster', 'defender'], 62)],
+      waves: [team(KITS.harbor, 1, 2, ['aggressor'], 60), team(KITS.harbor, 2, 2, ['sniper', 'defender'], 61), team(KITS.harbor, 2, 2, ['aggressor', 'speedster'], 62)],
       objective: 'Survive all waves',
     }),
   },

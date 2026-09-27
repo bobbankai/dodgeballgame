@@ -115,6 +115,7 @@ export class Game {
     arena.prepareReflections();
     arena.batchStatic();
     this.renderer.reflectionActive = arena.reflective;
+    this.renderer.setAO(arena.look.ao?.strength ?? 0.9, arena.look.ao?.radius ?? 1.0);
     this.renderer.setLens(arena.look.lens?.strength ?? 0.35, arena.look.lens?.tint ?? new THREE.Color(0.55, 0.72, 1));
     this.arena = arena;
     this.arenaId = key;

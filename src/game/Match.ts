@@ -215,8 +215,12 @@ export class Match {
       case 'roundEnd': {
         this.processKOs(dt);
         if (this.phaseTime > 3.4) {
-          if (this.config.mode === 'survival' && this.roundWinner === 0) this.nextWave();
-          else if (this.score[0] >= this.config.roundsToWin || this.score[1] >= this.config.roundsToWin || this.config.mode === 'timeAttack') this.endMatch();
+          if (this.config.mode === 'survival') {
+            // waves cleared live in score[0]; only failed attempts count toward defeat
+            if (this.roundWinner === 0) this.nextWave();
+            else if (this.score[1] >= this.config.roundsToWin) this.endMatch();
+            else this.startRound();
+          } else if (this.score[0] >= this.config.roundsToWin || this.score[1] >= this.config.roundsToWin || this.config.mode === 'timeAttack') this.endMatch();
           else this.startRound();
         }
         break;
@@ -311,6 +315,8 @@ export class Match {
     this.setPhase('roundEnd');
     if (this.config.mode === 'survival' && winner === 0) this.wavesCleared++;
     this.world.events.emit('roundEnd', { round: this.round, winner });
+    if (this.config.mode === 'survival' && winner === 1 && this.score[1] < this.config.roundsToWin)
+      this.world.events.emit('announce', { text: 'WAVE LOST', sub: 'Last chance — the wave restarts', style: 'warn' });
     // celebrate / lament
     for (const a of this.home) if (a.active) a.celebrate(winner === 0);
     for (const a of this.away) if (a.active) a.celebrate(winner === 1);
@@ -323,7 +329,8 @@ export class Match {
       this.endMatch();
       return;
     }
-    // Replace away team with the next wave; home keeps hearts (small heal) and benched mates return
+    this.koQueue = [];
+    // Replace away team with the next wave; home heals up and anyone down gets back in
     for (const a of this.away) {
       a.dropBall(1);
       a.destroy(this.world.scene);
@@ -338,20 +345,25 @@ export class Match {
       a.dissolve = 1;
       a.fadeIn(1.5);
     });
-    for (const a of this.home) {
-      if (a.isOut) {
-        if (a.state === 'out') {
-          const spot = new THREE.Vector3(rng.range(-c.halfWidth * 0.5, c.halfWidth * 0.5), 0, c.side(0) * c.halfLength * 0.7);
-          a.revive(spot, Math.PI);
-        }
-        continue;
+    this.home.forEach((a, i) => {
+      if (a.isOut || !a.active) {
+        // includes a teammate knocked down by a trade on the wave's final throw
+        a.dropBall(0);
+        c.spawnPoint(0, i, this.home.length, tmp);
+        a.resetForRound(tmp, Math.PI);
+        a.dissolve = 1;
+        a.fadeIn(2);
+      } else {
+        a.releaseScripted();
+        a.hearts = a.maxHearts;
       }
-      a.releaseScripted();
-      a.hearts = Math.min(a.maxHearts, a.hearts + 1);
-    }
+    });
     this.world.events.emit('announce', { text: `WAVE ${this.wave + 1}`, sub: `${waves.length - this.wave} remaining`, style: 'round' });
     this.roundTime = 0;
-    this.setPhase('playing');
+    this.roundWinner = -1;
+    // short breather: the new challengers materialise during a countdown
+    this.setPhase('countdown');
+    this.countdownValue = TUNING.round.countdown + 1;
   }
 
   private endMatch() {

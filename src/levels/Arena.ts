@@ -17,6 +17,8 @@ export interface ArenaLook {
   probe: THREE.Vector3;
   /** anamorphic lens streaks from bright lights */
   lens?: { strength: number; tint?: THREE.Color };
+  /** screen-space ambient occlusion */
+  ao?: { strength: number; radius?: number };
 }
 
 export interface ArenaInfo {
