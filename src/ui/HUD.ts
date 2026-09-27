@@ -204,7 +204,7 @@ export class HUD {
         el.innerHTML = '';
         for (const a of list) {
           const p = h('div', { class: `hud-pip${a.active ? '' : ' out'}${a.isPlayer ? ' player' : ''}`, title: a.name });
-          for (let i = 0; i < a.maxHearts; i++) p.append(h('i', { class: i < a.hearts ? '' : 'empty' }));
+          for (let i = 0; i < Math.min(a.maxHearts, 6); i++) p.append(h('i', { class: i < a.hearts ? '' : 'empty' }));
           el.append(p);
         }
       };
@@ -217,7 +217,7 @@ export class HUD {
         const hit = this.lastHearts > player.hearts * 10 + player.maxHearts;
         this.lastHearts = player.hearts * 10 + player.maxHearts;
         this.hearts.innerHTML = '';
-        for (let i = 0; i < player.maxHearts; i++) {
+        for (let i = 0; i < Math.min(player.maxHearts, 8); i++) {
           const s = svg(ICONS.heart);
           if (i >= player.hearts) s.classList.add('empty');
           if (hit && i === player.hearts) s.classList.add('hit');
@@ -328,7 +328,9 @@ export class HUD {
       if (hk !== t.lastHearts) {
         t.lastHearts = hk;
         t.hp.innerHTML = '';
-        for (let i = 0; i < a.maxHearts; i++) t.hp.append(h('i', { class: i < a.hearts ? '' : 'e' }));
+        // practice dummies have effectively unlimited hearts: show a marker, not a screen-wide row
+        if (a.maxHearts > 6) t.hp.append(h('span', { class: 'inf' }, '∞'));
+        else for (let i = 0; i < a.maxHearts; i++) t.hp.append(h('i', { class: i < a.hearts ? '' : 'e' }));
         t.nm.innerHTML = '';
         t.nm.append(document.createTextNode(a.name));
         if (a.ball) t.nm.append(h('span', { class: `ballic${a.isWindingUp && a.team === 1 ? ' winding' : ''}` }));

@@ -148,6 +148,7 @@ html, body {
 .nametag .hp { display: flex; gap: 3px; justify-content: center; margin-top: 2px; }
 .nametag .hp i { width: 10px; height: 4px; background: currentColor; transform: skewX(var(--skew)); }
 .nametag .hp i.e { opacity: .2; }
+.nametag .hp .inf { font-size: 12px; line-height: 1; opacity: .8; }
 .nametag.home { color: var(--home); }
 .nametag.away { color: var(--away); }
 .nametag .ballic { display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: #e24a2e; margin-left: 5px; box-shadow: 0 0 4px #000; }
