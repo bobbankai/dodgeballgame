@@ -118,7 +118,7 @@ metalnessFactor = uMetal[si];`,
   totalEmissiveRadiance += uRimColor * fres * uRimStrength;
   totalEmissiveRadiance += uFlashColor * uFlash;
   float pulse = 0.75 + 0.25 * sin(uTime * 16.0 + vObjPos.y * 24.0);
-  totalEmissiveRadiance += uEnergyColor * (fres * 2.2 + 0.15) * uEnergy * pulse;
+  totalEmissiveRadiance += uEnergyColor * (fres * 1.3 + 0.04) * uEnergy * pulse;
   totalEmissiveRadiance += uDissolveColor * dissolveEdge * 2.6;
 }`,
         );

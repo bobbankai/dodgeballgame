@@ -23,6 +23,8 @@ export class Time {
   scale = 1;
   /** Extra user-controlled multiplier (pause = 0). */
   baseScale = 1;
+  /** Sustained scale set by cinematics (1 = normal). */
+  cineScale = 1;
   frame = 0;
   private slowMos: SlowMoRequest[] = [];
   private hitStopTimer = 0;
@@ -66,7 +68,7 @@ export class Time {
       this.hitStopTimer -= this.realDt;
       s = Math.min(s, this.hitStopScale);
     }
-    this.scale = s * this.baseScale;
+    this.scale = s * this.baseScale * this.cineScale;
     this.dt = this.realDt * this.scale;
     this.gameTime += this.dt;
   }
@@ -87,7 +89,7 @@ export class Time {
       this.hitStopTimer -= step;
       s = Math.min(s, this.hitStopScale);
     }
-    this.scale = s * this.baseScale;
+    this.scale = s * this.baseScale * this.cineScale;
     this.dt = step * this.scale;
     this.gameTime += this.dt;
     this.frame++;

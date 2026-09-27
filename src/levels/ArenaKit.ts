@@ -211,7 +211,8 @@ export function courtLines(hw: number, hl: number, style: LineStyle) {
   const tex = makeCanvasTexture(cw, ch, (g) => {
     g.clearRect(0, 0, cw, ch);
     const X = (x: number) => (x + W / 2) * ppm;
-    const Z = (z: number) => (L / 2 - z) * ppm;
+    // canvas top (row 0) = far/away end (-Z); flipY maps it to v = 1 which the shader puts at z = -L/2
+    const Z = (z: number) => (z + L / 2) * ppm;
     // team tints (subtle wash on each half)
     const wash = (z0: number, z1: number, col: string) => {
       const grad = g.createLinearGradient(0, Z(z0), 0, Z(z1));
@@ -229,7 +230,7 @@ export function courtLines(hw: number, hl: number, style: LineStyle) {
     const lw = 0.06 * ppm;
     g.lineWidth = lw;
     const inset = 0.35;
-    g.strokeRect(X(-hw + inset), Z(hl - inset), (hw - inset) * 2 * ppm, (hl - inset) * 2 * ppm);
+    g.strokeRect(X(-hw + inset), Z(-hl + inset), (hw - inset) * 2 * ppm, (hl - inset) * 2 * ppm);
     // attack lines
     for (const s of [1, -1]) {
       g.beginPath();

@@ -19,6 +19,13 @@ export class World {
   readonly balls: BallSystem;
   match: Match | null = null;
   camera: THREE.PerspectiveCamera;
+  /** Blink-step afterimages that AI can mistake for the real athlete. */
+  decoys: { owner: Athlete; pos: THREE.Vector3; until: number; id: number }[] = [];
+
+  decoyFor(a: Athlete) {
+    const now = this.time.gameTime;
+    return this.decoys.find((d) => d.owner === a && d.until > now) ?? null;
+  }
 
   constructor(public time: Time) {
     this.balls = new BallSystem(this);

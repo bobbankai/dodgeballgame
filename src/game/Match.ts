@@ -96,6 +96,8 @@ export class Match {
       this.player = this.home[0];
       this.player.isPlayer = true;
     }
+    this.placeTeams();
+    world.balls.layoutCenter(config.ballCount);
     const ev = world.events;
     this.unsubs.push(
       ev.on('catch', (e) => this.onCatch(e.catcher, e.thrower, e.ball.info === null || e.ball.info.kind !== 'pass')),
@@ -142,13 +144,8 @@ export class Match {
     this.startRound();
   }
 
-  startRound() {
-    this.round++;
-    this.roundTime = 0;
-    this.suddenDeath = false;
-    this.roundWinner = -1;
-    this.koQueue = [];
-    this.world.time.clearEffects();
+  /** Put both teams on their spawn marks facing each other. */
+  placeTeams() {
     const c = this.world.court;
     const tmp = new THREE.Vector3();
     const place = (list: Athlete[], team: TeamId) => {
@@ -160,6 +157,16 @@ export class Match {
     };
     place(this.home, 0);
     place(this.away, 1);
+  }
+
+  startRound() {
+    this.round++;
+    this.roundTime = 0;
+    this.suddenDeath = false;
+    this.roundWinner = -1;
+    this.koQueue = [];
+    this.world.time.clearEffects();
+    this.placeTeams();
     this.world.balls.layoutCenter(this.config.ballCount);
     this.setPhase('countdown');
     this.countdownValue = TUNING.round.countdown + 1;
@@ -200,6 +207,7 @@ export class Match {
         this.roundTime += dt;
         this.totalTime += dt;
         this.processKOs(dt);
+        if (this.config.mode === 'tutorial') break;
         this.checkRoundEnd();
         if (this.config.mode !== 'survival' && this.config.timeLimit > 0 && this.roundTime >= this.config.timeLimit && this.phase === 'playing') this.timeUp();
         break;

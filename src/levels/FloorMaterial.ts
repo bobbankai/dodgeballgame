@@ -58,7 +58,7 @@ vec4 floorLines;`,
         '#include <map_fragment>',
         `#include <map_fragment>
 {
-  vec2 luv = vec2(vWorldPosF.x / uLinesSize.x + 0.5, 0.5 + vWorldPosF.z / uLinesSize.y);
+  vec2 luv = vec2(vWorldPosF.x / uLinesSize.x + 0.5, 0.5 - vWorldPosF.z / uLinesSize.y);
   floorLines = vec4(0.0);
   if (luv.x > 0.0 && luv.x < 1.0 && luv.y > 0.0 && luv.y < 1.0) floorLines = texture2D(uLines, luv);
   diffuseColor.rgb = mix(diffuseColor.rgb, floorLines.rgb, floorLines.a);

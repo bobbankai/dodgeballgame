@@ -67,6 +67,7 @@ export class AIController implements Controller {
   volleyGo = false;
   /** Temporary aggression boost (boss phases). */
   rage = 0;
+  private fooled = new Map<number, boolean>();
   /** Opponent we are watching wind up (enables anticipation). */
   private watch: Athlete | null = null;
   private watchSince = 0;
@@ -352,6 +353,16 @@ export class AIController implements Controller {
     if (err > 0) {
       _v.x += rng.gauss(0, err);
       _v.y += rng.gauss(0, err * 0.4);
+    }
+    // blink decoys: lower-tier AIs often throw at the afterimage
+    const decoy = this.world.decoyFor(t);
+    if (decoy) {
+      let f = this.fooled.get(decoy.id);
+      if (f === undefined) {
+        f = Math.random() > this.params.awareness * 0.7;
+        this.fooled.set(decoy.id, f);
+      }
+      if (f) _v.set(decoy.pos.x, 1.2, decoy.pos.z);
     }
     a.aimPoint.copy(_v);
     a.aimTarget = t;

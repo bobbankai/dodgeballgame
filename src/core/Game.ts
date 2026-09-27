@@ -19,6 +19,10 @@ import { TeamBrain } from '../ai/TeamBrain';
 import { aiParams } from '../ai/AIProfile';
 import type { TeamId } from '../game/types';
 import { h } from '../ui/dom';
+import { CinematicDirector } from '../cinematics/CinematicDirector';
+import { AbilitySystem } from '../abilities/AbilitySystem';
+import { ABILITIES } from '../data/skills';
+import type { Progression } from '../progression/Progression';
 
 export interface GameHooks {
   onMatchEnd?: (config: MatchConfig, result: MatchResult) => void;
@@ -55,6 +59,9 @@ export class Game {
   cinematicActive = false;
   private raf = 0;
   playerProfile: AthleteProfile | null = null;
+  readonly director: CinematicDirector;
+  readonly abilities: AbilitySystem;
+  progression: Progression | null = null;
 
   constructor(container: HTMLElement, quality: QualityLevel) {
     this.quality = quality;
@@ -71,6 +78,9 @@ export class Game {
     this.feedback.bind();
     this.hud = new HUD(this.uiRoot);
     this.world.events.on('announce', (e) => this.hud.announce(e.text, e.sub, e.style));
+    this.director = new CinematicDirector(this);
+    this.abilities = new AbilitySystem(this, this.director);
+    this.hooks.abilities = this.abilities;
     (window as any).__game = this;
     (window as any).__aiDebug = AI_DEBUG;
   }
@@ -183,6 +193,9 @@ export class Game {
     this.hooks.abilities?.bind();
     this.input.gameplayMouse = playerControlled;
     this.hud.show(playerControlled);
+    const pa = this.player?.profile.ability;
+    this.hud.abilityInfo = pa && ABILITIES[pa] ? { name: ABILITIES[pa].name, cost: ABILITIES[pa].cost, icon: ABILITIES[pa].icon } : null;
+    this.hud.ultInfo = this.player?.profile.ultimate ? { name: 'OVERTHROW' } : null;
     for (const a of this.world.athletes) a.rig.material.u.uDissolveColor.value.copy(a.team === 0 ? homeCol : awayCol);
     return match;
   }
@@ -230,7 +243,7 @@ export class Game {
       this.vfx.update(time.dt, this.world.camera);
       if (!this.cinematicActive) this.cam.update(step);
       for (const t of this.tickers) t(time.dt, step);
-      if (!this.match || this.match.phase === 'done') break;
+      if (this.match && this.match.phase === 'done') break;
     }
   }
 
@@ -254,7 +267,7 @@ export class Game {
       this.step(dt, realDt);
       this.feedback.update(dt);
     }
-    for (const t of this.tickers) t(dt, realDt);
+    if (!this.paused) for (const t of this.tickers) t(dt, realDt);
     this.hooks.onFrame?.(dt, realDt);
     this.vfx.update(this.paused ? 0 : dt, this.world.camera);
     if (!this.cinematicActive) {

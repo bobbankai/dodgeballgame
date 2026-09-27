@@ -298,14 +298,14 @@ export class VFX {
 
   // ---------------------------------------------------------------- composite effects
   impact(point: THREE.Vector3, dir: THREE.Vector3, power: number, color: THREE.ColorRepresentation, importance = 1) {
-    const p = Math.min(2.5, power) * importance;
+    const p = Math.min(1.7, power) * importance;
     const back = dir.clone().negate().normalize();
     this.add.emit({ pos: point, count: 18 + p * 22, dir: back, spread: 1.2, speed: [4, 10 + p * 6], life: [0.15, 0.4], size: [0.06, 0.01], color: 0xfff1c9, color2: color, gravity: 9, drag: 3, stretch: 0.035, shape: 1 });
     this.add.emit({ pos: point, count: 6 + p * 6, speed: [0.5, 2], life: [0.2, 0.5], size: [0.35 + p * 0.2, 0.9 + p * 0.4], color, alpha: 0.5, drag: 4, shape: 0 });
     this.alpha.emit({ pos: point, count: 5 + p * 4, speed: [0.3, 1.2], life: [0.4, 0.9], size: [0.25, 0.7], color: 0xd9d2c5, alpha: 0.35, drag: 2, gravity: -0.4 });
-    this.flash(point, 0.9 + p * 0.9, color, 0.14 + p * 0.04);
-    this.flash(point, 0.5 + p * 0.4, 0xffffff, 0.08);
-    this.ring(point, 0.5 + p * 0.5, color, 0.3, 0.25, 0.8, back);
+    this.flash(point, 0.8 + p * 0.7, color, 0.14 + p * 0.04, 0.8);
+    this.flash(point, 0.4 + p * 0.3, 0xffffff, 0.08, 0.9);
+    this.ring(point, 0.4 + p * 0.35, color, 0.28, 0.22, 0.7, back);
     this.light(point, color, 10 * p, 0.2, 5 + p * 2);
   }
 

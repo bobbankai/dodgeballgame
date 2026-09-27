@@ -202,7 +202,7 @@ void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor)
     col = acc / tot;
   }
   if (uAberration > 0.001) {
-    vec2 off = dir * uAberration * 0.012 * r;
+    vec2 off = dir * uAberration * 0.006 * r * r;
     float rr = texture2D(inputBuffer, uv + off).r;
     float bb = texture2D(inputBuffer, uv - off).b;
     col.r = mix(col.r, rr, 0.85);

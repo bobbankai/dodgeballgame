@@ -354,6 +354,34 @@ export class Athlete {
     return true;
   }
 
+  /** Upgrade an in-progress charge into a Power Shot wind-up. */
+  convertToPower() {
+    if (this.state !== 'charging') return;
+    this.setState('power');
+    this.anim.play('powerCharge', { fade: 0.08, manual: true, hold: true, legs: 0.35 });
+  }
+
+  beginUltimate() {
+    if (this.state === 'charging' || this.state === 'power') this.charge = 0;
+    this.setState('ultimate');
+    this.vel.set(0, 0, 0);
+    this.invuln = 4;
+  }
+
+  endUltimate() {
+    if (this.state === 'ultimate') {
+      this.setState('free');
+      this.invuln = 0.4;
+    }
+  }
+
+  /** Instant reposition used by Blink Step. */
+  blinkTo(p: THREE.Vector3) {
+    this.pos.copy(p);
+    this.world.court.clampAthlete(this.pos, this.team);
+    this.invuln = Math.max(this.invuln, 0.35);
+  }
+
   addEnergy(v: number) {
     this.energy = clamp(this.energy + v * this.stats.energyGain, 0, TUNING.energy.max);
   }
@@ -404,7 +432,8 @@ export class Athlete {
     const info = ball.info;
     const kind = info?.kind;
     if (kind === 'ultimate' && !perfect) return 'none';
-    if (info && info.power > this.stats.catchStrength && !perfect) return 'fumble';
+    const heavy = info ? info.power > this.stats.catchStrength || (info.heavy && !this.perks.ironHands) : false;
+    if (heavy && !perfect) return 'fumble';
     return perfect ? 'perfect' : 'catch';
   }
 
@@ -696,7 +725,7 @@ export class Athlete {
       power,
       damage,
       perfect,
-      heavy: power > 1.3,
+      heavy: kind === 'power' || (this.perks.guardBreak && kind === 'charged' && this.charge >= 1),
       curve,
       homing: null,
       homingStrength: 0,

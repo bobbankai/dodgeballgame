@@ -76,10 +76,17 @@ export class AudioEngine {
     if (this.pendingTrack !== 'none') this.music.play(this.pendingTrack);
   }
 
+  /** Duck gameplay SFX (attract mode behind menus). */
+  sfxDuck = 1;
+  setSfxDuck(v: number) {
+    this.sfxDuck = v;
+    this.applyVolumes();
+  }
+
   applyVolumes() {
     if (!this.ctx) return;
     this.master.gain.value = this.volumes.master;
-    this.sfx.gain.value = this.volumes.sfx;
+    this.sfx.gain.value = this.volumes.sfx * this.sfxDuck;
     this.ui.gain.value = this.volumes.ui;
     this.musicBus.gain.value = this.volumes.music * 0.5;
     this.amb.gain.value = this.volumes.ambience;

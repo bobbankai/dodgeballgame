@@ -39,7 +39,20 @@ export class GameCamera {
   /** Aim ray (world). */
   readonly aimOrigin = new THREE.Vector3();
   readonly aimDir = new THREE.Vector3();
-  private lookYawOffset = 0;
+  private blendT = 1;
+  private blendDur = 0.4;
+  private blendPos = new THREE.Vector3();
+  private blendQuat = new THREE.Quaternion();
+  private blendFov = 60;
+
+  /** Smoothly transition from the current camera pose into gameplay framing. */
+  blendFromCurrent(duration = 0.45) {
+    this.blendPos.copy(this.camera.position);
+    this.blendQuat.copy(this.camera.quaternion);
+    this.blendFov = this.camera.fov;
+    this.blendDur = duration;
+    this.blendT = 0;
+  }
 
   constructor(camera: THREE.PerspectiveCamera) {
     this.camera = camera;
@@ -162,6 +175,13 @@ export class GameCamera {
     }
     this.fov.update(fovTarget, realDt);
     this.camera.fov = this.fov.value;
+    if (this.blendT < 1) {
+      this.blendT = Math.min(1, this.blendT + realDt / this.blendDur);
+      const k = this.blendT * this.blendT * (3 - 2 * this.blendT);
+      this.camera.position.lerpVectors(this.blendPos, this.camera.position, k);
+      this.camera.quaternion.slerpQuaternions(this.blendQuat, this.camera.quaternion, k);
+      this.camera.fov = this.blendFov + (this.camera.fov - this.blendFov) * k;
+    }
     this.camera.updateProjectionMatrix();
   }
 

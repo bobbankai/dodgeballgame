@@ -178,9 +178,9 @@ export class HUD {
     this.homeScore.textContent = String(m.score[0]);
     this.awayScore.textContent = String(m.score[1]);
     const tl = m.config.timeLimit > 0 ? m.timeRemaining : 0;
-    this.clock.textContent = m.config.mode === 'survival' ? `W${m.wave + 1}` : m.suddenDeath ? 'SD' : formatTime(tl);
+    this.clock.textContent = m.config.mode === 'tutorial' ? 'PRACTICE' : m.config.mode === 'survival' ? `W${m.wave + 1}` : m.suddenDeath ? 'SD' : formatTime(tl);
     this.clock.classList.toggle('low', m.config.timeLimit > 0 && tl < 10 && m.phase === 'playing');
-    this.roundEl.textContent = m.config.mode === 'survival' ? `Wave ${m.wave + 1}/${m.config.waves?.length ?? 1}` : `Round ${m.round} · First to ${m.config.roundsToWin}`;
+    this.roundEl.textContent = m.config.mode === 'tutorial' ? 'Coach Marla' : m.config.mode === 'timeAttack' ? 'Time attack' : m.config.mode === 'survival' ? `Wave ${m.wave + 1}/${m.config.waves?.length ?? 1}` : `Round ${m.round} · First to ${m.config.roundsToWin}`;
 
     // team pips
     const pipKey = [...m.home, ...m.away].map((a) => `${a.hearts}/${a.maxHearts}/${a.active ? 1 : 0}`).join(',') + m.away.length;
