@@ -55,6 +55,9 @@ export class Arena {
   reflective = false;
   /** Materials that expose a uTime uniform. */
   timeUniforms: { value: number }[] = [];
+  /** Baked global illumination volume, once loaded (see LightBake). */
+  bakedGI: THREE.Object3D | null = null;
+  disposed = false;
 
   constructor(public info: ArenaInfo, public quality: QualityProfile) {
     this.look = {
@@ -238,7 +241,10 @@ export class Arena {
   }
 
   dispose() {
+    this.disposed = true;
     this.root.traverse((o) => {
+      // the baked GI texture is cached per arena and reused on the next visit
+      if (o === this.bakedGI) return;
       if ((o as THREE.Light).isLight) (o as THREE.Light).dispose();
       const m = o as THREE.Mesh;
       if (m.geometry) m.geometry.dispose();

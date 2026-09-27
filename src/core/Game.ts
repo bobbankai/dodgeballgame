@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { setCharacterDetail, updateCharacterLod } from '../character/CharacterBuilder';
+import { applyBakedLighting } from '../levels/LightBake';
 import { QualityLevel } from '../config/quality';
 import { Input } from './Input';
 import { time } from './Time';
@@ -117,6 +118,7 @@ export class Game {
     const arena = buildArena(id, this.renderer.quality, court);
     arena.prepareReflections();
     arena.batchStatic();
+    if (this.renderer.quality.bakedGI) void applyBakedLighting(arena, id);
     this.renderer.reflectionActive = arena.reflective;
     this.renderer.setAO(arena.look.ao?.strength ?? 0.85, arena.look.ao?.radius ?? 0.6);
     this.renderer.setLens(arena.look.lens?.strength ?? 0.35, arena.look.lens?.tint ?? new THREE.Color(0.55, 0.72, 1));

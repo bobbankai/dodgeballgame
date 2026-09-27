@@ -11,7 +11,9 @@
     "typecheck": "tsc --noEmit",
     "blender:install": "bash tools/blender/install.sh",
     "assets:details": "blender -b -P tools/blender/bake_details.py",
-    "assets:ball": "blender -b -P tools/blender/bake_ball.py"
+    "assets:ball": "blender -b -P tools/blender/bake_ball.py",
+    "assets:props": "blender -b -P tools/blender/build_props.py",
+    "bake:lighting": "node tools/bake-lighting.cjs"
   },
   "dependencies": {
     "@fontsource/barlow-condensed": "^5.3.0",
