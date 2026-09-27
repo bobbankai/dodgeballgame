@@ -398,6 +398,14 @@ export class VFX {
     }
   }
 
+  /** Make sure every lazily pooled primitive exists (so shader prewarming can see it). */
+  prewarm() {
+    const far = new THREE.Vector3(0, -500, 0);
+    if (!this.ringPool.length) this.ring(far, 0.01, 0xffffff, 0.001);
+    if (!this.flashPool.length) this.flash(far, 0.01, 0xffffff, 0.001);
+    if (!this.decalPool.length) this.decal(far, 0.01, 0xffffff, 0.001);
+  }
+
   clear() {
     this.add.clear();
     this.alpha.clear();

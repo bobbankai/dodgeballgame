@@ -42,6 +42,8 @@ export class Renderer {
   /** set per arena: whether its floor wants planar reflections */
   reflectionActive = false;
   private lensStrength = 0.3;
+  /** frames left in which on-demand passes are forced on so their shaders compile up front */
+  private warmup = 3;
   private smaa: SMAAEffect;
   private scene: THREE.Scene;
   private camera: THREE.PerspectiveCamera;
@@ -153,6 +155,7 @@ export class Renderer {
     this.finish.set('uGrain', q.level === 'low' ? 0 : q.level === 'medium' ? 0.035 : 0.045);
     this.lens.strength = q.bloom ? this.lensStrength : 0;
     this.reflection.scale = q.reflectionScale;
+    this.warmup = 3;
     this.ao.strength = q.ao ? this.aoStrength : 0;
     this.ao.resolutionScale = q.aoResolution;
     this.resolutionScale = 1;
@@ -293,9 +296,13 @@ export class Renderer {
     this.lens.source = this.bloom.texture;
 
     // the neighbourhood-sampling pass only runs while one of its effects is visible
-    const fxOn = this.quality.screenFx && (this.radial > 0.01 || this.aberration > 0.01 || this.speedLines > 0.01);
-    if (this.fxPass.enabled !== fxOn) {
+    const warming = this.warmup > 0;
+    if (warming) this.warmup--;
+    const fxOn = this.quality.screenFx && (warming || this.radial > 0.01 || this.aberration > 0.01 || this.speedLines > 0.01);
+    const dofOn = this.dofEnabled || (warming && this.quality.dof);
+    if (this.fxPass.enabled !== fxOn || this.dofPass.enabled !== dofOn) {
       this.fxPass.enabled = fxOn;
+      this.dofPass.enabled = dofOn;
       this.syncOutput();
     }
 

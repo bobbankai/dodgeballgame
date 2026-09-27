@@ -49,6 +49,8 @@ export class AbilitySystem {
 
   bind() {
     const ev = this.game.world.events;
+    // dash afterimages (player and bosses): clone their rigs now rather than on the first dodge
+    for (const a of this.game.world.athletes) if (a.isPlayer || a.profile.boss) this.ghosts.preallocate(a, 5);
     this.unsubs.push(
       ev.on('throw', ({ athlete, ball, info }) => {
         if (athlete.phantomArmed && info.kind !== 'pass' && info.kind !== 'ultimate') {

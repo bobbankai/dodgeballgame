@@ -44,6 +44,13 @@ export class GhostPool {
     return { root, mesh: m, bones, mat, life: 0.4, t: 0, alpha: 0.5, drift: new THREE.Vector3(), source: null };
   }
 
+  /** Build afterimages ahead of time (skinned clones are too costly to create mid-dash). */
+  preallocate(a: Athlete, n: number) {
+    let pool = this.pools.get(a);
+    if (!pool) this.pools.set(a, (pool = []));
+    while (pool.length < n) pool.push(this.make(a));
+  }
+
   /** Snapshot athlete's pose now. */
   spawn(a: Athlete, color: THREE.ColorRepresentation, life = 0.4, alpha = 0.45, drift?: THREE.Vector3) {
     let pool = this.pools.get(a);

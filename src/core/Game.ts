@@ -115,7 +115,7 @@ export class Game {
     arena.prepareReflections();
     arena.batchStatic();
     this.renderer.reflectionActive = arena.reflective;
-    this.renderer.setAO(arena.look.ao?.strength ?? 0.9, arena.look.ao?.radius ?? 1.0);
+    this.renderer.setAO(arena.look.ao?.strength ?? 0.85, arena.look.ao?.radius ?? 0.6);
     this.renderer.setLens(arena.look.lens?.strength ?? 0.35, arena.look.lens?.tint ?? new THREE.Color(0.55, 0.72, 1));
     this.arena = arena;
     this.arenaId = key;
@@ -220,7 +220,27 @@ export class Game {
     this.hud.abilityInfo = pa && ABILITIES[pa] ? { name: ABILITIES[pa].name, cost: ABILITIES[pa].cost, icon: ABILITIES[pa].icon } : null;
     this.hud.ultInfo = this.player?.profile.ultimate ? { name: 'OVERTHROW' } : null;
     for (const a of this.world.athletes) a.rig.material.u.uDissolveColor.value.copy(a.team === 0 ? homeCol : awayCol);
+    this.prewarmShaders();
     return match;
+  }
+
+  private warmedKey = '';
+  /**
+   * Compile every program this arena + roster can need (hidden trails, ball energy shells,
+   * lazily pooled VFX) up front, so the first power shot or ring burst never hitches mid-match.
+   */
+  private prewarmShaders() {
+    const key = `${this.arenaId}|${this.quality}`;
+    if (key === this.warmedKey) return;
+    this.warmedKey = key;
+    this.vfx.prewarm();
+    const r = this.renderer.renderer as THREE.WebGLRenderer & { compileAsync?: (s: THREE.Object3D, c: THREE.Camera) => Promise<unknown> };
+    try {
+      if (r.compileAsync) r.compileAsync(this.world.scene, this.world.camera).catch(() => {});
+      else r.compile(this.world.scene, this.world.camera);
+    } catch {
+      /* compilation is an optimisation only */
+    }
   }
 
   beginMatch() {

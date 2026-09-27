@@ -135,7 +135,9 @@ metalnessFactor = uMetal[si];`,
   vec3 vdir = normalize(vViewPosition);
   float fres = pow(1.0 - clamp(dot(normal, vdir), 0.0, 1.0), 3.0);
   totalEmissiveRadiance += uColors[si] * uEmis[si] * uGlowStrength;
-  totalEmissiveRadiance += uRimColor * fres * uRimStrength;
+  // thin silhouette rim; on skin it is warmed and softened so foreshortened limbs don't go grey
+  float rimK = pow(1.0 - clamp(dot(normal, vdir), 0.0, 1.0), 4.0) * (1.0 - chSSS * 0.55);
+  totalEmissiveRadiance += mix(uRimColor, uRimColor * vec3(1.15, 0.95, 0.8), chSSS) * rimK * uRimStrength;
   totalEmissiveRadiance += uFlashColor * uFlash;
   float pulse = 0.75 + 0.25 * sin(uTime * 16.0 + vObjPos.y * 24.0);
   totalEmissiveRadiance += uEnergyColor * (fres * 1.3 + 0.04) * uEnergy * pulse;
@@ -146,7 +148,7 @@ metalnessFactor = uMetal[si];`,
   }
 
   override customProgramCacheKey() {
-    return 'athlete-palette-v3';
+    return 'athlete-palette-v4';
   }
 
   setAppearance(a: Appearance) {
