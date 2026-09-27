@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { setCharacterDetail, updateCharacterLod } from '../character/CharacterBuilder';
 import { QualityLevel } from '../config/quality';
 import { Input } from './Input';
 import { time } from './Time';
@@ -71,6 +72,7 @@ export class Game {
     this.quality = quality;
     this.world = new World(time);
     this.renderer = new Renderer(container, this.world.scene, this.world.camera, quality);
+    setCharacterDetail(this.renderer.quality.heroMeshes ? 'full' : 'reduced');
     this.uiRoot = h('div', { id: 'ui-root' });
     container.appendChild(this.uiRoot);
     this.input = new Input(this.renderer.canvas);
@@ -94,6 +96,7 @@ export class Game {
   setQuality(level: QualityLevel) {
     this.quality = level;
     this.renderer.applyQuality(level);
+    setCharacterDetail(this.renderer.quality.heroMeshes ? 'full' : 'reduced');
     this.vfx.setScale(this.renderer.quality.particles);
     // rebuild arena so density/detail follow the preset
     if (this.arenaId) {
@@ -348,6 +351,8 @@ export class Game {
     this.renderer.desatTarget = this.desatOverride ?? (benched ? 0.35 : 0);
     this.audio.setListener(this.world.camera);
     this.hud.update(this.world, this.player, this.pc, this.world.camera, time.fps);
+    // close-up meshes for athletes that fill the frame (cinematics, photo angles, menus)
+    for (const a of this.world.athletes) updateCharacterLod(a.rig, this.world.camera);
     this.renderer.render(realDt, time.fps);
   }
 }

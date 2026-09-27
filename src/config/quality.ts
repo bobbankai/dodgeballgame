@@ -25,28 +25,30 @@ export interface QualityProfile {
   /** Screen-space ambient occlusion and its resolution scale. */
   ao: boolean;
   aoResolution: number;
+  /** Sculpted close-up character meshes (otherwise coarser character meshes throughout). */
+  heroMeshes: boolean;
 }
 
 export const QUALITY_PRESETS: Record<QualityLevel, QualityProfile> = {
   low: {
     level: 'low', maxPixelRatio: 1, shadows: false, shadowMapSize: 512, softShadows: false,
     bloom: false, smaa: false, msaa: 0, screenFx: false, dof: false, particles: 0.45,
-    crowdDensity: 0.35, reflections: false, reflectionScale: 0.25, envDetail: 0.4, extraVfx: false, ao: false, aoResolution: 0.5,
+    crowdDensity: 0.35, reflections: false, reflectionScale: 0.25, envDetail: 0.4, extraVfx: false, ao: false, aoResolution: 0.5, heroMeshes: false,
   },
   medium: {
     level: 'medium', maxPixelRatio: 1.25, shadows: true, shadowMapSize: 1024, softShadows: false,
     bloom: true, smaa: true, msaa: 0, screenFx: true, dof: false, particles: 0.75,
-    crowdDensity: 0.65, reflections: true, reflectionScale: 0.25, envDetail: 0.75, extraVfx: true, ao: false, aoResolution: 0.5,
+    crowdDensity: 0.65, reflections: true, reflectionScale: 0.25, envDetail: 0.75, extraVfx: true, ao: false, aoResolution: 0.5, heroMeshes: true,
   },
   high: {
     level: 'high', maxPixelRatio: 1.5, shadows: true, shadowMapSize: 2048, softShadows: true,
     bloom: true, smaa: true, msaa: 0, screenFx: true, dof: true, particles: 1,
-    crowdDensity: 0.9, reflections: true, reflectionScale: 0.35, envDetail: 1, extraVfx: true, ao: true, aoResolution: 0.5,
+    crowdDensity: 0.9, reflections: true, reflectionScale: 0.35, envDetail: 1, extraVfx: true, ao: true, aoResolution: 0.5, heroMeshes: true,
   },
   ultra: {
     level: 'ultra', maxPixelRatio: 2, shadows: true, shadowMapSize: 4096, softShadows: true,
     bloom: true, smaa: true, msaa: 4, screenFx: true, dof: true, particles: 1.25,
-    crowdDensity: 1, reflections: true, reflectionScale: 0.5, envDetail: 1, extraVfx: true, ao: true, aoResolution: 0.6,
+    crowdDensity: 1, reflections: true, reflectionScale: 0.5, envDetail: 1, extraVfx: true, ao: true, aoResolution: 0.6, heroMeshes: true,
   },
 };
 

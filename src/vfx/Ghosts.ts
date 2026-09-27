@@ -31,6 +31,8 @@ export class GhostPool {
       if ((o as THREE.SkinnedMesh).isSkinnedMesh) mesh = o as THREE.SkinnedMesh;
     });
     const m = mesh as unknown as THREE.SkinnedMesh;
+    // afterimages are small and translucent: always the light gameplay mesh
+    m.geometry = a.rig.lod.base;
     const mat = new THREE.MeshBasicMaterial({ color: 0x66ddff, transparent: true, opacity: 0.5, blending: THREE.AdditiveBlending, depthWrite: false });
     m.material = mat;
     m.castShadow = false;

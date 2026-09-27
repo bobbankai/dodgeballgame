@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { REFLECT_LAYER } from '../rendering/FloorReflection';
 import { TUNING } from '../config/tuning';
-import { buildCharacter, CharacterRig } from '../character/CharacterBuilder';
+import { buildCharacter, CharacterRig, disposeCharacter } from '../character/CharacterBuilder';
 import { Animator, AnimInput, defaultAnimInput } from '../character/Animator';
 import { Appearance } from '../character/Appearance';
 import { ClipName, CLIP_TIMING } from '../character/Clips';
@@ -156,7 +156,7 @@ export class Athlete {
     this.team = team;
     this.perks = { ...profile.perks };
     this.stats = deriveStats(profile.attributes, this.perks, profile.baseHearts);
-    this.rig = buildCharacter(profile.appearance);
+    this.rig = buildCharacter(profile.appearance, { number: profile.number ?? 7, name: profile.name });
     this.rig.mesh.layers.enable(REFLECT_LAYER);
     this.anim = new Animator(this.rig);
     this.anim.onFootstep = (_side, intensity) => this.world?.events.emit('footstep', { athlete: this, intensity });
@@ -203,12 +203,7 @@ export class Athlete {
   /** Remove from the scene and free GPU resources (geometry, bone texture, materials). */
   destroy(scene: THREE.Scene) {
     this.removeFromScene(scene);
-    this.rig.root.traverse((o) => {
-      const m = o as THREE.SkinnedMesh;
-      if (m.isSkinnedMesh) m.skeleton.dispose();
-      if (m.geometry) m.geometry.dispose();
-    });
-    this.rig.material.dispose();
+    disposeCharacter(this.rig);
     for (const m of [this.blob, this.ring]) {
       m.geometry.dispose();
       (m.material as THREE.Material).dispose();
