@@ -76,8 +76,8 @@ export class SettingsScreen extends Screen {
     };
     const QUALITY_DESC = {
       low: 'No shadows or post effects. For older laptops and integrated graphics.',
-      medium: 'Shadows, bloom, lens streaks and film finish.',
-      high: 'Adds polished-floor reflections, ambient occlusion, soft shadows and cinematic depth of field.',
+      medium: 'Shadows, bloom, lens streaks, film finish and polished-floor reflections.',
+      high: 'Adds ambient occlusion, soft shadows, sharper reflections and cinematic depth of field.',
       ultra: 'Adds 4× MSAA, 4K shadow maps, sharper reflections and occlusion, up to 2× pixel density.',
     } as const;
     const qDesc = h('div', { class: 'setting-desc' }, QUALITY_DESC[s.quality]);

@@ -36,7 +36,7 @@ export const QUALITY_PRESETS: Record<QualityLevel, QualityProfile> = {
   medium: {
     level: 'medium', maxPixelRatio: 1.25, shadows: true, shadowMapSize: 1024, softShadows: false,
     bloom: true, smaa: true, msaa: 0, screenFx: true, dof: false, particles: 0.75,
-    crowdDensity: 0.65, reflections: false, reflectionScale: 0.3, envDetail: 0.75, extraVfx: true, ao: false, aoResolution: 0.5,
+    crowdDensity: 0.65, reflections: true, reflectionScale: 0.25, envDetail: 0.75, extraVfx: true, ao: false, aoResolution: 0.5,
   },
   high: {
     level: 'high', maxPixelRatio: 1.5, shadows: true, shadowMapSize: 2048, softShadows: true,
