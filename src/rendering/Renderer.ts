@@ -127,6 +127,7 @@ export class Renderer {
     (this.bloom as any).blendMode.opacity.value = q.bloom ? 1 : 0;
     this.fxPass.enabled = q.screenFx;
     this.aaPass.enabled = q.smaa;
+    this.syncOutput();
     this.composer.multisampling = q.msaa;
     this.resolutionScale = 1;
     this.resize();
@@ -140,6 +141,17 @@ export class Renderer {
         (l.shadow as any).map = null;
       }
     });
+  }
+
+  /**
+   * The composer only flags the last *added* pass as the screen output; with trailing passes
+   * disabled (low presets) nothing would reach the canvas. Route output to the last enabled pass.
+   */
+  private syncOutput() {
+    const passes = [this.renderPass, this.dofPass, this.mainPass, this.fxPass, this.aaPass];
+    let last: (typeof passes)[number] | undefined;
+    for (const p of passes) if (p.enabled) last = p;
+    for (const p of passes) p.renderToScreen = p === last;
   }
 
   resize() {
@@ -184,7 +196,10 @@ export class Renderer {
   }
   setDof(enabled: boolean, focusDistance?: number, range?: number, bokeh?: number) {
     this.dofEnabled = enabled && this.quality.dof;
-    this.dofPass.enabled = this.dofEnabled;
+    if (this.dofPass.enabled !== this.dofEnabled) {
+      this.dofPass.enabled = this.dofEnabled;
+      this.syncOutput();
+    }
     const coc = (this.dof as any).cocMaterial;
     if (focusDistance !== undefined && coc) coc.focusDistance = focusDistance;
     if (range !== undefined && coc) coc.focusRange = range;
@@ -214,10 +229,12 @@ export class Renderer {
     fx.set('uTime', performance.now() / 1000);
     this.distortion.tick(realDt, this.camera, this.camera.aspect);
 
-    if (!this.quality.screenFx && this.letterbox > 0.01) {
-      // Keep letterbox visible even on low quality.
-      this.fxPass.enabled = true;
-    } else if (!this.quality.screenFx) this.fxPass.enabled = false;
+    // keep the letterbox visible even on presets without screen effects
+    const fxOn = this.quality.screenFx || this.letterbox > 0.01;
+    if (this.fxPass.enabled !== fxOn) {
+      this.fxPass.enabled = fxOn;
+      this.syncOutput();
+    }
 
     this.composer.render(realDt);
     this.adaptResolution(realDt, fps);

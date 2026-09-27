@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import type { QualityProfile } from '../config/quality';
 import type { GradeSettings } from '../rendering/PostEffects';
 import { Crowd } from './Crowd';
@@ -74,6 +75,100 @@ export class Arena {
     for (const f of this.updaters) f(dt, t);
   }
 
+  /**
+   * Static batching: merge non-animated opaque meshes that share a material into one draw call
+   * per material and spatial cell. Animated objects are discovered by ticking the updaters and
+   * diffing world transforms/visibility, so arena code needs no manual annotations.
+   * Returns [meshes before, meshes after].
+   */
+  batchStatic(cell = 40): [number, number] {
+    const root = this.root;
+    root.updateMatrixWorld(true);
+    const materials = new Set<THREE.Material>();
+    root.traverse((o) => {
+      const mat = (o as THREE.Mesh).material;
+      if (mat) for (const m of Array.isArray(mat) ? mat : [mat]) materials.add(m);
+    });
+    const snap = new Map<THREE.Object3D, { m: THREE.Matrix4; v: boolean }>();
+    root.traverse((o) => snap.set(o, { m: o.matrixWorld.clone(), v: o.visible }));
+    const matSnap = new Map<THREE.Material, string>();
+    for (const m of materials) matSnap.set(m, materialSignature(m));
+    // probe: fire the hype handlers and tick the updaters to see what they touch
+    for (const h of this.hypeHandlers) h(1);
+    for (const [dt, t] of [[0.37, 1.7], [0.21, 4.3], [0.5, 9.1]]) for (const f of this.updaters) f(dt, t);
+    root.updateMatrixWorld(true);
+    const moving = new Set<THREE.Object3D>();
+    root.traverse((o) => {
+      const s = snap.get(o);
+      if (!s || o.userData.dynamic || s.v !== o.visible || !s.m.equals(o.matrixWorld)) moving.add(o);
+    });
+    const plainCompile = THREE.Material.prototype.onBeforeCompile;
+    const mergeable = (mat: THREE.Material) =>
+      !mat.transparent &&
+      mat.onBeforeCompile === plainCompile &&
+      (mat instanceof THREE.MeshStandardMaterial || mat instanceof THREE.MeshBasicMaterial || mat instanceof THREE.MeshLambertMaterial) &&
+      materialSignature(mat) === matSnap.get(mat);
+    // de-duplicate identical static materials so their meshes can share draw calls
+    const canon = new Map<string, THREE.Material>();
+    root.traverse((o) => {
+      const m = o as THREE.Mesh;
+      if (!m.isMesh || Array.isArray(m.material) || !mergeable(m.material)) return;
+      const sig = matSnap.get(m.material)!;
+      const c = canon.get(sig);
+      if (!c) canon.set(sig, m.material);
+      else if (c !== m.material) m.material = c;
+    });
+    const isDynamic = (o: THREE.Object3D | null): boolean => {
+      for (let p = o; p && p !== root; p = p.parent) if (moving.has(p) || !p.visible) return true;
+      return false;
+    };
+    const plainRender = THREE.Object3D.prototype.onBeforeRender;
+    const groups = new Map<string, THREE.Mesh[]>();
+    let before = 0;
+    const inv = new THREE.Matrix4().copy(root.matrixWorld).invert();
+    const center = new THREE.Vector3();
+    root.traverse((o) => {
+      const m = o as THREE.Mesh;
+      if (!m.isMesh) return;
+      before++;
+      if (m.constructor !== THREE.Mesh || m.children.length || Array.isArray(m.material) || !m.frustumCulled) return;
+      const mat = m.material as THREE.Material;
+      if (!mergeable(mat) || m.onBeforeRender !== plainRender) return;
+      if (m.matrixWorld.determinant() < 0 || m.geometry.morphAttributes.position || isDynamic(m)) return;
+      const g = m.geometry;
+      const sig = Object.keys(g.attributes).sort().map((k) => `${k}${g.attributes[k].itemSize}`).join(',') + (g.index ? 'i' : 'n');
+      if (!g.boundingBox) g.computeBoundingBox();
+      g.boundingBox!.getCenter(center).applyMatrix4(m.matrixWorld);
+      const key = `${mat.uuid}|${m.castShadow ? 1 : 0}${m.receiveShadow ? 1 : 0}|${m.renderOrder}|${m.layers.mask}|${sig}|${Math.floor(center.x / cell)},${Math.floor(center.z / cell)}`;
+      let list = groups.get(key);
+      if (!list) groups.set(key, (list = []));
+      list.push(m);
+    });
+    let removed = 0;
+    const rel = new THREE.Matrix4();
+    for (const list of groups.values()) {
+      if (list.length < 2) continue;
+      const geos = list.map((m) => {
+        rel.multiplyMatrices(inv, m.matrixWorld);
+        return m.geometry.clone().applyMatrix4(rel);
+      });
+      const merged = mergeGeometries(geos, false);
+      for (const g of geos) g.dispose();
+      if (!merged) continue;
+      const src = list[0];
+      const batch = new THREE.Mesh(merged, src.material);
+      batch.name = 'batch';
+      batch.castShadow = src.castShadow;
+      batch.receiveShadow = src.receiveShadow;
+      batch.renderOrder = src.renderOrder;
+      batch.layers.mask = src.layers.mask;
+      root.add(batch);
+      for (const m of list) m.removeFromParent();
+      removed += list.length - 1;
+    }
+    return [before, before - removed];
+  }
+
   /** Render the arena into a PMREM so reflections match its lighting. */
   bakeEnvironment(renderer: THREE.WebGLRenderer) {
     const pmrem = new THREE.PMREMGenerator(renderer);
@@ -114,4 +209,17 @@ export class Arena {
     this.envTarget?.dispose();
     this.envTarget = null;
   }
+}
+
+/** Everything that affects how a material renders (used to find duplicates and runtime mutations). */
+function materialSignature(m: THREE.Material): string {
+  const a = m as any;
+  const tex = (t: THREE.Texture | null | undefined) => (t ? t.uuid : '');
+  const col = (c: THREE.Color | undefined) => (c ? c.getHexString() : '');
+  return [
+    m.type, col(a.color), col(a.emissive), a.emissiveIntensity, a.roughness, a.metalness, a.envMapIntensity,
+    tex(a.map), tex(a.normalMap), tex(a.roughnessMap), tex(a.metalnessMap), tex(a.emissiveMap), tex(a.aoMap), tex(a.alphaMap), tex(a.envMap), tex(a.lightMap), tex(a.bumpMap),
+    a.normalScale ? `${a.normalScale.x},${a.normalScale.y}` : '', m.side, a.flatShading, m.vertexColors, m.transparent, m.opacity, m.depthWrite, m.depthTest,
+    m.blending, a.fog, m.toneMapped, a.wireframe, m.alphaTest, m.polygonOffset, m.polygonOffsetFactor, m.polygonOffsetUnits, m.visible, m.colorWrite,
+  ].join('|');
 }

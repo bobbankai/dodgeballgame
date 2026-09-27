@@ -182,7 +182,7 @@ export const MATCHES: CampaignMatch[] = [
   {
     id: 'm3-3', chapter: 'c3', title: 'Clock Run', opponent: 'Eagles Reserves', mode: 'timeAttack', tags: ['Time Attack', '60s'], requires: ['m3-2'],
     desc: 'An exhibition between rounds: eliminate all three opponents before the minute is up.',
-    build: cfg('m3-3', 'Clock Run', { arena: 'school', mode: 'timeAttack', away: team(KITS.eagles, 3, 2, ['balanced', 'defender', 'speedster'], 10), mates: mates(1, 2, 10), tier: 2, xp: 300, cred: 220, balls: 5, rounds: 1, time: 60, objective: 'Eliminate everyone in 60 seconds', subtitle: 'RESERVES' }),
+    build: cfg('m3-3', 'Clock Run', { arena: 'school', mode: 'timeAttack', away: team(KITS.eagles, 3, 1, ['balanced', 'defender', 'speedster'], 10), mates: mates(2, 2, 10), tier: 2, xp: 300, cred: 220, balls: 5, rounds: 1, time: 60, objective: 'Eliminate everyone in 60 seconds', subtitle: 'RESERVES' }),
   },
   {
     id: 'm3-4', chapter: 'c3', title: 'Invitational Final', opponent: "Andre 'Brick' Okafor", tags: ['Boss', '3v3', 'Final'], boss: true, requires: ['m3-3'], introCinematic: 'brick',

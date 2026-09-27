@@ -111,6 +111,7 @@ export class Game {
       this.arena.dispose();
     }
     const arena = buildArena(id, this.renderer.quality, court);
+    arena.batchStatic();
     this.arena = arena;
     this.arenaId = key;
     this.world.scene.add(arena.root);
@@ -161,7 +162,15 @@ export class Game {
         a.controller = this.pc;
       } else {
         if (team === 0) first = false;
-        const ai = new AIController(a, aiParams(p.personality, p.tier), this.world, brains[team]);
+        const params = aiParams(p.personality, p.tier);
+        if (cfg.mode === 'timeAttack' && team === 1) {
+          // time attack is an offense test: defenders turtle up, hold longer and throw less
+          params.aggression *= 0.5;
+          params.maxHold *= 1.6;
+          params.playerFocus *= 0.5;
+          params.catchBias = Math.min(1, params.catchBias + 0.15);
+        }
+        const ai = new AIController(a, params, this.world, brains[team]);
         if (this.hooks.abilities) ai.abilities = this.hooks.abilities;
         brains[team].add(ai);
         a.controller = ai;

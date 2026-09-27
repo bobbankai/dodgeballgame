@@ -50,6 +50,9 @@ export class App {
 
   constructor(container: HTMLElement) {
     const s = this.save.data.settings;
+    // ?quality=low|medium|high|ultra overrides the saved preset (benchmarks, weak devices)
+    const q = new URLSearchParams(location.search).get('quality');
+    if (q === 'low' || q === 'medium' || q === 'high' || q === 'ultra') s.quality = q;
     this.game = new Game(container, s.quality);
     this.game.progression = this.prog;
     const root = this.game.uiRoot;
@@ -530,6 +533,8 @@ export function debugStart(app: App, id: string, auto: boolean) {
   const b = m.build();
   const config: MatchConfig = { ...b, home: [app.prog.playerProfile(), ...b.homeMates], playerControlled: !auto };
   const g = app.game;
+  (app as any).hideAll();
+  (app as any).mode = 'match';
   g.feedback.subtle = true;
   const match = g.startMatch(config, auto ? undefined : config.home[0]);
   match.begin();

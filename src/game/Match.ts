@@ -323,8 +323,9 @@ export class Match {
       this.endMatch();
       return;
     }
-    // Replace away team with the next wave, home keeps hearts (small heal)
+    // Replace away team with the next wave; home keeps hearts (small heal) and benched mates return
     for (const a of this.away) {
+      a.dropBall(1);
       a.destroy(this.world.scene);
       this.world.athletes.splice(this.world.athletes.indexOf(a), 1);
     }
@@ -338,7 +339,13 @@ export class Match {
       a.fadeIn(1.5);
     });
     for (const a of this.home) {
-      if (a.isOut) continue;
+      if (a.isOut) {
+        if (a.state === 'out') {
+          const spot = new THREE.Vector3(rng.range(-c.halfWidth * 0.5, c.halfWidth * 0.5), 0, c.side(0) * c.halfLength * 0.7);
+          a.revive(spot, Math.PI);
+        }
+        continue;
+      }
       a.releaseScripted();
       a.hearts = Math.min(a.maxHearts, a.hearts + 1);
     }
