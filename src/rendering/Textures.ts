@@ -1,6 +1,9 @@
 import * as THREE from 'three';
+import ballAlbedoUrl from '../assets/textures/ball_albedo.png';
+import ballNormalUrl from '../assets/textures/ball_normal.png';
+import ballOrmUrl from '../assets/textures/ball_orm.png';
 
-/** Procedural canvas textures (no external assets needed). */
+/** Procedural canvas textures, plus the few maps baked offline in Blender. */
 
 function canvas(w: number, h: number) {
   const c = document.createElement('canvas');
@@ -44,65 +47,56 @@ export function heightToNormal(height: Float32Array, w: number, h: number, stren
   return t;
 }
 
-let ballTex: { map: THREE.Texture; normal: THREE.Texture } | null = null;
+let ballTex: { map: THREE.Texture; normal: THREE.Texture; orm: THREE.Texture } | null = null;
 
-/** Classic playground dodgeball: pebbled red rubber with two cream stripes (makes spin readable). */
+/**
+ * The dodgeball, baked in Blender (tools/blender/bake_ball.py): pebbled foam rubber with grooved
+ * seams between red panels and cream stripes (the stripes make spin readable). Object-space
+ * normals, packed occlusion/roughness, and a printed logo composited onto the albedo.
+ */
 export function ballTextures() {
   if (ballTex) return ballTex;
-  const W = 512, H = 256;
+  const W = 1024, H = 512;
   const c = canvas(W, H);
   const g = c.getContext('2d')!;
-  const grad = g.createLinearGradient(0, 0, 0, H);
-  grad.addColorStop(0, '#c8341f');
-  grad.addColorStop(0.5, '#e24a2e');
-  grad.addColorStop(1, '#c8341f');
-  g.fillStyle = grad;
+  g.fillStyle = '#d6412a';
   g.fillRect(0, 0, W, H);
-  // stripes (two great circles-ish in equirect: horizontal band + meridian bands)
-  g.fillStyle = '#f3e6cf';
-  g.fillRect(0, H * 0.47, W, H * 0.06);
-  g.fillRect(W * 0.235, 0, W * 0.03, H);
-  g.fillRect(W * 0.735, 0, W * 0.03, H);
-  // seam lines
-  g.strokeStyle = 'rgba(80,10,5,0.55)';
-  g.lineWidth = 2;
-  g.beginPath();
-  g.moveTo(0, H * 0.465);
-  g.lineTo(W, H * 0.465);
-  g.moveTo(0, H * 0.535);
-  g.lineTo(W, H * 0.535);
-  g.stroke();
-  // speckle variation
-  const img = g.getImageData(0, 0, W, H);
-  for (let i = 0; i < img.data.length; i += 4) {
-    const n = (Math.random() - 0.5) * 14;
-    img.data[i] = Math.max(0, Math.min(255, img.data[i] + n));
-    img.data[i + 1] = Math.max(0, Math.min(255, img.data[i + 1] + n * 0.6));
-    img.data[i + 2] = Math.max(0, Math.min(255, img.data[i + 2] + n * 0.5));
-  }
-  g.putImageData(img, 0, 0);
   const map = new THREE.CanvasTexture(c);
   map.colorSpace = THREE.SRGBColorSpace;
-  map.anisotropy = 4;
-
-  // pebble normal map
-  const NW = 256, NH = 128;
-  const hgt = new Float32Array(NW * NH);
-  const dots = 1800;
-  for (let k = 0; k < dots; k++) {
-    const cx = Math.random() * NW, cy = Math.random() * NH, r = 1.2 + Math.random() * 1.4;
-    for (let y = Math.floor(cy - r - 1); y <= cy + r + 1; y++) {
-      for (let x = Math.floor(cx - r - 1); x <= cx + r + 1; x++) {
-        const d = Math.hypot(x - cx, y - cy) / r;
-        if (d < 1) {
-          const xx = (x + NW) % NW, yy = (y + NH) % NH;
-          hgt[yy * NW + xx] = Math.max(hgt[yy * NW + xx], Math.cos(d * Math.PI * 0.5));
-        }
-      }
-    }
-  }
-  const normal = heightToNormal(hgt, NW, NH, 0.9);
-  ballTex = { map, normal };
+  map.anisotropy = 8;
+  const img = new Image();
+  img.onload = () => {
+    g.drawImage(img, 0, 0, W, H);
+    // printed logo on two opposite panels (pre-stretched: equirect squeezes rows by sin θ)
+    const logo = (u: number, v: number, flip: boolean) => {
+      const sinT = Math.sin(v * Math.PI);
+      g.save();
+      g.translate(u * W, v * H);
+      if (flip) g.rotate(Math.PI);
+      g.scale(1 / sinT, 1);
+      g.textAlign = 'center';
+      g.textBaseline = 'middle';
+      g.font = 'italic 800 30px "Barlow Condensed", "Arial Narrow", sans-serif';
+      g.fillStyle = 'rgba(244, 232, 208, 0.88)';
+      g.fillText('OVERTHROW', 0, 0);
+      g.font = '600 10px "Barlow Condensed", "Arial Narrow", sans-serif';
+      g.fillStyle = 'rgba(244, 232, 208, 0.7)';
+      g.fillText('OFFICIAL MATCH BALL', 0, 20);
+      g.restore();
+    };
+    logo(0.5, 0.29, false);
+    logo(0.0, 0.71, true);
+    logo(1.0, 0.71, true);
+    map.needsUpdate = true;
+  };
+  img.src = ballAlbedoUrl;
+  const load = (url: string) => {
+    const t = new THREE.TextureLoader().load(url);
+    t.colorSpace = THREE.NoColorSpace;
+    t.anisotropy = 8;
+    return t;
+  };
+  ballTex = { map, normal: load(ballNormalUrl), orm: load(ballOrmUrl) };
   return ballTex;
 }
 

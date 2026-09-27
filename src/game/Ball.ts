@@ -96,13 +96,15 @@ export class Ball {
 
   constructor() {
     const tex = ballTextures();
-    sharedGeo ??= new THREE.SphereGeometry(this.radius, 32, 20);
+    sharedGeo ??= new THREE.SphereGeometry(this.radius, 48, 32);
     shellGeo ??= new THREE.SphereGeometry(this.radius * 1.32, 24, 16);
     this.material = new THREE.MeshStandardMaterial({
       map: tex.map,
       normalMap: tex.normal,
-      normalScale: new THREE.Vector2(0.55, 0.55),
-      roughness: 0.52,
+      normalMapType: THREE.ObjectSpaceNormalMap,
+      aoMap: tex.orm,
+      roughnessMap: tex.orm,
+      roughness: 1,
       metalness: 0,
       emissive: new THREE.Color(0, 0, 0),
     });

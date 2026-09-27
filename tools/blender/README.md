@@ -16,6 +16,7 @@ Any Blender ≥ 4.2 on `PATH` also works.
 | Command | Script | Output |
 | --- | --- | --- |
 | `npm run assets:details` | `bake_details.py` | `src/assets/textures/{knit,twill,skin,pebble}.png` |
+| `npm run assets:ball` | `bake_ball.py` | `src/assets/textures/ball_{albedo,normal,orm}.png` |
 
 ### Detail textures (`bake_details.py`)
 
@@ -33,3 +34,12 @@ through skinning, so the detail sticks to cloth and skin as limbs move
 
 `lib.py` holds the shared helpers (scene reset, Cycles bake of geometry onto a tile, periodic
 noise/Voronoi, height → normal).
+
+### The ball (`bake_ball.py`)
+
+A 327k-vertex icosphere is displaced with pebbled foam-rubber grain (spherical Voronoi domes)
+and grooved seams along the stripe edges, then baked onto a sphere built with exactly the
+vertex/UV layout of `THREE.SphereGeometry`, so the equirectangular maps line up with no
+conversion: object-space normals (three.js axes, Y up), occlusion + roughness packed as glTF
+ORM, and an analytically painted albedo. The game composites the printed logo onto the albedo
+at load (`src/rendering/Textures.ts`).
