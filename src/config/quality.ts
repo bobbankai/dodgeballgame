@@ -49,3 +49,24 @@ export const QUALITY_PRESETS: Record<QualityLevel, QualityProfile> = {
     crowdDensity: 1, reflections: true, reflectionScale: 0.5, envDetail: 1, extraVfx: true, ao: true, aoResolution: 0.6,
   },
 };
+
+/**
+ * First-launch preset from the GPU the browser reports: software renderers get LOW,
+ * phones/tablets and integrated laptop GPUs MEDIUM, everything else HIGH. ULTRA is opt-in.
+ */
+export function detectQuality(): QualityLevel {
+  try {
+    const c = document.createElement('canvas');
+    const gl = (c.getContext('webgl2') || c.getContext('webgl')) as WebGLRenderingContext | null;
+    if (!gl) return 'low';
+    const ext = gl.getExtension('WEBGL_debug_renderer_info');
+    const name = String(ext ? gl.getParameter(ext.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER)).toLowerCase();
+    gl.getExtension('WEBGL_lose_context')?.loseContext();
+    if (/swiftshader|llvmpipe|software|basic render/.test(name)) return 'low';
+    const mobile = /android|iphone|ipad|mobile/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && /macintosh/i.test(navigator.userAgent) && !/apple m\d/.test(name));
+    if (mobile || /mali|adreno|powervr|intel|uhd graphics|iris/.test(name)) return 'medium';
+    return 'high';
+  } catch {
+    return 'medium';
+  }
+}

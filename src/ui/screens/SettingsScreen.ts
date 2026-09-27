@@ -74,10 +74,26 @@ export class SettingsScreen extends Screen {
       });
       return h('div', { class: 'setting' }, h('label', {}, label, val), inp);
     };
+    const QUALITY_DESC = {
+      low: 'No shadows or post effects. For older laptops and integrated graphics.',
+      medium: 'Shadows, bloom, lens streaks and film finish.',
+      high: 'Adds polished-floor reflections, ambient occlusion, soft shadows and cinematic depth of field.',
+      ultra: 'Adds 4× MSAA, 4K shadow maps, sharper reflections and occlusion, up to 2× pixel density.',
+    } as const;
+    const qDesc = h('div', { class: 'setting-desc' }, QUALITY_DESC[s.quality]);
     const grid = h(
       'div',
       { class: 'settings-grid' },
-      h('div', { class: 'setting' }, h('label', {}, 'Graphics quality'), seg(['low', 'medium', 'high', 'ultra'] as const, () => s.quality, (v) => (s.quality = v))),
+      h(
+        'div',
+        { class: 'setting', style: 'grid-column: 1 / -1' },
+        h('label', {}, 'Graphics quality'),
+        seg(['low', 'medium', 'high', 'ultra'] as const, () => s.quality, (v) => {
+          s.quality = v;
+          qDesc.textContent = QUALITY_DESC[v];
+        }),
+        qDesc,
+      ),
       h('div', { class: 'setting' }, h('label', {}, 'Adaptive resolution'), seg(['on', 'off'], () => (s.autoQuality ? 'on' : 'off'), (v) => (s.autoQuality = v === 'on'))),
       slider('Mouse sensitivity', 0.2, 3, 0.05, () => s.mouseSensitivity, (v) => (s.mouseSensitivity = v), (v) => v.toFixed(2)),
       slider('Gamepad sensitivity', 0.2, 3, 0.05, () => s.padSensitivity, (v) => (s.padSensitivity = v), (v) => v.toFixed(2)),

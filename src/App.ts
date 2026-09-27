@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { Game } from './core/Game';
 import { time } from './core/Time';
 import { SaveSystem, Settings } from './progression/SaveSystem';
+import { detectQuality } from './config/quality';
 import { Progression } from './progression/Progression';
 import { MainMenu } from './ui/screens/MainMenu';
 import { CareerScreen } from './ui/screens/CareerScreen';
@@ -51,6 +52,8 @@ export class App {
   constructor(container: HTMLElement) {
     const s = this.save.data.settings;
     // ?quality=low|medium|high|ultra overrides the saved preset (benchmarks, weak devices)
+    // first launch: pick a preset that suits this GPU (players can change it any time)
+    if (this.save.status === 'new') s.quality = detectQuality();
     const q = new URLSearchParams(location.search).get('quality');
     if (q === 'low' || q === 'medium' || q === 'high' || q === 'ultra') s.quality = q;
     this.game = new Game(container, s.quality);
