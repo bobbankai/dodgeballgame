@@ -1,6 +1,11 @@
 import type { QualityProfile } from '../../config/quality';
 import type { Arena } from '../Arena';
 import { buildGym, GymStyle } from './Gym';
+import { buildStreet } from './Street';
+import { buildRooftop } from './Rooftop';
+import { buildUnderground } from './Underground';
+import { buildStadium } from './Stadium';
+import { buildEclipse } from './Eclipse';
 
 const REC: GymStyle = {
   id: 'rec',
@@ -73,12 +78,22 @@ const SCHOOL: GymStyle = {
   bleacherRows: 8,
 };
 
-export const ARENA_BUILDERS: Record<string, (q: QualityProfile) => Arena> = {
-  rec: (q) => buildGym(REC, q),
-  school: (q) => buildGym(SCHOOL, q),
+export interface CourtSize {
+  halfWidth: number;
+  halfLength: number;
+}
+
+export const ARENA_BUILDERS: Record<string, (q: QualityProfile, c: CourtSize | null) => Arena> = {
+  rec: (q, c) => buildGym({ ...REC, hw: c?.halfWidth ?? REC.hw, hl: c?.halfLength ?? REC.hl }, q),
+  school: (q, c) => buildGym({ ...SCHOOL, hw: c?.halfWidth ?? SCHOOL.hw, hl: c?.halfLength ?? SCHOOL.hl }, q),
+  street: (q, c) => buildStreet(q, c?.halfWidth ?? 6.5, c?.halfLength ?? 10),
+  rooftop: (q, c) => buildRooftop(q, c?.halfWidth ?? 6.5, c?.halfLength ?? 10),
+  underground: (q, c) => buildUnderground(q, c?.halfWidth ?? 6.5, c?.halfLength ?? 10),
+  stadium: (q, c) => buildStadium(q, c?.halfWidth ?? 6.5, c?.halfLength ?? 10),
+  eclipse: (q, c) => buildEclipse(q, c?.halfWidth ?? 6.5, c?.halfLength ?? 10),
 };
 
-export function buildArena(id: string, q: QualityProfile): Arena {
+export function buildArena(id: string, q: QualityProfile, court: CourtSize | null = null): Arena {
   const b = ARENA_BUILDERS[id] ?? ARENA_BUILDERS.rec;
-  return b(q);
+  return b(q, court);
 }

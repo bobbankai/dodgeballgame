@@ -16,7 +16,7 @@ export class Crowd {
   private hypeTarget = 0;
   private burst = 0;
 
-  constructor(seats: { pos: THREE.Vector3; yaw: number }[], palette: number[], skin: number[] = [0xf1c9a5, 0xd9a47c, 0xb07a52, 0x7a4e32, 0x4f3322]) {
+  constructor(seats: { pos: THREE.Vector3; yaw: number }[], palette: number[], skin: number[] = [0xf1c9a5, 0xd9a47c, 0xb07a52, 0x7a4e32, 0x4f3322], standing = false, ghost = false) {
     const parts: THREE.BufferGeometry[] = [];
     const tag = (g: THREE.BufferGeometry, part: number) => {
       const n = g.attributes.position.count;
@@ -31,8 +31,11 @@ export class Crowd {
     armL.translate(0.23, 0.26, 0);
     const armR = armL.clone();
     armR.translate(-0.46, 0, 0);
-    const legs = new THREE.BoxGeometry(0.34, 0.14, 0.36);
-    legs.translate(0, 0.02, 0.14);
+    const legs = standing ? new THREE.BoxGeometry(0.3, 0.8, 0.2) : new THREE.BoxGeometry(0.34, 0.14, 0.36);
+    if (standing) {
+      legs.translate(0, -0.4, 0);
+      for (const g of [torso, head, armL, armR]) g.translate(0, 0.0, 0);
+    } else legs.translate(0, 0.02, 0.14);
     parts.push(tag(torso, 0), tag(head, 1), tag(armL, 2), tag(armR, 3), tag(legs, 4));
     const geo = mergeGeometries(parts.map((g) => (g.index ? g.toNonIndexed() : g)), false)!;
 
@@ -51,7 +54,9 @@ export class Crowd {
     geo.setAttribute('aSkin', new THREE.InstancedBufferAttribute(aSkin, 3));
     geo.setAttribute('aExcite', new THREE.InstancedBufferAttribute(aExcite, 1));
 
-    const mat = new THREE.MeshStandardMaterial({ roughness: 0.85, metalness: 0 });
+    const mat = ghost
+      ? new THREE.MeshStandardMaterial({ roughness: 0.4, metalness: 0.2, color: 0x000000, emissive: 0x6d4bd8, emissiveIntensity: 0.9, transparent: true, opacity: 0.85 })
+      : new THREE.MeshStandardMaterial({ roughness: 0.85, metalness: 0 });
     mat.onBeforeCompile = (shader) => {
       Object.assign(shader.uniforms, this.uniforms);
       shader.vertexShader = shader.vertexShader
@@ -98,11 +103,11 @@ transformed.xz = rot2(sin(t * 0.37) * 0.12 * (1.0 - h)) * transformed.xz;`,
         .replace(
           '#include <color_fragment>',
           `#include <color_fragment>
-if (vPartC > 0.5 && vPartC < 1.5) diffuseColor.rgb = vSkinC;
+if (vPartC > 0.5 && vPartC < 1.5) diffuseColor.rgb = mix(diffuseColor.rgb, vSkinC, step(0.01, dot(diffuseColor.rgb, vec3(1.0))));
 if (vPartC > 3.5) diffuseColor.rgb *= 0.35;`,
         );
     };
-    mat.customProgramCacheKey = () => 'crowd-v1';
+    mat.customProgramCacheKey = () => (ghost ? 'crowd-ghost-v1' : 'crowd-v1');
 
     this.mesh = new THREE.InstancedMesh(geo, mat, count);
     const m = new THREE.Matrix4();

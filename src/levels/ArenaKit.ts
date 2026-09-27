@@ -200,6 +200,11 @@ export interface LineStyle {
   logoSub?: string;
   circle?: string;
   glow?: boolean;
+  /** Painted court surface (acrylic) drawn under the lines, extends `fillMargin` past the boundary. */
+  courtFill?: string;
+  fillMargin?: number;
+  /** Second fill colour for the out-of-bounds border. */
+  borderFill?: string;
 }
 
 /** Court markings drawn into a transparent texture covering (2*hw+2m) x (2*hl+2m). */
@@ -211,6 +216,31 @@ export function courtLines(hw: number, hl: number, style: LineStyle) {
   const tex = makeCanvasTexture(cw, ch, (g) => {
     g.clearRect(0, 0, cw, ch);
     const X = (x: number) => (x + W / 2) * ppm;
+    if (style.courtFill) {
+      const fm = style.fillMargin ?? 0.8;
+      if (style.borderFill) {
+        g.fillStyle = style.borderFill;
+        g.fillRect(X(-hw - fm), (L / 2 - hl - fm) * ppm, (hw + fm) * 2 * ppm, (hl + fm) * 2 * ppm);
+      }
+      g.fillStyle = style.courtFill;
+      g.fillRect(X(-hw), (L / 2 - hl) * ppm, hw * 2 * ppm, hl * 2 * ppm);
+      // wear: speckle and scuffs
+      const img = g.getImageData(0, 0, cw, ch);
+      for (let i = 0; i < img.data.length; i += 4) {
+        if (img.data[i + 3] === 0) continue;
+        const n = (Math.random() - 0.5) * 16;
+        img.data[i] += n;
+        img.data[i + 1] += n;
+        img.data[i + 2] += n;
+      }
+      g.putImageData(img, 0, 0);
+      g.fillStyle = 'rgba(255,255,255,0.05)';
+      for (let k = 0; k < 80; k++) {
+        g.beginPath();
+        g.ellipse(X((Math.random() - 0.5) * hw * 2), (L / 2 + (Math.random() - 0.5) * hl * 2) * ppm, 10 + Math.random() * 40, 3 + Math.random() * 8, Math.random() * 3, 0, Math.PI * 2);
+        g.fill();
+      }
+    }
     // canvas top (row 0) = far/away end (-Z); flipY maps it to v = 1 which the shader puts at z = -L/2
     const Z = (z: number) => (z + L / 2) * ppm;
     // team tints (subtle wash on each half)

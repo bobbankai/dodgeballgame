@@ -3,6 +3,7 @@ import type { QualityProfile } from '../config/quality';
 import type { GradeSettings } from '../rendering/PostEffects';
 import { Crowd } from './Crowd';
 import { Scoreboard } from './ArenaKit';
+import type { Obstacle } from '../game/Court';
 
 export interface ArenaLook {
   background: THREE.Color | THREE.Texture | null;
@@ -37,6 +38,8 @@ export class Arena {
   keyLight: THREE.DirectionalLight | null = null;
   cameraBounds = new THREE.Box3(new THREE.Vector3(-14, 0.3, -18), new THREE.Vector3(14, 10, 18));
   blockers: THREE.Box3[] = [];
+  /** In-court cover that blocks balls and athletes. */
+  obstacles: Obstacle[] = [];
   /** Named points for cinematics (tunnel exits, spotlight marks...). */
   marks: Record<string, THREE.Vector3> = {};
   look: ArenaLook;

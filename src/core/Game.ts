@@ -23,6 +23,7 @@ import { CinematicDirector } from '../cinematics/CinematicDirector';
 import { AbilitySystem } from '../abilities/AbilitySystem';
 import { ABILITIES } from '../data/skills';
 import type { Progression } from '../progression/Progression';
+import { BossDirector } from '../game/BossDirector';
 
 export interface GameHooks {
   onMatchEnd?: (config: MatchConfig, result: MatchResult) => void;
@@ -62,6 +63,7 @@ export class Game {
   readonly director: CinematicDirector;
   readonly abilities: AbilitySystem;
   progression: Progression | null = null;
+  readonly boss: BossDirector;
 
   constructor(container: HTMLElement, quality: QualityLevel) {
     this.quality = quality;
@@ -81,6 +83,7 @@ export class Game {
     this.director = new CinematicDirector(this);
     this.abilities = new AbilitySystem(this, this.director);
     this.hooks.abilities = this.abilities;
+    this.boss = new BossDirector(this);
     (window as any).__game = this;
     (window as any).__aiDebug = AI_DEBUG;
   }
@@ -91,21 +94,23 @@ export class Game {
     this.vfx.setScale(this.renderer.quality.particles);
     // rebuild arena so density/detail follow the preset
     if (this.arenaId) {
-      const id = this.arenaId;
+      const [id, size] = this.arenaId.split(':');
       this.arenaId = '';
-      this.loadArena(id);
+      const court = size ? { halfWidth: Number(size.split('x')[0]), halfLength: Number(size.split('x')[1]) } : null;
+      this.loadArena(id, court);
     }
   }
 
-  loadArena(id: string) {
-    if (this.arenaId === id && this.arena) return this.arena;
+  loadArena(id: string, court: { halfWidth: number; halfLength: number } | null = null) {
+    const key = court ? `${id}:${court.halfWidth}x${court.halfLength}` : id;
+    if (this.arenaId === key && this.arena) return this.arena;
     if (this.arena) {
       this.world.scene.remove(this.arena.root);
       this.arena.dispose();
     }
-    const arena = buildArena(id, this.renderer.quality);
+    const arena = buildArena(id, this.renderer.quality, court);
     this.arena = arena;
-    this.arenaId = id;
+    this.arenaId = key;
     this.world.scene.add(arena.root);
     const look = arena.look;
     this.world.scene.background = look.background;
@@ -118,6 +123,7 @@ export class Game {
     this.cam.blockers = arena.blockers;
     this.world.court.halfWidth = arena.info.court.halfWidth;
     this.world.court.halfLength = arena.info.court.halfLength;
+    this.world.court.obstacles = arena.obstacles;
     this.feedback.arena = arena;
     // shadow-casting lights get the preset's map size
     this.renderer.applyQuality(this.quality);
@@ -127,7 +133,7 @@ export class Game {
   /** Create athletes + controllers and begin a match. */
   startMatch(config: MatchConfig, playerProfile?: AthleteProfile) {
     this.endMatch();
-    const arena = this.loadArena(config.arena);
+    const arena = this.loadArena(config.arena, config.court ?? null);
     if (config.court) {
       this.world.court.halfWidth = config.court.halfWidth;
       this.world.court.halfLength = config.court.halfLength;
@@ -191,6 +197,7 @@ export class Game {
       this.cam.orbitCenter.set(0, 1, 0);
     }
     this.hooks.abilities?.bind();
+    this.boss.bind();
     this.input.gameplayMouse = playerControlled;
     this.hud.show(playerControlled);
     const pa = this.player?.profile.ability;
@@ -210,6 +217,7 @@ export class Game {
       this.match = null;
     }
     this.hooks.abilities?.unbind();
+    this.boss.unbind();
     this.world.removeAthletes();
     this.world.balls.clear();
     this.vfx.clear();
@@ -251,6 +259,7 @@ export class Game {
     this.world.update(dt);
     for (const b of this.brains) b.update(dt);
     this.hooks.abilities?.update(dt);
+    this.boss.update(dt);
     this.match?.update(dt, realDt);
   }
 

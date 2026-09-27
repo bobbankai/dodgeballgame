@@ -105,6 +105,7 @@ export class App {
     this.bindGlobalInput();
     window.addEventListener('beforeunload', () => this.save.flush());
     (window as any).__app = this;
+    (window as any).__debugStart = (id: string, auto = true) => debugStart(this, id, auto);
   }
 
   // ------------------------------------------------------------------ settings
@@ -529,6 +530,18 @@ export class App {
     };
     this.results.open(title, r, sum, unlocks);
   }
+}
+
+/** Developer hook: start a campaign match immediately (optionally AI-controlled). */
+export function debugStart(app: App, id: string, auto: boolean) {
+  const m = MATCH_BY_ID[id];
+  const b = m.build();
+  const config: MatchConfig = { ...b, home: [app.prog.playerProfile(), ...b.homeMates], playerControlled: !auto };
+  const g = app.game;
+  g.feedback.subtle = true;
+  const match = g.startMatch(config, auto ? undefined : config.home[0]);
+  match.begin();
+  return match;
 }
 
 function nextFrame() {
