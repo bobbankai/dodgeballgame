@@ -14,6 +14,11 @@ const { chromium } = require('/opt/node22/lib/node_modules/playwright');
     let guard = 0;
     while (d.attrPoints > 0 && guard++ < 200) { const k = order.reduce((b, k) => (d.attributes[k] < d.attributes[b] ? k : b), order[0]); if (!prog.raise(k)) break; }
     for (let p = 0; p < 3; p++) for (const s of [...sk.SKILLS].sort((a, b) => a.cost - b.cost)) if (prog.canBuy(s).ok) prog.buy(s);
+    const tier = +(new URLSearchParams(location.search).get('standin') || 0);
+    if (tier) {
+      const orig = prog.playerProfile.bind(prog);
+      prog.playerProfile = () => ({ ...orig(), tier });
+    }
   }, +level);
   let wins = 0;
   for (let i = 0; i < +runs; i++) {
@@ -25,6 +30,9 @@ const { chromium } = require('/opt/node22/lib/node_modules/playwright');
       const offs = [
         g.world.events.on('hit', (e) => { hits[e.victim.team]++; bump(`${e.thrower ? e.thrower.name : '?'}>${e.victim.name}${e.ball && e.ball.info && e.ball.info.wallBounces ? '+wall' : ''}`); }),
         g.world.events.on('catch', (e) => { if (e.thrower && e.thrower.team !== e.catcher.team) bump(`C:${e.catcher.name}<${e.thrower.name}`); }),
+        g.world.events.on('throw', (e) => { if (e.info.kind === 'power' || e.info.kind === 'ultimate') bump(`T:${e.athlete.name}:${e.info.kind}`); }),
+        g.world.events.on('hit', (e) => { if (e.ball && e.ball.info && (e.ball.info.kind === 'power' || e.ball.info.kind === 'ultimate')) bump(`H:${e.thrower ? e.thrower.name : '?'}:${e.ball.info.kind}`); }),
+        g.world.events.on('dodge', (e) => bump(`D:${e.athlete.team}`)),
       ];
       const m = window.__debugStart(id, true); m.onEnd = (x) => (res = x);
       const roster = g.world.athletes.map((a) => `${a.name}(${a.team}${a.isPlayer ? 'P' : ''},h${a.maxHearts})`).join(' ');

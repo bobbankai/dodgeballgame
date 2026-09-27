@@ -236,7 +236,7 @@ export class Game {
     this.vfx.prewarm();
     const r = this.renderer.renderer as THREE.WebGLRenderer & { compileAsync?: (s: THREE.Object3D, c: THREE.Camera) => Promise<unknown> };
     try {
-      if (r.compileAsync) r.compileAsync(this.world.scene, this.world.camera).catch(() => {});
+      if (r.compileAsync && r.extensions.has('KHR_parallel_shader_compile')) r.compileAsync(this.world.scene, this.world.camera).catch(() => {});
       else r.compile(this.world.scene, this.world.camera);
     } catch {
       /* compilation is an optimisation only */

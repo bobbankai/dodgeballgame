@@ -51,7 +51,7 @@ export const JAX = (tier: number) =>
 
 export const BRICK = () =>
   makeProfile({
-    id: 'brick', name: 'Brick', title: "Andre 'Brick' Okafor", number: 55, kit: KITS.wolves, personality: 'powerhouse', tier: 4, hair: 'buzz', hairColor: 0x1b1411, skin: 0x5e3b27, brow: 'angry', height: 1.08, bulk: 1.35, hearts: 3, boss: true,
+    id: 'brick', name: 'Brick', title: "Andre 'Brick' Okafor", number: 55, kit: KITS.wolves, personality: 'powerhouse', tier: 3, hair: 'buzz', hairColor: 0x1b1411, skin: 0x5e3b27, brow: 'angry', height: 1.08, bulk: 1.35, hearts: 3, boss: true,
     ability: 'powerShot', perks: { shockwave: true }, seed: 5555,
   });
 
@@ -187,7 +187,7 @@ export const MATCHES: CampaignMatch[] = [
   {
     id: 'm3-4', chapter: 'c3', title: 'Invitational Final', opponent: "Andre 'Brick' Okafor", tags: ['Boss', '3v3', 'Final'], boss: true, requires: ['m3-3'], introCinematic: 'brick',
     desc: 'The Wolves captain throws power shots that knock the ball out of ordinary hands. Perfect catches only.',
-    build: cfg('m3-4', 'Invitational Final', { arena: 'school', away: [BRICK(), ...team(KITS.wolves, 2, 3, ['defender', 'aggressor'], 11)], mates: mates(2, 3, 11), tier: 4, xp: 460, cred: 320, balls: 4, subtitle: 'WOLVES' }),
+    build: cfg('m3-4', 'Invitational Final', { arena: 'school', away: [BRICK(), ...team(KITS.wolves, 2, 2, ['defender', 'aggressor'], 11)], mates: mates(2, 3, 11), tier: 4, xp: 460, cred: 320, balls: 4, subtitle: 'WOLVES' }),
     unlocks: { cred: 200 },
   },
   // ------------------------------------------------------------------ CH4
