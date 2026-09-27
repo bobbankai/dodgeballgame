@@ -10,7 +10,8 @@ import {
   SMAAPreset,
 } from 'postprocessing';
 import { QUALITY_PRESETS, QualityLevel, QualityProfile } from '../config/quality';
-import { DistortionEffect, GradeEffect, GradeSettings, ScreenFxEffect } from './PostEffects';
+import { DistortionEffect, FinishEffect, GradeEffect, GradeSettings, LensEffect, ScreenFxEffect } from './PostEffects';
+import { FloorReflection, reflectionUniforms, REFLECT_LAYER } from './FloorReflection';
 import { dampTo } from '../core/math';
 
 /**
@@ -31,7 +32,13 @@ export class Renderer {
   readonly grade: GradeEffect;
   readonly distortion: DistortionEffect;
   readonly screenFx: ScreenFxEffect;
+  readonly finish: FinishEffect;
+  readonly lens: LensEffect;
   readonly dof: DepthOfFieldEffect;
+  readonly reflection = new FloorReflection();
+  /** set per arena: whether its floor wants planar reflections */
+  reflectionActive = false;
+  private lensStrength = 0.3;
   private smaa: SMAAEffect;
   private scene: THREE.Scene;
   private camera: THREE.PerspectiveCamera;
@@ -97,7 +104,15 @@ export class Renderer {
       radius: 0.72,
     });
     this.grade = new GradeEffect();
-    this.mainPass = new EffectPass(camera, this.distortion, this.bloom, this.grade);
+    this.lens = new LensEffect();
+    this.finish = new FinishEffect();
+    // one merged fullscreen pass: shock-wave UVs -> bloom -> lens streaks -> tonemap/grade -> vignette/grain/bars
+    this.mainPass = new EffectPass(camera, this.distortion, this.bloom, this.lens, this.grade, this.finish);
+    // bloom's blur chain is skipped entirely on presets without bloom (its blend opacity is 0 there)
+    const bloomUpdate = this.bloom.update.bind(this.bloom);
+    this.bloom.update = (r, i, d) => {
+      if (this.quality.bloom) bloomUpdate(r, i, d);
+    };
     this.composer.addPass(this.mainPass);
 
     this.screenFx = new ScreenFxEffect();
@@ -121,6 +136,7 @@ export class Renderer {
 
   applyQuality(level: QualityLevel) {
     const q = (this.quality = QUALITY_PRESETS[level]);
+    this.shadowLights = this.shadowLights.filter((l) => l.parent);
     this.renderer.shadowMap.enabled = q.shadows;
     this.renderer.shadowMap.type = THREE.PCFShadowMap;
     this.bloom.intensity = q.bloom ? this.baseBloom : 0;
@@ -129,12 +145,16 @@ export class Renderer {
     this.aaPass.enabled = q.smaa;
     this.syncOutput();
     this.composer.multisampling = q.msaa;
+    this.finish.set('uGrain', q.level === 'low' ? 0 : q.level === 'medium' ? 0.035 : 0.045);
+    this.lens.strength = q.bloom ? this.lensStrength : 0;
+    this.reflection.scale = q.reflectionScale;
     this.resolutionScale = 1;
     this.resize();
     // Force shadow-casting lights to rebuild maps at the new size.
     this.scene.traverse((o) => {
       const l = o as THREE.DirectionalLight;
       if ((l as any).isLight && l.shadow) {
+        if (l.castShadow && !this.shadowLights.includes(l)) this.shadowLights.push(l);
         l.shadow.mapSize.set(q.shadowMapSize, q.shadowMapSize);
         l.shadow.radius = q.softShadows ? 4 : 1.5;
         l.shadow.map?.dispose();
@@ -151,7 +171,11 @@ export class Renderer {
     const passes = [this.renderPass, this.dofPass, this.mainPass, this.fxPass, this.aaPass];
     let last: (typeof passes)[number] | undefined;
     for (const p of passes) if (p.enabled) last = p;
-    for (const p of passes) p.renderToScreen = p === last;
+    for (const p of passes) {
+      p.renderToScreen = p === last;
+      // dither the final 8-bit output to hide banding in dark gradients
+      if (p instanceof EffectPass) p.dithering = p === last;
+    }
   }
 
   resize() {
@@ -165,6 +189,28 @@ export class Renderer {
     this.composer.setSize(w, h, false);
     this.camera.aspect = w / h;
     this.camera.updateProjectionMatrix();
+    this.reflection.setSize(w * pr, h * pr);
+  }
+
+  /** Arena-specific anamorphic streak strength/tint (bloom presets only). */
+  setLens(strength: number, tint?: THREE.Color) {
+    this.lensStrength = strength;
+    this.lens.strength = this.quality.bloom ? strength : 0;
+    if (tint) this.lens.setTint(tint);
+  }
+
+  private shadowLights: THREE.DirectionalLight[] = [];
+  private shadowMapsReady() {
+    if (!this.renderer.shadowMap.enabled) return true;
+    for (const l of this.shadowLights) if (l.castShadow && l.parent && !l.shadow?.map) return false;
+    return true;
+  }
+
+  /** Put scene lights on the reflection layer so the mirrored render is lit. */
+  registerReflectionLights(root: THREE.Object3D) {
+    root.traverse((o) => {
+      if ((o as THREE.Light).isLight) o.layers.enable(REFLECT_LAYER);
+    });
   }
 
   // ---------- gameplay feedback API ----------
@@ -181,7 +227,7 @@ export class Renderer {
   pulseVignette(v: number, color: THREE.ColorRepresentation) {
     this.vigPulse = Math.max(this.vigPulse, v);
     const c = new THREE.Color(color);
-    (this.screenFx.uniforms.get('uVigColor')!.value as THREE.Vector3).set(c.r, c.g, c.b);
+    (this.finish.uniforms.get('uVigColor')!.value as THREE.Vector3).set(c.r, c.g, c.b);
   }
   shockwave(world: THREE.Vector3, strength = 1, maxRadius = 0.45) {
     if (!this.quality.screenFx) return;
@@ -221,20 +267,28 @@ export class Renderer {
     g.u('uDesat').value = this.desaturate;
     if (this.quality.bloom) this.bloom.intensity = this.baseBloom + this.bloomBoost;
     const fx = this.screenFx;
-    fx.set('uAberration', 0.04 + this.aberration * 0.6);
+    fx.set('uAberration', this.aberration * 0.6);
     fx.set('uRadial', this.radial);
     fx.set('uSpeedLines', this.speedLines);
-    fx.set('uVigPulse', this.vigPulse);
-    fx.set('uLetterbox', this.letterbox);
     fx.set('uTime', performance.now() / 1000);
+    const fin = this.finish;
+    fin.set('uVigPulse', this.vigPulse);
+    fin.set('uLetterbox', this.letterbox);
+    fin.set('uTime', (performance.now() / 1000) % 1000);
     this.distortion.tick(realDt, this.camera, this.camera.aspect);
+    this.lens.source = this.bloom.texture;
 
-    // keep the letterbox visible even on presets without screen effects
-    const fxOn = this.quality.screenFx || this.letterbox > 0.01;
+    // the neighbourhood-sampling pass only runs while one of its effects is visible
+    const fxOn = this.quality.screenFx && (this.radial > 0.01 || this.aberration > 0.01 || this.speedLines > 0.01);
     if (this.fxPass.enabled !== fxOn) {
       this.fxPass.enabled = fxOn;
       this.syncOutput();
     }
+
+    // the mirrored render reuses this frame's shadow maps, so wait until they exist
+    const reflOn = this.quality.reflections && this.reflectionActive && this.shadowMapsReady();
+    reflectionUniforms.uReflOn.value = reflOn ? 1 : 0;
+    if (reflOn) this.reflection.update(this.renderer, this.scene, this.camera);
 
     this.composer.render(realDt);
     this.adaptResolution(realDt, fps);

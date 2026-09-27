@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { REFLECT_LAYER } from '../rendering/FloorReflection';
 import { ParticleSystem } from './Particles';
 import { glowTexture, blobTexture } from '../rendering/Textures';
 import type { Ball } from '../game/Ball';
@@ -77,6 +78,7 @@ class Trail {
       side: THREE.DoubleSide,
     });
     this.mesh = new THREE.Mesh(geo, this.mat);
+    this.mesh.layers.enable(REFLECT_LAYER);
     this.mesh.frustumCulled = false;
     this.mesh.visible = false;
     this.mesh.renderOrder = 18;
@@ -262,6 +264,7 @@ export class VFX {
     if (!s) {
       s = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTexture(), blending: THREE.AdditiveBlending, depthWrite: false, transparent: true }));
       s.renderOrder = 21;
+      s.layers.enable(REFLECT_LAYER);
       this.root.add(s);
     }
     (s.material as THREE.SpriteMaterial).color.set(color);

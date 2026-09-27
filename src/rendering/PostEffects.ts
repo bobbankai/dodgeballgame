@@ -170,18 +170,14 @@ export class DistortionEffect extends Effect {
 }
 
 /**
- * Screen-space feedback: radial zoom blur, chromatic aberration, speed lines and
- * vignette pulse. All driven by a few scalar intensities from gameplay.
+ * Screen-space feedback that needs neighbouring pixels: radial zoom blur, chromatic
+ * aberration and speed lines. Runs in its own pass that is only enabled while active.
  */
 const screenFxFrag = /* glsl */ `
 uniform float uRadial;     // zoom blur strength
 uniform float uAberration; // chromatic aberration strength
 uniform float uSpeedLines; // speed-line intensity
-uniform float uVignette;   // base vignette darkness
-uniform float uVigPulse;   // colored vignette pulse
-uniform vec3 uVigColor;
 uniform float uTime;
-uniform float uLetterbox;  // 0..1 cinematic bars
 uniform vec2 uCenter;
 
 float hash(float n) { return fract(sin(n) * 43758.5453123); }
@@ -217,15 +213,6 @@ void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor)
     line *= smoothstep(0.55, 1.0, thin);
     col = mix(col, vec3(1.0), line * uSpeedLines * 0.35);
   }
-  // Vignette
-  float v = smoothstep(0.35, 1.05, r);
-  col *= 1.0 - v * uVignette;
-  col = mix(col, uVigColor, v * v * uVigPulse);
-  // Letterbox
-  if (uLetterbox > 0.0) {
-    float bar = 0.12 * uLetterbox;
-    if (uv.y < bar || uv.y > 1.0 - bar) col = vec3(0.0);
-  }
   outputColor = vec4(col, inputColor.a);
 }
 `;
@@ -239,11 +226,7 @@ export class ScreenFxEffect extends Effect {
         ['uRadial', new THREE.Uniform(0)],
         ['uAberration', new THREE.Uniform(0)],
         ['uSpeedLines', new THREE.Uniform(0)],
-        ['uVignette', new THREE.Uniform(0.38)],
-        ['uVigPulse', new THREE.Uniform(0)],
-        ['uVigColor', new THREE.Uniform(new THREE.Vector3(1, 0.2, 0.1))],
         ['uTime', new THREE.Uniform(0)],
-        ['uLetterbox', new THREE.Uniform(0)],
         ['uCenter', new THREE.Uniform(new THREE.Vector2(0.5, 0.5))],
       ]),
     });
@@ -253,5 +236,180 @@ export class ScreenFxEffect extends Effect {
   }
   get(name: string): number {
     return this.uniforms.get(name)!.value as number;
+  }
+}
+
+/**
+ * Per-pixel finishing that merges into the main pass: lens vignette (with a coloured
+ * gameplay pulse), filmic grain that sits mostly in the shadows, and letterbox bars.
+ */
+const finishFrag = /* glsl */ `
+uniform float uVignette;
+uniform float uVigPulse;
+uniform vec3 uVigColor;
+uniform float uGrain;
+uniform float uTime;
+uniform float uLetterbox;
+
+float fHash(vec2 p) {
+  vec3 p3 = fract(vec3(p.xyx) * 0.1031);
+  p3 += dot(p3, p3.yzx + 33.33);
+  return fract((p3.x + p3.y) * p3.z);
+}
+
+void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor) {
+  vec3 col = inputColor.rgb;
+  vec2 d = (uv - 0.5) * vec2(aspect, 1.0);
+  float r = length(d);
+  // natural (cos^4-like) falloff plus art-directed darkening toward the corners
+  float v = smoothstep(0.38, 1.05, r);
+  col *= 1.0 - v * uVignette;
+  col = mix(col, uVigColor, v * v * uVigPulse);
+  if (uGrain > 0.0) {
+    float n = fHash(uv * resolution + fract(uTime * 7.31) * 173.0) - 0.5;
+    float l = dot(col, vec3(0.2126, 0.7152, 0.0722));
+    col += n * uGrain * (0.02 + sqrt(max(l, 0.0)) * 0.45);
+  }
+  if (uLetterbox > 0.0) {
+    float bar = 0.12 * uLetterbox;
+    float e = min(uv.y, 1.0 - uv.y);
+    col *= smoothstep(bar - 0.002, bar + 0.002, e);
+  }
+  outputColor = vec4(max(col, 0.0), inputColor.a);
+}
+`;
+
+export class FinishEffect extends Effect {
+  constructor() {
+    super('FinishEffect', finishFrag, {
+      blendFunction: BlendFunction.SET,
+      uniforms: new Map<string, THREE.Uniform>([
+        ['uVignette', new THREE.Uniform(0.38)],
+        ['uVigPulse', new THREE.Uniform(0)],
+        ['uVigColor', new THREE.Uniform(new THREE.Vector3(1, 0.2, 0.1))],
+        ['uGrain', new THREE.Uniform(0.05)],
+        ['uTime', new THREE.Uniform(0)],
+        ['uLetterbox', new THREE.Uniform(0)],
+      ]),
+    });
+  }
+  set(name: string, v: number) {
+    this.uniforms.get(name)!.value = v;
+  }
+}
+
+const streakVert = /* glsl */ `
+varying vec2 vUv;
+void main() { vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }
+`;
+const streakFrag = /* glsl */ `
+uniform sampler2D tSrc;
+uniform vec2 uStep;
+uniform float uThreshold;
+varying vec2 vUv;
+void main() {
+  vec3 c = vec3(0.0);
+  float w = 0.0;
+  for (int i = -4; i <= 4; i++) {
+    float fi = float(i);
+    float k = exp(-abs(fi) * 0.3);
+    c += texture2D(tSrc, vUv + uStep * fi).rgb * k;
+    w += k;
+  }
+  c /= w;
+  c = max(c - uThreshold, 0.0);
+  gl_FragColor = vec4(c, 1.0);
+}
+`;
+
+/**
+ * Anamorphic lens streaks: the blurred bloom buffer is smeared horizontally in three
+ * tiny passes (1/4 x 1/8 resolution, growing step sizes) and added back, giving the long
+ * blue flares of broadcast lenses under arena lights for almost no cost.
+ */
+const lensFrag = /* glsl */ `
+uniform sampler2D uStreakTex;
+uniform float uStreak;
+uniform vec3 uStreakTint;
+void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor) {
+  vec3 s = texture2D(uStreakTex, uv).rgb;
+  outputColor = vec4(inputColor.rgb + s * uStreakTint * uStreak, inputColor.a);
+}
+`;
+
+export class LensEffect extends Effect {
+  private rtA: THREE.WebGLRenderTarget;
+  private rtB: THREE.WebGLRenderTarget;
+  private mat: THREE.ShaderMaterial;
+  private quad: THREE.Mesh;
+  private cam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+  source: THREE.Texture | null = null;
+
+  constructor() {
+    const opts = { type: THREE.HalfFloatType, depthBuffer: false, minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter };
+    const rtA = new THREE.WebGLRenderTarget(4, 4, opts);
+    const rtB = new THREE.WebGLRenderTarget(4, 4, opts);
+    super('LensEffect', lensFrag, {
+      blendFunction: BlendFunction.SET,
+      uniforms: new Map<string, THREE.Uniform>([
+        ['uStreakTex', new THREE.Uniform(rtA.texture)],
+        ['uStreak', new THREE.Uniform(0)],
+        ['uStreakTint', new THREE.Uniform(new THREE.Vector3(0.55, 0.72, 1.0))],
+      ]),
+    });
+    this.rtA = rtA;
+    this.rtB = rtB;
+    this.mat = new THREE.ShaderMaterial({
+      vertexShader: streakVert,
+      fragmentShader: streakFrag,
+      uniforms: { tSrc: { value: null }, uStep: { value: new THREE.Vector2() }, uThreshold: { value: 0 } },
+      depthTest: false,
+      depthWrite: false,
+    });
+    this.quad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), this.mat);
+    this.quad.frustumCulled = false;
+  }
+
+  get strength() {
+    return this.uniforms.get('uStreak')!.value as number;
+  }
+  set strength(v: number) {
+    this.uniforms.get('uStreak')!.value = v;
+  }
+  setTint(c: THREE.Color) {
+    (this.uniforms.get('uStreakTint')!.value as THREE.Vector3).set(c.r, c.g, c.b);
+  }
+
+  override setSize(width: number, height: number) {
+    const w = Math.max(8, Math.round(width / 4));
+    const h = Math.max(8, Math.round(height / 8));
+    this.rtA.setSize(w, h);
+    this.rtB.setSize(w, h);
+  }
+
+  override update(renderer: THREE.WebGLRenderer) {
+    if (!this.source || this.strength <= 0.001) return;
+    const u = this.mat.uniforms;
+    const tw = 1 / this.rtA.width;
+    const prev = renderer.getRenderTarget();
+    const pass = (src: THREE.Texture, dst: THREE.WebGLRenderTarget, step: number, threshold: number) => {
+      u.tSrc.value = src;
+      (u.uStep.value as THREE.Vector2).set(step * tw, 0);
+      u.uThreshold.value = threshold;
+      renderer.setRenderTarget(dst);
+      renderer.render(this.quad, this.cam);
+    };
+    pass(this.source, this.rtB, 1, 0.12);
+    pass(this.rtB.texture, this.rtA, 4, 0);
+    pass(this.rtA.texture, this.rtB, 14, 0);
+    pass(this.rtB.texture, this.rtA, 1.5, 0);
+    renderer.setRenderTarget(prev);
+  }
+
+  override dispose() {
+    super.dispose();
+    this.rtA.dispose();
+    this.rtB.dispose();
+    this.mat.dispose();
   }
 }

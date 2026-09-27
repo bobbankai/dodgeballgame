@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { REFLECT_LAYER } from '../rendering/FloorReflection';
 import { TUNING } from '../config/tuning';
 import { buildCharacter, CharacterRig } from '../character/CharacterBuilder';
 import { Animator, AnimInput, defaultAnimInput } from '../character/Animator';
@@ -156,6 +157,7 @@ export class Athlete {
     this.perks = { ...profile.perks };
     this.stats = deriveStats(profile.attributes, this.perks, profile.baseHearts);
     this.rig = buildCharacter(profile.appearance);
+    this.rig.mesh.layers.enable(REFLECT_LAYER);
     this.anim = new Animator(this.rig);
     this.anim.onFootstep = (_side, intensity) => this.world?.events.emit('footstep', { athlete: this, intensity });
     this.maxHearts = this.hearts = this.stats.maxHearts;

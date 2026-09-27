@@ -31,7 +31,7 @@ export function buildUnderground(q: QualityProfile, hw: number, hl: number): Are
     fillMargin: 0.6,
     glow: true,
   });
-  const floorMat = createFloorMaterial({ map: conc.map, normalMap: conc.normal, lines: lines.tex, linesSize: lines.size, tileSize: 4, roughness: 0.75, linesRoughness: 0.6, emissiveLines: 0.12 });
+  const floorMat = createFloorMaterial({ map: conc.map, normalMap: conc.normal, lines: lines.tex, linesSize: lines.size, tileSize: 4, roughness: 0.75, linesRoughness: 0.6, emissiveLines: 0.12, reflect: 0.6 });
   const floor = new THREE.Mesh(new THREE.PlaneGeometry(HX * 2, HZ * 2), floorMat);
   floor.rotation.x = -Math.PI / 2;
   floor.receiveShadow = true;
@@ -245,6 +245,7 @@ export function buildUnderground(q: QualityProfile, hw: number, hl: number): Are
     background: new THREE.Color(0x0d0d10),
     fog: new THREE.FogExp2(0x1a1718, 0.028),
     grade: { exposure: 1.08, contrast: 1.12, saturation: 0.95, tint: new THREE.Color(1.04, 0.99, 0.95) },
+    lens: { strength: 0.4, tint: new THREE.Color(1.0, 0.6, 0.45) },
     bloom: 0.95,
     envIntensity: 0.75,
     probe: new THREE.Vector3(0, 3, 0),

@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { REFLECT_LAYER } from '../rendering/FloorReflection';
 import { TUNING } from '../config/tuning';
 import { ballTextures, blobTexture } from '../rendering/Textures';
 import type { Athlete } from './Athlete';
@@ -102,6 +103,8 @@ export class Ball {
       depthWrite: false,
     });
     this.shell = new THREE.Mesh(shellGeo, this.shellMat);
+    this.mesh.layers.enable(REFLECT_LAYER);
+    this.shell.layers.enable(REFLECT_LAYER);
     this.shell.visible = false;
     this.group.add(this.shell);
 

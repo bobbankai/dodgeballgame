@@ -11,6 +11,9 @@ export class CharacterMaterial extends THREE.MeshStandardMaterial {
   readonly slotRough: number[];
   readonly slotMetal: number[];
   readonly slotEmissive: number[];
+  /** per-slot shading model weights: subsurface (skin) and sheen (fabric/hair) */
+  readonly slotSSS: number[];
+  readonly slotSheen: number[];
   readonly u = {
     uRimColor: { value: new THREE.Color(0.6, 0.75, 1) },
     uRimStrength: { value: 0.18 },
@@ -31,6 +34,8 @@ export class CharacterMaterial extends THREE.MeshStandardMaterial {
     this.slotRough = new Array(SLOT_COUNT).fill(0.7);
     this.slotMetal = new Array(SLOT_COUNT).fill(0);
     this.slotEmissive = new Array(SLOT_COUNT).fill(0);
+    this.slotSSS = new Array(SLOT_COUNT).fill(0);
+    this.slotSheen = new Array(SLOT_COUNT).fill(0);
     this.setAppearance(app);
 
     this.onBeforeCompile = (shader) => {
@@ -38,6 +43,8 @@ export class CharacterMaterial extends THREE.MeshStandardMaterial {
       shader.uniforms.uRough = { value: this.slotRough };
       shader.uniforms.uMetal = { value: this.slotMetal };
       shader.uniforms.uEmis = { value: this.slotEmissive };
+      shader.uniforms.uSSS = { value: this.slotSSS };
+      shader.uniforms.uSheen = { value: this.slotSheen };
       for (const [k, v] of Object.entries(this.u)) shader.uniforms[k] = v;
 
       shader.vertexShader = shader.vertexShader
@@ -55,6 +62,7 @@ vSlot = aSlot;
 vObjPos = position;`,
         );
 
+      shader.fragmentShader = shader.fragmentShader.replace('#include <lights_physical_pars_fragment>', characterLightsChunk());
       shader.fragmentShader = shader.fragmentShader
         .replace(
           '#include <common>',
@@ -65,6 +73,12 @@ uniform vec3 uColors[${SLOT_COUNT}];
 uniform float uRough[${SLOT_COUNT}];
 uniform float uMetal[${SLOT_COUNT}];
 uniform float uEmis[${SLOT_COUNT}];
+uniform float uSSS[${SLOT_COUNT}];
+uniform float uSheen[${SLOT_COUNT}];
+// shading-model globals read by the customised direct-light function below
+float chSSS = 0.0;
+float chSheen = 0.0;
+vec3 chSheenColor = vec3(0.0);
 uniform vec3 uRimColor;
 uniform float uRimStrength;
 uniform float uFlash;
@@ -90,6 +104,12 @@ float chNoise(vec3 x) {
           `#include <color_fragment>
 int si = int(vSlot + 0.5);
 diffuseColor.rgb = uColors[si];
+chSSS = uSSS[si];
+chSheen = uSheen[si];
+chSheenColor = mix(diffuseColor.rgb, vec3(1.0), 0.45);
+// soft low-frequency folds on fabric so large panels don't read as plastic
+float fold = chNoise(vObjPos * vec3(7.0, 11.0, 7.0)) * 0.6 + chNoise(vObjPos * 23.0) * 0.4;
+diffuseColor.rgb *= 1.0 - chSheen * 0.16 * (fold - 0.5) * 2.0 * 0.5 - chSheen * 0.03;
 float dissolveEdge = 0.0;
 if (uDissolve > 0.001) {
   float n = chNoise(vObjPos * 16.0) * 0.7 + chNoise(vObjPos * 5.0) * 0.3;
@@ -101,7 +121,7 @@ if (uDissolve > 0.001) {
         .replace(
           '#include <roughnessmap_fragment>',
           `#include <roughnessmap_fragment>
-roughnessFactor = uRough[si];`,
+roughnessFactor = uRough[si] + chSheen * 0.08 * (chNoise(vObjPos * 19.0) - 0.5);`,
         )
         .replace(
           '#include <metalnessmap_fragment>',
@@ -126,7 +146,7 @@ metalnessFactor = uMetal[si];`,
   }
 
   override customProgramCacheKey() {
-    return 'athlete-palette-v2';
+    return 'athlete-palette-v3';
   }
 
   setAppearance(a: Appearance) {
@@ -137,6 +157,12 @@ metalnessFactor = uMetal[si];`,
       this.slotMetal[slot] = metal;
       this.slotEmissive[slot] = emis;
     };
+    this.slotSSS.fill(0);
+    this.slotSheen.fill(0);
+    this.slotSSS[SLOT.skin] = 1;
+    for (const f of [SLOT.jersey, SLOT.shorts, SLOT.socks]) this.slotSheen[f] = 0.55;
+    this.slotSheen[SLOT.trim] = 0.3;
+    this.slotSheen[SLOT.hair] = 0.4;
     set(SLOT.skin, a.skin, 0.52);
     set(SLOT.jersey, a.jersey, 0.78);
     set(SLOT.trim, a.trim, 0.72, 0, a.glow !== undefined ? 0.0 : 0);
@@ -156,4 +182,37 @@ metalnessFactor = uMetal[si];`,
       this.u.uRimStrength.value = 0.35;
     }
   }
+}
+
+/**
+ * three.js physical lighting with two stylised shading models layered on top:
+ *  - skin: wrapped, red-shifted diffuse (cheap subsurface scattering at the terminator)
+ *  - fabric/hair: a grazing-angle sheen lobe that gives cloth its soft velvety edge
+ */
+let cachedChunk = '';
+function characterLightsChunk(): string {
+  if (cachedChunk) return cachedChunk;
+  let c = THREE.ShaderChunk.lights_physical_pars_fragment;
+  const a1 = 'float dotNL = saturate( dot( geometryNormal, directLight.direction ) );';
+  const a2 = 'reflectedLight.directDiffuse += irradiance * BRDF_Lambert( material.diffuseContribution ) * ( 1.0 - F );';
+  if (!c.includes(a1) || !c.includes(a2)) {
+    console.warn('[CharacterMaterial] lighting chunk changed; using stock lighting');
+    cachedChunk = c;
+    return c;
+  }
+  c = c.replace(
+    a1,
+    `float rawNL = dot( geometryNormal, directLight.direction );
+	float dotNL = saturate( rawNL );
+	float wrapNL = saturate( ( rawNL + 0.45 ) / 1.45 );
+	vec3 sssDiffuse = mix( vec3( dotNL ), wrapNL * mix( vec3( 1.0, 0.36, 0.24 ), vec3( 1.0 ), saturate( rawNL * 1.6 ) ), chSSS ) * directLight.color;`,
+  );
+  c = c.replace(
+    a2,
+    `reflectedLight.directDiffuse += sssDiffuse * BRDF_Lambert( material.diffuseContribution ) * ( 1.0 - F );
+	float chNV = saturate( dot( geometryNormal, geometryViewDir ) );
+	reflectedLight.directSpecular += directLight.color * chSheenColor * ( chSheen * 0.5 * pow( 1.0 - chNV, 4.0 ) * saturate( rawNL + 0.4 ) );`,
+  );
+  cachedChunk = c;
+  return c;
 }

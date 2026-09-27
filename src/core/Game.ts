@@ -86,6 +86,7 @@ export class Game {
     this.abilities = new AbilitySystem(this, this.director);
     this.hooks.abilities = this.abilities;
     this.boss = new BossDirector(this);
+    this.renderer.registerReflectionLights(this.world.scene);
     (window as any).__game = this;
     (window as any).__aiDebug = AI_DEBUG;
   }
@@ -111,7 +112,10 @@ export class Game {
       this.arena.dispose();
     }
     const arena = buildArena(id, this.renderer.quality, court);
+    arena.prepareReflections();
     arena.batchStatic();
+    this.renderer.reflectionActive = arena.reflective;
+    this.renderer.setLens(arena.look.lens?.strength ?? 0.35, arena.look.lens?.tint ?? new THREE.Color(0.55, 0.72, 1));
     this.arena = arena;
     this.arenaId = key;
     this.world.scene.add(arena.root);

@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { REFLECT_LAYER } from '../rendering/FloorReflection';
 import { clone as cloneSkinned } from 'three/examples/jsm/utils/SkeletonUtils.js';
 import type { Athlete } from '../game/Athlete';
 
@@ -38,6 +39,7 @@ export class GhostPool {
     m.renderOrder = 16;
     const bones = m.skeleton.bones;
     root.visible = false;
+    root.traverse((o) => o.layers.enable(REFLECT_LAYER));
     this.root.add(root);
     return { root, mesh: m, bones, mat, life: 0.4, t: 0, alpha: 0.5, drift: new THREE.Vector3(), source: null };
   }

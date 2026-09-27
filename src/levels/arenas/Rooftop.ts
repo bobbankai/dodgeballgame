@@ -45,7 +45,7 @@ export function buildRooftop(q: QualityProfile, hw: number, hl: number): Arena {
     fillMargin: 1.2,
     courtFill: 'rgba(0,0,0,0)',
   });
-  const deckMat = createFloorMaterial({ map: tiles.map, normalMap: tiles.normal, lines: lines.tex, linesSize: lines.size, tileSize: 4, roughness: 0.55, linesRoughness: 0.45 });
+  const deckMat = createFloorMaterial({ map: tiles.map, normalMap: tiles.normal, lines: lines.tex, linesSize: lines.size, tileSize: 4, roughness: 0.55, linesRoughness: 0.45, reflect: 0.85 });
   const deck = new THREE.Mesh(new THREE.BoxGeometry(deckW * 2, 0.08, deckL * 2), deckMat);
   deck.position.y = -0.04;
   deck.receiveShadow = true;
@@ -212,6 +212,7 @@ export function buildRooftop(q: QualityProfile, hw: number, hl: number): Arena {
     background: new THREE.Color(0x0a0e1c),
     fog: new THREE.Fog(0x141a33, 80, 300),
     grade: { exposure: 1.05, contrast: 1.1, saturation: 1.1, tint: new THREE.Color(0.97, 1.0, 1.05) },
+    lens: { strength: 0.38 },
     bloom: 1.05,
     envIntensity: 0.9,
     probe: new THREE.Vector3(0, 3, 0),

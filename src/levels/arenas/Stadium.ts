@@ -31,7 +31,7 @@ export function buildStadium(q: QualityProfile, hw: number, hl: number): Arena {
     borderFill: '#1a1330',
     fillMargin: 1.4,
   });
-  const floorMat = createFloorMaterial({ map: wood.map, normalMap: wood.normal, roughnessMap: wood.rough, lines: lines.tex, linesSize: lines.size, tileSize: 2, roughness: 0.32, linesRoughness: 0.25 });
+  const floorMat = createFloorMaterial({ map: wood.map, normalMap: wood.normal, roughnessMap: wood.rough, lines: lines.tex, linesSize: lines.size, tileSize: 2, roughness: 0.32, linesRoughness: 0.25, reflect: 1.6 });
   const floor = new THREE.Mesh(new THREE.PlaneGeometry(PX * 2, PZ * 2), floorMat);
   floor.rotation.x = -Math.PI / 2;
   floor.receiveShadow = true;
@@ -190,7 +190,9 @@ export function buildStadium(q: QualityProfile, hw: number, hl: number): Arena {
   }
 
   // ---------------- lighting ----------------
-  R.add(new THREE.HemisphereLight(0x8078b0, 0x1a1024, 0.55));
+  // broadcast fill: hemisphere light is diffuse-only, so it lifts players off the dark crowd
+  // without adding a single huge specular glare to the polished floor
+  R.add(new THREE.HemisphereLight(0xc4c0e8, 0x2a1830, 1.25));
   const key = new THREE.DirectionalLight(0xfff6ea, 2.8);
   key.position.set(-6, 26, 8);
   key.target.position.set(0, 0, 0);
@@ -221,6 +223,7 @@ export function buildStadium(q: QualityProfile, hw: number, hl: number): Arena {
     bloom: 1.0,
     envIntensity: 1.0,
     probe: new THREE.Vector3(0, 3, 0),
+    lens: { strength: 0.45 },
   };
   arena.cameraBounds.set(new THREE.Vector3(-PX + 0.6, 0.35, -PZ + 0.6), new THREE.Vector3(PX - 0.6, 16, PZ + 0.4));
   arena.blockers.push(new THREE.Box3(new THREE.Vector3(-PX - 30, 0, PZ + 0.8), new THREE.Vector3(PX + 30, 12, PZ + 30)));

@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
+import { REFLECT_LAYER } from '../rendering/FloorReflection';
 import type { QualityProfile } from '../config/quality';
 import type { GradeSettings } from '../rendering/PostEffects';
 import { Crowd } from './Crowd';
@@ -14,6 +15,8 @@ export interface ArenaLook {
   envIntensity: number;
   /** where to bake the environment probe from */
   probe: THREE.Vector3;
+  /** anamorphic lens streaks from bright lights */
+  lens?: { strength: number; tint?: THREE.Color };
 }
 
 export interface ArenaInfo {
@@ -46,6 +49,8 @@ export class Arena {
   look: ArenaLook;
   envTexture: THREE.Texture | null = null;
   private envTarget: THREE.WebGLRenderTarget | null = null;
+  /** true when the court floor wants planar reflections */
+  reflective = false;
   /** Materials that expose a uTime uniform. */
   timeUniforms: { value: number }[] = [];
 
@@ -73,6 +78,46 @@ export class Arena {
     this.crowd?.update(dt, t);
     for (const u of this.timeUniforms) u.value = t;
     for (const f of this.updaters) f(dt, t);
+  }
+
+  /**
+   * Choose what the floor mirrors: lights (so the mirrored render is lit), emissive fixtures
+   * and solid objects around the court (boards, benches, cover). Must run before batching.
+   */
+  prepareReflections() {
+    const { halfWidth: hw, halfLength: hl } = this.info.court;
+    const box = new THREE.Box3();
+    let strength = 0;
+    this.root.updateMatrixWorld(true);
+    this.root.traverse((o) => {
+      if ((o as THREE.Light).isLight) {
+        o.layers.enable(REFLECT_LAYER);
+        return;
+      }
+      const m = o as THREE.Mesh;
+      if (!m.isMesh || (m as THREE.InstancedMesh).isInstancedMesh) return;
+      const mats = Array.isArray(m.material) ? m.material : [m.material];
+      const fu = mats.map((x) => (x as any).floorUniforms).find(Boolean);
+      if (fu) {
+        strength = Math.max(strength, fu.uReflStrength.value);
+        return;
+      }
+      if (mats.some((x) => x.transparent)) return;
+      let hot = false;
+      for (const mat of mats) {
+        const sm = mat as THREE.MeshStandardMaterial;
+        if (sm.isMeshStandardMaterial && (sm.emissive.r + sm.emissive.g + sm.emissive.b) * sm.emissiveIntensity > 1.2) hot = true;
+        const bm = mat as THREE.MeshBasicMaterial;
+        if (bm.isMeshBasicMaterial && bm.color.r + bm.color.g + bm.color.b > 1.8) hot = true;
+      }
+      if (!m.geometry.boundingBox) m.geometry.computeBoundingBox();
+      box.copy(m.geometry.boundingBox!).applyMatrix4(m.matrixWorld);
+      const flat = box.max.y < 0.12;
+      const near = !flat && box.min.y < 2.4 && box.max.x > -hw - 3 && box.min.x < hw + 3 && box.max.z > -hl - 3 && box.min.z < hl + 3 && box.max.x - box.min.x < 70;
+      // high ceiling lamps stay out: near the camera they would mirror as milky blobs
+      if ((hot && box.min.y < 5) || near) m.layers.enable(REFLECT_LAYER);
+    });
+    this.reflective = strength > 0;
   }
 
   /**

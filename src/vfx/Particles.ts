@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { REFLECT_LAYER } from '../rendering/FloorReflection';
 
 export interface EmitOpts {
   pos: THREE.Vector3;
@@ -136,6 +137,7 @@ export class ParticleSystem {
     this.geo = geo;
     geo.instanceCount = 0;
     this.mesh = new THREE.Mesh(geo, mat);
+    this.mesh.layers.enable(REFLECT_LAYER);
     this.mesh.frustumCulled = false;
     this.mesh.renderOrder = additive ? 20 : 15;
   }

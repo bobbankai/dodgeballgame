@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { reflectionUniforms } from '../rendering/FloorReflection';
 
 /**
  * Court floor: tiled surface texture + court-line overlay sampled in court space.
@@ -18,6 +19,8 @@ export function createFloorMaterial(opts: {
   color?: THREE.ColorRepresentation;
   metalness?: number;
   envIntensity?: number;
+  /** planar reflection strength (0 = none, 1 = physically weighted, >1 = extra polish) */
+  reflect?: number;
 }) {
   const m = new THREE.MeshStandardMaterial({
     map: opts.map,
@@ -35,10 +38,11 @@ export function createFloorMaterial(opts: {
     uLinesRough: { value: opts.linesRoughness ?? 0.45 },
     uLinesEmissive: { value: opts.emissiveLines ?? 0 },
     uTime: { value: 0 },
+    uReflStrength: { value: opts.reflect ?? 0 },
   };
   (m as any).floorUniforms = uniforms;
   m.onBeforeCompile = (shader) => {
-    Object.assign(shader.uniforms, uniforms);
+    Object.assign(shader.uniforms, uniforms, reflectionUniforms);
     shader.vertexShader = shader.vertexShader
       .replace('#include <common>', '#include <common>\nvarying vec3 vWorldPosF;')
       .replace('#include <worldpos_vertex>', '#include <worldpos_vertex>\nvWorldPosF = (modelMatrix * vec4(transformed, 1.0)).xyz;');
@@ -52,6 +56,10 @@ uniform vec2 uLinesSize;
 uniform float uLinesRough;
 uniform float uLinesEmissive;
 uniform float uTime;
+uniform sampler2D uRefl;
+uniform mat4 uReflMatrix;
+uniform float uReflOn;
+uniform float uReflStrength;
 vec4 floorLines;`,
       )
       .replace(
@@ -70,11 +78,37 @@ vec4 floorLines;`,
 roughnessFactor = mix(roughnessFactor, uLinesRough, floorLines.a);`,
       )
       .replace(
+        '#include <lights_fragment_end>',
+        `#include <lights_fragment_end>
+if (uReflOn > 0.5 && uReflStrength > 0.0) {
+  // planar reflection: projective lookup, rippled by the normal map, blurred by roughness
+  vec4 rc = uReflMatrix * vec4(vWorldPosF, 1.0);
+  vec2 ruv = rc.xy / rc.w;
+  #ifndef FLAT_SHADED
+  ruv += (normal.xy - normalize(vNormal).xy) * 0.045;
+  #endif
+  float lod = clamp(pow(roughnessFactor, 1.35) * 7.0, 0.0, 6.5);
+  vec4 refl = textureLod(uRefl, ruv, lod);
+  refl += textureLod(uRefl, ruv + vec2(0.0035, 0.002) * (1.0 + lod), lod);
+  refl += textureLod(uRefl, ruv - vec2(0.0035, 0.002) * (1.0 + lod), lod);
+  refl /= 3.0;
+  float edge = smoothstep(0.0, 0.04, ruv.x) * smoothstep(1.0, 0.96, ruv.x) * smoothstep(0.0, 0.04, ruv.y) * smoothstep(1.0, 0.96, ruv.y);
+  float NdV = saturate(dot(normal, normalize(vViewPosition)));
+  float fr = 0.04 + 0.96 * pow(1.0 - NdV, 5.0);
+  float gloss = 1.0 - roughnessFactor * 0.8;
+  float s = min(uReflStrength, 1.0) * edge;
+  float boost = max(uReflStrength - 1.0, 0.0);
+  // premultiplied: objects occlude the (static) environment reflection behind them
+  reflectedLight.indirectSpecular = reflectedLight.indirectSpecular * (1.0 - refl.a * s * 0.85)
+    + refl.rgb * (fr * gloss) * (s + boost * edge);
+}`,
+      )
+      .replace(
         '#include <emissivemap_fragment>',
         `#include <emissivemap_fragment>
 totalEmissiveRadiance += floorLines.rgb * floorLines.a * uLinesEmissive * (0.85 + 0.15 * sin(uTime * 2.0 + vWorldPosF.z * 0.6));`,
       );
   };
-  m.customProgramCacheKey = () => 'court-floor-v1';
+  m.customProgramCacheKey = () => 'court-floor-v2';
   return m;
 }

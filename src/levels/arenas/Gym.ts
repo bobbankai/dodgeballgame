@@ -91,7 +91,7 @@ export function buildGym(style: GymStyle, q: QualityProfile): Arena {
     logoSub: style.logoSub,
     logoColor: 'rgba(40,30,25,0.55)',
   });
-  const floorMat = createFloorMaterial({ map: wood.map, normalMap: wood.normal, roughnessMap: wood.rough, lines: lines.tex, linesSize: lines.size, tileSize: tile, roughness: 0.55, linesRoughness: 0.4 });
+  const floorMat = createFloorMaterial({ map: wood.map, normalMap: wood.normal, roughnessMap: wood.rough, lines: lines.tex, linesSize: lines.size, tileSize: tile, roughness: 0.55, linesRoughness: 0.4, reflect: 1.1 });
   const floor = new THREE.Mesh(new THREE.PlaneGeometry(GW * 2, GL * 2), floorMat);
   floor.rotation.x = -Math.PI / 2;
   floor.receiveShadow = true;

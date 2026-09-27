@@ -59,7 +59,7 @@ export function buildEclipse(q: QualityProfile, hw: number, hl: number): Arena {
     glow: true,
     courtFill: 'rgba(10,6,18,0.55)',
   });
-  const floorMat = createFloorMaterial({ map: obs.map, normalMap: obs.normal, lines: lines.tex, linesSize: lines.size, tileSize: 4, roughness: 0.22, metalness: 0.35, linesRoughness: 0.3, emissiveLines: 1.6 });
+  const floorMat = createFloorMaterial({ map: obs.map, normalMap: obs.normal, lines: lines.tex, linesSize: lines.size, tileSize: 4, roughness: 0.22, metalness: 0.35, linesRoughness: 0.3, emissiveLines: 1.6, reflect: 1.35 });
   arena.timeUniforms.push((floorMat as any).floorUniforms.uTime);
   const top = new THREE.Mesh(new THREE.CircleGeometry(PR, 8), floorMat);
   top.rotation.x = -Math.PI / 2;
@@ -226,6 +226,7 @@ export function buildEclipse(q: QualityProfile, hw: number, hl: number): Arena {
     background: new THREE.Color(0x07040d),
     fog: new THREE.Fog(0x12081f, 50, 160),
     grade: { exposure: 1.1, contrast: 1.12, saturation: 1.12, tint: new THREE.Color(1.0, 0.97, 1.06) },
+    lens: { strength: 0.5, tint: new THREE.Color(0.85, 0.55, 1.0) },
     bloom: 1.2,
     envIntensity: 1.0,
     probe: new THREE.Vector3(0, 3, 0),
