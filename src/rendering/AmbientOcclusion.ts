@@ -65,9 +65,11 @@ void main() {
     vec2 off = vec2(cos(a) / aspect, sin(a)) * (t * rUv);
     vec3 v = viewPos(cUv + off) - P;
     float vv = dot(v, v);
-    float vn = dot(v, N);
+    // cosine-weighted with a smooth range falloff: contact reads strongly, while a limb a
+    // hand's width from the torso only picks up a soft, believable shade
+    float cosT = dot(v, N) * inversesqrt(vv + 1e-4);
     float f = max(r2 - vv, 0.0) / r2;
-    sum += f * f * max(vn - uBias * -P.z, 0.0) / (vv + 0.01);
+    sum += f * f * max(cosT - uBias, 0.0);
   }
   float ao = clamp(1.0 - sum * uIntensity / float(SAMPLES), 0.0, 1.0);
   // distant pixels (crowd far away) keep less occlusion
@@ -145,8 +147,8 @@ export class AmbientOcclusionEffect extends Effect {
         uProj: { value: new THREE.Matrix4() },
         uTexel: { value: new THREE.Vector2() },
         uRadius: { value: 0.55 },
-        uBias: { value: 0.012 },
-        uIntensity: { value: 4.0 },
+        uBias: { value: 0.12 },
+        uIntensity: { value: 2.0 },
         uNear: { value: 0.1 },
         uFar: { value: 100 },
       },

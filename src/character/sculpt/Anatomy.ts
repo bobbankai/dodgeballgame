@@ -10,8 +10,8 @@ const B = BONE_INDEX;
 
 /** Modelling pose: arms lifted into an A so they don't fuse with the torso; legs slightly apart. */
 export const MODEL_POSE: Partial<Record<BoneName, [number, number, number]>> = {
-  upperArmL: [0, 0, THREE.MathUtils.degToRad(40)],
-  upperArmR: [0, 0, THREE.MathUtils.degToRad(-40)],
+  upperArmL: [0, 0, THREE.MathUtils.degToRad(33)],
+  upperArmR: [0, 0, THREE.MathUtils.degToRad(-33)],
   thighL: [0, 0, THREE.MathUtils.degToRad(3)],
   thighR: [0, 0, THREE.MathUtils.degToRad(-3)],
 };
@@ -80,8 +80,8 @@ export function buildPart(kind: PartKind, lod: LodName, app: ShapeApp): MeshPart
   return part;
 }
 
-/** primitive tags used by the paint rules */
-const TAG_SLEEVE = 1, TAG_SHORTS_LEG = 2, TAG_SOCK = 3;
+/** primitive tags used by the paint rules (limb tags get +side offsets) */
+const TAG_SLEEVE = 1, TAG_SHORTS_LEG = 2, TAG_SOCK = 3, TAG_UPPER_ARM = 10, TAG_THIGH = 12;
 
 /** Head centre in bind space (used by the face painter in the shader). */
 export function headCentre(): V3 {
@@ -126,16 +126,21 @@ function buildAnatomy(app: ShapeApp, detail: Detail): Record<PartKind, MeshPart>
     torus(P('hips', 0, 0.075, 0.0), 1, 0.011, { ellipse: [0.127 * b, 0.09 * b], k: 0.02, slot: SH, bones: bm(['hips', 0.8], ['spine', 0.2]) }),
     ellipsoid(P('spine', 0, 0.035, 0.006), [0.142 * b, 0.125, 0.102 * b], { k: 0.06, slot: J, bones: bm(['spine', 1]) }),
     ellipsoid(P('chest', 0, 0.06, 0.004), [0.166 * b, 0.172, 0.113 * b], { k: 0.08, slot: J, bones: bm(['chest', 1]) }),
-    ellipsoid(P('chest', 0.058, 0.105, 0.07), [0.07 * b, 0.052, 0.04 * b], { k: 0.05, slot: J, bones: bm(['chest', 1]) }),
-    ellipsoid(P('chest', -0.058, 0.105, 0.07), [0.07 * b, 0.052, 0.04 * b], { k: 0.05, slot: J, bones: bm(['chest', 1]) }),
+    // one broad pectoral plate: an athletic chest line for any build
+    ellipsoid(P('chest', 0, 0.108, 0.05), [0.135 * b, 0.062, 0.058 * b], { k: 0.05, slot: J, bones: bm(['chest', 1]) }),
     ellipsoid(P('chest', 0.075, 0.085, -0.052), [0.07 * b, 0.11, 0.05 * b], { k: 0.05, slot: J, bones: bm(['chest', 1]) }),
     ellipsoid(P('chest', -0.075, 0.085, -0.052), [0.07 * b, 0.11, 0.05 * b], { k: 0.05, slot: J, bones: bm(['chest', 1]) }),
     // collar: ribbed crew neck
-    torus(P('chest', 0, 0.232, 0.01), 1, 0.0115, { rot: rotInv(0.28, 0, 0), ellipse: [0.062 * Math.sqrt(b), 0.056], k: 0.014, slot: TR, bones: bm(['chest', 0.7], ['neck', 0.3]) }),
+    torus(P('chest', 0, 0.229, 0.01), 1, 0.0095, { rot: rotInv(0.3, 0, 0), ellipse: [0.066 * Math.sqrt(b), 0.059], k: 0.014, slot: TR, bones: bm(['chest', 0.7], ['neck', 0.3]) }),
   );
 
+  // hems are painted by height along the limb, so the cuff/hem line is a clean ring even where
+  // muscle shapes poke up under the fabric
+  const hemRef = new Map<number, { cone: Prim; t: number }>();
   for (const s of [1, -1] as const) {
     const L = s === 1 ? 'L' : 'R';
+    const side = s === 1 ? 0 : 1;
+    const armTag = TAG_UPPER_ARM + side, thighTag = TAG_THIGH + side;
     const clav = `clav${L}` as BoneName, up = `upperArm${L}` as BoneName, fore = `foreArm${L}` as BoneName;
     const thigh = `thigh${L}` as BoneName, shin = `shin${L}` as BoneName, foot = `foot${L}` as BoneName;
     const sleeve = app.sleeveless ? SK : J;
@@ -149,10 +154,12 @@ function buildAnatomy(app: ShapeApp, detail: Detail): Record<PartKind, MeshPart>
         roundCone(P(up, 0, -0.02, 0), P(up, 0, -0.132, 0), 0.057 * l, 0.056 * l, { k: 0.035, slot: J, tag: TAG_SLEEVE, bones: bm([up, 1]) }),
       );
     }
+    const armCone = roundCone(P(up, 0, -0.1, 0), P(up, 0, -0.272, 0), 0.047 * l, 0.039 * l, { k: 0.025, slot: SK, tag: armTag, bones: bm([up, 1]), bonesB: bm([up, 0.5], [fore, 0.5]), t0: 0.78 });
+    if (!app.sleeveless) hemRef.set(armTag, { cone: armCone, t: 0.5 });
     body.push(
-      roundCone(P(up, 0, -0.1, 0), P(up, 0, -0.272, 0), 0.047 * l, 0.039 * l, { k: 0.025, slot: SK, bones: bm([up, 1]), bonesB: bm([up, 0.5], [fore, 0.5]), t0: 0.78 }),
-      ellipsoid(P(up, 0, -0.168, 0.016), [0.035 * l, 0.062, 0.038 * l], { rot: R(up), k: 0.03, slot: SK, bones: bm([up, 1]) }),
-      ellipsoid(P(up, 0, -0.14, -0.018), [0.035 * l, 0.07, 0.034 * l], { rot: R(up), k: 0.03, slot: SK, bones: bm([up, 1]) }),
+      armCone,
+      ellipsoid(P(up, 0, -0.168, 0.016), [0.035 * l, 0.062, 0.038 * l], { rot: R(up), k: 0.03, slot: SK, tag: armTag, bones: bm([up, 1]) }),
+      ellipsoid(P(up, 0, -0.14, -0.018), [0.035 * l, 0.07, 0.034 * l], { rot: R(up), k: 0.03, slot: SK, tag: armTag, bones: bm([up, 1]) }),
       sphere(P(fore, 0, 0.004, -0.012), 0.035 * l, { k: 0.022, slot: SK, bones: bm([up, 0.5], [fore, 0.5]) }),
       roundCone(P(fore, 0, -0.012, 0), P(fore, 0, -0.238, 0), 0.041 * l, 0.028 * l, { k: 0.02, slot: SK, bones: bm([up, 0.3], [fore, 0.7]), bonesB: bm([fore, 1]), t0: 0.0, t1: 0.25 }),
       ellipsoid(P(fore, s * 0.004, -0.072, 0.004), [0.042 * l, 0.075, 0.037 * l], { rot: R(fore), k: 0.03, slot: SK, bones: bm([fore, 1]) }),
@@ -161,10 +168,12 @@ function buildAnatomy(app: ShapeApp, detail: Detail): Record<PartKind, MeshPart>
       body.push(roundCone(P(fore, 0, -0.184, 0), P(fore, 0, -0.242, 0), 0.0345 * l, 0.0325 * l, { k: 0.004, slot: AC, bones: bm([fore, 1]) }));
 
     // legs
+    const thighCone = roundCone(P(thigh, 0, -0.18, 0), P(thigh, 0, -0.418, 0), 0.075 * l, 0.053 * l, { k: 0.02, slot: SK, tag: thighTag, bones: bm([thigh, 1]), bonesB: bm([thigh, 0.5], [shin, 0.5]), t0: 0.82 });
+    hemRef.set(thighTag, { cone: thighCone, t: 0.43 });
     body.push(
       roundCone(P(thigh, 0, 0.035, 0), P(thigh, 0, -0.205, 0), 0.099 * l, 0.089 * l, { k: 0.06, slot: SH, tag: TAG_SHORTS_LEG, bones: bm(['hips', 0.4], [thigh, 0.6]), bonesB: bm([thigh, 1]), t0: 0.05, t1: 0.45 }),
-      roundCone(P(thigh, 0, -0.18, 0), P(thigh, 0, -0.418, 0), 0.075 * l, 0.053 * l, { k: 0.02, slot: SK, bones: bm([thigh, 1]), bonesB: bm([thigh, 0.5], [shin, 0.5]), t0: 0.82 }),
-      ellipsoid(P(thigh, 0, -0.262, 0.022), [0.063 * l, 0.12, 0.057 * l], { rot: R(thigh), k: 0.04, slot: SK, bones: bm([thigh, 1]) }),
+      thighCone,
+      ellipsoid(P(thigh, 0, -0.262, 0.022), [0.063 * l, 0.12, 0.057 * l], { rot: R(thigh), k: 0.04, slot: SK, tag: thighTag, bones: bm([thigh, 1]) }),
       sphere(P(shin, 0, 0.016, 0.021), 0.041 * l, { k: 0.025, slot: SK, bones: bm([thigh, 0.45], [shin, 0.55]) }),
       roundCone(P(shin, 0, -0.02, 0), P(shin, 0, -0.405, 0), 0.047 * l, 0.034 * l, { k: 0.02, slot: SK, bones: bm([shin, 1]) }),
       ellipsoid(P(shin, 0, -0.128, -0.025), [0.049 * l, 0.095, 0.048 * l], { rot: R(shin), k: 0.04, slot: SK, bones: bm([shin, 1]) }),
@@ -175,8 +184,10 @@ function buildAnatomy(app: ShapeApp, detail: Detail): Record<PartKind, MeshPart>
   const bodyPaint = (slot: number, x: number, y: number, z: number, owner: Prim | null): number => {
     // cuffs, hems and sock stripes follow each garment's own axis
     if (owner) {
-      if (owner.tag === TAG_SLEEVE && owner.axisT(x, y, z) > 0.84) return TR;
-      if (owner.tag === TAG_SHORTS_LEG && owner.axisT(x, y, z) > 0.9) return TR;
+      if (owner.tag === TAG_SLEEVE && owner.axisT(x, y, z) > 0.94) return TR;
+      if (owner.tag === TAG_SHORTS_LEG && owner.axisT(x, y, z) > 0.97) return TR;
+      const hem = hemRef.get(owner.tag);
+      if (hem && hem.cone.axisT(x, y, z) < hem.t) return TR;
       if (owner.tag === TAG_SOCK) {
         const t = owner.axisT(x, y, z);
         if ((t > 0.07 && t < 0.13) || (t > 0.17 && t < 0.23)) return TR;
@@ -195,8 +206,8 @@ function buildAnatomy(app: ShapeApp, detail: Detail): Record<PartKind, MeshPart>
     roundCone([0, 1.415, -0.018], [0, 1.628, -0.004], 0.053, 0.046, { slot: SK, bones: bm(['chest', 0.45], ['neck', 0.55]), bonesB: bm(['neck', 0.35], ['head', 0.65]), t0: 0.35, t1: 0.95 }),
     ellipsoid(H(0, 0.022, -0.012), [0.104, 0.115, 0.118], { k: 0.045, slot: SK, bones: bm(['head', 1]) }),
     ellipsoid(H(0, -0.03, 0.022), [0.082, 0.088, 0.092], { k: 0.05, slot: SK, bones: bm(['head', 1]) }),
-    ellipsoid(H(0.056, -0.058, 0.004), [0.03, 0.036, 0.046], { k: 0.035, slot: SK, bones: bm(['head', 1]) }),
-    ellipsoid(H(-0.056, -0.058, 0.004), [0.03, 0.036, 0.046], { k: 0.035, slot: SK, bones: bm(['head', 1]) }),
+    ellipsoid(H(0.05, -0.058, 0.008), [0.028, 0.034, 0.044], { k: 0.035, slot: SK, bones: bm(['head', 1]) }),
+    ellipsoid(H(-0.05, -0.058, 0.008), [0.028, 0.034, 0.044], { k: 0.035, slot: SK, bones: bm(['head', 1]) }),
     ellipsoid(H(0, -0.1, 0.064), [0.027, 0.023, 0.024], { k: 0.035, slot: SK, bones: bm(['head', 1]) }),
     ellipsoid(H(0.051, -0.008, 0.07), [0.03, 0.022, 0.028], { k: 0.03, slot: SK, bones: bm(['head', 1]) }),
     ellipsoid(H(-0.051, -0.008, 0.07), [0.03, 0.022, 0.028], { k: 0.03, slot: SK, bones: bm(['head', 1]) }),
@@ -205,10 +216,10 @@ function buildAnatomy(app: ShapeApp, detail: Detail): Record<PartKind, MeshPart>
     ellipsoid(H(0.035, 0.011, 0.119), [0.021, 0.014, 0.011], { op: Op.Subtract, k: 0.012, slot: SK }),
     ellipsoid(H(-0.035, 0.011, 0.119), [0.021, 0.014, 0.011], { op: Op.Subtract, k: 0.012, slot: SK }),
     // nose
-    roundCone(H(0, 0.028, 0.104), H(0, -0.017, 0.123), 0.0085, 0.0112, { k: 0.013, slot: SK, bones: bm(['head', 1]) }),
-    sphere(H(0, -0.022, 0.122), 0.0135, { k: 0.01, slot: SK, bones: bm(['head', 1]) }),
-    sphere(H(0.0125, -0.029, 0.112), 0.0088, { k: 0.008, slot: SK, bones: bm(['head', 1]) }),
-    sphere(H(-0.0125, -0.029, 0.112), 0.0088, { k: 0.008, slot: SK, bones: bm(['head', 1]) }),
+    roundCone(H(0, 0.028, 0.104), H(0, -0.016, 0.121), 0.0075, 0.0098, { k: 0.012, slot: SK, bones: bm(['head', 1]) }),
+    sphere(H(0, -0.021, 0.12), 0.0115, { k: 0.01, slot: SK, bones: bm(['head', 1]) }),
+    sphere(H(0.0112, -0.027, 0.111), 0.0076, { k: 0.008, slot: SK, bones: bm(['head', 1]) }),
+    sphere(H(-0.0112, -0.027, 0.111), 0.0076, { k: 0.008, slot: SK, bones: bm(['head', 1]) }),
     // lips
     ellipsoid(H(0, -0.052, 0.104), [0.022, 0.0074, 0.0098], { k: 0.008, slot: SK, bones: bm(['head', 1]) }),
     ellipsoid(H(0, -0.0655, 0.1), [0.0185, 0.0085, 0.0098], { k: 0.008, slot: SK, bones: bm(['head', 1]) }),
@@ -364,27 +375,46 @@ function buildHair(app: ShapeApp, HC: V3, bm: (...p: [BoneName, number][]) => Bo
       { k: 0.004, slot: HS, bones },
     );
   const clump = (a: V3, bb: V3, ra: number, rb: number, k = 0.012) => roundCone(H(...a), H(...bb), ra, rb, { k, slot: HS, bones });
+  /** point on the skull (direction d, `off` above the scalp) */
+  const skull = (d: V3, off: number): V3 => {
+    const l = Math.hypot(...d) || 1;
+    return H((d[0] / l) * (0.104 + off), 0.024 + (d[1] / l) * (0.116 + off), -0.012 + (d[2] / l) * (0.119 + off));
+  };
+  /**
+   * A sculpted lock following the scalp from direction d0 to d1: its axis runs `off0`→`off1`
+   * above the scalp (ends sink into the cap so they taper away), arching by `lift`.
+   */
+  const lock = (d0: V3, d1: V3, off0: number, off1: number, r0: number, r1: number, lift = 0): Prim[] => {
+    const out: Prim[] = [];
+    const n = 4;
+    let prev = skull(d0, off0);
+    for (let i = 1; i <= n; i++) {
+      const t = i / n;
+      const d: V3 = [d0[0] + (d1[0] - d0[0]) * t, d0[1] + (d1[1] - d0[1]) * t, d0[2] + (d1[2] - d0[2]) * t];
+      const cur = skull(d, off0 + (off1 - off0) * t + lift * Math.sin(t * Math.PI));
+      out.push(roundCone(prev, cur, r0 + (r1 - r0) * ((i - 1) / n), r0 + (r1 - r0) * t, { k: 0.007 }));
+      prev = cur;
+    }
+    return out;
+  };
   switch (style) {
     case 'buzz':
       return [cap(0.005)];
-    case 'short':
-      return [
-        cap(0.019, [
-          roundCone(H(-0.06, 0.08, 0.07), H(0.035, 0.07, 0.1), 0.028, 0.02, { k: 0.02 }),
-          roundCone(H(0.05, 0.1, 0.05), H(0.075, 0.06, 0.08), 0.03, 0.018, { k: 0.02 }),
-        ]),
-      ];
+    case 'short': {
+      // locks combed forward from the crown, with soft grooves between them
+      const locks: Prim[] = [];
+      const fronts: [number, number][] = [[-0.78, 0.36], [-0.52, 0.47], [-0.26, 0.55], [0, 0.58], [0.26, 0.56], [0.52, 0.48], [0.78, 0.37]];
+      for (const [fx, fy] of fronts) locks.push(...lock([fx * 0.3, 0.95, -0.4], [fx, fy, 0.72], 0.0, -0.004, 0.017, 0.009, 0.004));
+      for (const sx of [-1, 1]) locks.push(...lock([sx * 0.3, 0.9, -0.5], [sx * 0.95, 0.2, -0.4], 0.0, -0.006, 0.016, 0.008));
+      return [cap(0.013, locks)];
+    }
     case 'swept': {
-      const parts: Prim[] = [cap(0.024)];
-      // quiff and swept clumps flowing back
-      parts.push(
-        clump([0.0, 0.1, 0.08], [0.0, 0.135, -0.02], 0.04, 0.03, 0.018),
-        clump([-0.045, 0.095, 0.075], [-0.07, 0.11, -0.05], 0.03, 0.02),
-        clump([0.045, 0.095, 0.075], [0.075, 0.105, -0.05], 0.03, 0.02),
-        clump([0.02, 0.125, 0.04], [0.02, 0.1, -0.1], 0.03, 0.022),
-        clump([-0.03, 0.12, 0.03], [-0.03, 0.09, -0.11], 0.03, 0.02),
-      );
-      return parts;
+      // a lifted front sweeping back over the crown in broad clumps
+      const locks: Prim[] = [];
+      const xs = [-0.55, -0.28, 0, 0.28, 0.55];
+      xs.forEach((x, i) => locks.push(...lock([x * 0.9, 0.62, 0.75], [x * 1.2, 0.3, -0.92], 0.006, -0.012, 0.024 - Math.abs(i - 2) * 0.002, 0.012, 0.02 - Math.abs(i - 2) * 0.005)));
+      for (const sx of [-1, 1]) locks.push(...lock([sx * 0.8, 0.45, 0.45], [sx * 0.85, 0.1, -0.6], 0.002, -0.01, 0.018, 0.01));
+      return [cap(0.016, locks)];
     }
     case 'spiky': {
       const parts: Prim[] = [cap(0.016)];
@@ -412,17 +442,29 @@ function buildHair(app: ShapeApp, HC: V3, bm: (...p: [BoneName, number][]) => Bo
       }
       return parts;
     }
-    case 'afro':
+    case 'afro': {
+      // a cloud of soft curl puffs around a full base
+      const puffs: Prim[] = [sphere(H(0, 0.05, -0.015), 0.132)];
+      const n = 34;
+      for (let i = 0; i < n; i++) {
+        const y = 1 - ((i + 0.5) / n) * 2;
+        if (y < -0.5) continue;
+        const r = Math.sqrt(1 - y * y), th = i * 2.39996;
+        const jitter = ((i * 7919) % 13) / 13;
+        const R = 0.126 + jitter * 0.008;
+        puffs.push(sphere(H(Math.cos(th) * r * R, 0.05 + y * R, -0.015 + Math.sin(th) * r * R), 0.036 + jitter * 0.01, { k: 0.028 }));
+      }
       return [
         group(
           [
-            sphere(H(0, 0.05, -0.015), 0.158, { noise: [0.01, 38] }),
+            ...puffs,
             plane(H(0, 0.052, 0.098), [0, -0.45, 1], { op: Op.Intersect, k: 0.02 }),
             plane(H(0, -0.03, 0.0), [0, -1, 0.8], { op: Op.Intersect, k: 0.02 }),
           ],
           { k: 0.004, slot: HS, bones },
         ),
       ];
+    }
     case 'bun':
       return [
         cap(0.016),
