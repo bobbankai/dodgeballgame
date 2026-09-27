@@ -17,15 +17,22 @@ const { chromium } = require('/opt/node22/lib/node_modules/playwright');
   }, +level);
   let wins = 0;
   for (let i = 0; i < +runs; i++) {
-    const r = await page.evaluate((id) => {
+    const r = await page.evaluate(([id, detail]) => {
       const g = window.__game; let res = null;
       const hits = [0, 0];
-      const u = g.world.events.on('hit', (e) => hits[e.victim.team]++);
+      const by = {};
+      const bump = (k) => (by[k] = (by[k] || 0) + 1);
+      const offs = [
+        g.world.events.on('hit', (e) => { hits[e.victim.team]++; bump(`${e.thrower ? e.thrower.name : '?'}>${e.victim.name}${e.ball && e.ball.info && e.ball.info.wallBounces ? '+wall' : ''}`); }),
+        g.world.events.on('catch', (e) => { if (e.thrower && e.thrower.team !== e.catcher.team) bump(`C:${e.catcher.name}<${e.thrower.name}`); }),
+      ];
       const m = window.__debugStart(id, true); m.onEnd = (x) => (res = x);
-      g.simulate(600); u();
+      const roster = g.world.athletes.map((a) => `${a.name}(${a.team}${a.isPlayer ? 'P' : ''},h${a.maxHearts})`).join(' ');
+      g.simulate(600); offs.forEach((f) => f());
       const out = { won: res && res.won, score: m.score.join('-'), t: Math.round(m.totalTime), hitsTaken: hits[0], hitsDealt: hits[1] };
+      if (detail) Object.assign(out, { roster, by });
       g.endMatch(); return out;
-    }, id);
+    }, [id, !!process.env.DETAIL]);
     if (r.won) wins++;
     console.log(JSON.stringify(r));
   }

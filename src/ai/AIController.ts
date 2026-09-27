@@ -300,6 +300,8 @@ export class AIController implements Controller {
       if (o.isPlayer) s += p.playerFocus * 1.8;
       if (focus === o) s += p.coordination * 2;
       if (this.world.court.blocked(a.chestPos(_v), o.chestPos(_v2))) s -= 3;
+      // don't feed the court's best catchers free balls: a catch costs the thrower a heart
+      if (!o.vulnerable) s -= catchRisk(o) * (0.6 + p.coordination) * (o.isPlayer ? 0.5 : 1);
       s += Math.random() * 0.8;
       if (s > bestS) {
         bestS = s;
@@ -481,4 +483,13 @@ export class AIController implements Controller {
     const a = this.athlete;
     a.faceYaw = Math.atan2(p.x - a.pos.x, p.z - a.pos.z);
   }
+}
+
+/** How likely a target is to punish a throw with a catch (0 = holding a ball / can't catch). */
+export function catchRisk(o: Athlete): number {
+  if (o.ball || o.state === 'dodging' || o.state === 'hitstun' || o.state === 'stagger') return 0;
+  let r = Math.max(0, (o.stats.catchWindow / TUNING.catch.window - 1) * 3);
+  if (o.perks.perfectCatch) r += 0.4;
+  if (o.profile.boss) r += 0.8;
+  return r;
 }

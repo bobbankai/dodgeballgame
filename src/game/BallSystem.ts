@@ -202,12 +202,15 @@ export class BallSystem {
       b.info.wallBounces++;
       if (b.info.wallBounces > TUNING.ball.maxWallBouncesLive) this.kill(b);
       else if (b.info.ricochet && b.thrower) {
-        // bank-shot assist: steer toward the most exposed opponent
-        const target = this.world.nearestOpponent(b.thrower, at);
+        // bank-shot assist: steer toward an exposed opponent, but never one so close to the wall
+        // (or so fast) that the redirected ball arrives before anyone could react to the bounce
+        const target = this.world.nearestOpponent(b.thrower, at, undefined, 4.5);
         if (target) {
           target.chestPos(_a);
+          const dist = _a.distanceTo(at);
           const dir = _a.sub(at).normalize();
-          b.vel.copy(dir).multiplyScalar(Math.max(speed * 0.95, 18));
+          const reactable = dist / 0.34;
+          b.vel.copy(dir).multiplyScalar(THREE.MathUtils.clamp(speed * 0.9, 13, Math.max(13, Math.min(20, reactable))));
           b.info.homing = target;
           b.info.homingStrength = 2.2;
           b.info.gravityScale = 0.3;

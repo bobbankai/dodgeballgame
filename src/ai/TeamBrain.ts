@@ -1,3 +1,4 @@
+import { catchRisk } from './AIController';
 import type { Athlete } from '../game/Athlete';
 import type { Ball } from '../game/Ball';
 import type { TeamId } from '../game/types';
@@ -90,7 +91,7 @@ export class TeamBrain {
     let best: Athlete | null = null;
     let bs = -Infinity;
     for (const o of opps) {
-      let s = (o.maxHearts - o.hearts) * 1.2 + (o.vulnerable ? 1.5 : 0) + (o.ball ? 0.6 : 0) + (o.isPlayer ? 0.8 : 0);
+      let s = (o.maxHearts - o.hearts) * 1.2 + (o.vulnerable ? 1.5 : 0) + (o.ball ? 0.6 : 0) + (o.isPlayer ? 0.8 : 0) - (o.vulnerable ? 0 : catchRisk(o) * 0.8);
       if (this.focus === o) s += 0.8; // hysteresis
       if (s > bs) {
         bs = s;

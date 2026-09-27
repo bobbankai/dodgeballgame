@@ -204,7 +204,7 @@ export const MATCHES: CampaignMatch[] = [
   {
     id: 'm4-3', chapter: 'c4', title: 'Rival Rematch', opponent: "Jax 'Ricochet' Rourke", tags: ['Rival', 'Boss', '3v3'], boss: true, requires: ['m4-2'], introCinematic: 'rematch', outroCinematic: 'awakening',
     desc: 'Jax has been training. So have you. Settle it under the city lights.',
-    build: cfg('m4-3', 'Rival Rematch', { arena: 'rooftop', away: [JAX(5), ...team(KITS.ricochet, 2, 4, ['speedster', 'sniper'], 14)], mates: mates(2, 4, 14), tier: 5, xp: 600, cred: 420, balls: 4, subtitle: 'RICOCHET CREW' }),
+    build: cfg('m4-3', 'Rival Rematch', { arena: 'rooftop', away: [JAX(5), ...team(KITS.ricochet, 2, 3, ['speedster', 'sniper'], 14)], mates: mates(2, 4, 14), tier: 5, xp: 600, cred: 420, balls: 4, subtitle: 'RICOCHET CREW' }),
     unlocks: { ultimate: true, cred: 250 },
   },
   // ------------------------------------------------------------------ CH5

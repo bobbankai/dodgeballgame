@@ -42,6 +42,10 @@ const { chromium } = require('/opt/node22/lib/node_modules/playwright');
           if (!prog.raise(k)) break;
         }
         for (let pass = 0; pass < 3; pass++) for (const s of [...sk.SKILLS].sort((a, b) => a.cost - b.cost)) if (prog.canBuy(s).ok) prog.buy(s);
+        // the stand-in "improves" over the campaign like a human would: tier 3 -> 4 -> 5
+        const ch = +id.slice(1, 2);
+        if (!prog.__origProfile) prog.__origProfile = prog.playerProfile.bind(prog);
+        prog.playerProfile = () => ({ ...prog.__origProfile(), tier: ch >= 6 ? 5 : ch >= 4 ? 4 : 3 });
         const m = window.__debugStart(id, true);
         const pl = g.world.athletes.find((a) => a.team === 0);
         if (pl && pl.controller && pl.controller.params) pl.controller.params = { ...pl.controller.params };

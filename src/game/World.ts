@@ -56,12 +56,15 @@ export class World {
     return this.athletes.filter((o) => o.team === a.team && o !== a && o.active);
   }
 
-  nearestOpponent(of: Athlete, from: THREE.Vector3, exclude?: Athlete): Athlete | null {
+  /** Nearest active opponent; with minDist, targets closer than that are only used as a fallback. */
+  nearestOpponent(of: Athlete, from: THREE.Vector3, exclude?: Athlete, minDist = 0): Athlete | null {
     let best: Athlete | null = null;
     let bd = Infinity;
+    const min2 = minDist * minDist;
     for (const o of this.athletes) {
       if (o.team === of.team || !o.active || o === exclude) continue;
-      const d = o.pos.distanceToSquared(from);
+      let d = o.pos.distanceToSquared(from);
+      if (d < min2) d += 1e4; // too close to react: only if nobody else is available
       if (d < bd) {
         bd = d;
         best = o;
