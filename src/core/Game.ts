@@ -353,7 +353,9 @@ export class Game {
         const mm = Math.floor(tl / 60);
         const ss = Math.floor(tl % 60);
         this.arena.setScore(m.score[0], m.score[1], `${mm}:${ss.toString().padStart(2, '0')}`, Math.max(1, m.round));
-        if (this.arena.crowd) this.arena.crowd.setBase(m.phase === 'playing' ? 0.18 + (m.suddenDeath ? 0.3 : 0) : 0.08);
+        const base = m.phase === 'playing' ? 0.18 + (m.suddenDeath ? 0.3 : 0) : 0.08;
+        this.arena.crowd?.setBase(base);
+        for (const c of this.arena.moreCrowds) c.setBase(base);
       }
     }
     const benched = !!this.player && !!this.match && this.player.isOut && this.match.phase === 'playing';

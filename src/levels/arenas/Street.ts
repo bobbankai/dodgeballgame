@@ -127,11 +127,15 @@ export function buildStreet(q: QualityProfile, hw: number, hl: number): Arena {
     const side = Math.random() < 0.55 ? 1 : -1;
     const z = (Math.random() - 0.5) * (hl * 2 + 6);
     const x = side > 0 ? fx + 0.8 + Math.random() * 2.5 : -fx - 0.8 - Math.random() * 2;
-    seats.push({ pos: new THREE.Vector3(x, 0.8, z), yaw: side > 0 ? -Math.PI / 2 : Math.PI / 2 });
+    const pos = new THREE.Vector3(x, 0.8, z);
+    if (seats.some((f) => f.pos.distanceTo(pos) < 0.7)) continue;
+    seats.push({ pos, yaw: (side > 0 ? -Math.PI / 2 : Math.PI / 2) + (Math.random() - 0.5) * 0.5 });
   }
   for (let i = 0; i < 20; i++) {
     if (Math.random() > density) continue;
-    seats.push({ pos: new THREE.Vector3((Math.random() - 0.5) * fx * 1.6, 0.8, -fz - 1 - Math.random() * 3), yaw: 0 });
+    const pos = new THREE.Vector3((Math.random() - 0.5) * fx * 1.6, 0.8, -fz - 1 - Math.random() * 3);
+    if (seats.some((f) => f.pos.distanceTo(pos) < 0.7)) continue;
+    seats.push({ pos, yaw: (Math.random() - 0.5) * 0.5 });
   }
   if (seats.length) {
     arena.crowd = new Crowd(seats, [0x2c6b66, 0xff7a3d, 0x1b1b22, 0xf2efe6, 0x6b4ea0, 0xd6a53a, 0x3b5b92, 0x8c3b3b], undefined, true);

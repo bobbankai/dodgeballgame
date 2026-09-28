@@ -5,6 +5,7 @@ import { buildBench, courtLines, lightShaft, noiseSurface, Scoreboard } from '..
 import { Crowd, standSeats } from '../Crowd';
 import { skyDome } from '../Environment';
 import { createFloorMaterial } from '../FloorMaterial';
+import { placeProp, prop, propParts } from '../PropKit';
 
 const barrierFrag = /* glsl */ `
 uniform vec3 uColor;
@@ -66,12 +67,20 @@ export function buildEclipse(q: QualityProfile, hw: number, hl: number): Arena {
   top.rotation.z = Math.PI / 8;
   top.receiveShadow = true;
   R.add(top);
-  const rockMat = new THREE.MeshStandardMaterial({ color: 0x1a1522, roughness: 0.85, metalness: 0.1 });
-  const under = new THREE.Mesh(new THREE.ConeGeometry(PR, PR * 1.6, 8, 3), rockMat);
-  under.rotation.x = Math.PI;
-  under.rotation.y = Math.PI / 8;
-  under.position.y = -PR * 0.8 - 0.02;
-  R.add(under);
+  // craggy island underside (Blender kit), octagon matched to the floor; a plain cone as fallback
+  const island = prop('island_base');
+  if (island) {
+    island.scale.setScalar(PR);
+    island.position.y = -0.02;
+    R.add(island);
+  } else {
+    const rockMat = new THREE.MeshStandardMaterial({ color: 0x1a1522, roughness: 0.85, metalness: 0.1 });
+    const under = new THREE.Mesh(new THREE.ConeGeometry(PR, PR * 1.6, 8, 3), rockMat);
+    under.rotation.x = Math.PI;
+    under.rotation.y = Math.PI / 8;
+    under.position.y = -PR * 0.8 - 0.02;
+    R.add(under);
+  }
   const edgeMat = new THREE.MeshStandardMaterial({ color: 0x000000, emissive: 0xa78bfa, emissiveIntensity: 2.2 });
   const edge = new THREE.Mesh(new THREE.TorusGeometry(PR * 1.0, 0.06, 6, 8), edgeMat);
   edge.rotation.x = Math.PI / 2;
@@ -121,18 +130,22 @@ export function buildEclipse(q: QualityProfile, hw: number, hl: number): Arena {
   // ---------------- pillars with crystals + beams ----------------
   const pillarMat = new THREE.MeshStandardMaterial({ color: 0x0e0b14, roughness: 0.35, metalness: 0.4 });
   const crystalMat = new THREE.MeshStandardMaterial({ color: 0x000000, emissive: 0xffb347, emissiveIntensity: 3 });
-  const crystals: THREE.Mesh[] = [];
+  const crystals: THREE.Object3D[] = [];
   const pillarLights: THREE.PointLight[] = [];
   const pd = PR - 1.4;
   for (let i = 0; i < 4; i++) {
     const a = Math.PI / 4 + (i * Math.PI) / 2;
     const x = Math.sin(a) * pd, z = Math.cos(a) * pd;
-    const p = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.8, 9, 6), pillarMat);
-    p.position.set(x, 4.5, z);
-    p.castShadow = true;
-    R.add(p);
-    const c = new THREE.Mesh(new THREE.OctahedronGeometry(0.7, 0), crystalMat);
+    // carved obsidian obelisk holding a floating crystal (Blender kit), simple shapes as fallback
+    if (!placeProp(R, 'obelisk', x, 0, z, a)) {
+      const p = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.8, 9, 6), pillarMat);
+      p.position.set(x, 4.5, z);
+      p.castShadow = true;
+      R.add(p);
+    }
+    const c = prop('eclipse_crystal') ?? new THREE.Mesh(new THREE.OctahedronGeometry(0.7, 0), crystalMat);
     c.position.set(x, 10, z);
+    c.userData.dynamic = true;
     R.add(c);
     crystals.push(c);
     if (q.envDetail > 0.4) {
@@ -150,17 +163,55 @@ export function buildEclipse(q: QualityProfile, hw: number, hl: number): Arena {
 
   // ---------------- floating rocks + spectral crowd tiers ----------------
   const floaters: { m: THREE.Object3D; base: number; phase: number; speed: number }[] = [];
-  const crackMat = new THREE.MeshStandardMaterial({ color: 0x15111c, roughness: 0.9, emissive: 0x3b1f6b, emissiveIntensity: 0.4, flatShading: true });
+  // sculpted floating crags (Blender kit), drawn as one instanced mesh per variant and material
+  const rockParts = (['rock_a', 'rock_b', 'rock_c'] as const).map((n) => propParts(n));
+  type Rock = { pos: THREE.Vector3; q: THREE.Quaternion; s: number; phase: number; speed: number; v: number; i: number };
+  const rocks: Rock[] = [];
+  const perVariant = [0, 0, 0];
   for (let i = 0; i < 22; i++) {
     const a = Math.random() * Math.PI * 2;
     const r = PR + 8 + Math.random() * 40;
     const s = 0.8 + Math.random() * 4;
-    const m = new THREE.Mesh(new THREE.IcosahedronGeometry(s, 0), crackMat);
-    m.position.set(Math.sin(a) * r, -6 + Math.random() * 22, Math.cos(a) * r);
-    m.rotation.set(Math.random() * 3, Math.random() * 3, Math.random() * 3);
-    R.add(m);
-    floaters.push({ m, base: m.position.y, phase: Math.random() * 6, speed: 0.2 + Math.random() * 0.4 });
+    const v = s > 2.8 ? 0 : 1 + (i % 2);
+    // islands mostly stay upright, drifting with a gentle tilt
+    const q = new THREE.Quaternion().setFromEuler(new THREE.Euler((Math.random() - 0.5) * 0.5, Math.random() * 6.28, (Math.random() - 0.5) * 0.5));
+    rocks.push({ pos: new THREE.Vector3(Math.sin(a) * r, -6 + Math.random() * 22, Math.cos(a) * r), q, s, phase: Math.random() * 6, speed: 0.2 + Math.random() * 0.4, v, i: perVariant[v]++ });
   }
+  const rockInst: THREE.InstancedMesh[][] = [];
+  if (rockParts.every((p) => p)) {
+    rockParts.forEach((parts, v) => {
+      rockInst[v] = parts!.map((p) => {
+        const im = new THREE.InstancedMesh(p.geometry, p.material, Math.max(1, perVariant[v]));
+        im.count = perVariant[v];
+        im.frustumCulled = false;
+        im.userData.dynamic = true;
+        R.add(im);
+        return im;
+      });
+    });
+  } else {
+    const crackMat = new THREE.MeshStandardMaterial({ color: 0x15111c, roughness: 0.9, emissive: 0x3b1f6b, emissiveIntensity: 0.4, flatShading: true });
+    for (const k of rocks) {
+      const m = new THREE.Mesh(new THREE.IcosahedronGeometry(k.s, 0), crackMat);
+      m.position.copy(k.pos);
+      m.quaternion.copy(k.q);
+      R.add(m);
+      floaters.push({ m, base: k.pos.y, phase: k.phase, speed: k.speed });
+    }
+  }
+  const rockM = new THREE.Matrix4();
+  const rockP = new THREE.Vector3();
+  const rockS = new THREE.Vector3();
+  const placeRocks = (t: number) => {
+    if (!rockInst.length) return;
+    for (const k of rocks) {
+      rockP.copy(k.pos).setY(k.pos.y + Math.sin(t * k.speed + k.phase) * 0.6);
+      rockM.compose(rockP, k.q, rockS.setScalar(k.s));
+      for (const im of rockInst[k.v]) im.setMatrixAt(k.i, rockM);
+    }
+    for (const list of rockInst) for (const im of list) im.instanceMatrix.needsUpdate = true;
+  };
+  placeRocks(0);
   const seats: { pos: THREE.Vector3; yaw: number }[] = [];
   const tierMat = new THREE.MeshStandardMaterial({ color: 0x120e1a, roughness: 0.7, emissive: 0x2a1650, emissiveIntensity: 0.25 });
   for (const s of [1, -1]) {
@@ -239,6 +290,7 @@ export function buildEclipse(q: QualityProfile, hw: number, hl: number): Arena {
   arena.updaters.push((dt, t) => {
     bUniforms.uPulse.value *= Math.exp(-dt * 2.5);
     for (const f of floaters) f.m.position.y = f.base + Math.sin(t * f.speed + f.phase) * 0.6;
+    placeRocks(t);
     crystals.forEach((c, i) => {
       c.rotation.y += dt * 0.8;
       c.position.y = 10 + Math.sin(t * 1.3 + i) * 0.25;

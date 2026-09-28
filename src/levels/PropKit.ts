@@ -16,7 +16,9 @@ import { ballTextures } from '../rendering/Textures';
  */
 export type PropName =
   | 'hoop' | 'ball_cart' | 'cooler' | 'cone' | 'mat_stack' | 'bench' | 'double_door'
-  | 'van' | 'streetlight' | 'wheelie_bin' | 'pallet_stack' | 'rollup_door' | 'container';
+  | 'van' | 'streetlight' | 'wheelie_bin' | 'pallet_stack' | 'rollup_door' | 'container'
+  | 'rock_a' | 'rock_b' | 'rock_c' | 'obelisk' | 'eclipse_crystal' | 'island_base'
+  | 'water_tower' | 'hvac_unit';
 
 /** Seat length of the bench as modelled. */
 const BENCH_LEN = 2.4;
@@ -60,6 +62,18 @@ export function prop(name: PropName): THREE.Object3D | null {
   const o = src.clone();
   if (name === 'ball_cart') fillCart(o);
   return o;
+}
+
+/** The meshes making up a kit prop (shared geometry and material, in the prop's space), for instancing. */
+export function propParts(name: PropName): { geometry: THREE.BufferGeometry; material: THREE.Material }[] | null {
+  const src = kit?.get(name);
+  if (!src) return null;
+  const out: { geometry: THREE.BufferGeometry; material: THREE.Material }[] = [];
+  src.traverse((o) => {
+    const m = o as THREE.Mesh;
+    if (m.isMesh) out.push({ geometry: m.geometry, material: m.material as THREE.Material });
+  });
+  return out;
 }
 
 /** Instance a prop and place it (rotation about Y); null if the kit didn't load. */

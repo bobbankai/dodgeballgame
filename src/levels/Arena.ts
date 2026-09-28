@@ -39,6 +39,8 @@ export interface ArenaInfo {
 export class Arena {
   readonly root = new THREE.Group();
   crowd: Crowd | null = null;
+  /** further crowds (e.g. standing fans beside a seated stand), driven like `crowd` */
+  moreCrowds: Crowd[] = [];
   scoreboards: Scoreboard[] = [];
   updaters: ((dt: number, t: number) => void)[] = [];
   /** Called on big plays: 0..1 intensity. */
@@ -74,6 +76,7 @@ export class Arena {
 
   hype(amount: number) {
     this.crowd?.cheer(amount);
+    for (const c of this.moreCrowds) c.cheer(amount);
     for (const h of this.hypeHandlers) h(amount);
   }
 
@@ -83,6 +86,7 @@ export class Arena {
 
   update(dt: number, t: number) {
     this.crowd?.update(dt, t);
+    for (const c of this.moreCrowds) c.update(dt, t);
     for (const u of this.timeUniforms) u.value = t;
     for (const f of this.updaters) f(dt, t);
   }

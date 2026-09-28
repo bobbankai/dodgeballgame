@@ -94,14 +94,20 @@ export function buildUnderground(q: QualityProfile, hw: number, hl: number): Are
   const seats: { pos: THREE.Vector3; yaw: number }[] = [];
   for (let i = 0; i < 110; i++) {
     if (Math.random() > q.crowdDensity) continue;
-    if (Math.random() < 0.6) seats.push({ pos: new THREE.Vector3(HX - 2.2 + (Math.random() - 0.5) * 2.4, catY + 0.9, (Math.random() - 0.5) * (HZ * 2 - 4)), yaw: -Math.PI / 2 });
-    else seats.push({ pos: new THREE.Vector3((Math.random() - 0.5) * (HX * 2 - 4), catY + 0.9, -HZ + 2 + (Math.random() - 0.5) * 2), yaw: 0 });
+    const side = Math.random() < 0.6;
+    const pos = side
+      ? new THREE.Vector3(HX - 2.2 + (Math.random() - 0.5) * 2.4, catY + 0.9, (Math.random() - 0.5) * (HZ * 2 - 4))
+      : new THREE.Vector3((Math.random() - 0.5) * (HX * 2 - 4), catY + 0.9, -HZ + 2 + (Math.random() - 0.5) * 2);
+    if (seats.some((f) => f.pos.distanceTo(pos) < 0.7)) continue;
+    seats.push({ pos, yaw: (side ? -Math.PI / 2 : 0) + (Math.random() - 0.5) * 0.4 });
   }
   // ground-level crowd behind the cage on -X
   for (let i = 0; i < 40; i++) {
     if (Math.random() > q.crowdDensity) continue;
     // (clear of the container stacks at the far end)
-    seats.push({ pos: new THREE.Vector3(-hw - 4.2 - Math.random() * 3, 0.8, -hl + 2 + Math.random() * (hl * 2 - 2)), yaw: Math.PI / 2 });
+    const pos = new THREE.Vector3(-hw - 4.2 - Math.random() * 3, 0.8, -hl + 2 + Math.random() * (hl * 2 - 2));
+    if (seats.some((f) => f.pos.distanceTo(pos) < 0.7)) continue;
+    seats.push({ pos, yaw: Math.PI / 2 + (Math.random() - 0.5) * 0.4 });
   }
   if (seats.length) {
     arena.crowd = new Crowd(seats, [0x2b2b2e, 0xb91c1c, 0x3f3f46, 0x52525b, 0x1f2937, 0xc9a227, 0x4c1d95], undefined, true);

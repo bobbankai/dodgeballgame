@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import type { QualityProfile } from '../../config/quality';
 import { Arena } from '../Arena';
 import { box, buildBench, buildBoards, courtLines, noiseSurface, Scoreboard, tileSurface } from '../ArenaKit';
+import { placeProp } from '../PropKit';
 import { Crowd, standSeats } from '../Crowd';
 import { floodRig, neonSign, skyDome, skyline, stringLights } from '../Environment';
 import { createFloorMaterial } from '../FloorMaterial';
@@ -100,13 +101,25 @@ export function buildRooftop(q: QualityProfile, hw: number, hl: number): Arena {
   const bLen = hl * 1.6;
   for (let r = 0; r < rows; r++) R.add(box(0.55, 0.06, bLen, bleachMat, bx0 + r * 0.62, 0.36 + r * 0.36, 0));
   const seats = standSeats({ origin: new THREE.Vector3(bx0 + 0.05, 0.42, 0), along: new THREE.Vector3(0, 0, 1), back: new THREE.Vector3(1, 0, 0), rows, length: bLen - 0.6, rowDepth: 0.62, rowRise: 0.36, spacing: 0.62, density: 0.65 * q.crowdDensity, facingYaw: -Math.PI / 2 });
+  const palette = [0x0f9d58, 0xb6ff3b, 0x1e3a8a, 0xdc2626, 0x111827, 0xf8fafc, 0x7c3aed];
+  if (seats.length) {
+    arena.crowd = new Crowd(seats, palette);
+    R.add(arena.crowd.mesh);
+  }
+  // fans standing along the parapet on the far side, clear of the HVAC units in the corner
+  const standing: { pos: THREE.Vector3; yaw: number }[] = [];
   for (let i = 0; i < 40; i++) {
     if (Math.random() > q.crowdDensity) continue;
-    seats.push({ pos: new THREE.Vector3(-RX + 1 + Math.random() * 2.5, 0.8, (Math.random() - 0.5) * RZ * 1.6), yaw: Math.PI / 2 });
+    const z = (Math.random() - 0.5) * RZ * 1.6;
+    if (z < -RZ + 8.5) continue;
+    const pos = new THREE.Vector3(-RX + 1 + Math.random() * 2.5, 0.8, z);
+    if (standing.some((f) => f.pos.distanceTo(pos) < 0.75)) continue;
+    standing.push({ pos, yaw: Math.PI / 2 + (Math.random() - 0.5) * 0.5 });
   }
-  if (seats.length) {
-    arena.crowd = new Crowd(seats, [0x0f9d58, 0xb6ff3b, 0x1e3a8a, 0xdc2626, 0x111827, 0xf8fafc, 0x7c3aed]);
-    R.add(arena.crowd.mesh);
+  if (standing.length) {
+    const fans = new Crowd(standing, palette, undefined, true);
+    arena.moreCrowds.push(fans);
+    R.add(fans.mesh);
   }
 
   // ---------------- rooftop props ----------------
@@ -116,6 +129,7 @@ export function buildRooftop(q: QualityProfile, hw: number, hl: number): Arena {
     [-RX + 2.5, -RZ + 6.5],
     [RX - 2.5, RZ - 3],
   ]) {
+    if (placeProp(R, 'hvac_unit', x, 0, z, x < 0 ? 0 : Math.PI)) continue;
     const hvac = new THREE.Group();
     hvac.add(box(2.4, 1.6, 2, metal, 0, 0.8, 0));
     const fan = new THREE.Mesh(new THREE.CylinderGeometry(0.7, 0.7, 0.1, 20), new THREE.MeshStandardMaterial({ color: 0x22252b, roughness: 0.6 }));
@@ -125,6 +139,7 @@ export function buildRooftop(q: QualityProfile, hw: number, hl: number): Arena {
     R.add(hvac);
   }
   // water tower
+  const kitTower = placeProp(R, 'water_tower', RX - 3.5, 0, -RZ + 3.5, 0.6);
   const wood = new THREE.MeshStandardMaterial({ color: 0x6b4a35, roughness: 0.85 });
   const tower = new THREE.Group();
   const tank = new THREE.Mesh(new THREE.CylinderGeometry(2, 2, 3.2, 24), wood);
@@ -142,7 +157,7 @@ export function buildRooftop(q: QualityProfile, hw: number, hl: number): Arena {
   ])
     tower.add(box(0.18, 3.6, 0.18, metal, ox, 1.8, oz));
   tower.position.set(RX - 3.5, 0, -RZ + 3.5);
-  R.add(tower);
+  if (!kitTower) R.add(tower);
 
   // neon billboard on a steel frame behind the away end
   const sign = neonSign('SKYLINE LEAGUE', '#b6ff3b', 12, { backing: true });

@@ -650,6 +650,280 @@ def shipping_container():
     return r
 
 
+# ------------------------------------------------------------------ rooftop props
+def water_tower():
+    """NYC rooftop water tower: tapered wooden-stave tank bound by steel hoops, conical roof with a
+    hatch, on a cross-braced steel stand with a ladder. Origin at the stand's feet."""
+    r = root('water_tower')
+    wood = mat('tank_wood', srgb('#6b4a35'), 0.85, 0.0)
+    roofm = mat('tank_roof', srgb('#3a2a22'), 0.8, 0.0)
+    steel = mat('steel_dark', srgb('#3a3f47'), 0.45, 0.8)
+    legH, tH, r0, r1 = 3.6, 3.4, 2.05, 1.9
+    # stand: four legs, ring beams, X bracing
+    lp = 1.45
+    corners = [(-lp, -lp), (lp, -lp), (lp, lp), (-lp, lp)]
+    for (x, y) in corners:
+        tube('leg', [(x * 1.06, y * 1.06, 0.0), (x, y, legH)], 0.07, steel, r)
+        box('foot', (0.3, 0.3, 0.04), (x * 1.06, y * 1.06, 0.02), steel, r, bevel=0.01)
+    for z in (1.4, legH - 0.05):
+        for i in range(4):
+            (xa, ya), (xb, yb) = corners[i], corners[(i + 1) % 4]
+            tube('beam', [(xa, ya, z), (xb, yb, z)], 0.05 if z > 2 else 0.035, steel, r)
+    for i in range(4):
+        (xa, ya), (xb, yb) = corners[i], corners[(i + 1) % 4]
+        for (z0, z1) in ((0.1, 1.4), (1.4, legH - 0.05)):
+            tube('brace', [(xa * 1.03, ya * 1.03, z0), (xb, yb, z1)], 0.022, steel, r)
+            tube('brace', [(xb * 1.03, yb * 1.03, z0), (xa, ya, z1)], 0.022, steel, r)
+    box('deck', (3.4, 3.4, 0.12), (0, 0, legH + 0.06), wood, r, bevel=0.02)
+    # tank: staves as shallow grooves around a tapered barrel
+    bm = bmesh.new()
+    seg, rings = 72, 6
+    rows = []
+    for k in range(rings + 1):
+        t = k / rings
+        rad = r0 + (r1 - r0) * t
+        row = []
+        for i in range(seg):
+            a = 2 * math.pi * i / seg
+            rr = rad - (0.012 if i % 2 else 0.0)
+            row.append(bm.verts.new((math.cos(a) * rr, math.sin(a) * rr, legH + 0.12 + t * tH)))
+        rows.append(row)
+    for k in range(rings):
+        for i in range(seg):
+            j = (i + 1) % seg
+            bm.faces.new([rows[k][i], rows[k][j], rows[k + 1][j], rows[k + 1][i]])
+    bm.faces.new(list(reversed(rows[0])))
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+    from_bmesh('tank', bm, wood, r, smooth=False)
+    for k in range(6):
+        t = (k + 0.5) / 6
+        torus('hoop', r0 + (r1 - r0) * t + 0.012, 0.022, (0, 0, legH + 0.12 + t * tH), steel, r, seg=(64, 6))
+    top = legH + 0.12 + tH
+    cylinder('roof', r1 + 0.18, 0.12, 1.25, (0, 0, top + 0.62), roofm, r, seg=32)
+    cylinder('finial', 0.12, 0.06, 0.25, (0, 0, top + 1.35), steel, r, seg=12)
+    box('hatch', (0.5, 0.06, 0.4), (0.9, -0.55, top + 0.4), roofm, r, bevel=0.01, rot=('X', 0.8))
+    # ladder from the deck to the roof edge
+    for sx in (-0.2, 0.2):
+        tube('ladder_rail', [(sx, -r0 - 0.12, legH + 0.1), (sx, -r1 - 0.12, top + 0.35)], 0.018, steel, r)
+    for k in range(10):
+        t = (k + 0.5) / 10
+        y = -(r0 + (r1 - r0) * t) - 0.12
+        tube('rung', [(-0.2, y, legH + 0.1 + t * (tH + 0.25)), (0.2, y, legH + 0.1 + t * (tH + 0.25))], 0.012, steel, r)
+    return r
+
+
+def hvac_unit():
+    """Packaged rooftop HVAC unit (2.4 x 1.9 x 1.45 m) on base rails: finned coil grilles, service
+    panels, guarded top fan and an intake hood. Origin on the roof, long axis along X."""
+    r = root('hvac_unit')
+    paint = mat('hvac_paint', srgb('#cfc7b0'), 0.5, 0.15)
+    dark = mat('coil_dark', srgb('#3b3f45'), 0.55, 0.6)
+    galv = mat('galvanized', srgb('#a3a8ad'), 0.42, 0.85)
+    L, W, H = 2.4, 1.9, 1.45
+    z0 = 0.12
+    for sy in (-1, 1):
+        box('rail', (L + 0.2, 0.1, 0.12), (0, sy * (W / 2 - 0.1), 0.06), galv, r, bevel=0.01)
+    box('cabinet', (L, W, H), (0, 0, z0 + H / 2), paint, r, bevel=0.03)
+    # coil grilles on both long sides of the condenser half (+X), fins as thin slats in a recess
+    for sy in (-1, 1):
+        y = sy * (W / 2 + 0.001)
+        box('coil_recess', (1.0, 0.02, H - 0.35), (0.55, y, z0 + H / 2 + 0.02), dark, r, bevel=0.0)
+        for k in range(14):
+            box('fin', (0.98, 0.03, 0.022), (0.55, y + sy * 0.012, z0 + 0.26 + k * 0.075), galv, r, bevel=0.0)
+        # service panels on the air-handler half (-X): seams and handles
+        for px in (-0.95, -0.45):
+            box('seam', (0.012, 0.012, H - 0.3), (px + 0.22, y, z0 + H / 2), dark, r, bevel=0.0)
+            box('handle', (0.08, 0.03, 0.03), (px, y + sy * 0.015, z0 + H * 0.55), galv, r, bevel=0.005)
+    # end coil on +X
+    box('coil_end', (0.02, W - 0.35, H - 0.35), (L / 2 + 0.001, 0, z0 + H / 2 + 0.02), dark, r, bevel=0.0)
+    # top fan with a wire guard
+    fz = z0 + H
+    cylinder('fan_shroud', 0.62, 0.62, 0.16, (0.55, 0, fz + 0.08), paint, r, seg=32, bevel=0.015)
+    cylinder('fan_well', 0.56, 0.56, 0.02, (0.55, 0, fz + 0.155), dark, r, seg=32)
+    for k in range(4):
+        torus('guard', 0.15 + k * 0.13, 0.008, (0.55, 0, fz + 0.18), galv, r, seg=(40, 4))
+    for a in range(4):
+        ang = a * math.pi / 4
+        tube('guard_bar', [(0.55 - math.cos(ang) * 0.56, -math.sin(ang) * 0.56, fz + 0.18), (0.55 + math.cos(ang) * 0.56, math.sin(ang) * 0.56, fz + 0.18)], 0.008, galv, r)
+    cylinder('hub', 0.1, 0.1, 0.04, (0.55, 0, fz + 0.19), dark, r, seg=16)
+    # outside-air intake hood on -X
+    box('hood', (0.25, W * 0.7, 0.45), (-L / 2 - 0.12, 0, z0 + H * 0.62), paint, r, bevel=0.02, rot=('Y', -0.35))
+    for k in range(4):
+        box('louver', (0.02, W * 0.66, 0.035), (-L / 2 - 0.2, 0, z0 + H * 0.5 + k * 0.07), dark, r, bevel=0.0)
+    # refrigerant line stubs
+    for k, zz in enumerate((0.3, 0.42)):
+        tube('pipe', [(-0.2 + k * 0.12, -W / 2, z0 + zz), (-0.2 + k * 0.12, -W / 2 - 0.25, z0 + zz), (-0.2 + k * 0.12, -W / 2 - 0.25, 0.02)], 0.022, dark, r)
+    return r
+
+
+# ------------------------------------------------------------------ eclipse props
+def rock_mesh(name, seed, radius, subdiv, parent, material, squash=1.0, flat_top=None):
+    """A sculpted crag: an icosphere pushed out by layered noise, with sedimentary strata and a few
+    sheared facets, so it reads as carved stone rather than a faceted primitive."""
+    from mathutils import noise
+    rng = __import__('random').Random(seed)
+    bm = bmesh.new()
+    bmesh.ops.create_icosphere(bm, subdivisions=subdiv, radius=1.0)
+    o1 = Vector((rng.uniform(-50, 50), rng.uniform(-50, 50), rng.uniform(-50, 50)))
+    o2 = Vector((rng.uniform(-50, 50), rng.uniform(-50, 50), rng.uniform(-50, 50)))
+    cuts = []
+    for _ in range(9):
+        n = Vector((rng.gauss(0, 1), rng.gauss(0, 1), rng.gauss(0, 1) - 0.6)).normalized()   # mostly flanks and underside
+        cuts.append((n, rng.uniform(0.62, 0.84)))
+    tilt = Vector((rng.uniform(-0.3, 0.3), rng.uniform(-0.3, 0.3), 1)).normalized()
+    for v in bm.verts:
+        d = v.co.normalized()
+        big = noise.fractal(d * 1.1 + o1, 0.55, 2.0, 3, noise_basis='PERLIN_ORIGINAL')
+        mid = noise.ridged_multi_fractal(d * 2.6 + o2, 0.9, 2.1, 3, 1.0, 2.0, noise_basis='PERLIN_ORIGINAL')
+        r = 1.0 + 0.24 * big + 0.05 * (mid - 1.0)
+        r += 0.018 * math.sin(d.dot(tilt) * 26.0)          # strata
+        p = d * r
+        for n, k in cuts:                                   # sheared facets
+            e = p.dot(n) - k
+            if e > 0:
+                p -= n * e * 0.85
+        p.z *= squash
+        if p.z < 0:
+            # floating-island profile: the underside drops away into a jagged, tapering keel
+            p.z *= 1.55
+            p.x *= 1 + 0.28 * p.z
+            p.y *= 1 + 0.28 * p.z
+        if flat_top is not None and p.z > flat_top:
+            p.z = flat_top + (p.z - flat_top) * 0.12
+        v.co = p * radius
+    ob = from_bmesh(name, bm, material, parent)
+    return ob
+
+
+def crystal_cluster(name, base, direction, size, material, parent, rng):
+    """Hexagonal crystals with pointed tips growing out of `base` along `direction`."""
+    up = Vector((0, 0, 1))
+    for i in range(3):
+        d = (Vector(direction) + Vector((rng.uniform(-0.4, 0.4), rng.uniform(-0.4, 0.4), rng.uniform(-0.4, 0.4)))).normalized()
+        L = size * rng.uniform(0.6, 1.0) * (1.0 if i == 0 else 0.6)
+        w = L * 0.22
+        bm = bmesh.new()
+        bmesh.ops.create_cone(bm, cap_ends=True, segments=6, radius1=w, radius2=w, depth=L)
+        tip = bmesh.ops.create_cone(bm, cap_ends=True, segments=6, radius1=w, radius2=0.0, depth=w * 1.6)
+        bmesh.ops.translate(bm, vec=Vector((0, 0, L / 2 + w * 0.8)), verts=tip['verts'])
+        bmesh.ops.translate(bm, vec=Vector((0, 0, L / 2)), verts=bm.verts)
+        q = up.rotation_difference(d)
+        bmesh.ops.rotate(bm, cent=(0, 0, 0), matrix=q.to_matrix(), verts=bm.verts)
+        bmesh.ops.translate(bm, vec=Vector(base) - d * w, verts=bm.verts)
+        from_bmesh(name, bm, material, parent, smooth=False)
+
+
+def floating_rock(tag, seed, subdiv, squash, flat):
+    r = root(f'rock_{tag}')
+    stone = mat('eclipse_rock', srgb('#221b2e'), 0.82, 0.05)
+    amber = mat('crystal_amber', srgb('#ffd9a0'), 0.25, 0.0, emission=srgb('#ffb347'), strength=4.0)
+    ob = rock_mesh(f'rock_{tag}_body', seed, 1.0, subdiv, r, stone, squash=squash, flat_top=flat)
+    rng = __import__('random').Random(seed * 7 + 1)
+    me = ob.data
+    # crystals sprout from the underside and flanks
+    cand = [v.co.copy() for v in me.vertices if -0.9 < v.co.z < 0.15]
+    for _ in range(4 + seed % 3):
+        p = cand[rng.randrange(len(cand))]
+        crystal_cluster('crystal', p, (p.normalized() + Vector((0, 0, -0.3))).normalized(), rng.uniform(0.35, 0.6), amber, r, rng)
+    return r
+
+
+def obelisk():
+    """Carved obsidian obelisk (9.4 m) with glowing rune strips, lit collars and a prong crown."""
+    r = root('obelisk')
+    stone = mat('obsidian', srgb('#16121e'), 0.3, 0.3)
+    glow = mat('rune_glow', srgb('#cbb8ff'), 0.3, 0.0, emission=srgb('#a78bfa'), strength=4.0)
+    cylinder('plinth', 1.3, 1.22, 0.35, (0, 0, 0.175), stone, r, seg=8, bevel=0.04)
+    cylinder('plinth2', 1.02, 0.96, 0.3, (0, 0, 0.5), stone, r, seg=8, bevel=0.04)
+    z = 0.65
+    rad = 0.74
+    for k in range(4):
+        h = 1.86
+        r0, r1 = rad, rad - 0.07
+        cylinder('shaft', r0, r1, h, (0, 0, z + h / 2), stone, r, seg=6, bevel=0.03)
+        rm = (r0 + r1) / 2 * math.cos(math.pi / 6)
+        for f in range(3):
+            a = f * 2 * math.pi / 3 + (k % 2) * math.pi / 3     # face centres (bmesh hexagon corners sit at 30°)
+            ca, sa = math.cos(a), math.sin(a)
+            tx, ty = -sa, ca                                   # along the face
+            for j in range(3):
+                zz = z + 0.4 + j * 0.5
+                ln = 0.3 if j != 1 else 0.2
+                R0 = rm + 0.004
+                box('rune', (0.02, 0.04, ln), (ca * R0, sa * R0, zz), glow, r, bevel=0.0, rot=('Z', a))
+                # glyph ticks alternate sides; the middle glyph gets a diamond
+                side = 1 if (j + f + k) % 2 else -1
+                for tz in (zz + ln * 0.3, zz - ln * 0.15):
+                    box('rune', (0.02, 0.1, 0.03), (ca * R0 + tx * side * 0.06, sa * R0 + ty * side * 0.06, tz), glow, r, bevel=0.0, rot=('Z', a))
+                if j == 1:
+                    box('rune', (0.02, 0.07, 0.07), (ca * R0 - tx * side * 0.08, sa * R0 - ty * side * 0.08, zz), glow, r, bevel=0.0, rot=('Z', a))
+        z += h
+        if k < 3:
+            cylinder('collar', r1 - 0.02, r1 - 0.02, 0.07, (0, 0, z + 0.035), glow, r, seg=6)
+            z += 0.07
+        rad = r1 - 0.02
+    # crown: four prongs sweeping up and in to cradle the crystal
+    for i in range(4):
+        a = i * math.pi / 2 + math.pi / 4
+        c, s_ = math.cos(a), math.sin(a)
+        pts = bezier((c * 0.3, s_ * 0.3, z - 0.05), (c * 0.55, s_ * 0.55, z + 0.3), (c * 0.6, s_ * 0.6, z + 0.8), (c * 0.32, s_ * 0.32, z + 1.1), 10)
+        tube('prong', pts, 0.055, stone, r)
+    cylinder('cap', rad, rad * 0.6, 0.18, (0, 0, z + 0.09), stone, r, seg=6, bevel=0.02)
+    return r
+
+
+def eclipse_crystal():
+    """The floating crystal each obelisk holds: a long hexagonal bipyramid with two satellites."""
+    r = root('eclipse_crystal')
+    amber = mat('crystal_amber', srgb('#ffd9a0'), 0.25, 0.0, emission=srgb('#ffb347'), strength=4.0)
+    for (L, w, off, tilt) in ((1.2, 0.3, (0, 0, 0), 0.0), (0.55, 0.14, (0.3, 0, -0.15), 0.5), (0.45, 0.12, (-0.26, 0.12, -0.2), -0.6)):
+        bm = bmesh.new()
+        bmesh.ops.create_cone(bm, cap_ends=False, segments=6, radius1=w, radius2=w, depth=L * 0.5)
+        for sgn in (1, -1):
+            t = bmesh.ops.create_cone(bm, cap_ends=False, segments=6, radius1=w, radius2=0.0, depth=L * 0.25)
+            if sgn < 0:
+                bmesh.ops.rotate(bm, cent=(0, 0, 0), matrix=Matrix.Rotation(math.pi, 3, 'X'), verts=t['verts'])
+            bmesh.ops.translate(bm, vec=Vector((0, 0, sgn * (L * 0.25 + L * 0.125))), verts=t['verts'])
+        bmesh.ops.remove_doubles(bm, verts=bm.verts, dist=1e-4)
+        bmesh.ops.rotate(bm, cent=(0, 0, 0), matrix=Matrix.Rotation(tilt, 3, 'Y'), verts=bm.verts)
+        bmesh.ops.translate(bm, vec=Vector(off), verts=bm.verts)
+        bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+        from_bmesh('crystal', bm, amber, r, smooth=False)
+    return r
+
+
+def island_base():
+    """Craggy underside for the octagonal floating platform: unit radius, top at z = 0 (an exact
+    octagon so it meets the floor), tapering to a point 1.6 below."""
+    from mathutils import noise
+    r = root('island_base')
+    stone = mat('eclipse_rock', srgb('#221b2e'), 0.82, 0.05)
+    bm = bmesh.new()
+    rings, seg = 14, 64
+    grid = []
+    for k in range(rings + 1):
+        t = k / rings
+        row = []
+        for i in range(seg):
+            th = 2 * math.pi * i / seg
+            oct_r = math.cos(math.pi / 8) / math.cos(((th + math.pi / 8) % (math.pi / 4)) - math.pi / 8)
+            base = oct_r * (1 - t) ** 0.75
+            d = Vector((math.cos(th), math.sin(th), -t))
+            n = noise.fractal(d * 2.2 + Vector((3.1, 7.7, 1.3)), 0.6, 2.0, 4, noise_basis='PERLIN_ORIGINAL')
+            amp = 0.16 * math.sin(math.pi * min(1.0, t * 1.3)) + 0.02 * t
+            rr = max(0.0, base * (1 + n * amp * 1.4) + 0.03 * math.sin(t * 40 + th * 3) * t)
+            row.append(bm.verts.new((math.cos(th) * rr, math.sin(th) * rr, -1.6 * t + (n * 0.06 * t if k < rings else 0.0))))
+        grid.append(row)
+    for k in range(rings):
+        for i in range(seg):
+            j = (i + 1) % seg
+            bm.faces.new([grid[k][i], grid[k + 1][i], grid[k + 1][j], grid[k][j]])
+    bmesh.ops.remove_doubles(bm, verts=bm.verts, dist=1e-5)
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+    from_bmesh('island_base', bm, stone, r)
+    return r
+
+
 # ------------------------------------------------------------------ build, bake AO, export
 def apply_all(ob):
     bpy.context.view_layer.objects.active = ob
@@ -700,14 +974,15 @@ def join_by_material(r):
         bpy.context.active_object.name = f'{r.name}_{name}'
 
 
-# wall-mounted props are baked hung on a wall at their real height
-MOUNT = {'hoop': 4.2}
+# wall-mounted and floating props are baked at their real height, clear of the floor
+MOUNT = {'hoop': 4.2, 'rock_a': 3.0, 'rock_b': 3.0, 'rock_c': 3.0, 'eclipse_crystal': 2.0, 'island_base': 2.2}
 WALLED = {'hoop', 'rollup_door', 'double_door'}
 
 
 def main():
     lib.reset_scene()
-    roots = [hoop(), ball_cart(), cooler(), cone(), mat_stack(), bench(), double_door(), van(), streetlight(), wheelie_bin(), pallet_stack(), rollup_door(), shipping_container()]
+    roots = [hoop(), ball_cart(), cooler(), cone(), mat_stack(), bench(), double_door(), van(), streetlight(), wheelie_bin(), pallet_stack(), rollup_door(), shipping_container(),
+             floating_rock('a', 3, 5, 0.8, 0.42), floating_rock('b', 11, 4, 0.9, 0.5), floating_rock('c', 29, 4, 0.7, 0.3), obelisk(), eclipse_crystal(), island_base(), water_tower(), hvac_unit()]
     # lay props out apart so they don't occlude each other while baking
     spacing = 9.0
     for i, r in enumerate(roots):
