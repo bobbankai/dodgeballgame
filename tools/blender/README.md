@@ -48,12 +48,19 @@ at load (`src/rendering/Textures.ts`).
 
 ### Arena prop kit (`build_props.py`)
 
-Hoops (truss mount, framed backboard, rim on a bracket and a corded net), a caster ball cart
-with `ball_slot_*` empties the game fills with real balls, a cooler on its stand, cones, a
-folded mat stack and a slatted bench. Everything is modelled in metres with bevelled edges;
-Cycles ambient occlusion is baked into per-vertex colours (no textures), and the kit exports
-as a single GLB that the arenas clone (`src/levels/PropKit.ts`). Props face Blender -Y, i.e.
-three.js +Z.
+Gym: hoops (truss mount, framed backboard, rim on a bracket and a corded net), a caster ball
+cart with `ball_slot_*` empties the game fills with real balls, a cooler on its stand, cones, a
+folded mat stack and a slatted bench.
+
+Street (modelled against photo references): a Luton box van with boolean-cut wheel arches, US
+davit streetlights with cobra heads, wheelie bins, a pallet stack, ribbed roll-up doors and a
+20 ft ISO container (corrugated walls, corner castings, lock-bar doors).
+
+Everything is modelled in metres with bevelled edges; Cycles ambient occlusion is baked into
+per-vertex colours (no textures), with wall-mounted props baked hung on a wall. Parts are joined
+per material and the kit exports as a single GLB that the arenas clone (`src/levels/PropKit.ts`),
+recolouring materials per instance where needed (`tintProp`). Props face Blender -Y, i.e.
+three.js +Z. Liveries and logos are painted in the game as canvas decals.
 
 ### Baked global illumination (`bake_irradiance.py`)
 

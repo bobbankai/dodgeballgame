@@ -15,7 +15,7 @@ import { ballTextures } from '../rendering/Textures';
  * Arena.dispose leaves them alone.
  */
 export type PropName =
-  | 'hoop' | 'ball_cart' | 'cooler' | 'cone' | 'mat_stack' | 'bench'
+  | 'hoop' | 'ball_cart' | 'cooler' | 'cone' | 'mat_stack' | 'bench' | 'double_door'
   | 'van' | 'streetlight' | 'wheelie_bin' | 'pallet_stack' | 'rollup_door' | 'container';
 
 /** Seat length of the bench as modelled. */

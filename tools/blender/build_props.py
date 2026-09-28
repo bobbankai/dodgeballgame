@@ -7,7 +7,7 @@ Y-up conversion. Edges are bevelled, and ambient occlusion is baked into vertex 
 Cycles so creases and contact areas read without any runtime cost.
 
 Props: hoop, ball_cart (with ball_slot_* empties for the game's real balls), cooler, cone,
-mat_stack, bench; street: van, streetlight, wheelie_bin, pallet_stack, rollup_door, container.
+mat_stack, bench, double_door; street: van, streetlight, wheelie_bin, pallet_stack, rollup_door, container.
 
 Run: blender -b -P tools/blender/build_props.py
 """
@@ -315,6 +315,36 @@ def bench():
     for sx in (-L / 2 + 0.2, L / 2 - 0.2):
         tube('leg', [(sx, -0.2, 0.0), (sx, -0.2, 0.43), (sx, 0.2, 0.43), (sx, 0.2, 0.0)], 0.018, steel, r)
         tube('foot', [(sx, -0.22, 0.012), (sx, 0.22, 0.012)], 0.014, steel, r)
+    return r
+
+
+def double_door():
+    """Steel double exit doors (2.2 x 2.4 m opening): origin on the floor at the wall face, facing -Y."""
+    r = root('double_door')
+    paint = mat('door_paint', srgb('#4a5b70'), 0.42, 0.08)
+    steel = mat('steel_brushed', srgb('#b4b8bd'), 0.3, 0.9)
+    dark = mat('steel_dark', srgb('#3a3f47'), 0.45, 0.8)
+    glass = mat('glass_dark', srgb('#1a2530'), 0.06, 0.6)
+    W, H, f = 2.2, 2.4, 0.09
+    for sx in (-1, 1):
+        box('jamb', (f, 0.12, H + f), (sx * (W / 2 + f / 2), -0.04, (H + f) / 2), dark, r, bevel=0.012)
+    box('head', (W + 2 * f, 0.12, f), (0, -0.04, H + f / 2), dark, r, bevel=0.012)
+    lw = W / 2 - 0.01
+    for sx in (-1, 1):
+        cx = sx * (lw / 2 + 0.005)
+        box('leaf', (lw, 0.05, H - 0.02), (cx, -0.035, H / 2), paint, r, bevel=0.01)
+        # narrow wired-glass light in a steel bead
+        wx = cx - sx * 0.22
+        box('bead', (0.26, 0.012, 0.78), (wx, -0.064, 1.72), dark, r, bevel=0.004)
+        box('glass', (0.2, 0.012, 0.72), (wx, -0.068, 1.72), glass, r, bevel=0.0)
+        # kick plate and push bar
+        box('kick', (lw - 0.08, 0.006, 0.28), (cx, -0.063, 0.18), steel, r, bevel=0.002)
+        bx0, bx1 = cx - sx * (lw / 2 - 0.12), cx + sx * (lw / 2 - 0.1)
+        tube('push_bar', [(bx0, -0.12, 1.02), (bx1, -0.12, 1.02)], 0.022, steel, r)
+        for x in (bx0, bx1):
+            box('bar_mount', (0.09, 0.07, 0.1), (x, -0.095, 1.02), dark, r, bevel=0.012)
+        for z in (0.25, 1.2, 2.15):
+            cylinder('hinge', 0.014, 0.014, 0.1, (sx * (W / 2 - 0.004), -0.07, z), dark, r, seg=8)
     return r
 
 
@@ -672,12 +702,12 @@ def join_by_material(r):
 
 # wall-mounted props are baked hung on a wall at their real height
 MOUNT = {'hoop': 4.2}
-WALLED = {'hoop', 'rollup_door'}
+WALLED = {'hoop', 'rollup_door', 'double_door'}
 
 
 def main():
     lib.reset_scene()
-    roots = [hoop(), ball_cart(), cooler(), cone(), mat_stack(), bench(), van(), streetlight(), wheelie_bin(), pallet_stack(), rollup_door(), shipping_container()]
+    roots = [hoop(), ball_cart(), cooler(), cone(), mat_stack(), bench(), double_door(), van(), streetlight(), wheelie_bin(), pallet_stack(), rollup_door(), shipping_container()]
     # lay props out apart so they don't occlude each other while baking
     spacing = 9.0
     for i, r in enumerate(roots):

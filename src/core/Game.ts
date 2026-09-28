@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { setCharacterDetail, updateCharacterLod } from '../character/CharacterBuilder';
+import { setCharacterRim } from '../character/CharacterMaterial';
 import { applyBakedLighting } from '../levels/LightBake';
 import { QualityLevel } from '../config/quality';
 import { Input } from './Input';
@@ -122,6 +123,12 @@ export class Game {
     this.renderer.reflectionActive = arena.reflective;
     this.renderer.setAO(arena.look.ao?.strength ?? 0.85, arena.look.ao?.radius ?? 0.6);
     this.renderer.setLens(arena.look.lens?.strength ?? 0.35, arena.look.lens?.tint ?? new THREE.Color(0.55, 0.72, 1));
+    {
+      const key = arena.keyLight;
+      const dir = arena.look.rim?.dir ?? (key ? key.position.clone().sub(key.target.position) : new THREE.Vector3(0.3, 0.6, -0.7));
+      const col = arena.look.rim?.color ?? (key ? key.color.clone() : new THREE.Color(1, 0.86, 0.72));
+      setCharacterRim(col, dir, arena.look.rim?.strength ?? 0.5);
+    }
     this.arena = arena;
     this.arenaId = key;
     this.world.scene.add(arena.root);

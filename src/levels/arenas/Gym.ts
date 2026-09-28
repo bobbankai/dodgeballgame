@@ -4,7 +4,7 @@ import { makeCanvasTexture } from '../../rendering/Textures';
 import { Arena } from '../Arena';
 import { banner, box, buildBench, buildBoards, courtLines, lightShaft, Scoreboard, woodTextures } from '../ArenaKit';
 import { Crowd, standSeats } from '../Crowd';
-import { placeProp } from '../PropKit';
+import { placeProp, tintProp } from '../PropKit';
 import { createFloorMaterial } from '../FloorMaterial';
 
 export interface GymStyle {
@@ -262,10 +262,27 @@ export function buildGym(style: GymStyle, q: QualityProfile): Arena {
 
   // exit doors with glowing signs
   const doorMat = new THREE.MeshStandardMaterial({ color: 0x3c4a5c, roughness: 0.5, metalness: 0.3 });
-  const exitMat = new THREE.MeshStandardMaterial({ color: 0x220000, emissive: 0xff2a1a, emissiveIntensity: 3 });
+  const exitHousing = new THREE.MeshStandardMaterial({ color: 0xe8e4dc, roughness: 0.5 });
+  const exitTex = makeCanvasTexture(256, 96, (g, w, h) => {
+    g.fillStyle = '#140404';
+    g.fillRect(0, 0, w, h);
+    g.fillStyle = '#ff3a22';
+    g.font = '800 72px "Barlow Condensed", "Arial Narrow", sans-serif';
+    g.textAlign = 'center';
+    g.textBaseline = 'middle';
+    g.fillText('EXIT', w / 2, h / 2 + 3);
+  });
+  const exitFace = new THREE.MeshStandardMaterial({ color: 0x000000, emissive: 0xffffff, emissiveMap: exitTex, emissiveIntensity: 3 });
   for (const s of [1, -1]) {
-    R.add(box(2.2, 2.4, 0.08, doorMat, 5.5 * s, 1.2, GL - 0.04, false));
-    R.add(box(0.7, 0.25, 0.06, exitMat, 5.5 * s, 2.75, GL - 0.06, false));
+    // exit doors painted in the school colour
+    const door = placeProp(R, 'double_door', 5.5 * s, 0, GL, Math.PI);
+    if (door) tintProp(door, { door_paint: new THREE.Color(style.stripe).multiplyScalar(0.85).getHex() });
+    else R.add(box(2.2, 2.4, 0.08, doorMat, 5.5 * s, 1.2, GL - 0.04, false));
+    R.add(box(0.7, 0.25, 0.06, exitHousing, 5.5 * s, 2.75, GL - 0.06, false));
+    const face = new THREE.Mesh(new THREE.PlaneGeometry(0.64, 0.2), exitFace);
+    face.position.set(5.5 * s, 2.75, GL - 0.092);
+    face.rotation.y = Math.PI;
+    R.add(face);
   }
   arena.marks.entrance = new THREE.Vector3(5.5, 0, GL - 1.5);
   arena.marks.awayEntrance = new THREE.Vector3(-5.5, 0, -GL + 1.5);

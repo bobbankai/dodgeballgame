@@ -19,6 +19,8 @@ export interface ArenaLook {
   lens?: { strength: number; tint?: THREE.Color };
   /** screen-space ambient occlusion */
   ao?: { strength: number; radius?: number };
+  /** character rim light (defaults to the key light's colour and direction) */
+  rim?: { strength: number; color?: THREE.Color; dir?: THREE.Vector3 };
 }
 
 export interface ArenaInfo {

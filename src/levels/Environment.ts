@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { makeCanvasTexture } from '../rendering/Textures';
 import { bevelBox, lightShaft } from './ArenaKit';
 import { prop, tintProp } from './PropKit';
@@ -107,6 +108,59 @@ function windowTexture(lit: number, warm: boolean, seed: number) {
   });
 }
 
+/**
+ * Facade material for instanced skyline blocks: the window texture is mapped at real scale (3 m bays,
+ * 3.4 m floors) whatever the block's size, with spandrel and mullion lines, darker roofs and a
+ * darker street level, so every tower reads as architecture rather than a stretched box.
+ */
+function facadeMaterial(color: number, tex: THREE.Texture) {
+  const mat = new THREE.MeshStandardMaterial({ color, roughness: 0.8, metalness: 0.2, emissive: 0xffffff, emissiveMap: tex, emissiveIntensity: 1.4 });
+  mat.onBeforeCompile = (sh) => {
+    sh.vertexShader = sh.vertexShader
+      .replace('#include <common>', '#include <common>\nvarying vec3 vBLocal;\nvarying vec3 vBNormal;')
+      .replace(
+        '#include <begin_vertex>',
+        `#include <begin_vertex>
+#ifdef USE_INSTANCING
+vec3 bScale = vec3(length(instanceMatrix[0].xyz), length(instanceMatrix[1].xyz), length(instanceMatrix[2].xyz));
+#else
+vec3 bScale = vec3(1.0);
+#endif
+vBLocal = position * bScale;
+vBNormal = normal;`,
+      );
+    sh.fragmentShader = sh.fragmentShader
+      .replace('#include <common>', '#include <common>\nvarying vec3 vBLocal;\nvarying vec3 vBNormal;')
+      .replace(
+        '#include <color_fragment>',
+        `#include <color_fragment>
+vec2 fuv = abs(vBNormal.x) > 0.5 ? vBLocal.zy : vBLocal.xy;
+float roof = step(0.5, abs(vBNormal.y));
+float spandrel = 1.0 - 0.22 * (1.0 - smoothstep(0.16, 0.24, fract(fuv.y / 3.4)));
+float mullion = 1.0 - 0.16 * smoothstep(0.84, 0.94, abs(fract(fuv.x / 3.0) - 0.5) * 2.0);
+diffuseColor.rgb *= mix(spandrel * mullion * mix(0.6, 1.0, smoothstep(0.0, 18.0, vBLocal.y)), 0.72, roof);`,
+      )
+      .replace(
+        '#include <emissivemap_fragment>',
+        `vec4 emissiveColor = texture2D(emissiveMap, fuv / vec2(24.0, 81.6));
+totalEmissiveRadiance *= emissiveColor.rgb * (1.0 - roof) * step(4.0, vBLocal.y);`,
+      );
+  };
+  mat.customProgramCacheKey = () => 'facade-v1';
+  return mat;
+}
+
+let towerGeo: THREE.BufferGeometry | null = null;
+/** Rooftop water tower: tank, conical cap and a stubby leg frame, 1 unit ≈ 1 m, base at y = 0. */
+function waterTowerGeometry() {
+  if (towerGeo) return towerGeo;
+  const legs = new THREE.CylinderGeometry(1.7, 2.0, 2.4, 6, 1, true).translate(0, 1.2, 0);
+  const tank = new THREE.CylinderGeometry(2.2, 2.2, 3.6, 16).translate(0, 4.2, 0);
+  const cap = new THREE.ConeGeometry(2.4, 1.4, 16).translate(0, 6.7, 0);
+  towerGeo = mergeGeometries([legs.toNonIndexed(), tank.toNonIndexed(), cap.toNonIndexed()])!;
+  return towerGeo;
+}
+
 /** Instanced city skyline ring around the arena. */
 export function skyline(opts: { inner: number; outer: number; count: number; minH: number; maxH: number; color: number; lit: number; warm?: boolean; seed?: number; blink?: boolean; avoid?: (x: number, z: number) => boolean }): THREE.Group {
   const group = new THREE.Group();
@@ -115,33 +169,71 @@ export function skyline(opts: { inner: number; outer: number; count: number; min
   const variants = [0, 1, 2].map((i) => {
     const tex = windowTexture(opts.lit, !!opts.warm, (opts.seed ?? 5) + i * 17);
     tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
-    return new THREE.MeshStandardMaterial({ color: opts.color, roughness: 0.8, metalness: 0.2, emissive: 0xffffff, emissiveMap: tex, emissiveIntensity: 1.4 });
+    return facadeMaterial(opts.color, tex);
   });
   const geo = new THREE.BoxGeometry(1, 1, 1);
   geo.translate(0, 0.5, 0);
   const perVariant = Math.ceil(opts.count / variants.length);
   const blinkers: THREE.Vector3[] = [];
-  variants.forEach((mat, vi) => {
-    const inst = new THREE.InstancedMesh(geo, mat, perVariant);
-    const m = new THREE.Matrix4();
+  const caps: THREE.Matrix4[] = [];
+  const towers: THREE.Matrix4[] = [];
+  const up = new THREE.Vector3(0, 1, 0);
+  const tint = new THREE.Color();
+  const base = new THREE.Color(1, 1, 1);
+  variants.forEach((mat) => {
+    const inst = new THREE.InstancedMesh(geo, mat, perVariant * 2);
     let n = 0;
-    for (let i = 0; i < perVariant * 3 && n < perVariant; i++) {
+    const put = (x: number, y: number, z: number, q: THREE.Quaternion, w: number, h: number, d: number, k: number) => {
+      inst.setMatrixAt(n, new THREE.Matrix4().compose(new THREE.Vector3(x, y, z), q, new THREE.Vector3(w, h, d)));
+      inst.setColorAt(n++, tint.copy(base).multiplyScalar(k));
+    };
+    let placed = 0;
+    for (let i = 0; i < perVariant * 3 && placed < perVariant; i++) {
       const a = R() * Math.PI * 2;
       const r = opts.inner + R() * (opts.outer - opts.inner);
       const x = Math.cos(a) * r, z = Math.sin(a) * r;
       if (opts.avoid?.(x, z)) continue;
+      placed++;
       const w = 6 + R() * 14, d = 6 + R() * 14;
       const hgt = opts.minH + Math.pow(R(), 2.2) * (opts.maxH - opts.minH);
-      m.compose(new THREE.Vector3(x, -2, z), new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), a), new THREE.Vector3(w, hgt, d));
-      inst.setMatrixAt(n++, m);
-      if (hgt > opts.maxH * 0.6) blinkers.push(new THREE.Vector3(x, hgt - 1.5, z));
+      const q = new THREE.Quaternion().setFromAxisAngle(up, a);
+      const k = 0.82 + R() * 0.36;
+      put(x, -2, z, q, w, hgt, d, k);
+      let top = -2 + hgt;
+      if (hgt > 24) caps.push(new THREE.Matrix4().compose(new THREE.Vector3(x, top - 0.3, z), q, new THREE.Vector3(w + 0.7, 1.1, d + 0.7)));
+      // tall towers step back once or twice, each tier with its own cornice
+      if (hgt > opts.maxH * 0.45 && R() < 0.75) {
+        let tw = w, td = d;
+        for (let t = 0; t < (R() < 0.5 ? 2 : 1); t++) {
+          tw *= 0.62 + R() * 0.14;
+          td *= 0.62 + R() * 0.14;
+          const th = hgt * (0.12 + R() * 0.14);
+          put(x, top, z, q, tw, th, td, k);
+          top += th;
+          caps.push(new THREE.Matrix4().compose(new THREE.Vector3(x, top - 0.25, z), q, new THREE.Vector3(tw + 0.5, 0.9, td + 0.5)));
+        }
+      } else if (hgt > 14 && hgt < opts.maxH * 0.55 && R() < 0.4) {
+        // mid-rise roofs carry a water tower off-centre
+        const off = new THREE.Vector3((R() - 0.5) * w * 0.4, 0, (R() - 0.5) * d * 0.4).applyQuaternion(q);
+        towers.push(new THREE.Matrix4().compose(new THREE.Vector3(x + off.x, top, z + off.z), q, new THREE.Vector3(1, 1, 1).multiplyScalar(0.8 + R() * 0.4)));
+      }
+      if (hgt > opts.maxH * 0.6) blinkers.push(new THREE.Vector3(x, top + 0.8, z));
     }
     inst.count = n;
     inst.instanceMatrix.needsUpdate = true;
-    // texture scale to building size is approximated by the repeat
-    (mat.emissiveMap as THREE.Texture).repeat.set(1, 2 + vi);
+    if (inst.instanceColor) inst.instanceColor.needsUpdate = true;
     group.add(inst);
   });
+  // cornices and water towers share one dark material
+  const dark = new THREE.MeshStandardMaterial({ color: new THREE.Color(opts.color).multiplyScalar(0.55), roughness: 0.85, metalness: 0.1 });
+  for (const [g, list] of [[geo, caps], [waterTowerGeometry(), towers]] as const) {
+    if (!list.length) continue;
+    const im = new THREE.InstancedMesh(g, dark, list.length);
+    list.forEach((m, i) => im.setMatrixAt(i, m));
+    im.instanceMatrix.needsUpdate = true;
+    if (g === towerGeo) g.userData.shared = true;
+    group.add(im);
+  }
   if (opts.blink && blinkers.length) {
     const bgeo = new THREE.SphereGeometry(0.6, 8, 6);
     const bmat = new THREE.MeshBasicMaterial({ color: 0xff2a1a });
@@ -152,6 +244,74 @@ export function skyline(opts: { inner: number; outer: number; count: number; min
     group.add(b);
   }
   return group;
+}
+
+/**
+ * A string of pennant flags hung between two points with a catenary-like sag. One mesh for the cord
+ * and all flags (vertex colours); flags sway in the wind from `userData.uTime` (push it onto the
+ * arena's time uniforms).
+ */
+export function bunting(a: THREE.Vector3, b: THREE.Vector3, colors: number[], opts: { sag?: number; spacing?: number; size?: number; seed?: number } = {}): THREE.Mesh {
+  const sag = opts.sag ?? a.distanceTo(b) * 0.05;
+  const spacing = opts.spacing ?? 0.55;
+  const size = opts.size ?? 0.34;
+  let sd = opts.seed ?? 7;
+  const R = () => ((sd = (sd * 1664525 + 1013904223) >>> 0) / 4294967296);
+  const at = (t: number) => a.clone().lerp(b, t).add(new THREE.Vector3(0, -sag * 4 * t * (1 - t), 0));
+  const along = b.clone().sub(a).setY(0).normalize();
+  const pos: number[] = [], col: number[] = [], sway: number[] = [];
+  const c = new THREE.Color();
+  const push = (p: THREE.Vector3, k: THREE.Color, phase: number, w: number) => {
+    pos.push(p.x, p.y, p.z);
+    col.push(k.r, k.g, k.b);
+    sway.push(phase, w);
+  };
+  // cord: a thin vertical ribbon
+  const segs = 24;
+  const cord = new THREE.Color(0x2a2a2e);
+  for (let i = 0; i < segs; i++) {
+    const p0 = at(i / segs), p1 = at((i + 1) / segs);
+    const d = new THREE.Vector3(0, 0.012, 0);
+    for (const v of [p0.clone().sub(d), p1.clone().sub(d), p1.clone().add(d), p0.clone().sub(d), p1.clone().add(d), p0.clone().add(d)]) push(v, cord, 0, 0);
+  }
+  // flags
+  const n = Math.max(1, Math.floor(a.distanceTo(b) / spacing));
+  for (let i = 0; i < n; i++) {
+    const t = (i + 0.5) / n;
+    const top = at(t);
+    const half = along.clone().multiplyScalar(size * 0.48);
+    const tip = top.clone().add(new THREE.Vector3(0, -size * 1.25, 0));
+    c.set(colors[i % colors.length]).multiplyScalar(0.9 + R() * 0.2);
+    const ph = R() * 6.28;
+    push(top.clone().sub(half), c, ph, 0.15);
+    push(top.clone().add(half), c, ph, 0.15);
+    push(tip, c, ph, 1);
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+  g.setAttribute('aSway', new THREE.Float32BufferAttribute(sway, 2));
+  g.computeVertexNormals();
+  const uTime = { value: 0 };
+  const mat = new THREE.MeshStandardMaterial({ vertexColors: true, side: THREE.DoubleSide, roughness: 0.85 });
+  mat.onBeforeCompile = (sh) => {
+    sh.uniforms.uTime = uTime;
+    sh.vertexShader = sh.vertexShader
+      .replace('#include <common>', '#include <common>\nattribute vec2 aSway;\nuniform float uTime;')
+      .replace(
+        '#include <begin_vertex>',
+        `#include <begin_vertex>
+float gust = 0.6 + 0.4 * sin(uTime * 0.7 + aSway.x * 0.3);
+transformed.x += sin(uTime * 2.6 + aSway.x) * 0.07 * aSway.y * gust;
+transformed.z += cos(uTime * 2.1 + aSway.x * 1.3) * 0.1 * aSway.y * gust;
+transformed.y += sin(uTime * 3.1 + aSway.x) * 0.02 * aSway.y;`,
+      );
+  };
+  mat.customProgramCacheKey = () => 'bunting-v1';
+  const m = new THREE.Mesh(g, mat);
+  m.userData.uTime = uTime;
+  m.castShadow = true;
+  return m;
 }
 
 /** Chain-link fence panels (alpha-tested texture). */

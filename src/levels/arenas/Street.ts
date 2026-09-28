@@ -4,7 +4,7 @@ import { Arena } from '../Arena';
 import { box, buildBench, buildBoards, courtLines, noiseSurface, Scoreboard } from '../ArenaKit';
 import { Crowd } from '../Crowd';
 import { placeProp, tintProp } from '../PropKit';
-import { chainFence, container, graffitiTexture, skyDome, skyline, water } from '../Environment';
+import { bunting, chainFence, container, graffitiTexture, skyDome, skyline, water } from '../Environment';
 import { createFloorMaterial } from '../FloorMaterial';
 import { makeCanvasTexture } from '../../rendering/Textures';
 
@@ -211,6 +211,21 @@ export function buildStreet(q: QualityProfile, hw: number, hl: number): Arena {
     const doorMat = new THREE.MeshStandardMaterial({ color: 0x5b6470, roughness: 0.5, metalness: 0.6 });
     for (const z of [-14, 14]) R.add(box(0.2, 4.2, 5, doorMat, gw + 0.05, 2.1, z, false));
   }
+
+  // pennant bunting along the fences and across the far end
+  const flagCols = [0xff7a3d, 0xffd166, 0x2c9c8f, 0xf2efe6, 0x6b4ea0, 0xe0452c];
+  const runs: [THREE.Vector3, THREE.Vector3, number][] = [
+    [new THREE.Vector3(fx, 3.55, -fz), new THREE.Vector3(fx, 3.55, 0), 0.5],
+    [new THREE.Vector3(fx, 3.55, 0), new THREE.Vector3(fx, 3.55, fz), 0.5],
+    [new THREE.Vector3(-fx, 3.55, -fz), new THREE.Vector3(-fx, 3.55, 0), 0.5],
+    [new THREE.Vector3(-fx, 3.55, 0), new THREE.Vector3(-fx, 3.55, fz), 0.5],
+    [new THREE.Vector3(-fx - 0.5, 7.3, -hl * 0.6), new THREE.Vector3(fx + 0.5, 7.3, -hl * 0.6 - 4.5), 1.3],
+  ];
+  runs.forEach(([p0, p1, sag], i) => {
+    const flags = bunting(p0, p1, flagCols, { sag, seed: 11 + i * 7 });
+    arena.timeUniforms.push(flags.userData.uTime);
+    R.add(flags);
+  });
 
   // ---------------- lighting ----------------
   R.add(new THREE.HemisphereLight(0x8a7ab8, 0x5a3a2a, 0.9));

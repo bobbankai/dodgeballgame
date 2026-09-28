@@ -7,6 +7,23 @@ const HEAD_C = headCentre();
 let blankJersey: THREE.Texture | null = null;
 
 /**
+ * Arena rim light shared by every athlete: a coloured edge along the silhouette on the side
+ * facing the arena's key light, which separates characters from busy backgrounds.
+ */
+export const CHARACTER_RIM = {
+  uRimLight: { value: new THREE.Color(1, 0.86, 0.72) },
+  /** world-space direction towards the light */
+  uRimLightDir: { value: new THREE.Vector3(0.3, 0.6, -0.7).normalize() },
+  uRimLightStrength: { value: 0.5 },
+};
+
+export function setCharacterRim(color: THREE.Color, dirToLight: THREE.Vector3, strength: number) {
+  CHARACTER_RIM.uRimLight.value.copy(color);
+  CHARACTER_RIM.uRimLightDir.value.copy(dirToLight).normalize();
+  CHARACTER_RIM.uRimLightStrength.value = strength;
+}
+
+/**
  * Palette-driven PBR material for athletes. One shared shader program for every
  * character; each athlete has its own uniform values (team colours, flash, dissolve...).
  * Per-slot roughness/metalness give distinct fabric/skin/rubber/eye responses.
@@ -74,6 +91,7 @@ export class CharacterMaterial extends THREE.MeshStandardMaterial {
       shader.uniforms.uSheen = { value: this.slotSheen };
       shader.uniforms.uDetail = { value: this.slotDetail };
       for (const [k, v] of Object.entries(this.u)) shader.uniforms[k] = v;
+      for (const [k, v] of Object.entries(CHARACTER_RIM)) shader.uniforms[k] = v;
 
       shader.vertexShader = shader.vertexShader
         .replace(
@@ -120,6 +138,9 @@ varying vec2 vDetail;
 uniform vec4 uFace;
 uniform vec4 uExpr;
 uniform vec3 uIris;
+uniform vec3 uRimLight;
+uniform vec3 uRimLightDir;
+uniform float uRimLightStrength;
 uniform vec3 uHeadC;
 uniform sampler2D uJersey;
 uniform float uBulk;
@@ -198,21 +219,31 @@ vec3 paintFace(vec3 base, vec2 f, float aa) {
     e.x *= s; // +x = outer corner on both sides
     vec2 r = vec2(0.0148, 0.0158 * (1.0 - uFace.w * 0.35));
     vec2 u = e / r;
-    float L = mix(1.0, -0.35, blink);           // top of the opening (lid height)
+    // upper lid: an arc through the corners that rests over the top of the iris (almond eye),
+    // dropping below centre when shut so a closed eye reads as a curved line
+    float L = mix(0.66, -0.35, blink);
+    float lidArc = L * sqrt(max(0.0, 1.0 - u.x * u.x));
     float inEll = length(u) - 1.0;
-    float open = max(inEll * min(r.x, r.y), (u.y - L) * r.y);
+    float open = max(inEll * min(r.x, r.y), (u.y - lidArc) * r.y);
     float cover = 1.0 - smoothstep(-aa, aa, open);
     // sclera with lid shadow, iris, pupil, catch-lights
-    vec3 eyeC = mix(vec3(0.96, 0.95, 0.93), base * 0.85, smoothstep(L - 0.55, L, u.y) * 0.45);
-    vec2 ic = vec2(uFace.y * 0.0045 * s, uFace.z * 0.0035 - 0.001);
-    float di = length(e - ic);
-    eyeC = mix(eyeC, uIris * (0.75 + 0.5 * smoothstep(0.0098, 0.002, di)), 1.0 - smoothstep(0.0095 - aa, 0.0095 + aa, di));
-    eyeC = mix(eyeC, vec3(0.02), 1.0 - smoothstep(0.0046 - aa, 0.0046 + aa, di));
+    vec3 eyeC = mix(vec3(0.96, 0.95, 0.93), base * 0.85, smoothstep(lidArc - 0.5, lidArc, u.y) * 0.5);
+    eyeC *= 1.0 - 0.2 * u.x * u.x;                  // sclera rounds away into the corners
+    vec2 ic = vec2(uFace.y * 0.0045 * s, uFace.z * 0.0035 - 0.0004);
+    vec2 ie = e - ic;
+    float di = length(ie);
+    // iris: shadowed under the lid, lit crescent below, dark limbal ring, faint radial fibres
+    const float IR = 0.0102;
+    vec3 irisC = uIris * (0.55 + 1.0 * smoothstep(0.003, -0.008, ie.y));
+    irisC *= 0.9 + 0.1 * sin(atan(ie.y, ie.x) * 15.0);
+    irisC = mix(irisC, uIris * 0.28, smoothstep(IR * 0.72, IR, di));
+    eyeC = mix(eyeC, irisC, 1.0 - smoothstep(IR - aa, IR + aa, di));
+    eyeC = mix(eyeC, vec3(0.015), 1.0 - smoothstep(0.0043 - aa, 0.0043 + aa, di));
     eyeC = mix(eyeC, vec3(1.0), 1.0 - smoothstep(0.0021 - aa, 0.0021 + aa, length(e - ic - vec2(-0.0034 * s, 0.0042))));
     eyeC = mix(eyeC, vec3(1.0), (1.0 - smoothstep(0.0011 - aa, 0.0011 + aa, length(e - ic - vec2(0.003 * s, -0.003)))) * 0.8);
     col = mix(col, eyeC, cover);
     // upper lid line: follows the top of the opening, thick with a flick at the outer corner
-    float topY = min(L, sqrt(max(0.0, 1.0 - u.x * u.x)));
+    float topY = min(lidArc, sqrt(max(0.0, 1.0 - u.x * u.x)));
     float lidD = abs(u.y - topY) * r.y;
     float w = 0.0019 + 0.0012 * smoothstep(0.2, 0.95, u.x);
     float lidLine = (1.0 - smoothstep(w - aa, w + aa, lidD)) * step(abs(u.x), 1.08);
@@ -224,7 +255,7 @@ vec3 paintFace(vec3 base, vec2 f, float aa) {
     float lowLine = (1.0 - smoothstep(0.0009 - aa, 0.0009 + aa, lowD)) * smoothstep(1.0, 0.3, abs(u.x - 0.2)) * (1.0 - blink);
     col = mix(col, ink, max(lidLine, lowLine * 0.45));
     // brows (hair colour), shaped by the expression
-    vec3 browC = mix(uColors[6], vec3(0.04), 0.35);
+    vec3 browC = mix(uColors[6], vec3(0.03, 0.02, 0.018), 0.55);
     float ang = uExpr.x, raise = uExpr.y;
     vec2 b0 = vec2(0.012, 0.031 - 0.0065 * ang + raise * 1.1);
     vec2 b1 = vec2(0.031, 0.0385 - 0.0012 * ang + raise * 1.2);
@@ -233,7 +264,7 @@ vec3 paintFace(vec3 base, vec2 f, float aa) {
     vec2 ef = vec2(e.x + 0.035, e.y + 0.011);
     float d0 = chSeg(ef, b0, b1, t0);
     float d1 = chSeg(ef, b1, b2, t1);
-    float wb0 = mix(0.0042, 0.0034, t0), wb1 = mix(0.0034, 0.0017, t1);
+    float wb0 = mix(0.0048, 0.0039, t0), wb1 = mix(0.0039, 0.0019, t1);
     float brow = max(1.0 - smoothstep(wb0 - aa, wb0 + aa, d0), 1.0 - smoothstep(wb1 - aa, wb1 + aa, d1));
     col = mix(col, browC, brow);
   }
@@ -390,6 +421,11 @@ metalnessFactor = uMetal[si];`,
   // thin silhouette rim; on skin it is warmed and softened so foreshortened limbs don't go grey
   float rimK = pow(1.0 - clamp(dot(normal, vdir), 0.0, 1.0), 4.0) * (1.0 - chSSS * 0.55);
   totalEmissiveRadiance += mix(uRimColor, uRimColor * vec3(1.15, 0.95, 0.8), chSSS) * rimK * uRimStrength;
+  // arena rim light: silhouette edges that face the key light catch its colour (kept out of creases)
+  vec3 rl = normalize((viewMatrix * vec4(uRimLightDir, 0.0)).xyz);
+  float edge = smoothstep(0.42, 0.92, 1.0 - clamp(dot(normal, vdir), 0.0, 1.0));
+  float facing = clamp(dot(normal, rl) * 0.85 + 0.3, 0.0, 1.0);
+  totalEmissiveRadiance += uRimLight * edge * facing * uRimLightStrength * clamp(vDetail.x, 0.0, 1.0) * mix(1.0, 0.85, chSSS);
   totalEmissiveRadiance += uFlashColor * uFlash;
   float pulse = 0.75 + 0.25 * sin(uTime * 16.0 + vObjPos.y * 24.0);
   totalEmissiveRadiance += uEnergyColor * (fres * 1.3 + 0.04) * uEnergy * pulse;
@@ -476,7 +512,8 @@ metalnessFactor = uMetal[si];`,
   }
 }
 
-const IRIS = [0x3b2a1e, 0x4a3322, 0x2f4a5e, 0x3d5a3a, 0x5a4020, 0x2a2a2a];
+// warm browns, hazel, blue-grey and green: bright enough to read against the pupil
+const IRIS = [0x6b4424, 0x7a5230, 0x4f7a96, 0x5d7e4a, 0x8a6a2e, 0x4a3a30];
 
 /** R = number fill, G = number outline, B = name lettering. */
 function jerseyTexture(num: number, name: string): THREE.Texture {
