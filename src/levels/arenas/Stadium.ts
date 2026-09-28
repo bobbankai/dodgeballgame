@@ -126,6 +126,49 @@ export function buildStadium(q: QualityProfile, hw: number, hl: number): Arena {
   // modelled board housing (Blender kit) with the live screens on its faces; a plain box as fallback
   const jumboKit = prop('jumbotron');
   jumbo.add(jumboKit ?? box(7.4, 4.6, 7.4, housing, 0, 0, 0, false));
+  if (jumboKit) {
+    // underside screen: the Crown mark for the players looking up
+    const belly = new THREE.Mesh(
+      new THREE.PlaneGeometry(4.4, 4.4),
+      new THREE.MeshStandardMaterial({
+        color: 0x000000,
+        emissive: 0xffffff,
+        emissiveIntensity: 1.6,
+        emissiveMap: makeCanvasTexture(512, 512, (g, w, h) => {
+          const grd = g.createRadialGradient(w / 2, h / 2, 20, w / 2, h / 2, w * 0.7);
+          grd.addColorStop(0, '#2a1d3f');
+          grd.addColorStop(1, '#07050c');
+          g.fillStyle = grd;
+          g.fillRect(0, 0, w, h);
+          g.strokeStyle = '#c8a14a';
+          g.lineWidth = 10;
+          g.strokeRect(24, 24, w - 48, h - 48);
+          // crown glyph
+          g.fillStyle = '#e8c77a';
+          g.beginPath();
+          g.moveTo(146, 250);
+          g.lineTo(176, 150);
+          g.lineTo(216, 210);
+          g.lineTo(256, 120);
+          g.lineTo(296, 210);
+          g.lineTo(336, 150);
+          g.lineTo(366, 250);
+          g.closePath();
+          g.fill();
+          g.fillRect(146, 262, 220, 22);
+          g.textAlign = 'center';
+          g.font = 'italic 800 84px "Barlow Condensed", "Arial Narrow", sans-serif';
+          g.fillText('CROWN', w / 2, 380);
+          g.font = '700 30px "Barlow Condensed", "Arial Narrow", sans-serif';
+          g.fillStyle = '#b8a4e0';
+          g.fillText('CHAMPIONSHIP SERIES', w / 2, 428);
+        }),
+      }),
+    );
+    belly.rotation.x = Math.PI / 2;
+    belly.position.y = -3.4 - 0.37;
+    jumbo.add(belly);
+  }
   const faces: Scoreboard[] = [];
   for (let i = 0; i < 4; i++) {
     const sb = new Scoreboard(6.6, 'HOME', 'AWAY', '#c8a14a', 0x0c0a16);
