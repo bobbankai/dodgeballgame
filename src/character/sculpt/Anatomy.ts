@@ -232,7 +232,8 @@ function buildAnatomy(app: ShapeApp, detail: Detail): Record<PartKind, MeshPart>
   }
   head.push(...buildHair(app, HC, bm));
   if (app.headband) {
-    const t = app.hairStyle === 'bald' ? 0.002 : app.hairStyle === 'afro' ? 0.06 : app.hairStyle === 'buzz' ? 0.008 : 0.022;
+    // buzz cuts and mohawk sides are painted on the scalp, so the band sits on the skin there
+    const t = app.hairStyle === 'afro' ? 0.06 : ['bald', 'buzz', 'mohawk'].includes(app.hairStyle) ? 0.003 : 0.022;
     head.push(torus(H(0, 0.05, -0.01), 1, 0.012, { rot: rotInv(-0.2, 0, 0), ellipse: [0.101 + t, 0.114 + t], k: 0.006, slot: AC, bones: bm(['head', 1]) }));
   }
   if (app.visor) {
@@ -438,14 +439,16 @@ function buildHair(app: ShapeApp, HC: V3, bm: (...p: [BoneName, number][]) => Bo
   };
   switch (style) {
     case 'buzz':
-      return [cap(0.005)];
+      // painted on the scalp by the character shader (stubble with a thinning hairline)
+      return [];
     case 'short': {
-      // locks combed forward from the crown, with soft grooves between them
+      // locks combed forward from the crown, with soft grooves between them; the front ones end in
+      // raised, tapered tips so the hairline is a fringe rather than a cap edge
       const locks: Prim[] = [];
       const fronts: [number, number][] = [[-0.78, 0.36], [-0.52, 0.47], [-0.26, 0.55], [0, 0.58], [0.26, 0.56], [0.52, 0.48], [0.78, 0.37]];
-      for (const [fx, fy] of fronts) locks.push(...lock([fx * 0.3, 0.95, -0.4], [fx, fy, 0.72], 0.0, -0.004, 0.017, 0.009, 0.004));
+      for (const [fx, fy] of fronts) locks.push(...lock([fx * 0.3, 0.95, -0.4], [fx * 1.04, fy - 0.06, 0.78], 0.0, 0.004, 0.018, 0.005, 0.006));
       for (const sx of [-1, 1]) locks.push(...lock([sx * 0.3, 0.9, -0.5], [sx * 0.95, 0.2, -0.4], 0.0, -0.006, 0.016, 0.008));
-      return [cap(0.013, locks)];
+      return [cap(0.012, locks)];
     }
     case 'swept': {
       // a lifted front sweeping back over the crown in broad clumps
@@ -473,7 +476,8 @@ function buildHair(app: ShapeApp, HC: V3, bm: (...p: [BoneName, number][]) => Bo
       return parts;
     }
     case 'mohawk': {
-      const parts: Prim[] = [cap(0.004)];
+      // shaved sides are painted stubble (see the character shader); only the crest is sculpted
+      const parts: Prim[] = [];
       for (let i = 0; i < 6; i++) {
         const z = 0.09 - i * 0.042;
         const y = 0.1 + Math.sin((i / 5) * Math.PI) * 0.03;

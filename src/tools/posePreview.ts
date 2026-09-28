@@ -4,6 +4,7 @@
  *   clips=charge@0.22,throw@0.07   (clip@time, or gait@speed:dirDeg:phase)
  *   view=front|side|back|three     camera angle
  *   hair=spiky,... app variants
+ *   lookY=1.6&camY=1.7            frame the heads instead of the whole body
  */
 import * as THREE from 'three';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
@@ -79,7 +80,8 @@ else if (view === 'back') cam.position.set(0, 1.4, -dist);
 else if (view === 'side') cam.position.set(dist, 1.2, 0.01);
 else if (view === 'top') cam.position.set(0, dist, 0.5);
 else cam.position.set(dist * 0.55, 1.6, dist * 0.85);
-cam.lookAt(0, 0.9, 0);
+if (params.get('camY')) cam.position.y = Number(params.get('camY'));
+cam.lookAt(0, Number(params.get('lookY') ?? 0.9), 0);
 
 // Pose everything
 for (const { anim, spec } of animators) {

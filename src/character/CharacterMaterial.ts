@@ -55,6 +55,8 @@ export class CharacterMaterial extends THREE.MeshStandardMaterial {
     // expression: x brow anger, y brow raise (m), z smile (-1..1), w mouth open (0..1)
     uExpr: { value: new THREE.Vector4(0, 0, 0.15, 0) },
     uIris: { value: new THREE.Color(0x3b2a1e) },
+    /** scalp paint: 0 none, 1 full buzz stubble, 2 soft hairline fade under a sculpted cap */
+    uScalp: { value: 0 },
     uHeadC: { value: new THREE.Vector3(...HEAD_C) },
     uJersey: { value: null as THREE.Texture | null },
     uBulk: { value: 1 },
@@ -138,6 +140,7 @@ varying vec2 vDetail;
 uniform vec4 uFace;
 uniform vec4 uExpr;
 uniform vec3 uIris;
+uniform float uScalp;
 uniform vec3 uRimLight;
 uniform vec3 uRimLightDir;
 uniform float uRimLightStrength;
@@ -304,6 +307,21 @@ if (si == 0) {
     float aa = max(max(fwidth(hp.x), fwidth(hp.y)) * 0.9, 0.00025);
     diffuseColor.rgb = paintFace(diffuseColor.rgb, hp.xy, aa);
   }
+  // scalp: buzz-cut stubble, or a soft hairline fading out from under a sculpted cap. The region is
+  // the same forehead/temple planes the hair cap is cut with (Anatomy buildHair).
+  if (uScalp > 0.5 && hp.y > -0.07) {
+    float dF = dot(hp - vec3(0.0, 0.052, 0.092), vec3(0.0, -0.4472, 0.8944));
+    float dT = dot(hp - vec3(0.0, -0.008, 0.0), vec3(0.0, -0.7249, 0.6887));
+    float edge = max(dF, dT);                        // < 0 inside the hair region
+    float dens = uScalp > 1.5 ? smoothstep(0.011, -0.001, edge) * 0.6 : smoothstep(0.005, -0.009, edge);
+    vec3 cell = floor(hp * 1500.0);
+    float h = fract(sin(dot(cell, vec3(12.9898, 78.233, 37.719))) * 43758.5453);
+    float px = length(fwidth(hp)) * 1500.0;          // speckles fade to their average when sub-pixel
+    float speck = mix(step(1.0 - dens, h), dens, smoothstep(0.6, 1.6, px));
+    float cover = clamp(dens * 0.55 + speck * 0.45, 0.0, 1.0);
+    // stubble lets the scalp show through; a full cap-edge fade goes nearly opaque
+    diffuseColor.rgb = mix(diffuseColor.rgb, uColors[6] * 0.78, cover * (uScalp > 1.5 ? 0.9 : 0.72));
+  }
 }
 if (si == 1) {
   // printed name + number on the back, small number on the chest
@@ -436,7 +454,7 @@ metalnessFactor = uMetal[si];`,
   }
 
   override customProgramCacheKey() {
-    return 'athlete-sculpt-v4';
+    return 'athlete-sculpt-v5';
   }
 
   /** Print the athlete's number (and name on the back) into a small mask texture. */
@@ -466,6 +484,7 @@ metalnessFactor = uMetal[si];`,
   setAppearance(a: Appearance) {
     this.applyBaseExpr(a);
     this.u.uIris.value.set(a.eyes ?? IRIS[Math.abs(Math.round(a.skin * 7 + a.hair * 3)) % IRIS.length]);
+    this.u.uScalp.value = a.hairStyle === 'bald' ? 0 : a.hairStyle === 'buzz' || a.hairStyle === 'mohawk' ? 1 : 2;
     if (!this.u.uJersey.value) this.u.uJersey.value = (blankJersey ??= jerseyTexture(-1, ''));
     const set = (slot: number, hex: number, rough: number, metal = 0, emis = 0) => {
       const c = new THREE.Color(hex);
