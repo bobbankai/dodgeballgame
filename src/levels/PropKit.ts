@@ -9,11 +9,14 @@ import { ballTextures } from '../rendering/Textures';
  * into vertex colours. Loaded once at boot; arenas clone them synchronously and fall back to
  * their simple built-in props if the kit is unavailable.
  *
- * Every prop faces +Z with its origin on the floor (the hoop's origin is on the wall at rim height).
+ * Every prop faces +Z with its origin on the floor (the hoop's origin is on the wall at rim height;
+ * wall-mounted props have their back on the wall).
  * Geometry and materials here are shared between arenas and flagged `userData.shared` so that
  * Arena.dispose leaves them alone.
  */
-export type PropName = 'hoop' | 'ball_cart' | 'cooler' | 'cone' | 'mat_stack' | 'bench';
+export type PropName =
+  | 'hoop' | 'ball_cart' | 'cooler' | 'cone' | 'mat_stack' | 'bench'
+  | 'van' | 'streetlight' | 'wheelie_bin' | 'pallet_stack' | 'rollup_door' | 'container';
 
 /** Seat length of the bench as modelled. */
 const BENCH_LEN = 2.4;
@@ -133,18 +136,30 @@ function tinted(mat: THREE.MeshStandardMaterial, color: number) {
   return m;
 }
 
+/** Recolour named materials of a prop instance, e.g. `{ bin_green: 0x2d5fa0 }` (cached, shared). */
+export function tintProp(o: THREE.Object3D, colors: Record<string, number>) {
+  o.traverse((c) => {
+    const m = c as THREE.Mesh;
+    if (!m.isMesh) return;
+    const mat = m.material as THREE.MeshStandardMaterial;
+    const col = colors[mat.name];
+    if (col !== undefined) m.material = tinted(mat, col);
+  });
+  return o;
+}
+
 /** A slatted bench `length` metres long along Z, facing +X; null if the kit didn't load. */
 export function kitBench(length: number, color: number): THREE.Group | null {
   const b = prop('bench');
   if (!b) return null;
   const dx = Math.max(0, (length - BENCH_LEN) / 2);
-  b.traverse((o) => {
-    const m = o as THREE.Mesh;
-    if (!m.isMesh) return;
-    if (dx > 0) m.geometry = stretched(m.geometry, dx);
-    const mat = m.material as THREE.MeshStandardMaterial;
-    if (mat.name === 'bench_wood') m.material = tinted(mat, color);
-  });
+  if (dx > 0) {
+    b.traverse((o) => {
+      const m = o as THREE.Mesh;
+      if (m.isMesh) m.geometry = stretched(m.geometry, dx);
+    });
+  }
+  tintProp(b, { bench_wood: color });
   b.rotation.y = Math.PI / 2;
   const g = new THREE.Group();
   g.add(b);

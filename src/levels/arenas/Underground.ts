@@ -100,7 +100,8 @@ export function buildUnderground(q: QualityProfile, hw: number, hl: number): Are
   // ground-level crowd behind the cage on -X
   for (let i = 0; i < 40; i++) {
     if (Math.random() > q.crowdDensity) continue;
-    seats.push({ pos: new THREE.Vector3(-hw - 4.2 - Math.random() * 3, 0.8, (Math.random() - 0.5) * hl * 2), yaw: Math.PI / 2 });
+    // (clear of the container stacks at the far end)
+    seats.push({ pos: new THREE.Vector3(-hw - 4.2 - Math.random() * 3, 0.8, -hl + 2 + Math.random() * (hl * 2 - 2)), yaw: Math.PI / 2 });
   }
   if (seats.length) {
     arena.crowd = new Crowd(seats, [0x2b2b2e, 0xb91c1c, 0x3f3f46, 0x52525b, 0x1f2937, 0xc9a227, 0x4c1d95], undefined, true);
@@ -167,8 +168,9 @@ export function buildUnderground(q: QualityProfile, hw: number, hl: number): Are
   const cols = [0x7f1d1d, 0x1f2937, 0x3f6212, 0x78350f];
   for (let i = 0; i < 6; i++) {
     const c = container(cols[i % cols.length], 6);
-    c.position.set(-HX + 2.2, (i % 2) * 2.6, -HZ + 4 + Math.floor(i / 2) * 3);
-    c.rotation.y = Math.PI / 2;
+    // stacked in pairs against the wall, doors facing the court
+    c.position.set(-HX + 3.2, (i % 2) * 2.6, -HZ + 3.5 + Math.floor(i / 2) * 2.7);
+    c.rotation.y = (i % 2 ? 0.02 : -0.015);
     R.add(c);
   }
   const sign = neonSign('THE PIT', '#ff2a1a', 7, { backing: true });

@@ -3,8 +3,10 @@ import type { QualityProfile } from '../../config/quality';
 import { Arena } from '../Arena';
 import { box, buildBench, buildBoards, courtLines, noiseSurface, Scoreboard } from '../ArenaKit';
 import { Crowd } from '../Crowd';
+import { placeProp, tintProp } from '../PropKit';
 import { chainFence, container, graffitiTexture, skyDome, skyline, water } from '../Environment';
 import { createFloorMaterial } from '../FloorMaterial';
+import { makeCanvasTexture } from '../../rendering/Textures';
 
 /** Harbor Street Court: waterfront asphalt court at golden hour. */
 export function buildStreet(q: QualityProfile, hw: number, hl: number): Arena {
@@ -76,8 +78,9 @@ export function buildStreet(q: QualityProfile, hw: number, hl: number): Arena {
   const conts = [0xb03a2e, 0x1f6f8b, 0xd6a53a, 0x2e7d4f, 0x6b4ea0];
   for (let i = 0; i < 8; i++) {
     const c = container(conts[i % conts.length]);
+    // side by side down the quay, doors facing the court
     c.position.set(wx - 5 + (i % 2) * 0.1, (Math.floor(i / 4) % 2) * 2.6, -hl - 10 + (i % 4) * 2.6);
-    c.rotation.y = Math.PI / 2;
+    c.rotation.y = Math.PI + (i % 3 - 1) * 0.015;
     R.add(c);
   }
 
@@ -92,9 +95,6 @@ export function buildStreet(q: QualityProfile, hw: number, hl: number): Arena {
   wall.receiveShadow = true;
   R.add(wall);
   R.add(box(1.4, 0.4, 60, new THREE.MeshStandardMaterial({ color: 0x3b2a24, roughness: 0.8 }), gw - 0.4, 9.2, 0, false));
-  // roll-up doors
-  const doorMat = new THREE.MeshStandardMaterial({ color: 0x5b6470, roughness: 0.5, metalness: 0.6 });
-  for (const z of [-14, 14]) R.add(box(0.2, 4.2, 5, doorMat, gw + 0.05, 2.1, z, false));
 
   // ---------------- enclosure, fence, benches ----------------
   const boards = buildBoards(hw, hl, {
@@ -148,6 +148,11 @@ export function buildStreet(q: QualityProfile, hw: number, hl: number): Arena {
     [fx + 0.5, -hl * 0.6],
     [fx + 0.5, hl * 0.6],
   ]) {
+    // davit arm reaching in over the walkway (the kit's arm points along its +Z)
+    if (placeProp(R, 'streetlight', x, 0, z, -Math.sign(x) * Math.PI / 2)) {
+      lampSpots.push(new THREE.Vector3(x - Math.sign(x) * 2.66, 8.26, z));
+      continue;
+    }
     const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.12, 6.5, 8), poleMat);
     pole.position.set(x, 3.25, z);
     pole.castShadow = true;
@@ -160,7 +165,8 @@ export function buildStreet(q: QualityProfile, hw: number, hl: number): Arena {
     lampSpots.push(head.position.clone());
   }
   for (const p of lampSpots.slice(0, 2)) {
-    const l = new THREE.PointLight(0xffc78a, 18, 14, 1.8);
+    const high = p.y > 7;
+    const l = new THREE.PointLight(0xffc78a, high ? 26 : 18, high ? 17 : 14, 1.8);
     l.position.copy(p).add(new THREE.Vector3(0, -0.4, 0));
     R.add(l);
   }
@@ -173,23 +179,38 @@ export function buildStreet(q: QualityProfile, hw: number, hl: number): Arena {
   R.add(sbPole);
   arena.scoreboards.push(sb);
   // van + bins + pallets
-  const vanMat = new THREE.MeshStandardMaterial({ color: 0xe8e2d4, roughness: 0.4, metalness: 0.3 });
-  const van = new THREE.Group();
-  van.add(box(5, 2.2, 2.1, vanMat, 0, 1.4, 0));
-  van.add(box(1.4, 1.4, 2.0, new THREE.MeshStandardMaterial({ color: 0x1a2530, roughness: 0.1, metalness: 0.8 }), 2.4, 1.9, 0));
-  for (const ox of [-1.6, 1.6]) for (const oz of [-1.05, 1.05]) {
-    const wh = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.4, 0.25, 16), new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.9 }));
-    wh.rotation.x = Math.PI / 2;
-    wh.position.set(ox, 0.4, oz);
-    van.add(wh);
+  const kitVan = placeProp(R, 'van', gw + 3, 0, -hl - 1, Math.PI / 2 + 0.3);
+  if (kitVan) {
+    vanLivery(kitVan);
+    // a row of wheelie bins against the warehouse, in the council's mismatched colours
+    const bins: Record<string, number>[] = [{}, { bin_green: 0x2d5fa0, bin_lid: 0xd9a92a }, { bin_green: 0x4a4f55, bin_lid: 0x25272b }];
+    bins.forEach((c, i) => {
+      const b = placeProp(R, 'wheelie_bin', gw + 0.75, 0, 8 + i * 0.8, Math.PI / 2 + (i - 1) * 0.12);
+      if (b) tintProp(b, c);
+    });
+    placeProp(R, 'pallet_stack', fx + 2.5, 0, -hl + 1, 0.25);
+    for (const z of [-14, 14]) placeProp(R, 'rollup_door', gw, 0, z, Math.PI / 2);
+  } else {
+    const vanMat = new THREE.MeshStandardMaterial({ color: 0xe8e2d4, roughness: 0.4, metalness: 0.3 });
+    const van = new THREE.Group();
+    van.add(box(5, 2.2, 2.1, vanMat, 0, 1.4, 0));
+    van.add(box(1.4, 1.4, 2.0, new THREE.MeshStandardMaterial({ color: 0x1a2530, roughness: 0.1, metalness: 0.8 }), 2.4, 1.9, 0));
+    for (const ox of [-1.6, 1.6]) for (const oz of [-1.05, 1.05]) {
+      const wh = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.4, 0.25, 16), new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.9 }));
+      wh.rotation.x = Math.PI / 2;
+      wh.position.set(ox, 0.4, oz);
+      van.add(wh);
+    }
+    van.position.set(gw + 3, 0, -hl - 1);
+    van.rotation.y = 0.3;
+    R.add(van);
+    const binMat = new THREE.MeshStandardMaterial({ color: 0x2e5a3a, roughness: 0.6, metalness: 0.3 });
+    for (let i = 0; i < 3; i++) R.add(box(0.8, 1.1, 0.8, binMat, gw + 1.2, 0.55, 8 + i * 1));
+    const palletMat = new THREE.MeshStandardMaterial({ color: 0x9a7a55, roughness: 0.8 });
+    for (let i = 0; i < 4; i++) R.add(box(1.2, 0.14, 1.0, palletMat, fx + 2.5, 0.07 + i * 0.14, -hl + 1));
+    const doorMat = new THREE.MeshStandardMaterial({ color: 0x5b6470, roughness: 0.5, metalness: 0.6 });
+    for (const z of [-14, 14]) R.add(box(0.2, 4.2, 5, doorMat, gw + 0.05, 2.1, z, false));
   }
-  van.position.set(gw + 3, 0, -hl - 1);
-  van.rotation.y = 0.3;
-  R.add(van);
-  const binMat = new THREE.MeshStandardMaterial({ color: 0x2e5a3a, roughness: 0.6, metalness: 0.3 });
-  for (let i = 0; i < 3; i++) R.add(box(0.8, 1.1, 0.8, binMat, gw + 1.2, 0.55, 8 + i * 1));
-  const palletMat = new THREE.MeshStandardMaterial({ color: 0x9a7a55, roughness: 0.8 });
-  for (let i = 0; i < 4; i++) R.add(box(1.2, 0.14, 1.0, palletMat, fx + 2.5, 0.07 + i * 0.14, -hl + 1));
 
   // ---------------- lighting ----------------
   R.add(new THREE.HemisphereLight(0x8a7ab8, 0x5a3a2a, 0.9));
@@ -228,4 +249,84 @@ export function buildStreet(q: QualityProfile, hw: number, hl: number): Arena {
     if (blink) blink.visible = Math.sin(t * 2.2) > 0;
   });
   return arena;
+}
+
+/** Painted fishmonger livery on the kit van's box body (sides and rear doors). */
+function vanLivery(van: THREE.Object3D) {
+  const side = makeCanvasTexture(1024, 512, (g, w, h) => {
+    g.fillStyle = '#ece6d8';
+    g.fillRect(0, 0, w, h);
+    // sea swell along the bottom
+    for (const [y, col, amp] of [[392, '#49a89c', 18], [428, '#2c7d75', 12]] as const) {
+      g.fillStyle = col;
+      g.beginPath();
+      g.moveTo(0, h);
+      for (let x = 0; x <= w; x += 16) g.lineTo(x, y + Math.sin(x / 70) * amp + Math.sin(x / 23) * 4);
+      g.lineTo(w, h);
+      g.fill();
+    }
+    // leaping fish
+    g.save();
+    g.translate(790, 205);
+    g.rotate(-0.35);
+    g.fillStyle = '#e8622a';
+    g.beginPath();
+    g.ellipse(0, 0, 120, 52, 0, 0, Math.PI * 2);
+    g.fill();
+    g.beginPath();
+    g.moveTo(105, 0);
+    g.lineTo(185, -55);
+    g.lineTo(170, 0);
+    g.lineTo(185, 55);
+    g.fill();
+    g.fillStyle = '#f7c59f';
+    g.beginPath();
+    g.ellipse(-10, 16, 90, 24, 0, 0, Math.PI * 2);
+    g.fill();
+    g.fillStyle = '#1b1b22';
+    g.beginPath();
+    g.arc(-78, -12, 9, 0, Math.PI * 2);
+    g.fill();
+    g.restore();
+    g.textAlign = 'left';
+    g.textBaseline = 'alphabetic';
+    g.fillStyle = '#1d3b52';
+    g.font = 'italic 800 132px "Barlow Condensed", "Arial Narrow", sans-serif';
+    g.fillText('FRESH', 60, 170);
+    g.fillStyle = '#e8622a';
+    g.fillText('CATCH', 60, 290);
+    g.fillStyle = '#f4efe4';
+    g.font = '700 34px "Barlow Condensed", "Arial Narrow", sans-serif';
+    g.fillText('SEAFOOD  ·  PIER 9  ·  HARBOR DISTRICT', 60, 485);
+  });
+  const rear = makeCanvasTexture(512, 512, (g, w, h) => {
+    g.fillStyle = '#ece6d8';
+    g.fillRect(0, 0, w, h);
+    g.fillStyle = '#2c6b66';
+    g.fillRect(0, h * 0.72, w, h * 0.28);
+    g.textAlign = 'center';
+    g.fillStyle = '#1d3b52';
+    g.font = 'italic 800 96px "Barlow Condensed", "Arial Narrow", sans-serif';
+    g.fillText('FRESH', w / 2, 170);
+    g.fillStyle = '#e8622a';
+    g.fillText('CATCH', w / 2, 270);
+    g.fillStyle = '#1d3b52';
+    g.font = '700 40px "Barlow Condensed", "Arial Narrow", sans-serif';
+    g.fillText('HOW\'S MY DRIVING?', w / 2, 340);
+    g.fillStyle = '#ece6d8';
+    g.fillText('555-0199', w / 2, 440);
+  });
+  const mat = (map: THREE.Texture) => new THREE.MeshStandardMaterial({ map, roughness: 0.34, metalness: 0.05, polygonOffset: true, polygonOffsetFactor: -2 });
+  const sideMat = mat(side);
+  // box body: x = ±1.05, z from -2.62 (rear) to 0.88, floor at 0.42 (kit van, local axes)
+  for (const s of [1, -1]) {
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(3.3, 1.65), sideMat);
+    m.position.set(s * 1.057, 1.62, -0.87);
+    m.rotation.y = (s * Math.PI) / 2;
+    van.add(m);
+  }
+  const back = new THREE.Mesh(new THREE.PlaneGeometry(1.7, 1.7), mat(rear));
+  back.position.set(0, 1.72, -2.64);
+  back.rotation.y = Math.PI;
+  van.add(back);
 }

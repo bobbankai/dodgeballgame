@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { makeCanvasTexture } from '../rendering/Textures';
 import { bevelBox, lightShaft } from './ArenaKit';
+import { prop, tintProp } from './PropKit';
 
 /** Gradient sky dome with sun / moon / eclipse disc, stars and soft clouds. */
 export function skyDome(opts: {
@@ -290,8 +291,68 @@ export function floodRig(pos: THREE.Vector3, target: THREE.Vector3, heads: numbe
 }
 
 /** Corrugated shipping container. */
+/** Freight-line logos painted on the container sides (shared; transparent background). */
+const LINES = [
+  { name: 'HARBORLINE', sub: 'OCEAN FREIGHT' },
+  { name: 'CARGO·GO', sub: 'PIER 9 LOGISTICS' },
+];
+const logoMats = new Map<string, THREE.Material>();
+function containerLogo(line: number, dark: boolean) {
+  const key = `${line}|${dark}`;
+  let m = logoMats.get(key);
+  if (!m) {
+    const { name, sub } = LINES[line];
+    const ink = dark ? '#1b1d22' : '#f2efe6';
+    const tex = makeCanvasTexture(1024, 256, (g, w, h) => {
+      g.clearRect(0, 0, w, h);
+      g.fillStyle = ink;
+      g.strokeStyle = ink;
+      // wave mark
+      g.lineWidth = 16;
+      g.beginPath();
+      for (let x = 0; x <= 150; x += 4) g.lineTo(40 + x, 128 + Math.sin(x / 24) * 36);
+      g.stroke();
+      g.beginPath();
+      g.arc(115, 128, 92, 0, Math.PI * 2);
+      g.lineWidth = 10;
+      g.stroke();
+      g.textBaseline = 'middle';
+      g.font = 'italic 800 120px "Barlow Condensed", "Arial Narrow", sans-serif';
+      g.fillText(name, 240, 110);
+      g.font = '700 40px "Barlow Condensed", "Arial Narrow", sans-serif';
+      g.fillText(sub, 246, 200);
+    });
+    m = new THREE.MeshStandardMaterial({ map: tex, alphaTest: 0.5, roughness: 0.6, metalness: 0.2 });
+    m.userData.shared = true;
+    tex.userData.shared = true;
+    logoMats.set(key, m);
+  }
+  return m;
+}
+let logoGeo: THREE.PlaneGeometry | null = null;
+let containerCount = 0;
+
 export function container(color: number, len = 6): THREE.Group {
   const g = new THREE.Group();
+  const kit = Math.abs(len - 6) < 0.5 ? prop('container') : null;
+  if (kit) {
+    // Blender-modelled container (tools/blender/build_props.py), doors at +X
+    tintProp(kit, { container_paint: color });
+    const c = new THREE.Color(color);
+    const mat = containerLogo(containerCount++ % LINES.length, c.r * 0.3 + c.g * 0.59 + c.b * 0.11 > 0.3);
+    if (!logoGeo) {
+      logoGeo = new THREE.PlaneGeometry(3.4, 0.85);
+      logoGeo.userData.shared = true;
+    }
+    for (const s of [1, -1]) {
+      const logo = new THREE.Mesh(logoGeo, mat);
+      logo.position.set(-0.4, 1.75, s * 1.216);
+      if (s < 0) logo.rotation.y = Math.PI;
+      g.add(logo);
+    }
+    g.add(kit);
+    return g;
+  }
   const tex = makeCanvasTexture(256, 64, (c, w, h) => {
     const col = new THREE.Color(color);
     for (let x = 0; x < w; x += 8) {

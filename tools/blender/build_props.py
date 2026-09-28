@@ -7,7 +7,7 @@ Y-up conversion. Edges are bevelled, and ambient occlusion is baked into vertex 
 Cycles so creases and contact areas read without any runtime cost.
 
 Props: hoop, ball_cart (with ball_slot_* empties for the game's real balls), cooler, cone,
-mat_stack, bench.
+mat_stack, bench; street: van, streetlight, wheelie_bin, pallet_stack, rollup_door, container.
 
 Run: blender -b -P tools/blender/build_props.py
 """
@@ -26,7 +26,7 @@ OUT = os.path.join(lib.ROOT, 'src', 'assets', 'models', 'props.glb')
 MATS = {}
 
 
-def mat(name, color, rough=0.6, metal=0.0, emission=None):
+def mat(name, color, rough=0.6, metal=0.0, emission=None, strength=1.0):
     if name in MATS:
         return MATS[name]
     m = bpy.data.materials.new(name)
@@ -37,7 +37,7 @@ def mat(name, color, rough=0.6, metal=0.0, emission=None):
     p.inputs['Metallic'].default_value = metal
     if emission:
         p.inputs['Emission Color'].default_value = (*emission, 1)
-        p.inputs['Emission Strength'].default_value = 1.0
+        p.inputs['Emission Strength'].default_value = strength
     MATS[name] = m
     return m
 
@@ -77,14 +77,14 @@ def from_bmesh(name, bm, material, parent=None, bevel=0.0, segments=2, smooth=Tr
     return ob
 
 
-def box(name, size, loc, material, parent=None, bevel=0.01, rot=None):
+def box(name, size, loc, material, parent=None, bevel=0.01, rot=None, segments=2):
     bm = bmesh.new()
     bmesh.ops.create_cube(bm, size=1.0)
     bmesh.ops.scale(bm, vec=Vector(size), verts=bm.verts)
     if rot:
         bmesh.ops.rotate(bm, cent=(0, 0, 0), matrix=Matrix.Rotation(rot[1], 3, rot[0]), verts=bm.verts)
     bmesh.ops.translate(bm, vec=Vector(loc), verts=bm.verts)
-    return from_bmesh(name, bm, material, parent, bevel=bevel)
+    return from_bmesh(name, bm, material, parent, bevel=bevel, segments=segments)
 
 
 def tubes(name, polylines, radius, material, parent=None, sides=6):
@@ -318,6 +318,308 @@ def bench():
     return r
 
 
+# ------------------------------------------------------------------ street props
+CUTTERS = []
+
+
+def prism(name, profile_yz, x0, x1, material, parent=None, bevel=0.0, segments=2):
+    """Extrude a (y, z) side profile across x0..x1 (vehicle bodies)."""
+    bm = bmesh.new()
+    vs = [bm.verts.new((x0, y, z)) for (y, z) in profile_yz]
+    f = bm.faces.new(vs)
+    ext = bmesh.ops.extrude_face_region(bm, geom=[f])
+    bmesh.ops.translate(bm, vec=Vector((x1 - x0, 0, 0)), verts=[e for e in ext['geom'] if isinstance(e, bmesh.types.BMVert)])
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+    return from_bmesh(name, bm, material, parent, bevel=bevel, segments=segments)
+
+
+def cut(ob, cutter):
+    """Boolean-subtract `cutter` before the bevel (so the cut edges get bevelled too)."""
+    mod = ob.modifiers.new('cut', 'BOOLEAN')
+    mod.operation = 'DIFFERENCE'
+    mod.object = cutter
+    mod.solver = 'EXACT'
+    bpy.context.view_layer.objects.active = ob
+    bpy.ops.object.modifier_move_to_index(modifier=mod.name, index=0)
+
+
+def cutter_cylinder(r, length, loc, parent):
+    ob = cylinder('cutter', r, r, length, loc, mat('cutter', (1, 0, 1)), parent, seg=40, rot=('Y', math.pi / 2))
+    ob.hide_render = True
+    CUTTERS.append(ob)
+    return ob
+
+
+def van():
+    """Box delivery van (Luton style), 5.3 m long, cab facing -Y."""
+    r = root('van')
+    paint = mat('van_white', srgb('#e8e2d4'), 0.32, 0.1)
+    glass = mat('glass_dark', srgb('#1a2530'), 0.06, 0.6)
+    trim = mat('plastic_dark', srgb('#1f2124'), 0.6, 0.0)
+    chrome = mat('chrome', srgb('#c8ccd2'), 0.2, 1.0)
+    lens = mat('lens_clear', srgb('#f4f1e8'), 0.08, 0.0)
+    red = mat('lens_red', srgb('#b01a14'), 0.15, 0.0)
+    rubber = mat('rubber_black', srgb('#1b1c1f'), 0.7, 0.0)
+    W = 2.1
+    wf, wr, wz, wrad = -1.75, 1.65, 0.38, 0.38
+    # cab: side profile extruded across the width
+    cab_prof = [(-2.62, 0.42), (-2.62, 1.12), (-2.45, 1.32), (-1.78, 1.45), (-1.18, 2.34), (-0.95, 2.4), (-0.88, 2.4), (-0.88, 0.42)]
+    cab = prism('cab', cab_prof, -W / 2 + 0.03, W / 2 - 0.03, paint, r, bevel=0.06, segments=3)
+    box_body = box('cargo', (W, 3.5, 2.33), (0, -0.88 + 1.75, 0.42 + 1.165), paint, r, bevel=0.07)
+    for ob, y in ((cab, wf), (box_body, wr)):
+        cut(ob, cutter_cylinder(wrad + 0.09, W + 0.4, (0, y, wz), r))
+    # windscreen and side windows, a hair proud of the paint
+    n = Vector((0, -(2.34 - 1.45), (-1.18 + 1.78))).normalized()
+    a, b = Vector((0, -1.72, 1.53)), Vector((0, -1.24, 2.26))
+    ws = bmesh.new()
+    vs = [ws.verts.new(p + n * 0.012) for p in (a + Vector((-0.9, 0, 0)), a + Vector((0.9, 0, 0)), b + Vector((0.86, 0, 0)), b + Vector((-0.86, 0, 0)))]
+    ws.faces.new(vs)
+    from_bmesh('windscreen', ws, glass, r, smooth=False)
+    for sx in (-1, 1):
+        x = sx * (W / 2 - 0.03 + 0.006)
+        win = bmesh.new()
+        pts = [(-1.66, 1.55), (-1.22, 2.22), (-1.0, 2.22), (-1.0, 1.55)]
+        vs = [win.verts.new((x, y, z)) for (y, z) in (pts[::-1] if sx > 0 else pts)]
+        win.faces.new(vs)
+        from_bmesh('side_window', win, glass, r, smooth=False)
+        # mirror on a stalk
+        tube('mirror_arm', [(sx * 1.02, -1.7, 1.55), (sx * 1.2, -1.74, 1.62)], 0.015, trim, r)
+        box('mirror', (0.06, 0.1, 0.22), (sx * 1.22, -1.74, 1.66), trim, r, bevel=0.02)
+        # door seam and handle
+        box('door_seam', (0.006, 0.012, 1.25), (sx * (W / 2 - 0.025), -0.98, 1.2), trim, r, bevel=0.0)
+        box('door_handle', (0.02, 0.16, 0.035), (sx * (W / 2 - 0.02), -1.1, 1.38), trim, r, bevel=0.008)
+        # side step under the cab
+        box('step', (0.12, 0.5, 0.04), (sx * 0.98, -1.2, 0.4), trim, r, bevel=0.01)
+    # front: bumper, grille, lamps
+    box('bumper_f', (W + 0.04, 0.16, 0.26), (0, -2.63, 0.52), trim, r, bevel=0.04)
+    box('grille', (1.2, 0.03, 0.34), (0, -2.625, 0.9), trim, r, bevel=0.01)
+    for k in range(4):
+        box('grille_bar', (1.14, 0.02, 0.018), (0, -2.64, 0.78 + k * 0.08), chrome, r, bevel=0.0)
+    for sx in (-1, 1):
+        box('headlamp', (0.3, 0.03, 0.16), (sx * 0.8, -2.625, 0.98), lens, r, bevel=0.015)
+        box('indicator', (0.1, 0.03, 0.06), (sx * 0.99, -2.62, 0.84), mat('lens_amber', srgb('#e8901c'), 0.15, 0.0), r, bevel=0.01)
+    # rear: bumper, doors, lamps
+    box('bumper_r', (W + 0.02, 0.14, 0.2), (0, 2.66, 0.5), trim, r, bevel=0.04)
+    box('door_seam_r', (0.012, 0.01, 2.1), (0, 2.625, 1.6), trim, r, bevel=0.0)
+    for sx in (-1, 1):
+        box('tail', (0.12, 0.03, 0.42), (sx * 0.96, 2.625, 1.05), red, r, bevel=0.01)
+        box('rear_handle', (0.03, 0.03, 0.4), (sx * 0.12, 2.64, 1.5), chrome, r, bevel=0.008)
+        for z in (0.95, 2.25):
+            box('hinge', (0.1, 0.03, 0.06), (sx * 1.0, 2.635, z), trim, r, bevel=0.008)
+    # wheels: rounded tyre, steel rim, hub
+    for y in (wf, wr):
+        for sx in (-1, 1):
+            x = sx * (W / 2 - 0.16)
+            cylinder('tyre', wrad, wrad, 0.26, (x, y, wz), rubber, r, seg=32, bevel=0.07, rot=('Y', math.pi / 2))
+            cylinder('rim', 0.21, 0.21, 0.27, (x, y, wz), chrome, r, seg=24, bevel=0.02, rot=('Y', math.pi / 2))
+            cylinder('hub', 0.07, 0.06, 0.29, (x, y, wz), trim, r, seg=16, rot=('Y', math.pi / 2))
+    # chassis shadow gap under the body
+    box('chassis', (W - 0.7, 5.0, 0.2), (0, 0, 0.34), trim, r, bevel=0.02)
+    return r
+
+
+def bezier(p0, p1, p2, p3, n):
+    out = []
+    for i in range(n + 1):
+        t = i / n
+        u = 1 - t
+        out.append(tuple(u ** 3 * a + 3 * u * u * t * b + 3 * u * t * t * c + t ** 3 * d for a, b, c, d in zip(p0, p1, p2, p3)))
+    return out
+
+
+def streetlight():
+    """US davit street light (galvanized pole, sweeping arm, cobra head): origin at the pole base,
+    arm reaching out along -Y."""
+    r = root('streetlight')
+    galv = mat('galvanized', srgb('#a3a8ad'), 0.42, 0.85)
+    dark = mat('steel_dark', srgb('#3a3f47'), 0.45, 0.8)
+    concrete = mat('concrete', srgb('#8d8a84'), 0.9, 0.0)
+    lamp_emit = mat('lamp_lens', srgb('#fff3dd'), 0.2, 0.0, emission=srgb('#ffd18a'), strength=3.5)
+    cylinder('footing', 0.26, 0.26, 0.22, (0, 0, 0.11), concrete, r, seg=24, bevel=0.03)
+    box('base_plate', (0.36, 0.36, 0.03), (0, 0, 0.235), galv, r, bevel=0.01)
+    for sx in (-1, 1):
+        for sy in (-1, 1):
+            cylinder('nut', 0.022, 0.022, 0.04, (sx * 0.14, sy * 0.14, 0.265), dark, r, seg=6)
+    cylinder('pole', 0.11, 0.065, 7.4, (0, 0, 0.25 + 3.7), galv, r, seg=20)
+    box('hand_hole', (0.1, 0.012, 0.2), (0, -0.108, 0.8), galv, r, bevel=0.01)
+    # arm leaves the pole top vertically and sweeps out to ~2.4 m, rising slightly at the tip
+    tube('arm', bezier((0, 0, 7.3), (0, 0, 8.1), (0, -1.0, 8.35), (0, -2.45, 8.29), 18), 0.042, galv, r)
+    cylinder('collar', 0.08, 0.075, 0.16, (0, 0, 7.62), galv, r, seg=20, bevel=0.015)
+    # cobra head: a flattened teardrop tilted up a few degrees, glowing lens underneath
+    tilt = Matrix.Rotation(math.radians(6), 3, 'X')
+    bm = bmesh.new()
+    bmesh.ops.create_uvsphere(bm, u_segments=28, v_segments=14, radius=1.0)
+    for v in bm.verts:
+        y = v.co.y
+        taper = 0.75 + 0.25 * (-y)            # fatter at the outer (-Y) end
+        v.co.x *= 0.19 * taper
+        v.co.y *= 0.42
+        v.co.z = max(v.co.z, -0.35) * 0.11 * taper
+    bmesh.ops.rotate(bm, cent=(0, 0, 0), matrix=tilt, verts=bm.verts)
+    bmesh.ops.translate(bm, vec=Vector((0, -2.62, 8.3)), verts=bm.verts)
+    from_bmesh('head', bm, galv, r)
+    lb = bmesh.new()
+    bmesh.ops.create_circle(lb, cap_ends=True, segments=24, radius=1.0)
+    for v in lb.verts:
+        v.co.x *= 0.13
+        v.co.y *= 0.3
+    bmesh.ops.reverse_faces(lb, faces=lb.faces)       # face down
+    bmesh.ops.rotate(lb, cent=(0, 0, 0), matrix=tilt, verts=lb.verts)
+    bmesh.ops.translate(lb, vec=Vector((0, -2.66, 8.3 - 0.039)), verts=lb.verts)
+    from_bmesh('lens', lb, lamp_emit, r, smooth=False)
+    cylinder('photocell', 0.03, 0.03, 0.05, (0, -2.45, 8.4), dark, r, seg=12)
+    return r
+
+
+def wheelie_bin():
+    r = root('wheelie_bin')
+    green = mat('bin_green', srgb('#2e5a3a'), 0.55, 0.0)
+    rubber = mat('rubber_black', srgb('#1b1c1f'), 0.7, 0.0)
+    bm = bmesh.new()
+    bmesh.ops.create_cube(bm, size=1.0)
+    for v in bm.verts:
+        top = v.co.z > 0
+        v.co.x *= 0.58 if top else 0.5
+        v.co.y *= 0.72 if top else 0.6
+        v.co.z = 0.99 if top else 0.06
+    from_bmesh('body', bm, green, r, bevel=0.035, segments=3)
+    lid = mat('bin_lid', srgb('#2a4f34'), 0.5, 0.0)
+    box('lid', (0.62, 0.78, 0.05), (0, -0.01, 1.02), lid, r, bevel=0.02)
+    box('lid_lip', (0.6, 0.04, 0.09), (0, -0.39, 0.98), lid, r, bevel=0.015)
+    box('rim_band', (0.6, 0.74, 0.05), (0, 0, 0.93), green, r, bevel=0.02)
+    tube('handle', [(-0.24, 0.39, 0.96), (-0.24, 0.43, 0.98), (0.24, 0.43, 0.98), (0.24, 0.39, 0.96)], 0.018, green, r)
+    for k in (-1, 1):
+        box('rib', (0.05, 0.02, 0.7), (k * 0.14, -0.325, 0.5), green, r, bevel=0.01)
+    tube('axle', [(-0.26, 0.3, 0.1), (0.26, 0.3, 0.1)], 0.012, rubber, r)
+    for sx in (-1, 1):
+        cylinder('wheel', 0.1, 0.1, 0.05, (sx * 0.27, 0.3, 0.1), rubber, r, seg=20, bevel=0.012, rot=('Y', math.pi / 2))
+    return r
+
+
+def pallet_stack():
+    r = root('pallet_stack')
+    wood = mat('pallet_wood', srgb('#9a7a55'), 0.85, 0.0)
+    rng = __import__('random').Random(7)
+    z = 0.0
+    for p in range(4):
+        dx, dy, rz = rng.uniform(-0.04, 0.04), rng.uniform(-0.04, 0.04), rng.uniform(-0.05, 0.05)
+        parts = []
+        for k in range(3):                      # bottom boards
+            parts.append(((1.2, 0.1, 0.02), (0, -0.45 + k * 0.45, 0.01)))
+        for i in range(3):                      # blocks
+            for k in range(3):
+                parts.append(((0.12, 0.1, 0.08), (-0.54 + i * 0.54, -0.45 + k * 0.45, 0.06)))
+        for k in range(3):                      # stringer boards
+            parts.append(((1.2, 0.1, 0.02), (0, -0.45 + k * 0.45, 0.11)))
+        for i in range(7):                      # deck
+            parts.append(((0.1, 1.0, 0.02), (-0.55 + i * (1.1 / 6), 0, 0.13)))
+        for size, (x, y, zz) in parts:
+            c, s = math.cos(rz), math.sin(rz)
+            box('plank', size, (dx + x * c - y * s, dy + x * s + y * c, z + zz), wood, r, bevel=0.004, rot=('Z', rz), segments=1)
+        z += 0.14
+    return r
+
+
+def rollup_door():
+    """Ribbed steel roll-up door: origin on the floor at the wall face, facing -Y, 5 m wide."""
+    r = root('rollup_door')
+    steel = mat('door_steel', srgb('#5b6470'), 0.5, 0.6)
+    dark = mat('steel_dark', srgb('#3a3f47'), 0.45, 0.8)
+    W, H = 5.0, 4.2
+    n = 18
+    for k in range(n):
+        box('slat', (W, 0.05, H / n - 0.012), (0, -0.06, (k + 0.5) * H / n), steel, r, bevel=0.012)
+    box('bottom_bar', (W, 0.08, 0.08), (0, -0.07, 0.04), dark, r, bevel=0.015)
+    box('handle', (0.3, 0.05, 0.04), (0, -0.12, 0.9), dark, r, bevel=0.01)
+    for sx in (-1, 1):
+        box('guide', (0.14, 0.16, H + 0.1), (sx * (W / 2 + 0.07), -0.08, (H + 0.1) / 2), dark, r, bevel=0.02)
+    box('housing', (W + 0.5, 0.45, 0.5), (0, -0.22, H + 0.3), dark, r, bevel=0.04)
+    return r
+
+
+def corrugated(name, length, height, depth, period, M, material, parent):
+    """Trapezoid-corrugated sheet: profile along u (0..length), ribs out along +w, extruded along v
+    (0..height); M maps (u, w, v) into the prop's space."""
+    n = max(1, round(length / period))
+    p = length / n
+    prof = []
+    for i in range(n):
+        u0 = i * p
+        prof += [(u0, 0.0), (u0 + 0.18 * p, depth), (u0 + 0.5 * p, depth), (u0 + 0.68 * p, 0.0)]
+    prof.append((length, 0.0))
+    bm = bmesh.new()
+    lo = [bm.verts.new((u, w, 0.0)) for u, w in prof]
+    hi = [bm.verts.new((u, w, height)) for u, w in prof]
+    for i in range(len(prof) - 1):
+        bm.faces.new([lo[i], hi[i], hi[i + 1], lo[i + 1]])
+    bmesh.ops.transform(bm, matrix=M, verts=bm.verts)
+    if M.to_3x3().determinant() < 0:
+        bmesh.ops.reverse_faces(bm, faces=bm.faces)
+    ob = from_bmesh(name, bm, material, parent, smooth=False)
+    return ob
+
+
+def frame(u, w, v, origin):
+    """4x4 matrix with columns u, w, v and translation origin."""
+    m = Matrix.Identity(4)
+    for c, vec in enumerate((u, w, v)):
+        for r_ in range(3):
+            m[r_][c] = vec[r_]
+    m.translation = Vector(origin)
+    return m
+
+
+def shipping_container():
+    """20 ft ISO container, 6.06 x 2.44 x 2.59 m, long axis along X, doors at +X. Origin on the floor."""
+    r = root('container')
+    paint = mat('container_paint', srgb('#b03a2e'), 0.55, 0.35)
+    dark = mat('container_dark', srgb('#26282c'), 0.6, 0.6)
+    L, W, H = 6.06, 2.44, 2.59
+    t = 0.14                     # frame section
+    X, Y, Z = Vector((1, 0, 0)), Vector((0, 1, 0)), Vector((0, 0, 1))
+    hl, hw = L / 2, W / 2
+    inset = 0.045                # walls sit inside the frame line
+    # long sides and the blind end, corrugated
+    corrugated('side', L - 2 * t, H - 2 * t, 0.035, 0.28, frame(X, Y, Z, (-hl + t, hw - inset, t)), paint, r)
+    corrugated('side', L - 2 * t, H - 2 * t, 0.035, 0.28, frame(-X, -Y, Z, (hl - t, -hw + inset, t)), paint, r)
+    corrugated('end', W - 2 * t, H - 2 * t, 0.03, 0.3, frame(-Y, -X, Z, (-hl + inset, hw - t, t)), paint, r)
+    # roof: shallow dents under the top rails
+    corrugated('roof', L - 2 * t, W - 2 * t, 0.012, 0.6, frame(X, Z, -Y, (-hl + t, hw - t, H - 0.035)), paint, r)
+    # frame: corner posts, top and bottom rails
+    for sx in (-1, 1):
+        for sy in (-1, 1):
+            box('post', (t, t, H), (sx * (hl - t / 2), sy * (hw - t / 2), H / 2), paint, r, bevel=0.012)
+        for z in (t / 2, H - t / 2):
+            box('rail_end', (t, W, t), (sx * (hl - t / 2), 0, z), paint, r, bevel=0.012)
+    for sy in (-1, 1):
+        for z in (t / 2 + 0.02, H - t / 2):
+            box('rail', (L, t, t * (1.4 if z < 1 else 1)), (0, sy * (hw - t / 2), z), paint, r, bevel=0.012)
+    # corner castings
+    for sx in (-1, 1):
+        for sy in (-1, 1):
+            for z in (0.06, H - 0.06):
+                box('casting', (0.18, 0.165, 0.12), (sx * (hl - 0.09), sy * (hw - 0.0825), z), dark, r, bevel=0.01)
+    # doors: two leaves with panel ribs, four lock bars with handles and keepers, hinges
+    dx = hl - 0.02
+    for side in (-1, 1):
+        cy = side * (W / 4 - 0.03)
+        box('door', (0.03, W / 2 - t - 0.02, H - 2 * t - 0.02), (dx, cy, H / 2), paint, r, bevel=0.008)
+        for k in range(4):
+            box('door_rib', (0.025, W / 2 - t - 0.12, 0.09), (dx + 0.02, cy, 0.5 + k * 0.55), paint, r, bevel=0.01)
+        for bar in (-0.28, 0.28):
+            y = cy + bar
+            tube('lock_bar', [(dx + 0.06, y, 0.18), (dx + 0.06, y, H - 0.18)], 0.017, dark, r)
+            for z in (0.2, H - 0.2):
+                box('keeper', (0.06, 0.07, 0.07), (dx + 0.05, y, z), dark, r, bevel=0.01)
+            box('handle', (0.035, 0.035, 0.34), (dx + 0.1, y + side * 0.07, 1.25), dark, r, bevel=0.01)
+            box('handle_hub', (0.05, 0.1, 0.05), (dx + 0.075, y + side * 0.035, 1.25), dark, r, bevel=0.01)
+        for z in (0.45, 1.3, 2.15):
+            cylinder('hinge', 0.022, 0.022, 0.14, (dx + 0.03, side * (hw - t - 0.01), z), dark, r, seg=10)
+    # forklift pockets / underside
+    box('underside', (L - 0.3, W - 0.3, 0.06), (0, 0, 0.05), dark, r, bevel=0.0)
+    return r
+
+
 # ------------------------------------------------------------------ build, bake AO, export
 def apply_all(ob):
     bpy.context.view_layer.objects.active = ob
@@ -353,23 +655,56 @@ def bake_ao(meshes):
             d.color = (v, v, v, 1.0)
 
 
+def join_by_material(r):
+    """One mesh per material under each prop root (fewer nodes and draws in the game)."""
+    groups = {}
+    for ob in [c for c in r.children if c.type == 'MESH']:
+        groups.setdefault(ob.data.materials[0].name, []).append(ob)
+    for name, obs in groups.items():
+        bpy.ops.object.select_all(action='DESELECT')
+        for ob in obs:
+            ob.select_set(True)
+        bpy.context.view_layer.objects.active = obs[0]
+        if len(obs) > 1:
+            bpy.ops.object.join()
+        bpy.context.active_object.name = f'{r.name}_{name}'
+
+
+# wall-mounted props are baked hung on a wall at their real height
+MOUNT = {'hoop': 4.2}
+WALLED = {'hoop', 'rollup_door'}
+
+
 def main():
     lib.reset_scene()
-    roots = [hoop(), ball_cart(), cooler(), cone(), mat_stack(), bench()]
+    roots = [hoop(), ball_cart(), cooler(), cone(), mat_stack(), bench(), van(), streetlight(), wheelie_bin(), pallet_stack(), rollup_door(), shipping_container()]
     # lay props out apart so they don't occlude each other while baking
+    spacing = 9.0
     for i, r in enumerate(roots):
-        r.location = (i * 4.0, 0, 0)
+        r.location = (i * spacing, 0, MOUNT.get(r.name, 0.0))
     bpy.context.view_layer.update()
-    meshes = [o for o in bpy.data.objects if o.type == 'MESH']
+    meshes = [o for o in bpy.data.objects if o.type == 'MESH' and o not in CUTTERS]
     for ob in meshes:
         apply_all(ob)
-    # a floor for contact occlusion (not exported)
-    bpy.ops.mesh.primitive_plane_add(size=60, location=(10, 0, 0))
-    floor = bpy.context.active_object
+    for c in CUTTERS:
+        bpy.data.objects.remove(c)
+    # occluders for contact shadows (not exported): the floor, and a wall behind wall-mounted props
+    occluders = []
+    bpy.ops.mesh.primitive_plane_add(size=1, location=(len(roots) * spacing / 2, 0, 0))
+    occluders.append(bpy.context.active_object)
+    occluders[-1].scale = (len(roots) * spacing + 20, 40, 1)
+    for i, r in enumerate(roots):
+        if r.name in WALLED:
+            bpy.ops.mesh.primitive_plane_add(size=8, location=(i * spacing, 0.001, 4), rotation=(math.pi / 2, 0, 0))
+            occluders.append(bpy.context.active_object)
     bake_ao(meshes)
-    bpy.data.objects.remove(floor)
+    for o in occluders:
+        bpy.data.objects.remove(o)
     for r in roots:
+        join_by_material(r)
         r.location = (0, 0, 0)
+    for m in [m for m in bpy.data.materials if m.users == 0]:
+        bpy.data.materials.remove(m)
     os.makedirs(os.path.dirname(OUT), exist_ok=True)
     bpy.ops.export_scene.gltf(
         filepath=OUT,
@@ -382,6 +717,5 @@ def main():
         export_materials='EXPORT',
     )
     print('wrote', os.path.relpath(OUT, lib.ROOT), os.path.getsize(OUT) // 1024, 'KB')
-
 
 main()
