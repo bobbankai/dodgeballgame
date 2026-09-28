@@ -18,7 +18,7 @@ export type PropName =
   | 'hoop' | 'ball_cart' | 'cooler' | 'cone' | 'mat_stack' | 'bench' | 'double_door'
   | 'van' | 'streetlight' | 'wheelie_bin' | 'pallet_stack' | 'rollup_door' | 'container'
   | 'rock_a' | 'rock_b' | 'rock_c' | 'obelisk' | 'eclipse_crystal' | 'island_base'
-  | 'water_tower' | 'hvac_unit';
+  | 'water_tower' | 'hvac_unit' | 'jumbotron';
 
 /** Seat length of the bench as modelled. */
 const BENCH_LEN = 2.4;

@@ -756,6 +756,41 @@ def hvac_unit():
     return r
 
 
+# ------------------------------------------------------------------ stadium props
+def jumbotron():
+    """Centre-hung video board housing (the game mounts its live screens on the four 7.4 m faces):
+    main tier with corner posts, upper and lower tiers wrapped in LED ribbons, a glowing underside,
+    a top rail and rigging cables up to the roof truss. Origin at the centre of the main tier."""
+    r = root('jumbotron')
+    housing = mat('jumbo_housing', srgb('#16141f'), 0.4, 0.6)
+    trim = mat('jumbo_trim', srgb('#2c2838'), 0.3, 0.8)
+    led = mat('led_ribbon', srgb('#e8c77a'), 0.3, 0.0, emission=srgb('#c8a14a'), strength=3.0)
+    steel = mat('steel_dark', srgb('#3a3f47'), 0.45, 0.8)
+    box('main', (7.4, 7.4, 4.6), (0, 0, 0), housing, r, bevel=0.06)
+    for sx in (-1, 1):
+        for sy in (-1, 1):
+            box('post', (0.42, 0.42, 5.2), (sx * 3.72, sy * 3.72, 0), trim, r, bevel=0.12, segments=3)
+    # upper tier + ribbon + crown rail
+    box('upper', (6.2, 6.2, 0.9), (0, 0, 2.3 + 0.45), housing, r, bevel=0.05)
+    box('ribbon_up', (6.32, 6.32, 0.34), (0, 0, 2.3 + 0.5), led, r, bevel=0.02)
+    box('crown', (5.4, 5.4, 0.18), (0, 0, 3.2 + 0.09), trim, r, bevel=0.03)
+    c = 2.6
+    rail = [(-c, -c, 3.9), (c, -c, 3.9), (c, c, 3.9), (-c, c, 3.9), (-c, -c, 3.9)]
+    tube('rail', rail, 0.03, steel, r)
+    for (x, y) in [(-c, -c), (c, -c), (c, c), (-c, c), (0, -c), (0, c), (-c, 0), (c, 0)]:
+        tube('stanchion', [(x, y, 3.38), (x, y, 3.9)], 0.022, steel, r)
+    # lower tier + ribbon + glowing belly
+    box('lower', (6.4, 6.4, 1.1), (0, 0, -2.3 - 0.55), housing, r, bevel=0.05)
+    box('ribbon_low', (6.52, 6.52, 0.3), (0, 0, -2.3 - 0.5), led, r, bevel=0.02)
+    box('belly', (5.0, 5.0, 0.35), (0, 0, -3.4 - 0.17), trim, r, bevel=0.05)
+    box('belly_screen', (4.4, 4.4, 0.02), (0, 0, -3.4 - 0.35), led, r, bevel=0.0)
+    # rigging to the truss above
+    for sx in (-1, 1):
+        for sy in (-1, 1):
+            tube('cable', [(sx * 2.7, sy * 2.7, 3.3), (sx * 4.0, sy * 4.0, 2.8 + 3.1)], 0.028, steel, r)
+    return r
+
+
 # ------------------------------------------------------------------ eclipse props
 def rock_mesh(name, seed, radius, subdiv, parent, material, squash=1.0, flat_top=None):
     """A sculpted crag: an icosphere pushed out by layered noise, with sedimentary strata and a few
@@ -982,7 +1017,7 @@ WALLED = {'hoop', 'rollup_door', 'double_door'}
 def main():
     lib.reset_scene()
     roots = [hoop(), ball_cart(), cooler(), cone(), mat_stack(), bench(), double_door(), van(), streetlight(), wheelie_bin(), pallet_stack(), rollup_door(), shipping_container(),
-             floating_rock('a', 3, 5, 0.8, 0.42), floating_rock('b', 11, 4, 0.9, 0.5), floating_rock('c', 29, 4, 0.7, 0.3), obelisk(), eclipse_crystal(), island_base(), water_tower(), hvac_unit()]
+             floating_rock('a', 3, 5, 0.8, 0.42), floating_rock('b', 11, 4, 0.9, 0.5), floating_rock('c', 29, 4, 0.7, 0.3), obelisk(), eclipse_crystal(), island_base(), water_tower(), hvac_unit(), jumbotron()]
     # lay props out apart so they don't occlude each other while baking
     spacing = 9.0
     for i, r in enumerate(roots):

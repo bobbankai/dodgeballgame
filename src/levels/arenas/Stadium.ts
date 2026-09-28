@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import type { QualityProfile } from '../../config/quality';
 import { makeCanvasTexture } from '../../rendering/Textures';
+import { prop } from '../PropKit';
 import { Arena } from '../Arena';
 import { box, buildBench, buildBoards, courtLines, lightShaft, Scoreboard, woodTextures } from '../ArenaKit';
 import { Crowd, standSeats } from '../Crowd';
@@ -122,7 +123,9 @@ export function buildStadium(q: QualityProfile, hw: number, hl: number): Arena {
   for (const s of [-1, 1]) R.add(box(PX * 2 + 12, 0.4, 0.4, truss, 0, H - 6.2, s * 4, false));
   const jumbo = new THREE.Group();
   const housing = new THREE.MeshStandardMaterial({ color: 0x0c0a16, roughness: 0.4, metalness: 0.6 });
-  jumbo.add(box(7.4, 4.6, 7.4, housing, 0, 0, 0, false));
+  // modelled board housing (Blender kit) with the live screens on its faces; a plain box as fallback
+  const jumboKit = prop('jumbotron');
+  jumbo.add(jumboKit ?? box(7.4, 4.6, 7.4, housing, 0, 0, 0, false));
   const faces: Scoreboard[] = [];
   for (let i = 0; i < 4; i++) {
     const sb = new Scoreboard(6.6, 'HOME', 'AWAY', '#c8a14a', 0x0c0a16);

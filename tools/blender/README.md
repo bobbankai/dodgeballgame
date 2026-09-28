@@ -56,6 +56,9 @@ Street (modelled against photo references): a Luton box van with boolean-cut whe
 davit streetlights with cobra heads, wheelie bins, a pallet stack, ribbed roll-up doors and a
 20 ft ISO container (corrugated walls, corner castings, lock-bar doors).
 
+Rooftop (from NYC photo references): a water tower (tapered stave tank, steel hoops,
+cross-braced stand, ladder, conical roof) and packaged HVAC units.
+
 Eclipse: three sculpted floating crags (layered noise, strata and sheared facets over an
 island profile) with amber crystal clusters, a carved obsidian obelisk with glowing rune
 glyphs and a prong crown, the crystal it holds, and the platform's craggy underside.
