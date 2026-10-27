@@ -124,8 +124,14 @@ export class Game {
     o.parent?.remove(o);
   }
 
+  /** Render scale on top of the device pixel ratio, tuned by the frame rate (see start()). */
+  private renderScale = 1;
+  private frameAvg = 1 / 60;
+  private scaleCool = 0;
+
   resize() {
-    this.pipe.setSize(window.innerWidth, window.innerHeight);
+    const dpr = Math.min(window.devicePixelRatio, 2);
+    this.pipe.setSize(window.innerWidth, window.innerHeight, Math.max(0.6, dpr * this.renderScale));
     this.camera.aspect = window.innerWidth / window.innerHeight;
     this.camera.updateProjectionMatrix();
   }
@@ -133,11 +139,32 @@ export class Game {
   start() {
     const frame = () => {
       this.timer.update();
-      const dt = Math.min(this.timer.getDelta(), 1 / 20);
+      const raw = this.timer.getDelta();
+      const dt = Math.min(raw, 1 / 20);
       this.step(dt);
+      this.adaptResolution(raw);
       requestAnimationFrame(frame);
     };
     frame();
+  }
+
+  /**
+   * Dynamic resolution: if frames run long for a couple of seconds, render a little smaller; when
+   * there's headroom again, step back up. Lines are sized in screen pixels so the look holds.
+   */
+  private adaptResolution(raw: number) {
+    if (raw > 0.25) return; // tab switches and hitches aren't the GPU's fault
+    this.frameAvg += (raw - this.frameAvg) * 0.05;
+    this.scaleCool -= raw;
+    if (this.scaleCool > 0) return;
+    let next = this.renderScale;
+    if (this.frameAvg > 1 / 45) next = Math.max(0.55, this.renderScale - 0.1);
+    else if (this.frameAvg < 1 / 58 && this.renderScale < 1) next = Math.min(1, this.renderScale + 0.05);
+    if (next !== this.renderScale) {
+      this.renderScale = next;
+      this.resize();
+      this.scaleCool = 2;
+    }
   }
 
   /** Pick what Ada can use right now, show its prompt, and handle the button. */

@@ -3,3 +3,4 @@ dist
 test-output
 __pycache__
 *.blend1
+assets-raw

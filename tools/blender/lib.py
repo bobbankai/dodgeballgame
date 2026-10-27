@@ -472,7 +472,11 @@ def preview(path, target=(0, 0, 0.7), dist=3.0, yaw=-30, pitch=8, size=(900, 900
 
 
 def export_glb(path, objects=None):
+    """Export to assets-raw/ (not shipped), then compress with gltfpack (meshopt) into `path`."""
+    final = path
+    path = os.path.join(ROOT, 'assets-raw', os.path.relpath(final, os.path.join(ROOT, 'src', 'assets')))
     os.makedirs(os.path.dirname(path), exist_ok=True)
+    os.makedirs(os.path.dirname(final), exist_ok=True)
     if objects is not None:
         bpy.ops.object.select_all(action='DESELECT')
         for o in objects:
@@ -496,4 +500,7 @@ def export_glb(path, objects=None):
         export_def_bones=False,
         export_optimize_animation_size=False,
     )
-    print('wrote', os.path.relpath(path, ROOT), os.path.getsize(path) // 1024, 'KB')
+    import subprocess
+    subprocess.run(['node', os.path.join(ROOT, 'node_modules', 'gltfpack', 'cli.js'), '-i', path, '-o', final,
+                    '-cc', '-kn', '-km', '-ke', '-vp', '16', '-vn', '10'], check=True, capture_output=True)
+    print('wrote', os.path.relpath(final, ROOT), os.path.getsize(final) // 1024, 'KB', f'(raw {os.path.getsize(path) // 1024} KB)')

@@ -108,7 +108,7 @@ void main() {
   // lines thin out and fade into the distance like a pen lifting off the page
   float dist = abs(z0);
   float fade = 1.0 - smoothstep(uFog.x * 0.6, uFog.y * 0.8, dist);
-  float grain = texture2D(tPaper, vUv * uRes / 512.0).g;
+  float grain = texture2D(tPaper, vUv * uRes / (512.0 * uLine / 1.15)).g;
   // dry-brush: the line starves of ink in places and swells in others
   float brush = ibNoise(vec3(vUv * uRes / 14.0, 4.0 + uBoil * 0.15)) * 0.6 + ibNoise(vec3(vUv * uRes / 3.5, 9.0)) * 0.4;
   edge = smoothstep(0.12, 0.55, edge * (0.55 + 0.9 * brush)) * uInkWeight;
@@ -117,7 +117,7 @@ void main() {
   col = mix(col, uInk, edge * 0.92);
 
   // paper: fibres and tooth, and pigment granulating into it
-  vec3 pt = texture2D(tPaper, vUv * uRes / 512.0).rgb;
+  vec3 pt = texture2D(tPaper, vUv * uRes / (512.0 * uLine / 1.15)).rgb;
   float sat = max(col.r, max(col.g, col.b)) - min(col.r, min(col.g, col.b));
   // r: tooth + fibres (a multiplier near 1); g: fine grain; b: low-frequency tooth
   col *= mix(1.0, pt.r, 0.8);
