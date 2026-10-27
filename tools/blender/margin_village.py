@@ -64,6 +64,10 @@ def terrace_steps(x, y):
             ramp = max(0.0, min(1.0, (Rn + L / 2 - d) / L))
             c = smooth01(3.4, 2.2, arc)
             s = s + (ramp - s) * c
+        elif kind == 'stairs':
+            # a notch cut into the edge for the steps to sit in; a dead end until they're drawn
+            arc = abs(math.radians(angdiff(a, wa))) * Rn
+            s *= 1.0 - smooth01(1.85, 1.6, arc) * smooth01(Rn - 1.75, Rn - 1.45, d)
         h += (H - prev) * s
         prev = H
     return h

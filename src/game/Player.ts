@@ -6,6 +6,8 @@ import { Animator } from './Animator';
 import type { Collision } from './Collision';
 
 const RADIUS = 0.21;
+/** Tallest ledge Ada walks up without jumping. */
+const STEP = 0.36;
 const HEIGHT = 1.42;
 const GRAVITY = 22;
 const JUMP_HEIGHT = 1.15;
@@ -23,6 +25,10 @@ const _move = new THREE.Vector2();
 const _fwd = new THREE.Vector3();
 const _right = new THREE.Vector3();
 const _want = new THREE.Vector3();
+const _hitP = new THREE.Vector3();
+const _down = new THREE.Vector3(0, -1, 0);
+const _probe = new THREE.Vector3();
+const _stepN = new THREE.Vector3();
 
 function angleTo(a: number, b: number) {
   let d = (b - a) % (Math.PI * 2);
@@ -146,18 +152,20 @@ export class Player {
     // let go early for a shorter hop
     const g = this.jumping && this.velocity.y > 0 && !input.down('jump') ? GRAVITY * 2.2 : GRAVITY;
 
-    // ---- integrate with sub-steps, colliding the capsule against the level
+    // ---- integrate with sub-steps. The capsule floats a step's height above Ada's feet and
+    // handles walls and ceilings; a ray down from it finds the ground, so steps and slopes just work.
     const wasGrounded = this.grounded;
     const steps = Math.max(1, Math.ceil(dt / (1 / 120)));
     const h = dt / steps;
-    let grounded = false;
+    let grounded = wasGrounded;
     for (let i = 0; i < steps; i++) {
-      this.velocity.y -= g * h;
+      if (!grounded || this.velocity.y > 0) this.velocity.y -= g * h;
       const before = _v.copy(this.position).addScaledVector(this.velocity, h);
-      _seg.start.set(before.x, before.y + RADIUS, before.z);
+      _seg.start.set(before.x, before.y + STEP + RADIUS, before.z);
       _seg.end.set(before.x, before.y + HEIGHT - RADIUS, before.z);
       col.capsule(_seg, RADIUS, this.hit);
-      const nx = _seg.start.x, ny = _seg.start.y - RADIUS, nz = _seg.start.z;
+      const nx = _seg.start.x, nz = _seg.start.z;
+      let ny = _seg.start.y - RADIUS - STEP;
       // remove velocity going into whatever pushed us
       const cx = nx - before.x, cz = nz - before.z, cy = ny - before.y;
       const cl = Math.hypot(cx, cz);
@@ -169,20 +177,23 @@ export class Player {
         }
       }
       if (cy < -1e-5 && this.velocity.y > 0) this.velocity.y = 0; // ceiling
-      if (this.hit.grounded && this.velocity.y <= 0) {
-        grounded = true;
-        this.velocity.y = 0;
+      // feet: find the ground under the capsule (snap down a little when already walking)
+      grounded = false;
+      if (this.velocity.y <= 0) {
+        const extra = wasGrounded && !this.jumping ? 0.3 : 0.02;
+        _probe.set(nx, ny + STEP + 0.02, nz);
+        const d = col.raycast(_probe, _down, STEP + 0.02 + extra, _hitP, _stepN);
+        if (d !== null && Math.abs(_stepN.y) >= col.walkable) {
+          ny = _hitP.y;
+          grounded = true;
+          this.velocity.y = 0;
+        } else if (this.hit.grounded) {
+          // the capsule itself came down on something walkable
+          grounded = true;
+          this.velocity.y = 0;
+        }
       }
       this.position.set(nx, ny, nz);
-    }
-    // stick to the ground walking down slopes and steps
-    if (!grounded && wasGrounded && !this.jumping && this.velocity.y <= 0) {
-      const gy = col.groundAt(this.position, 0.4);
-      if (gy !== null && this.position.y - gy < 0.4 && this.position.y - gy > -0.05) {
-        this.position.y = gy;
-        grounded = true;
-        this.velocity.y = 0;
-      }
     }
     this.grounded = grounded;
     if (grounded) this.jumping = false;

@@ -118,7 +118,7 @@ export function edgeSegments(root: THREE.Object3D, angle = 28, strokes = 2, axis
 }
 
 export class SketchLines extends THREE.Mesh<THREE.InstancedBufferGeometry, THREE.ShaderMaterial> {
-  constructor(seg: Segments, opts: { width?: number; wobble?: number; color?: THREE.ColorRepresentation; alpha?: number } = {}) {
+  constructor(seg: Segments, opts: { width?: number; wobble?: number; color?: number; alpha?: number } = {}) {
     const g = new THREE.InstancedBufferGeometry();
     g.setAttribute('position', new THREE.Float32BufferAttribute([-1, 0, 0, 1, 0, 0, -1, 1, 0, 1, 1, 0], 3));
     g.setIndex([0, 1, 2, 2, 1, 3]);
@@ -137,12 +137,15 @@ export class SketchLines extends THREE.Mesh<THREE.InstancedBufferGeometry, THREE
         uWobble: { value: opts.wobble ?? 0.025 },
         uProgress: { value: 0 },
         uAlpha: { value: opts.alpha ?? 0.85 },
-        uColor: { value: new THREE.Color(opts.color ?? 0x4a4548) },
-        uInkColor: { value: new THREE.Color(0x15121a) },
+        // overlay colours are written straight to the screen, so keep the hex values as given
+        uColor: { value: new THREE.Color().setHex(opts.color ?? 0x5a5458, THREE.LinearSRGBColorSpace) },
+        uInkColor: { value: new THREE.Color().setHex(0x1a161c, THREE.LinearSRGBColorSpace) },
       },
       transparent: true,
       depthWrite: false,
       depthTest: true,
+      // the ribbon's winding depends on which way the stroke runs on screen
+      side: THREE.DoubleSide,
     });
     super(g, m);
     this.frustumCulled = false;
@@ -203,7 +206,7 @@ export function ghostMaterial(): THREE.ShaderMaterial {
         float h = hatch(vW, N, 6.0, 0.7) * (0.25 + 0.75 * shade);
         float rim = pow(1.0 - abs(dot(N, V)), 4.0);
         float grain = texture2D(tPaper, gl_FragCoord.xy / 512.0).g;
-        float a = (h * 0.32 + rim * 0.45) * mix(0.6, 1.0, grain) * uAlpha;
+        float a = (h * 0.2 + rim * 0.3) * mix(0.6, 1.0, grain) * uAlpha;
         gl_FragColor = vec4(0.3, 0.28, 0.3, a);
       }`,
     uniforms: { tPaper: G.tPaper, uBoil: G.uBoil, uSunDir: G.uSunDir, uAlpha: { value: 1 } },

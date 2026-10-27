@@ -23,6 +23,11 @@ interface Particle {
 
 const MAX = 800;
 
+/** Overlay colours go straight to the screen: take hex values as display colours. */
+function screenColor(c: THREE.ColorRepresentation) {
+  return typeof c === 'number' ? new THREE.Color().setHex(c, THREE.LinearSRGBColorSpace) : new THREE.Color(c);
+}
+
 /** Billboard particles drawn on the finished page: ink splats, pigment sparkles, dust, leaves. */
 export class Particles {
   readonly mesh: THREE.Mesh<THREE.InstancedBufferGeometry, THREE.ShaderMaterial>;
@@ -98,7 +103,7 @@ export class Particles {
       age: 0,
       size: o.size ?? 0.1,
       grow: o.grow ?? 0,
-      color: new THREE.Color(o.color ?? 0x15121a),
+      color: screenColor(o.color ?? 0x15121a),
       alpha: o.alpha ?? 1,
       rot: Math.random() * Math.PI * 2,
       spin: o.spin ?? 0,

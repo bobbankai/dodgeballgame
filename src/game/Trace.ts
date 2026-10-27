@@ -41,7 +41,9 @@ export class TraceTarget {
     this.box.getCenter(this.center);
     const size = this.box.getSize(new THREE.Vector3()).length();
     this.duration = THREE.MathUtils.clamp(size * 0.35, 2.2, 4.5);
-    this.lines = new SketchLines(edgeSegments(object, 30, 2), { width: 1.9, wobble: 0.03, color: 0x34303a, alpha: 0.9 });
+    // busy objects get one stroke per edge, simple ones a doubled, sketchier line
+    const probe = edgeSegments(object, 30, 1);
+    this.lines = new SketchLines(probe.count > 260 ? probe : edgeSegments(object, 30, 2), { width: 1.6, wobble: 0.03, color: 0x6a6468, alpha: 0.75 });
     this.ghost = object.clone(true);
     const gm = ghostMaterial();
     this.ghost.traverse((o) => {
@@ -111,7 +113,7 @@ export class TraceTarget {
     if (!this.holding && !this.done && this.progress > 0) this.lines.progress = this.progress;
     this.holding = false;
     // unfinished sketches breathe a little so they catch the eye
-    if (!this.done) this.lines.alpha = this.enabled ? 0.78 + 0.18 * Math.sin(G.uTime.value * 4) : 0.5;
+    if (!this.done) this.lines.alpha = this.enabled ? 0.62 + 0.18 * Math.sin(G.uTime.value * 4) : 0.4;
     if (this.done) {
       this.reveal += dt;
       const s = this.object.scale.x;
