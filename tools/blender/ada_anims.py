@@ -201,6 +201,101 @@ def author(arm):
         'bag': {'ry': [(0, 0.0), (9, 8.0), (26, 0.0)]},
     }), loop=False, sym=0)
 
+    # --- acting for cutscenes ----------------------------------------------------------------
+
+    # sit: on the ground, knees drawn up, arms round them, breathing slowly
+    clip(p, 'sit', 90, {
+        'hips': {'tz': -0.47, 'ty': 0.04, 'rx': [(0, -22.0), (45, -20.0)]},
+        'spine': {'rx': [(0, 22.0), (45, 25.0)]},
+        'chest': {'rx': [(0, 6.0), (45, 4.0)]},
+        'neck': {'rx': -6.0},
+        'head': {'rx': [(0, -10.0), (45, -6.0)], 'rz': [(0, 3.0), (50, -3.0)], 'ry': [(0, -3.0), (45, 2.0)]},
+        'thigh_L': {'ax': -138.0, 'ry': -4.0}, 'shin_L': {'ax': 22.0}, 'foot_L': {'ax': 0.0},
+        'upperarm_L': {'rx': [(0, -40.0), (45, -38.0)], 'ry': 4.0, 'rz': 26.0},
+        'forearm_L': {'rx': -36.0, 'ry': 4.0, 'rz': 40.0},
+        'hand_L': {'rx': 10.0},
+        'scarf1': {'rx': [(0, 8.0), (45, 6.0)]}, 'bag': {'ry': 18.0, 'rx': 20.0},
+    }, sym=0)
+
+    # point: the right arm out at something, the head following it
+    clip(p, 'point', 24, merge(arms_down(), {
+        'hips': {'tz': -0.004},
+        'spine': {'rx': [(0, 2.0), (10, 4.0)], 'rz': [(0, 0.0), (10, -6.0)]},
+        'head': {'rx': [(0, -2.0), (10, -6.0)], 'rz': [(0, 0.0), (10, -10.0)]},
+        'upperarm_R': {'rx': [(0, 3.0), (8, -92.0), (24, -88.0)], 'ry': [(0, -13.0), (8, -2.0)], 'rz': [(0, 0.0), (8, 16.0)]},
+        'forearm_R': {'rx': [(0, -14.0), (8, -6.0)]},
+        'hand_R': {'rx': [(0, -4.0), (8, 6.0)]},
+        'thigh_R': {'ry': 2.0, 'rx': -3.0}, 'shin_R': {'rx': 6.0}, 'foot_L': {'ax': 0.0}, 'foot_R': {'ax': 0.0},
+    }), loop=False, sym=0)
+
+    # surprise: a startled half step back, hands up
+    clip(p, 'surprise', 30, merge(arms_down(), {
+        'hips': {'ty': [(0, 0.0), (5, 0.08), (30, 0.06)], 'tz': [(0, -0.004), (5, -0.03), (30, -0.02)]},
+        'spine': {'rx': [(0, 2.0), (5, -10.0), (30, -6.0)]},
+        'chest': {'rx': [(0, 0.0), (5, -6.0), (30, -3.0)]},
+        'head': {'rx': [(0, -2.0), (5, -10.0), (30, -6.0)]},
+        'upperarm_L': {'rx': [(0, 3.0), (5, -55.0), (30, -45.0)], 'ry': [(0, 13.0), (5, -12.0), (30, -6.0)]},
+        'forearm_L': {'rx': [(0, -14.0), (5, -80.0), (30, -70.0)]},
+        'hand_L': {'rx': [(0, -4.0), (5, -30.0)]},
+        'thigh_L': {'ax': [(0, 0.0), (5, -10.0), (30, -6.0)]}, 'shin_L': {'ax': [(0, 0.0), (5, 6.0)]}, 'foot_L': {'ax': 0.0},
+        'thigh_R': {'ax': [(0, 0.0), (5, 14.0), (30, 10.0)]}, 'shin_R': {'ax': [(0, 0.0), (5, 20.0), (30, 14.0)]}, 'foot_R': {'ax': 0.0},
+        'scarf1': {'rx': [(0, 0.0), (6, -18.0), (14, 8.0), (30, 0.0)]},
+    }), loop=False, sym=0)
+
+    # hug: arms wrapped round someone, head turned and resting
+    clip(p, 'hug', 72, {
+        'hips': {'tz': -0.01, 'ty': [(0, -0.02), (36, -0.025)]},
+        'spine': {'rx': [(0, 8.0), (36, 9.0)]},
+        'chest': {'rx': [(0, 4.0), (36, 6.0)]},
+        'neck': {'rx': 6.0},
+        'head': {'rx': [(0, 10.0), (36, 12.0)], 'rz': -22.0, 'ry': -10.0},
+        'upperarm_L': {'rx': [(0, -66.0), (36, -64.0)], 'ry': 4.0, 'rz': -48.0},
+        'forearm_L': {'rx': -26.0, 'ry': 4.0, 'rz': -78.0},
+        'hand_L': {'rx': 10.0},
+        'foot_L': {'ax': 0.0},
+        'scarf1': {'rx': 4.0},
+    }, sym=0)
+
+    # wave: hello / goodbye with the right hand
+    clip(p, 'wave', 30, merge(arms_down(), {
+        'hips': {'tz': -0.004},
+        'head': {'rz': -4.0, 'ry': [(0, -4.0), (15, 4.0)]},
+        'upperarm_R': {'rx': -24.0, 'ry': 68.0},
+        'forearm_R': {'rx': -12.0, 'ry': [(0, 30.0), (8, 62.0), (15, 30.0), (23, 62.0)]},
+        'hand_R': {'rz': [(0, 10.0), (8, -10.0), (15, 10.0), (23, -10.0)]},
+        'foot_L': {'ax': 0.0}, 'foot_R': {'ax': 0.0},
+    }), sym=0)
+
+    # kneel_draw: down on one knee, drawing on the ground with the pencil
+    clip(p, 'kneel_draw', 48, merge(arms_down(), {
+        'hips': {'tz': -0.3, 'ty': 0.05, 'rx': 6.0},
+        'spine': {'rx': [(0, 26.0), (24, 28.0)]},
+        'chest': {'rx': 10.0, 'rz': -6.0},
+        'head': {'rx': [(0, 18.0), (12, 22.0), (24, 18.0), (36, 20.0)], 'rz': -8.0},
+        'thigh_L': {'ax': -84.0}, 'shin_L': {'ax': -4.0}, 'foot_L': {'ax': 0.0},
+        'thigh_R': {'ax': 4.0}, 'shin_R': {'ax': 92.0}, 'foot_R': {'ax': 60.0},
+        'upperarm_R': {'rx': [(0, -60.0), (12, -68.0), (24, -62.0), (36, -56.0)], 'rz': [(0, 22.0), (12, 16.0), (24, 10.0), (36, 18.0)],
+                       'ry': -4.0},
+        'forearm_R': {'rx': [(0, -12.0), (24, -18.0)]},
+        'hand_R': {'rx': 28.0},
+        'upperarm_L': {'rx': -30.0, 'ry': 6.0}, 'forearm_L': {'rx': -40.0},
+        'bag': {'ry': 22.0},
+    }), sym=0)
+
+    # tiller: sitting on the boat's bench, one hand back on the tiller, swaying with the waves
+    clip(p, 'tiller', 60, {
+        'hips': {'tz': -0.3, 'ty': 0.02, 'rx': -6.0, 'ry': [(0, -3.0), (30, 3.0)]},
+        'spine': {'rx': 8.0, 'rz': [(0, 2.0), (30, -2.0)]},
+        'chest': {'rx': [(0, 2.0), (30, 0.0)], 'rz': 8.0},
+        'head': {'rx': [(0, -6.0), (30, -4.0)], 'rz': -6.0, 'ry': [(0, 3.0), (30, -3.0)]},
+        'thigh_L': {'ax': -88.0}, 'shin_L': {'ax': 4.0}, 'foot_L': {'ax': 0.0},
+        'thigh_R': {'ax': -84.0, 'ry': 6.0}, 'shin_R': {'ax': 8.0}, 'foot_R': {'ax': 0.0},
+        'upperarm_R': {'rx': 32.0, 'ry': -4.0}, 'forearm_R': {'rx': -55.0}, 'hand_R': {'rx': -20.0},
+        'upperarm_L': {'rx': -10.0, 'ry': -18.0}, 'forearm_L': {'rx': -28.0, 'ry': -10.0},
+        'scarf1': {'rx': [(0, 26.0), (15, 34.0), (30, 26.0), (45, 34.0)], 'rz': [(0, 10.0), (30, 16.0)]},
+        'scarf2': {'rx': [(5, 10.0), (20, 20.0), (35, 10.0), (50, 20.0)]},
+    }, sym=None)
+
     # face overlays: blink (eyes) and speak (mouth), played on top of any body clip
     clip(p, 'blink', 8, {'eye_L': {'sy': [(0, 1.0), (2, 0.08), (3, 0.08), (7, 1.0)]},
                          'eye_R': {'sy': [(0, 1.0), (2, 0.08), (3, 0.08), (7, 1.0)]}}, loop=False, bones=['eye_L', 'eye_R'])
@@ -213,7 +308,8 @@ def contact_sheet(arm, meshes, out):
     """Render a few frames of each clip side by side (workbench), for checking poses."""
     shots = [(n, int(f)) for n, f in (s.split(':') for s in os.environ.get('SHOTS', '').split(',') if s)] or [
         ('idle', 0), ('idle', 36), ('walk', 0), ('walk', 7), ('walk', 19), ('run', 0), ('run', 7), ('run', 12),
-        ('jump', 0), ('jump', 10), ('fall', 6), ('land', 0), ('trace', 9), ('talk', 12), ('pickup', 12)]
+        ('jump', 0), ('jump', 10), ('fall', 6), ('land', 0), ('trace', 9), ('talk', 12), ('pickup', 12),
+        ('sit', 0), ('point', 20), ('surprise', 10), ('hug', 10), ('wave', 8), ('kneel_draw', 10), ('tiller', 10)]
     close = os.environ.get('CLOSE')
     d = os.path.splitext(out)[0]
     os.makedirs(d, exist_ok=True)

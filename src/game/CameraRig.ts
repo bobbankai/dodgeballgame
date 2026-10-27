@@ -20,6 +20,8 @@ export interface Shot {
   position: THREE.Vector3;
   look: THREE.Vector3;
   fov?: number;
+  /** Camera roll in radians (a slight dutch angle). */
+  roll?: number;
 }
 
 /**
@@ -58,9 +60,11 @@ export class CameraRig {
     this.actual = this.distance;
   }
 
-  setShot(shot: Shot | null) {
+  /** Hand the camera a fixed shot (eased into), or with `cut` jump straight to it. */
+  setShot(shot: Shot | null, cut = false) {
     this.shot = shot;
     if (shot) this.lastShot = shot;
+    if (cut) this.blend = shot ? 1 : 0;
   }
 
   get inShot() {
@@ -130,6 +134,7 @@ export class CameraRig {
     cam.position.y += Math.sin(time * 0.9 + 1) * br + (Math.random() - 0.5) * s;
     this.shake *= Math.exp(-dt * 7);
     cam.lookAt(_look);
+    if (shot && this.blend > 0.001 && shot.roll) cam.rotateZ(shot.roll * this.blend);
     cam.updateProjectionMatrix();
   }
 }

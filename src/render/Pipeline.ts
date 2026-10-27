@@ -24,6 +24,9 @@ uniform float uContrast;
 uniform float uBloom;
 uniform vec3 uTint;
 uniform float uInkWeight;
+uniform float uFocus;
+uniform float uAperture;
+uniform float uVignette;
 varying vec2 vUv;
 ${NOISE}
 
@@ -42,6 +45,11 @@ vec3 sky(vec2 uv) {
   return c;
 }
 
+// the scene colour, with the painted sky where nothing was drawn (blurs mustn't pull in black)
+vec3 tap(vec2 uv) {
+  return texture2D(tDepth, uv).x >= 0.99999 ? sky(uv) : texture2D(tColor, uv).rgb;
+}
+
 void main() {
   vec2 px = 1.0 / uRes;
   bool isSky = texture2D(tDepth, vUv).x >= 0.99999;
@@ -52,7 +60,7 @@ void main() {
   vec3 blur = vec3(0.0);
   for (int i = 0; i < 4; i++) {
     float a = float(i) * 1.5708 + 0.6;
-    blur += texture2D(tColor, vUv + warp + vec2(cos(a), sin(a)) * px * 2.2).rgb;
+    blur += tap(vUv + warp + vec2(cos(a), sin(a)) * px * 2.2);
   }
   blur *= 0.25;
   vec3 col = mix(c0, blur, 0.3);
@@ -68,6 +76,22 @@ void main() {
   }
   glow /= 12.0;
   col += glow * uBloom;
+
+  // depth of field for cinematics: the wash softens away from the focal plane
+  float coc = 0.0;
+  if (uAperture > 0.0 && !isSky) coc = clamp(abs(viewZ(vUv) - uFocus) / max(uFocus, 0.1) * uAperture, 0.0, 1.0);
+  if (coc > 0.02) {
+    vec3 acc = col;
+    float wsum = 1.0;
+    for (int i = 0; i < 16; i++) {
+      float a = float(i) * 2.39996;
+      float r = sqrt((float(i) + 0.5) / 16.0) * coc * 9.0;
+      vec2 o = vec2(cos(a), sin(a)) * r * px;
+      acc += tap(vUv + o);
+      wsum += 1.0;
+    }
+    col = mix(col, acc / wsum, smoothstep(0.02, 0.3, coc));
+  }
 
   // ink wash: tone steps into a few soft, uneven bands like a brush pass per value
   float tl = dot(col, vec3(0.299, 0.587, 0.114));
@@ -111,7 +135,7 @@ void main() {
   float grain = texture2D(tPaper, vUv * uRes / (512.0 * uLine / 1.15)).g;
   // dry-brush: the line starves of ink in places and swells in others
   float brush = ibNoise(vec3(vUv * uRes / 14.0, 4.0 + uBoil * 0.15)) * 0.6 + ibNoise(vec3(vUv * uRes / 3.5, 9.0)) * 0.4;
-  edge = smoothstep(0.12, 0.55, edge * (0.55 + 0.9 * brush)) * uInkWeight;
+  edge = smoothstep(0.12, 0.55, edge * (0.55 + 0.9 * brush)) * uInkWeight * (1.0 - coc * 0.85);
   edge *= fade * mix(0.7, 1.0, grain);
   if (isSky) edge = 0.0;
   col = mix(col, uInk, edge * 0.92);
@@ -126,12 +150,15 @@ void main() {
 
   // vignette like the edge of a page under a lamp
   vec2 vc = vUv - 0.5;
-  col *= 1.0 - 0.22 * smoothstep(0.35, 0.95, length(vc * vec2(1.1, 1.0)) * 1.25);
+  col *= 1.0 - (0.22 + uVignette) * smoothstep(0.35, 0.95, length(vc * vec2(1.1, 1.0)) * 1.25);
   // grade: crush the shadows toward ink, lift the lights, and tint the mid-tones
-  col = pow(max(col, 0.0), vec3(uContrast));
+  // contrast on value only, so the cream paper keeps its hue
+  float l0 = max(dot(col, vec3(0.299, 0.587, 0.114)), 1e-3);
+  col *= pow(l0, uContrast) / l0;
   col = mix(col, col * uTint, 0.55);
   float vl = dot(col, vec3(0.299, 0.587, 0.114));
-  col = mix(vec3(vl), col, 1.12);
+  float csat = max(col.r, max(col.g, col.b)) - min(col.r, min(col.g, col.b));
+  col = mix(vec3(vl), col, 1.0 + 0.14 * smoothstep(0.08, 0.3, csat));
   col *= uFade;
 
   gl_FragColor = vec4(pow(clamp(col, 0.0, 1.0), vec3(1.0 / 2.2)), 1.0);
@@ -181,6 +208,9 @@ export class Pipeline {
       uBloom: { value: 0.9 },
       uTint: { value: new THREE.Color(1, 1, 1) },
       uInkWeight: { value: 1.0 },
+      uFocus: { value: 5 },
+      uAperture: { value: 0 },
+      uVignette: { value: 0 },
       uBoil: G.uBoil,
       uTime: G.uTime,
       uPaper: G.uPaper,

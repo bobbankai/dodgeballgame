@@ -213,12 +213,28 @@ export class MarginVillage implements Level {
     await g.ui.fade(1, 0.01);
     audio.play('none');
     audio.ambience('meadow');
-    // Ada tumbles out of the doorway
+    // the page, seen from above: a long glide down from the hill, over the village and the stream
     g.player.teleport(door.clone().add(v3(0, 0, -0.8)), Math.PI);
-    d.shot(door.clone().add(v3(2.6, 1.4, -4.2)), door.clone().add(v3(0, 1.0, 0)), 42);
+    g.player.root.visible = false;
+    this.pip.root.visible = false;
+    d.cinematic(true);
+    const tree = this.at('pigment_green');
+    const fly = d.rail({
+      path: [tree.clone().add(v3(-16, 16, 30)), v3(-12, 20, -8), v3(-6, 13, 22), door.clone().add(v3(-2, 6, -12)), door.clone().add(v3(2.6, 1.6, -4.2))],
+      look: [tree.clone().add(v3(0, 2, 0)), v3(0, 3, 6), v3(0, 1, 34), door.clone().add(v3(0, 1.0, 0))],
+      duration: 11,
+      fov: [52, 42],
+    });
     g.rig.update(0, null, g.player.position, g.player.velocity, g.collision, g.time);
-    await d.wait(0.4);
-    g.ui.fade(0, 2.2);
+    await d.wait(0.3);
+    g.ui.fade(0, 2.6);
+    audio.play('title');
+    await d.wait(2.4);
+    g.ui.title('Chapter One', 'The Margin Village', 4.0);
+    await fly;
+    d.focus(() => door.clone().add(v3(0, 1, 0)), 0.5);
+    audio.play('none');
+    g.player.root.visible = true;
     audio.pageTurn();
     // the doorway still shimmers from being stepped through
     for (let i = 0; i < 6; i++) g.particles.sparkles(door.clone().add(v3(0, 1.2, 0.9)), 0xfff3c4, 6, 1.2, 0.14);
@@ -234,7 +250,9 @@ export class MarginVillage implements Level {
     await d.say('Ada', "It's all pencil. Like the drawings in Mum's sketchbook.");
     g.ui.hideDialogue();
     // Pip comes bounding over the meadow
+    this.pip.root.visible = true;
     this.pip.goal = door.clone().add(v3(1.4, 0, -2.2));
+    d.focus(() => this.pip.position, 0.45);
     this.pip.lookAt = g.player.position;
     d.shot(door.clone().add(v3(3.5, 1.6, -4)), door.clone().add(v3(0.8, 0.6, -1.6)), 40);
     await d.until(() => this.pip.goal === null);
@@ -257,7 +275,6 @@ export class MarginVillage implements Level {
     this.flags.add('intro').add('metPip');
     audio.play('village');
     g.ui.toast(g.input.device === 'gamepad' ? 'Left stick to move  ·  A to jump  ·  right stick to look' : 'WASD to move  ·  Space to jump  ·  click, then move the mouse to look', 7);
-    await g.ui.title('Chapter One', 'The Margin Village', 3.5);
   }
 
   private async bridgeTalk() {
@@ -284,18 +301,40 @@ export class MarginVillage implements Level {
   private async chaseScene() {
     const g = this.game, d = g.director;
     d.begin();
+    d.cinematic(true);
     const sp = this.at('smudge_spawn');
-    this.smudge.spawn(sp.clone().add(v3(0, 1.2, 0)));
+    const ada = g.player.position.clone();
+    const dir = v3().subVectors(sp, ada).setY(0).normalize();
+    const side = v3(-dir.z, 0, dir.x);
+    // it wells up out of the ground, rubbing the page out around it
+    this.smudge.spawn(sp.clone().add(v3(0, -1.5, 0)));
     this.smudge.speed = 0;
     audio.play('none');
-    d.shot(g.player.position.clone().add(v3(0, 2.6, 0)).lerp(sp, 0.25).add(v3(0, 1.5, 0)), sp.clone().add(v3(0, 1, 0)), 46);
-    await d.wait(2.0);
     g.player.face(sp, 1);
+    d.focus(() => this.smudge.position, 0.75);
+    await d.rail({
+      path: [ada.clone().addScaledVector(dir, -2.4).addScaledVector(side, 0.9).add(v3(0, 1.6, 0)),
+        ada.clone().addScaledVector(dir, -0.9).addScaledVector(side, 0.7).add(v3(0, 1.35, 0)),
+        ada.clone().addScaledVector(dir, 1.2).addScaledVector(side, 0.45).add(v3(0, 1.3, 0))],
+      look: [sp.clone().add(v3(0, 0.4, 0)), sp.clone().add(v3(0, 1.2, 0))],
+      duration: 4.5,
+      fov: [46, 32],
+    });
+    // cut: Ada's face
+    g.player.setPose('surprise');
+    g.rig.addShake(0.25);
+    d.shot(ada.clone().addScaledVector(dir, 1.7).addScaledVector(side, -0.45).add(v3(0, 1.22, 0)), ada.clone().add(v3(0, 1.12, 0)), 32, true);
+    d.focus(() => g.player.position.clone().add(v3(0, 1.1, 0)), 1.0);
+    await d.wait(0.5);
+    await d.say('Ada', 'What is THAT?');
+    // wide: the Smudge looming over the two of them
+    d.shot(ada.clone().addScaledVector(dir, -4.5).addScaledVector(side, 2.2).add(v3(0, 1.0, 0)), sp.clone().lerp(ada, 0.45).add(v3(0, 1.0, 0)), 52, true);
+    d.focus(null);
     await d.talk([
-      ['Ada', 'What is THAT?'],
       ['Pip', "The Smudge! Don't let it touch you, it rubs out everything it touches!"],
-      ['Pip', 'RUN, Ada! Up the rocks, it won\'t follow us near the Tree!'],
+      ['Pip', "RUN, Ada! Up the rocks! It won't follow us near the Tree!"],
     ]);
+    g.player.setPose(null);
     d.end();
     this.flags.add('chase');
     this.smudge.speed = 2.2;
@@ -338,11 +377,21 @@ export class MarginVillage implements Level {
   private async treeScene() {
     const g = this.game, d = g.director;
     const tree = this.at('pigment_green');
+    const base = tree.y - 3.4;
     d.begin();
-    d.shot(tree.clone().add(v3(-11, 5, 11)), tree.clone().add(v3(0, 4, 0)), 48);
-    await d.wait(2.0);
+    d.cinematic(true);
+    // a slow rising orbit: the trunk, then the bare places where branches should be
+    const a0 = Math.atan2(g.player.position.z - tree.z, g.player.position.x - tree.x);
+    const orbit = [0, 0.25, 0.5, 0.75, 1].map((k) => {
+      const a = a0 + k * 1.5, r = 15 - k * 3;
+      return v3(tree.x + Math.cos(a) * r, base + 1.5 + k * 7.5, tree.z + Math.sin(a) * r);
+    });
+    d.focus(tree, 0.3);
+    const move = d.rail({ path: orbit, look: [tree.clone().add(v3(0, -1, 0)), tree.clone().add(v3(0, 6, 0))], duration: 9, fov: [50, 44] });
+    await d.wait(2.5);
+    await d.say('Pip', 'The Great Tree. Or half of it.');
+    await move;
     await d.talk([
-      ['Pip', 'The Great Tree. Or half of it.'],
       ['Ada', 'Mum drew this. It was on our fridge for years. It had six big branches.'],
       ['Pip', 'Then you know how it goes. Finish it, Ada.'],
     ]);
@@ -391,8 +440,17 @@ export class MarginVillage implements Level {
     G.uBlooms.value[0].set(heart.x, heart.y - 3, heart.z, 0);
     G.uPigment.value.set(1, 0, 0);
     this.bloom = 0.001;
-    d.shot(heart.clone().add(v3(-30, 26, 30)), heart.clone().add(v3(0, -4, -20)), 55);
-    await d.wait(9);
+    // crane up and away as the green runs out across the whole page
+    d.focus(null);
+    const camFrom = g.camera.position.clone();
+    await d.rail({
+      path: [camFrom, heart.clone().add(v3(-9, 6, 12)), heart.clone().add(v3(-22, 17, 26)), heart.clone().add(v3(-30, 27, 34))],
+      look: [heart.clone(), heart.clone().add(v3(0, -2, 4)), heart.clone().add(v3(0, -4, 14)), heart.clone().add(v3(0, -6, 30))],
+      duration: 10,
+      fov: [42, 58],
+      roll: [0, -0.04],
+    });
+    await d.wait(1.0);
     await d.talk([
       ['Ada', 'Green...'],
       ['Pip', "That's one. Blue is out past the edge of the page, in the Folded Sea."],
@@ -416,16 +474,44 @@ export class MarginVillage implements Level {
   private async chapterEnd() {
     const g = this.game, d = g.director;
     d.begin();
+    d.cinematic(true);
+    await g.ui.fade(1, 1.2);
+    // later: the two of them on the edge of the hilltop, looking out over the green
+    const tree = this.at('pigment_green');
+    const edge = v3(tree.x + 1.5, tree.y + 4, tree.z + 10.5);
+    const gy = g.collision.groundAt(edge, 10) ?? tree.y - 3.4;
+    edge.y = gy;
+    g.player.teleport(edge, 0);
+    g.player.setPose('sit');
+    this.pip.place(edge.clone().add(v3(1.0, 0, 0.15)), 0);
+    this.pip.follow = false;
+    this.pip.pose = 'sit';
+    const look = edge.clone().add(v3(-2, -6, 40));
+    d.focus(() => g.player.position.clone().add(v3(0, 0.6, 0)), 0.5);
+    const push = d.rail({
+      path: [edge.clone().add(v3(1.4, 1.5, -3.6)), edge.clone().add(v3(1.1, 1.3, -2.6))],
+      look: [look, look.clone().add(v3(0, 1, 0))],
+      duration: 16,
+      fov: [44, 40],
+      ease: 'linear',
+    });
+    await d.wait(0.8);
+    await g.ui.fade(0, 2);
+    await d.wait(1.5);
+    // rack focus out to the valley
+    d.focus(look.clone().add(v3(0, 4, -18)), 0.5);
     await d.talk([
       ['Ada', '...'],
       ['Pip', 'Ada? Are you all right?'],
       ['Ada', "I'm fine. I just... I miss her handwriting. Isn't that silly?"],
       ['Pip', "No. It isn't silly at all."],
     ]);
+    await push;
     audio.play('title');
     await g.ui.fade(1, 2.5);
+    g.player.setPose(null);
+    this.pip.pose = null;
     await g.ui.title('End of Chapter One', 'The Margin Village', 4);
-    await g.ui.title('', 'to be continued', 3);
     window.dispatchEvent(new CustomEvent('chapter-complete', { detail: 1 }));
   }
 

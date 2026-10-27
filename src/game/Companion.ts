@@ -28,6 +28,8 @@ export class Companion {
   goal: THREE.Vector3 | null = null;
   follow = true;
   speaking = false;
+  /** A held pose for cutscenes (e.g. 'sit'). */
+  pose: string | null = null;
   /** Look at this instead of where it's going (conversations). */
   lookAt: THREE.Vector3 | null = null;
   private speed = 0;
@@ -124,7 +126,7 @@ export class Companion {
       const s = this.speed;
       const move = THREE.MathUtils.smoothstep(s, 0.05, 0.5);
       const run = THREE.MathUtils.smoothstep(s, 2.8, 4.2);
-      const still = this.speaking ? 'talk' : this.idleTime > 4 && !this.lookAt ? 'sit' : 'idle';
+      const still = this.pose ?? (this.speaking ? 'talk' : this.idleTime > 4 && !this.lookAt ? 'sit' : 'idle');
       a.target({ [still]: 1 - move, trot: move * (1 - run), run: move * run }, 8);
       const trot = a.actions.get('trot'), gal = a.actions.get('run');
       if (trot) trot.timeScale = Math.max(0.6, s / 2.2);

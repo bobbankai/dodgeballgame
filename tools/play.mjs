@@ -20,7 +20,10 @@ for (const step of JSON.parse(script)) {
   for (const k of held) if (!keys.has(k)) { await page.keyboard.up(k); held.delete(k); }
   for (const k of keys) if (!held.has(k)) { await page.keyboard.down(k); held.add(k); }
   if (step.eval) logs.push('[eval] ' + JSON.stringify(await page.evaluate(step.eval)));
-  if (step.t) await page.evaluate((t) => window.__advance(t), step.t);
+  if (step.t) {
+    const err = await page.evaluate(async (t) => { try { await window.__advance(t); } catch (e) { return String(e.stack || e); } return null; }, step.t);
+    if (err) logs.push('[error] ' + err);
+  }
   if (step.shot) await page.screenshot({ path: `${outDir}/${step.shot}.png`, timeout: 300000 });
 }
 console.log(logs.slice(0, 30).join('\n'));

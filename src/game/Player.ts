@@ -69,6 +69,8 @@ export class Player {
   private pencilEar: THREE.Object3D | null = null;
   private pencilHand: THREE.Object3D | null = null;
   private oneShot: { name: string; t: number } | null = null;
+  /** A held acting pose (cutscenes): overrides locomotion until cleared. */
+  private poseName: string | null = null;
   onLand?: (impact: number) => void;
   onStep?: () => void;
   private lastStepPhase = 0;
@@ -87,7 +89,7 @@ export class Player {
     });
     if (this.pencilHand) this.pencilHand.visible = false;
     this.root.add(this.model);
-    this.anim = new Animator(this.model, gltf.animations, ['jump', 'land', 'pickup']);
+    this.anim = new Animator(this.model, gltf.animations, ['jump', 'land', 'pickup', 'point', 'surprise']);
   }
 
   teleport(p: THREE.Vector3, yaw = this.yaw) {
@@ -101,6 +103,12 @@ export class Player {
   perform(name: string) {
     this.oneShot = { name, t: 0 };
     this.anim.restart(name);
+  }
+
+  /** Hold an acting clip (sit, point, hug...) until called again with null. */
+  setPose(name: string | null) {
+    if (name && name !== this.poseName) this.anim.restart(name);
+    this.poseName = name;
   }
 
   get busy() {
@@ -236,7 +244,9 @@ export class Player {
       this.pencilHand.visible = this.mode === 'trace';
       this.pencilEar.visible = this.mode !== 'trace';
     }
-    if (this.oneShot) {
+    if (this.poseName) {
+      a.target({ [this.poseName]: 1 }, 6);
+    } else if (this.oneShot) {
       this.oneShot.t += dt;
       a.target({ [this.oneShot.name]: 1 }, 14);
       if (this.oneShot.t >= a.duration(this.oneShot.name) - 0.1) this.oneShot = null;
