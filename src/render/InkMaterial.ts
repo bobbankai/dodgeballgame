@@ -1,0 +1,224 @@
+import * as THREE from 'three';
+import { G, MAX_BLOOMS } from './Globals';
+import { NOISE } from './glsl';
+
+export interface InkOptions {
+  color?: THREE.ColorRepresentation;
+  map?: THREE.Texture | null;
+  vertexColors?: boolean;
+  /** Pencil hatching strength in shadow (0..1). */
+  hatch?: number;
+  /** Characters and important props keep their colour even in graphite areas. */
+  alwaysColor?: boolean;
+  /** Softness of the light/shadow wash edge: larger = softer, more painterly. */
+  soft?: number;
+  /** Self-lit amount (lanterns, glowing pigment). */
+  emissive?: number;
+  /** Id written for the ink-line pass: different ids always get a line between them. */
+  lineId?: number;
+  side?: THREE.Side;
+  transparent?: boolean;
+  opacity?: number;
+}
+
+const VERT = /* glsl */ `
+#include <common>
+#include <batching_pars_vertex>
+#include <uv_pars_vertex>
+#include <color_pars_vertex>
+#include <morphtarget_pars_vertex>
+#include <skinning_pars_vertex>
+#include <shadowmap_pars_vertex>
+varying vec3 vWorldPos;
+varying vec3 vWorldNormal;
+varying vec3 vViewNormal;
+varying vec3 vViewPos;
+void main() {
+  #include <uv_vertex>
+  #include <color_vertex>
+  #include <morphinstance_vertex>
+  #include <morphcolor_vertex>
+  #include <batching_vertex>
+  #include <beginnormal_vertex>
+  #include <morphnormal_vertex>
+  #include <skinbase_vertex>
+  #include <skinnormal_vertex>
+  #include <defaultnormal_vertex>
+  #include <begin_vertex>
+  #include <morphtarget_vertex>
+  #include <skinning_vertex>
+  #include <project_vertex>
+  vec4 wp = vec4(transformed, 1.0);
+  vec3 wn = objectNormal;
+  #ifdef USE_BATCHING
+    wp = batchingMatrix * wp;
+    wn = mat3(batchingMatrix) * wn;
+  #endif
+  #ifdef USE_INSTANCING
+    wp = instanceMatrix * wp;
+    wn = mat3(instanceMatrix) * wn;
+  #endif
+  wp = modelMatrix * wp;
+  vec4 worldPosition = wp;
+  vWorldPos = wp.xyz;
+  vWorldNormal = normalize(mat3(modelMatrix) * wn);
+  vViewNormal = normalize(transformedNormal);
+  vViewPos = mvPosition.xyz;
+  #include <shadowmap_vertex>
+}
+`;
+
+const FRAG = /* glsl */ `
+layout(location = 0) out highp vec4 outColor;
+layout(location = 1) out highp vec4 outNormal;
+#include <common>
+#include <packing>
+#include <uv_pars_fragment>
+#include <color_pars_fragment>
+#include <map_pars_fragment>
+#include <lights_pars_begin>
+#include <shadowmap_pars_fragment>
+${NOISE}
+uniform vec3 uColor;
+uniform float uOpacity;
+uniform float uHatch;
+uniform float uAlwaysColor;
+uniform float uSoft;
+uniform float uEmissive;
+uniform float uLineId;
+uniform float uTime;
+uniform float uBoil;
+uniform vec4 uBlooms[${MAX_BLOOMS}];
+uniform int uBloomCount;
+uniform float uColorBase;
+uniform vec3 uPaper;
+uniform vec3 uGraphite;
+uniform vec3 uShadowTint;
+uniform vec3 uAmbient;
+uniform vec3 uFog;
+varying vec3 vWorldPos;
+varying vec3 vWorldNormal;
+varying vec3 vViewNormal;
+varying vec3 vViewPos;
+
+// Pencil strokes laid along the surface (triplanar), jittered per animation frame.
+float strokes(vec3 p, vec3 n, float freq, float angle) {
+  vec3 an = abs(n);
+  vec2 uv = an.y > max(an.x, an.z) ? p.xz : (an.x > an.z ? p.zy : p.xy);
+  float c = cos(angle), s = sin(angle);
+  vec2 r = vec2(c * uv.x - s * uv.y, s * uv.x + c * uv.y);
+  float jit = ibHash2(vec2(floor(r.y * freq), uBoil)) * 0.35;
+  float w = ibNoise(vec3(r * vec2(1.3, freq * 0.25), uBoil * 0.37));
+  float line = abs(fract(r.x * freq + jit + w * 0.6) * 2.0 - 1.0);
+  // stroke pressure varies along its length; gaps between strokes
+  float press = smoothstep(0.25, 0.75, ibNoise(vec3(r * vec2(0.6, freq * 0.05), 3.1)));
+  return smoothstep(0.7, 0.93, line) * mix(0.5, 1.0, press);
+}
+
+float colorMask(vec3 p) {
+  float m = uColorBase;
+  float edge = ibFbm(p * 0.45) * 1.6 + ibFbm(p * 2.1) * 0.5;
+  for (int i = 0; i < ${MAX_BLOOMS}; i++) {
+    if (i >= uBloomCount) break;
+    vec4 b = uBlooms[i];
+    float d = length(p - b.xyz) + (edge - 1.05) * (1.0 + b.w * 0.12);
+    m = max(m, smoothstep(b.w, b.w - 1.2 - b.w * 0.08, d));
+  }
+  return clamp(m, 0.0, 1.0);
+}
+
+void main() {
+  vec3 base = uColor;
+  #ifdef USE_MAP
+    base *= texture2D(map, vMapUv).rgb;
+  #endif
+  #ifdef USE_COLOR
+    base *= vColor.rgb;
+  #endif
+  vec3 N = normalize(vWorldNormal);
+  vec3 VN = normalize(vViewNormal);
+  if (!gl_FrontFacing) { N = -N; VN = -VN; }
+
+  vec3 L = vec3(0.0, 1.0, 0.0);
+  vec3 sunCol = vec3(1.0);
+  float shadow = 1.0;
+  #if NUM_SUN_LIGHTS > 0
+    L = inverseTransformDirection(sunLights[0].direction, viewMatrix);
+    sunCol = sunLights[0].color;
+    #if defined(USE_SHADOWMAP) && NUM_SUN_LIGHT_SHADOWS > 0
+      shadow = receiveShadow ? getSunShadow(sunShadowMap[0], sunLightShadows[0], 0) : 1.0;
+    #endif
+  #endif
+
+  // one confident wash of light and one of shadow, with a ragged, brushy boundary
+  float ndl = dot(N, L);
+  float wob = (ibFbm(vWorldPos * 2.6) - 0.5) * 0.5;
+  float lit = smoothstep(-uSoft, uSoft, ndl + wob * 0.35 - 0.02) * smoothstep(0.25, 0.75, shadow + wob * 0.25);
+  vec3 litCol = base * (uAmbient * 0.55 + sunCol * mix(0.82, 1.0, smoothstep(0.1, 0.8, ndl)));
+  vec3 shadCol = base * uAmbient * uShadowTint * 1.05;
+  vec3 col = mix(shadCol, litCol, lit);
+  // soft rim from the sky on edges facing away from the camera
+  vec3 V = normalize(-vViewPos);
+  float rim = pow(1.0 - clamp(dot(VN, V), 0.0, 1.0), 3.0);
+  col += base * rim * 0.12 * (0.4 + 0.6 * lit);
+  col += base * uEmissive;
+
+  // hatching in shadow: one direction for shade, a cross layer only where it's deep
+  float h1 = strokes(vWorldPos, N, 5.5, 0.7);
+  float h2 = strokes(vWorldPos + 3.3, N, 7.0, -0.8);
+  float dark = 1.0 - lit;
+  float deep = smoothstep(0.55, 1.0, dark) * smoothstep(0.6, 0.2, shadow + max(ndl, 0.0));
+  col *= 1.0 - uHatch * dark * (h1 * 0.22 + h2 * 0.16 * deep);
+
+  // graphite version: the paper stays white; value comes from a light tonal rub and strokes
+  float lum = dot(base, vec3(0.299, 0.587, 0.114));
+  vec3 graphite = uPaper * (1.0 - 0.16 * (1.0 - smoothstep(0.05, 0.8, lum)));
+  graphite *= 1.0 - dark * 0.1;
+  float pencil = dark * (h1 * 0.6 + h2 * 0.45 * deep) * mix(0.55, 1.0, uHatch);
+  graphite = mix(graphite, uGraphite, clamp(pencil, 0.0, 1.0) * 0.7);
+
+  float m = max(colorMask(vWorldPos), uAlwaysColor);
+  vec3 fin = mix(graphite, col, m);
+  // pigment pools at the drying edge of a wash
+  float ring = smoothstep(0.05, 0.5, m) * smoothstep(0.98, 0.5, m);
+  fin *= 1.0 - ring * 0.22;
+
+  // distance fades into the page
+  float d = length(vViewPos);
+  fin = mix(fin, uPaper, smoothstep(uFog.x, uFog.y, d) * uFog.z);
+
+  outColor = vec4(fin, uOpacity);
+  outNormal = vec4(VN * 0.5 + 0.5, uLineId / 255.0);
+}
+`;
+
+let ids = 1;
+
+/** The game's single surface shader: graphite or watercolour ink-and-wash, lit by the sun. */
+export function inkMaterial(o: InkOptions = {}): THREE.ShaderMaterial {
+  const uniforms = THREE.UniformsUtils.merge([THREE.UniformsLib.lights]) as Record<string, THREE.IUniform>;
+  Object.assign(uniforms, {
+    uColor: { value: new THREE.Color(o.color ?? 0xffffff) },
+    uOpacity: { value: o.opacity ?? 1 },
+    uHatch: { value: o.hatch ?? 0.7 },
+    uAlwaysColor: { value: o.alwaysColor ? 1 : 0 },
+    uSoft: { value: o.soft ?? 0.1 },
+    uEmissive: { value: o.emissive ?? 0 },
+    uLineId: { value: o.lineId ?? (ids++ % 250) + 1 },
+    map: { value: o.map ?? null },
+    mapTransform: { value: new THREE.Matrix3() },
+    ...G,
+  });
+  const mat = new THREE.ShaderMaterial({
+    glslVersion: THREE.GLSL3,
+    vertexShader: VERT,
+    fragmentShader: FRAG,
+    uniforms,
+    lights: true,
+    vertexColors: o.vertexColors ?? false,
+    side: o.side ?? THREE.FrontSide,
+    transparent: o.transparent ?? false,
+  });
+  if (o.map) (mat as unknown as { map: THREE.Texture }).map = o.map;
+  return mat;
+}
