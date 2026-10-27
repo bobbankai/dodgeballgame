@@ -154,8 +154,9 @@ void main() {
   float ndl = dot(N, L);
   float wob = (ibFbm(vWorldPos * 2.6) - 0.5) * 0.5;
   float lit = smoothstep(-uSoft, uSoft, ndl + wob * 0.35 - 0.02) * smoothstep(0.25, 0.75, shadow + wob * 0.25);
-  vec3 litCol = base * (uAmbient * 0.55 + sunCol * mix(0.82, 1.0, smoothstep(0.1, 0.8, ndl)));
-  vec3 shadCol = base * uAmbient * uShadowTint * 1.05;
+  vec3 litCol = base * (uAmbient * 0.42 + sunCol * mix(0.8, 1.0, smoothstep(0.1, 0.8, ndl)));
+  // shadow is a second, cooler wash of the same pigment rather than a darkening
+  vec3 shadCol = base * uShadowTint;
   vec3 col = mix(shadCol, litCol, lit);
   // soft rim from the sky on edges facing away from the camera
   vec3 V = normalize(-vViewPos);

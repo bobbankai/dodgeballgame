@@ -40,7 +40,6 @@ vec3 sky(vec2 uv) {
 
 void main() {
   vec2 px = 1.0 / uRes;
-  float z0 = viewZ(vUv);
   bool isSky = texture2D(tDepth, vUv).x >= 0.99999;
 
   // watercolour: slight bleed through a noise-warped neighbourhood
@@ -60,23 +59,29 @@ void main() {
   float lb = dot(blur, vec3(0.333));
   col *= 1.0 - clamp(abs(lc - lb) * 3.0, 0.0, 0.22);
 
-  // ink lines: depth, normal and object-id discontinuities, sampled with a hand-drawn jitter
+  // ink lines. Depth: the second difference of 1/z is zero across any plane, however steep, so it
+  // only fires on real silhouettes; and only on the nearer side, so lines stay one stroke wide.
+  // Normal and object-id breaks catch creases and where one part meets another.
   float boilA = ibHash2(vec2(uBoil, 1.3)) * 6.2831;
   float w = uLine * (0.85 + 0.3 * ibNoise(vec3(vUv * vec2(40.0, 25.0), uBoil * 0.5)));
   vec2 j = vec2(cos(boilA), sin(boilA)) * px * 0.6;
-  vec4 n0 = texture2D(tNormal, vUv + j);
-  float edge = 0.0;
+  vec2 uvj = vUv + j;
+  float w0 = 1.0 / viewZ(uvj);
+  vec4 n0 = texture2D(tNormal, uvj);
+  float dEdge = 0.0, nEdge = 0.0, iEdge = 0.0;
   for (int i = 0; i < 4; i++) {
-    vec2 o = (i == 0 ? vec2(1, 1) : i == 1 ? vec2(-1, 1) : i == 2 ? vec2(1, -1) : vec2(-1, -1)) * px * w;
-    vec2 uv = vUv + j + o;
-    float zn = viewZ(uv);
-    vec4 nn = texture2D(tNormal, uv);
-    float de = abs(zn - z0) / max(min(abs(z0), abs(zn)), 0.1);
-    float dEdge = smoothstep(0.02, 0.06, de);
-    float nEdge = smoothstep(0.22, 0.45, 1.0 - dot(n0.xyz * 2.0 - 1.0, nn.xyz * 2.0 - 1.0));
-    float iEdge = abs(nn.a - n0.a) > 0.002 ? 1.0 : 0.0;
-    edge = max(edge, max(dEdge, max(nEdge * 0.85, iEdge)));
+    vec2 o = (i == 0 ? vec2(1.0, 1.0) : i == 1 ? vec2(1.0, -1.0) : i == 2 ? vec2(1.4, 0.0) : vec2(0.0, 1.4)) * px * w;
+    float wa = 1.0 / viewZ(uvj + o), wb = 1.0 / viewZ(uvj - o);
+    float lap = (wa + wb - 2.0 * w0) / w0;
+    dEdge = max(dEdge, smoothstep(0.03, 0.09, -lap));
+    vec4 na = texture2D(tNormal, uvj + o * 0.75), nb = texture2D(tNormal, uvj - o * 0.75);
+    float da = 1.0 - dot(n0.xyz * 2.0 - 1.0, na.xyz * 2.0 - 1.0);
+    float db = 1.0 - dot(n0.xyz * 2.0 - 1.0, nb.xyz * 2.0 - 1.0);
+    nEdge = max(nEdge, smoothstep(0.25, 0.5, max(da, db)));
+    iEdge = max(iEdge, (abs(na.a - n0.a) > 0.002 || abs(nb.a - n0.a) > 0.002) ? 1.0 : 0.0);
   }
+  float edge = max(dEdge, max(nEdge * 0.8, iEdge * 0.9));
+  float z0 = 1.0 / w0;
   // lines thin out and fade into the distance like a pen lifting off the page
   float dist = abs(z0);
   float fade = 1.0 - smoothstep(uFog.x * 0.6, uFog.y * 0.8, dist);

@@ -18,7 +18,7 @@ export const G = {
   uColorBase: { value: 0 },
   uPaper: { value: new THREE.Color(0.94, 0.9, 0.81) },
   uGraphite: { value: new THREE.Color(0.2, 0.19, 0.2) },
-  uShadowTint: { value: new THREE.Color(0.56, 0.55, 0.72) },
+  uShadowTint: { value: new THREE.Color(0.6, 0.56, 0.74) },
   uAmbient: { value: new THREE.Color(0.55, 0.55, 0.58) },
   uFog: { value: new THREE.Vector3(30, 140, 0.85) },
 };
