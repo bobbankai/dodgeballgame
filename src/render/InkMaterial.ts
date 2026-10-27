@@ -183,6 +183,17 @@ void main() {
   // shadow is a second, cooler wash of the same pigment rather than a darkening
   vec3 shadCol = base * uShadowTint;
   vec3 col = mix(shadCol, litCol, lit);
+  // lamps: warm pools of light with the same soft-edged wash
+  #if NUM_POINT_LIGHTS > 0
+    for (int i = 0; i < NUM_POINT_LIGHTS; i++) {
+      vec3 lv = pointLights[i].position - vViewPos;
+      float ld = length(lv);
+      float att = getDistanceAttenuation(ld, pointLights[i].distance, pointLights[i].decay);
+      float pl = min(smoothstep(-uSoft, uSoft, dot(VN, lv / ld) + wob * 0.3) * att, 1.1);
+      col += base * pointLights[i].color * pl;
+      lit = max(lit, clamp(pl * 1.5, 0.0, 1.0));
+    }
+  #endif
   // soft rim from the sky on edges facing away from the camera
   vec3 V = normalize(-vViewPos);
   float rim = pow(1.0 - clamp(dot(VN, V), 0.0, 1.0), 3.0);

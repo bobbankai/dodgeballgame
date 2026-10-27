@@ -54,6 +54,10 @@ export class Game {
   paused = false;
   private timer = new THREE.Timer();
   private active: Interactable | null = null;
+  /** Called with a checkpoint's name when Ada reaches it (saving). */
+  onCheckpoint?: (name: string) => void;
+  /** Called when the pause button is pressed. */
+  onPause?: () => void;
   /** Per-frame hooks (UI, story scripts...). */
   readonly onUpdate = new Set<(dt: number, t: number) => void>();
 
@@ -181,6 +185,7 @@ export class Game {
 
   step(dt: number, render = true) {
     this.input.poll();
+    if (this.input.justPressed('pause')) this.onPause?.();
     if (!this.paused) {
       this.time += dt;
       setBoil(this.time);

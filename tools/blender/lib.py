@@ -15,6 +15,7 @@ _MATS = {}
 def reset():
     bpy.ops.wm.read_factory_settings(use_empty=True)
     _MATS.clear()
+    _BAKED['mat'] = None
     scene = bpy.context.scene
     scene.render.engine = 'CYCLES'
     scene.cycles.device = 'CPU'
@@ -184,6 +185,36 @@ def paint(ob, fn):
         attr.data[i].color = (*fn(ob.matrix_world @ v.co), 1.0)
     me.color_attributes.active_color_name = 'Col'
     me.color_attributes.render_color_index = me.color_attributes.active_color_index
+
+
+_BAKED = {'mat': None, 'ids': {}}
+
+
+def bake_materials(ob):
+    """Fold an object's materials into face-corner colours (rgb = colour, a = ink line id / 255) under
+    one shared material, so a whole chunk of scenery is one draw call but keeps its outlines.
+    Ids 10..199 are used here; the game hands out 200+ at runtime."""
+    if _BAKED['mat'] is None or _BAKED['mat'].name not in bpy.data.materials:
+        _BAKED['mat'] = mat('scenery', '#FFFFFF', vcol=True)
+        _BAKED['ids'] = {}
+    ids = _BAKED['ids']
+    me = ob.data
+    attr = me.color_attributes.new('Col', 'FLOAT_COLOR', 'CORNER')
+    cols = []
+    for m in me.materials:
+        if m.name not in ids:
+            ids[m.name] = 10 + len(ids) % 190
+        base = m.node_tree.nodes['Principled BSDF'].inputs['Base Color'].default_value
+        cols.append((base[0], base[1], base[2], ids[m.name] / 255.0))
+    for poly in me.polygons:
+        c = cols[poly.material_index] if cols else (1, 1, 1, 1)
+        for li in poly.loop_indices:
+            attr.data[li].color = c
+    me.color_attributes.active_color_name = 'Col'
+    me.materials.clear()
+    me.materials.append(_BAKED['mat'])
+    for poly in me.polygons:
+        poly.material_index = 0
 
 
 # --- rigging -------------------------------------------------------------------------------

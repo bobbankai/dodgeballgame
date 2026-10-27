@@ -266,6 +266,13 @@
 .menu.show {
   opacity: 1;
 }
+.menu::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: radial-gradient(ellipse 46% 52% at 50% 46%, rgba(244, 236, 216, 0.88), rgba(244, 236, 216, 0.55) 60%, rgba(244, 236, 216, 0) 100%);
+}
 .menu h1 {
   font-family: 'Caveat', cursive;
   font-weight: 700;
@@ -331,4 +338,59 @@
 }
 .counter.show {
   opacity: 0.85;
+}
+
+/* the pencilled door on the last page */
+.door-wrap {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: var(--paper);
+  opacity: 0;
+  transition: opacity 0.9s;
+  perspective: 900px;
+  overflow: hidden;
+}
+.door-wrap.show {
+  opacity: 1;
+}
+.door-svg {
+  height: 78vh;
+  transition: transform 1.4s cubic-bezier(0.6, 0, 0.9, 0.5);
+  transform-style: preserve-3d;
+}
+.door-svg path,
+.door-svg circle {
+  stroke-width: 3;
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  filter: url(#ui-rough);
+}
+.door-wrap.show .door-svg path,
+.door-wrap.show .door-svg circle {
+  animation: draw 0.7s var(--d) ease-out forwards;
+}
+@keyframes draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+.door-svg .glow {
+  opacity: 0;
+  transition: opacity 1s;
+}
+.door-svg .leaf {
+  transform-origin: 133px 340px;
+  transition: transform 1.4s cubic-bezier(0.5, 0, 0.3, 1);
+  transform-box: view-box;
+}
+.door-wrap.open .leaf {
+  transform: rotateY(-78deg);
+}
+.door-wrap.open .glow {
+  opacity: 1;
+}
+.door-wrap.through .door-svg {
+  transform: scale(9);
 }

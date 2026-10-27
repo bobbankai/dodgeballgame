@@ -44,6 +44,14 @@ export class CameraRig {
 
   constructor(readonly camera: THREE.PerspectiveCamera) {}
 
+  /** Closer, wider framing for small rooms (and back). */
+  interior(on: boolean) {
+    this.distance = this.zoomTarget = this.actual = on ? 2.3 : 4.3;
+    this.baseFov = on ? 62 : 50;
+    this.pitch = on ? 0.18 : 0.32;
+    this.height = on ? 1.0 : 1.15;
+  }
+
   snap(focus: THREE.Vector3, yaw = this.yaw) {
     this.target.copy(focus);
     this.yaw = yaw;

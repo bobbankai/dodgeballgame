@@ -16,6 +16,9 @@ const v3 = (x = 0, y = 0, z = 0) => new THREE.Vector3(x, y, z);
 /** Ink line id baked into the terrain's vertex alpha (tools/blender/margin_village.py). */
 const TERRAIN_LINE_ID = 7;
 
+const CHECKPOINTS: [string, string][] = [['stream', 'cp_bridge_south'], ['bridge', 'cp_bridge_north'], ['village', 'cp_village'],
+  ['terrace1', 'cp_terrace1'], ['terrace2', 'cp_terrace2'], ['terrace3', 'cp_terrace3'], ['plateau', 'cp_plateau']];
+
 const NOTES: Record<string, { title: string; body: string }> = {
   board: {
     title: 'pinned to the village notice board',
@@ -148,6 +151,11 @@ export class MarginVillage implements Level {
     G.uColorBase.value = 0;
     G.uBloomCount.value = 0;
     G.uFog.value.set(35, 150, 0.85);
+    G.uAmbient.value.setRGB(0.55, 0.55, 0.58);
+    game.pipe.uniforms.uContrast.value = 1.18;
+    game.pipe.uniforms.uBloom.value = 0.9;
+    game.pipe.uniforms.uTint.value.setRGB(1.0, 1.0, 1.0);
+    G.uShadowTint.value.setRGB(0.6, 0.56, 0.74);
     game.pipe.uniforms.uSkyTop.value.setRGB(0.84, 0.82, 0.78);
 
     const cps: Record<string, string> = { arrival: 'spawn_arrival', stream: 'cp_bridge_south', bridge: 'cp_bridge_north', village: 'cp_village',
@@ -170,6 +178,7 @@ export class MarginVillage implements Level {
     this.checkpoint.copy(sp);
     // face up the page, towards the Great Tree
     game.player.teleport(sp, Math.PI);
+    game.rig.interior(false);
     game.rig.snap(sp, 0);
     this.pip.place(si === 0 ? this.at('pip_arrival') : sp.clone().add(v3(1.5, 0, 1)));
     if (si === 0) {
@@ -449,10 +458,13 @@ export class MarginVillage implements Level {
       }
     }
 
-    // checkpoints: the furthest one Ada has stood near
-    for (const name of ['cp_bridge_south', 'cp_bridge_north', 'cp_village', 'cp_terrace1', 'cp_terrace2', 'cp_terrace3', 'cp_plateau']) {
+    // checkpoints: the last one Ada stood near (and the game saves there)
+    for (const [key, name] of CHECKPOINTS) {
       const c = this.m.get(name)!;
-      if (p.distanceTo(c) < 4 && g.player.grounded) this.checkpoint.copy(c);
+      if (p.distanceTo(c) < 4 && g.player.grounded && !this.checkpoint.equals(c)) {
+        this.checkpoint.copy(c);
+        g.onCheckpoint?.(key);
+      }
     }
 
     // falling in the stream or off the world: back to the last checkpoint

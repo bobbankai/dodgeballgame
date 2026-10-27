@@ -138,6 +138,102 @@ export class UI {
     return new Promise((done) => (this.fadeAnim = { from: this.fadeValue, to, t: 0, dur: Math.max(seconds, 1e-3), done }));
   }
 
+  /**
+   * The page fills the screen and a door draws itself in pencil, swings open onto light, and we
+   * fall through. Resolves once the screen is plain paper again.
+   */
+  doorTransition(onStroke?: () => void): Promise<void> {
+    const wrap = el('div', 'door-wrap', this.root);
+    wrap.innerHTML = `<svg viewBox="0 0 400 600" class="door-svg">
+      <defs><radialGradient id="dlight"><stop offset="0" stop-color="#fffbe8"/><stop offset="1" stop-color="#f7e7b0" stop-opacity="0"/></radialGradient></defs>
+      <ellipse class="glow" cx="201" cy="330" rx="120" ry="230" fill="url(#dlight)"/>
+      <g class="strokes" fill="none" stroke="#4a4548" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M78,523 Q200,517 334,521" pathLength="1" style="--d:0s"/>
+        <path d="M118,522 L117,150 Q200,112 284,148 L285,522" pathLength="1" style="--d:.25s"/>
+        <path d="M111,524 L110,146 Q200,104 291,144 L293,524" pathLength="1" style="--d:.5s;stroke-width:2"/>
+        <g class="leaf">
+          <path d="M134,516 L133,165 Q200,137 268,163 L269,516 Z" pathLength="1" style="--d:.8s"/>
+          <path d="M168,512 L167,150" pathLength="1" style="--d:1.15s;stroke-width:2"/>
+          <path d="M201,512 L201,142" pathLength="1" style="--d:1.3s;stroke-width:2"/>
+          <path d="M234,512 L235,150" pathLength="1" style="--d:1.45s;stroke-width:2"/>
+          <circle cx="252" cy="340" r="7" pathLength="1" style="--d:1.7s"/>
+        </g>
+      </g></svg>`;
+    requestAnimationFrame(() => wrap.classList.add('show'));
+    return new Promise((done) => {
+      [0.1, 0.5, 1.0, 1.5].forEach((t) => this.later(t, () => onStroke?.()));
+      this.later(2.6, () => wrap.classList.add('open'));
+      this.later(4.2, () => wrap.classList.add('through'));
+      this.later(5.4, () => {
+        this.fadeValue = 1;
+        this.fadeEl.style.background = 'var(--paper)';
+        this.fadeEl.style.opacity = '1';
+        wrap.remove();
+        done();
+      });
+    });
+  }
+
+  /**
+   * A centred hand-lettered menu. Arrow keys / stick / mouse to choose, E or Enter to pick.
+   * Resolves with the chosen item's id.
+   */
+  menu(title: string, sub: string, items: { id: string; label: string }[], hint = ''): Promise<string> {
+    const m = el('div', 'menu', this.menuLayer);
+    m.innerHTML = `${title ? `<h1>${title}</h1>` : ''}${sub ? `<div class="sub">${sub}</div>` : ''}`;
+    const buttons = items.map((it) => {
+      const b = el('button', '', m) as HTMLButtonElement;
+      b.textContent = it.label;
+      return b;
+    });
+    if (hint) el('div', 'hint', m, hint);
+    requestAnimationFrame(() => m.classList.add('show'));
+    let sel = 0;
+    const mark = () => buttons.forEach((b, i) => b.classList.toggle('sel', i === sel));
+    mark();
+    return new Promise((done) => {
+      let finished = false;
+      const pick = (i: number) => {
+        if (finished) return;
+        finished = true;
+        this.menuTick = null;
+        m.classList.remove('show');
+        this.later(0.5, () => m.remove());
+        done(items[i].id);
+      };
+      buttons.forEach((b, i) => {
+        b.addEventListener('mouseenter', () => {
+          sel = i;
+          mark();
+        });
+        b.addEventListener('click', () => pick(i));
+      });
+      let cool = 0;
+      this.menuTick = (dt: number) => {
+        cool -= dt;
+        const mv = this.input.move();
+        const k = (code: string) => this.input.pressedKey(code);
+        if ((mv.y > 0.5 && cool <= 0) || k('ArrowUp') || k('KeyW')) {
+          sel = (sel + items.length - 1) % items.length;
+          cool = 0.25;
+          mark();
+        } else if ((mv.y < -0.5 && cool <= 0) || k('ArrowDown') || k('KeyS')) {
+          sel = (sel + 1) % items.length;
+          cool = 0.25;
+          mark();
+        }
+        if (Math.abs(mv.y) < 0.3) cool = 0;
+        if (this.input.justPressed('interact') || this.input.justPressed('jump')) pick(sel);
+      };
+    });
+  }
+
+  private menuTick: ((dt: number) => void) | null = null;
+
+  get inMenu() {
+    return this.menuTick !== null;
+  }
+
   letterbox(on: boolean) {
     this.bars.classList.toggle('on', on);
   }
@@ -159,6 +255,11 @@ export class UI {
   }
 
   update(dt: number) {
+    if (this.menuTick) {
+      this.menuTick(dt);
+      this.tickTimers(dt);
+      return;
+    }
     const skip = this.input.justPressed('skip') || this.input.justPressed('interact');
     const ty = this.typing;
     if (ty) {
@@ -205,6 +306,10 @@ export class UI {
       this.toastTime -= dt;
       if (this.toastTime <= 0) this.toastEl.classList.remove('show');
     }
+    this.tickTimers(dt);
+  }
+
+  private tickTimers(dt: number) {
     if (this.timers.length) {
       const due: (() => void)[] = [];
       this.timers = this.timers.filter((t) => {

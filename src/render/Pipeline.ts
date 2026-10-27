@@ -20,6 +20,10 @@ uniform vec3 uInk;
 uniform vec3 uSkyTop;
 uniform vec3 uFog;
 uniform float uFade;
+uniform float uContrast;
+uniform float uBloom;
+uniform vec3 uTint;
+uniform float uInkWeight;
 varying vec2 vUv;
 ${NOISE}
 
@@ -53,6 +57,22 @@ void main() {
   blur *= 0.25;
   vec3 col = mix(c0, blur, 0.3);
   if (isSky) col = sky(vUv);
+
+  // glow: bright washes bleed light into their surroundings, like wet paint under a lamp
+  vec3 glow = vec3(0.0);
+  for (int i = 0; i < 12; i++) {
+    float a = float(i) * 2.39996;
+    float r = (0.012 + 0.05 * sqrt(float(i + 1) / 12.0));
+    vec3 s = texture2D(tColor, vUv + vec2(cos(a), sin(a) * uRes.x / uRes.y) * r).rgb;
+    glow += max(s - 0.72, 0.0);
+  }
+  glow /= 12.0;
+  col += glow * uBloom;
+
+  // ink wash: tone steps into a few soft, uneven bands like a brush pass per value
+  float tl = dot(col, vec3(0.299, 0.587, 0.114));
+  float band = floor(tl * 5.0 + ibNoise(vec3(vUv * 18.0, 2.0)) * 0.5) / 5.0;
+  col *= mix(1.0, clamp(band / max(tl, 0.05), 0.82, 1.12), 0.35);
 
   // darker pigment where washes meet (wet edges)
   float lc = dot(c0, vec3(0.333));
@@ -89,6 +109,9 @@ void main() {
   float dist = abs(z0);
   float fade = 1.0 - smoothstep(uFog.x * 0.6, uFog.y * 0.8, dist);
   float grain = texture2D(tPaper, vUv * uRes / 512.0).g;
+  // dry-brush: the line starves of ink in places and swells in others
+  float brush = ibNoise(vec3(vUv * uRes / 14.0, 4.0 + uBoil * 0.15)) * 0.6 + ibNoise(vec3(vUv * uRes / 3.5, 9.0)) * 0.4;
+  edge = smoothstep(0.12, 0.55, edge * (0.55 + 0.9 * brush)) * uInkWeight;
   edge *= fade * mix(0.7, 1.0, grain);
   if (isSky) edge = 0.0;
   col = mix(col, uInk, edge * 0.92);
@@ -104,6 +127,11 @@ void main() {
   // vignette like the edge of a page under a lamp
   vec2 vc = vUv - 0.5;
   col *= 1.0 - 0.22 * smoothstep(0.35, 0.95, length(vc * vec2(1.1, 1.0)) * 1.25);
+  // grade: crush the shadows toward ink, lift the lights, and tint the mid-tones
+  col = pow(max(col, 0.0), vec3(uContrast));
+  col = mix(col, col * uTint, 0.55);
+  float vl = dot(col, vec3(0.299, 0.587, 0.114));
+  col = mix(vec3(vl), col, 1.12);
   col *= uFade;
 
   gl_FragColor = vec4(pow(clamp(col, 0.0, 1.0), vec3(1.0 / 2.2)), 1.0);
@@ -149,6 +177,10 @@ export class Pipeline {
       uInk: { value: new THREE.Color(0.1, 0.085, 0.1) },
       uSkyTop: { value: new THREE.Color(0.62, 0.75, 0.86) },
       uFade: { value: 1 },
+      uContrast: { value: 1.18 },
+      uBloom: { value: 0.9 },
+      uTint: { value: new THREE.Color(1, 1, 1) },
+      uInkWeight: { value: 1.0 },
       uBoil: G.uBoil,
       uTime: G.uTime,
       uPaper: G.uPaper,

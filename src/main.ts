@@ -2,7 +2,9 @@ import '@fontsource/patrick-hand/400.css';
 import '@fontsource/caveat/400.css';
 import '@fontsource/caveat/700.css';
 import * as THREE from 'three';
+import { Flow } from './game/Flow';
 import { Game } from './game/Game';
+import { Attic } from './levels/Attic';
 import { MarginVillage } from './levels/MarginVillage';
 import { Playground } from './levels/Playground';
 
@@ -12,7 +14,17 @@ const w = window as unknown as Record<string, unknown>;
 w.__game = game;
 
 await game.init();
-await game.loadLevel(params.get('level') === 'playground' ? new Playground() : new MarginVillage(params.get('at') ?? 'arrival'));
+const flow = new Flow(game);
+// ?level=... and ?at=... jump straight in (development and testing)
+const level = params.get('level');
+if (level === 'playground') await game.loadLevel(new Playground());
+else if (level === 'attic') {
+  const a = new Attic();
+  await game.loadLevel(a);
+  a.begin();
+} else if (params.has('at')) await game.loadLevel(new MarginVillage(params.get('at')!));
+else flow.title();
+
 // ?test: no frame loop; tools/play.mjs steps the game itself at a fixed rate
 if (params.has('test')) {
   w.THREE = THREE;

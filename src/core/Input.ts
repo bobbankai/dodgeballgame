@@ -76,6 +76,11 @@ export class Input {
     this.wheel = 0;
   }
 
+  /** A specific key went down this frame (menus). */
+  pressedKey(code: string) {
+    return this.pressed.has(code);
+  }
+
   down(a: Action) {
     return KEYS[a].some((k) => this.keys.has(k)) || PAD[a].some((b) => this.padDown.has(b));
   }

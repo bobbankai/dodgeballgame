@@ -419,6 +419,13 @@ export class Sound {
     for (let i = 0; i < 3; i++) this.noiseBurst(this.now + i * 0.05, 0.1, 2500 + Math.random() * 2000, 1, 0.05);
   }
 
+  thunder() {
+    if (!this.ctx) return;
+    const f = this.noiseBurst(this.now, 3.2, 180, 0.6, 0.5, undefined, 'lowpass');
+    f.frequency.exponentialRampToValueAtTime(60, this.now + 3);
+    this.noiseBurst(this.now + 0.05, 0.4, 900, 0.8, 0.12);
+  }
+
   splash() {
     if (!this.ctx) return;
     const f = this.noiseBurst(this.now, 0.7, 2000, 0.5, 0.3, undefined, 'lowpass');

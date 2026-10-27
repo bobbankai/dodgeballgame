@@ -361,38 +361,9 @@ def build():
         ob = lib.join(objs, f"scenery{'' if solid else '_soft'}_{cx}_{cy}")
         if not solid:
             ob['col'] = 0
-        bake_materials(ob)
+        lib.bake_materials(ob)
         out.append(ob)
     return out + special
-
-
-SCENERY = None
-LINE_IDS = {}
-
-
-def bake_materials(ob):
-    """Fold an object's materials into face-corner colours (rgb = colour, a = ink line id / 255) under
-    one shared material, so a whole chunk of scenery is one draw call but keeps its outlines."""
-    global SCENERY
-    if SCENERY is None:
-        SCENERY = lib.mat('scenery', '#FFFFFF')
-    me = ob.data
-    attr = me.color_attributes.new('Col', 'FLOAT_COLOR', 'CORNER')
-    cols = []
-    for m in me.materials:
-        if m.name not in LINE_IDS:
-            LINE_IDS[m.name] = 10 + len(LINE_IDS) % 190
-        base = m.node_tree.nodes['Principled BSDF'].inputs['Base Color'].default_value
-        cols.append((base[0], base[1], base[2], LINE_IDS[m.name] / 255.0))
-    for poly in me.polygons:
-        c = cols[poly.material_index] if cols else (1, 1, 1, 1)
-        for li in poly.loop_indices:
-            attr.data[li].color = c
-    me.color_attributes.active_color_name = 'Col'
-    me.materials.clear()
-    me.materials.append(SCENERY)
-    for poly in me.polygons:
-        poly.material_index = 0
 
 
 def water_mesh():
