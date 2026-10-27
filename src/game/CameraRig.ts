@@ -105,7 +105,13 @@ export class CameraRig {
     const shot = this.lastShot;
     if (shot && this.blend > 0.001) {
       const b = THREE.MathUtils.smootherstep(this.blend, 0, 1);
-      _pos.lerp(shot.position, b);
+      // cutscene shots also pull in front of anything in the way
+      _dir.subVectors(shot.position, shot.look);
+      const len = _dir.length();
+      _dir.normalize();
+      const sh = col.raycast(shot.look, _dir, len, _hit);
+      const sp = sh !== null ? _hit.copy(shot.look).addScaledVector(_dir, Math.max(0.5, sh - 0.35)) : shot.position;
+      _pos.lerp(sp, b);
       _look.lerp(shot.look, b);
       cam.fov = THREE.MathUtils.lerp(this.baseFov, shot.fov ?? this.baseFov, b);
     } else cam.fov = this.baseFov;

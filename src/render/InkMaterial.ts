@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { G, MAX_BLOOMS } from './Globals';
+import { G, MAX_BLOOMS, MAX_ERASE } from './Globals';
 import { NOISE } from './glsl';
 
 export interface InkOptions {
@@ -17,6 +17,8 @@ export interface InkOptions {
   /** Id written for the ink-line pass: different ids always get a line between them. */
   lineId?: number;
   side?: THREE.Side;
+  /** Drawn water: rippling pencil lines over the surface. */
+  water?: boolean;
   transparent?: boolean;
   opacity?: number;
 }
@@ -91,6 +93,9 @@ uniform float uBoil;
 uniform vec4 uBlooms[${MAX_BLOOMS}];
 uniform int uBloomCount;
 uniform float uColorBase;
+uniform vec4 uErase[${MAX_ERASE}];
+uniform int uEraseCount;
+uniform vec3 uPigment;
 uniform vec3 uPaper;
 uniform vec3 uGraphite;
 uniform vec3 uShadowTint;
@@ -107,12 +112,32 @@ float strokes(vec3 p, vec3 n, float freq, float angle) {
   vec2 uv = an.y > max(an.x, an.z) ? p.xz : (an.x > an.z ? p.zy : p.xy);
   float c = cos(angle), s = sin(angle);
   vec2 r = vec2(c * uv.x - s * uv.y, s * uv.x + c * uv.y);
-  float jit = ibHash2(vec2(floor(r.y * freq), uBoil)) * 0.35;
-  float w = ibNoise(vec3(r * vec2(1.3, freq * 0.25), uBoil * 0.37));
-  float line = abs(fract(r.x * freq + jit + w * 0.6) * 2.0 - 1.0);
+  float jit = ibHash2(vec2(floor(r.y * freq * 0.5), uBoil)) * 0.3;
+  float w = ibNoise(vec3(r * vec2(0.8, freq * 0.12), uBoil * 0.37));
+  float line = abs(fract(r.x * freq + jit + w * 0.22) * 2.0 - 1.0);
   // stroke pressure varies along its length; gaps between strokes
   float press = smoothstep(0.25, 0.75, ibNoise(vec3(r * vec2(0.6, freq * 0.05), 3.1)));
   return smoothstep(0.7, 0.93, line) * mix(0.5, 1.0, press);
+}
+
+// which pigment a colour is made of: green, blue, or the warm family (everything else)
+vec3 family(vec3 c) {
+  float mx = max(c.r, max(c.g, c.b)), mn = min(c.r, min(c.g, c.b));
+  float d = mx - mn;
+  float h = 0.0;
+  if (d > 1e-4) {
+    if (mx == c.r) h = mod((c.g - c.b) / d, 6.0);
+    else if (mx == c.g) h = (c.b - c.r) / d + 2.0;
+    else h = (c.r - c.g) / d + 4.0;
+  }
+  h *= 60.0;
+  float sat = d / max(mx, 1e-4);
+  float g = smoothstep(62.0, 82.0, h) * (1.0 - smoothstep(158.0, 178.0, h));
+  float b = smoothstep(158.0, 178.0, h) * (1.0 - smoothstep(262.0, 282.0, h));
+  // near-greys belong to the paper's warm family
+  g *= smoothstep(0.08, 0.2, sat);
+  b *= smoothstep(0.08, 0.2, sat);
+  return vec3(g, b, max(0.0, 1.0 - g - b));
 }
 
 float colorMask(vec3 p) {
@@ -165,8 +190,10 @@ void main() {
   col += base * uEmissive;
 
   // hatching in shadow: one direction for shade, a cross layer only where it's deep
-  float h1 = strokes(vWorldPos, N, 5.5, 0.7);
-  float h2 = strokes(vWorldPos + 3.3, N, 7.0, -0.8);
+  // hatching thins into a flat tone with distance, so it never shimmers
+  float hfade = 1.0 - smoothstep(14.0, 38.0, length(vViewPos));
+  float h1 = mix(0.3, strokes(vWorldPos, N, 8.0, 0.7), hfade);
+  float h2 = mix(0.25, strokes(vWorldPos + 3.3, N, 10.5, -0.8), hfade);
   float dark = 1.0 - lit;
   float deep = smoothstep(0.55, 1.0, dark) * smoothstep(0.6, 0.2, shadow + max(ndl, 0.0));
   col *= 1.0 - uHatch * dark * (h1 * 0.22 + h2 * 0.16 * deep);
@@ -178,8 +205,18 @@ void main() {
   float pencil = dark * (h1 * 0.6 + h2 * 0.45 * deep) * mix(0.55, 1.0, uHatch);
   graphite = mix(graphite, uGraphite, clamp(pencil, 0.0, 1.0) * 0.7);
 
-  float m = max(colorMask(vWorldPos), uAlwaysColor);
+  float m = max(colorMask(vWorldPos) * dot(family(base), uPigment), uAlwaysColor);
   vec3 fin = mix(graphite, col, m);
+  #ifdef WATER
+    // water drawn the way you'd sketch it: short wavy strokes drifting downstream
+    vec2 wp = vWorldPos.xz;
+    float wave = sin(wp.x * 1.7 + uTime * 0.8 + sin(wp.y * 0.9) * 1.5) * 0.18;
+    float row = wp.y * 2.2 + wave;
+    float dash = smoothstep(0.35, 0.6, ibNoise(vec3(wp.x * 0.9 - uTime * 0.6, floor(row) * 3.1, uBoil * 0.2)));
+    float wl = smoothstep(0.86, 0.97, abs(fract(row) * 2.0 - 1.0)) * dash;
+    fin = mix(fin, mix(uGraphite, col * 0.55, m), wl * 0.7);
+    fin = mix(fin, uPaper, 0.12 * (1.0 - m));
+  #endif
   // pigment pools at the drying edge of a wash
   float ring = smoothstep(0.05, 0.5, m) * smoothstep(0.98, 0.5, m);
   fin *= 1.0 - ring * 0.22;
@@ -188,8 +225,20 @@ void main() {
   float d = length(vViewPos);
   fin = mix(fin, uPaper, smoothstep(uFog.x, uFog.y, d) * uFog.z);
 
+  // rubbed out: bare paper with a few eraser crumbs of graphite left behind
+  float er = 0.0;
+  for (int i = 0; i < ${MAX_ERASE}; i++) {
+    if (i >= uEraseCount) break;
+    vec4 e = uErase[i];
+    float ragged = (ibFbm(vWorldPos * 1.3 + float(i)) - 0.5) * 0.9;
+    er = max(er, smoothstep(e.w, e.w * 0.55, length(vWorldPos - e.xyz) + ragged));
+  }
+  er *= 1.0 - uAlwaysColor;
+  fin = mix(fin, uPaper * (1.0 - 0.05 * step(0.93, ibHash(floor(vWorldPos * 14.0)))), er);
+  vec3 outN = mix(VN, vec3(0.0, 0.0, 1.0), step(0.5, er));
+
   outColor = vec4(fin, uOpacity);
-  outNormal = vec4(VN * 0.5 + 0.5, uLineId / 255.0);
+  outNormal = vec4(outN * 0.5 + 0.5, er > 0.5 ? 0.0 : uLineId / 255.0);
 }
 `;
 
@@ -220,6 +269,7 @@ export function inkMaterial(o: InkOptions = {}): THREE.ShaderMaterial {
     side: o.side ?? THREE.FrontSide,
     transparent: o.transparent ?? false,
   });
+  if (o.water) mat.defines = { ...mat.defines, WATER: '' };
   if (o.map) (mat as unknown as { map: THREE.Texture }).map = o.map;
   return mat;
 }

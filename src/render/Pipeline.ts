@@ -78,9 +78,12 @@ void main() {
     float da = 1.0 - dot(n0.xyz * 2.0 - 1.0, na.xyz * 2.0 - 1.0);
     float db = 1.0 - dot(n0.xyz * 2.0 - 1.0, nb.xyz * 2.0 - 1.0);
     nEdge = max(nEdge, smoothstep(0.25, 0.5, max(da, db)));
-    iEdge = max(iEdge, (abs(na.a - n0.a) > 0.002 || abs(nb.a - n0.a) > 0.002) ? 1.0 : 0.0);
+    // id 0 marks rubbed-out paper: it never gets a line of its own
+    bool ia = na.a > 0.002 && abs(na.a - n0.a) > 0.002, ib = nb.a > 0.002 && abs(nb.a - n0.a) > 0.002;
+    iEdge = max(iEdge, (ia || ib) ? 1.0 : 0.0);
   }
   float edge = max(dEdge, max(nEdge * 0.8, iEdge * 0.9));
+  if (n0.a < 0.002) edge = 0.0;
   float z0 = 1.0 / w0;
   // lines thin out and fade into the distance like a pen lifting off the page
   float dist = abs(z0);
@@ -104,6 +107,8 @@ void main() {
   col *= uFade;
 
   gl_FragColor = vec4(pow(clamp(col, 0.0, 1.0), vec3(1.0 / 2.2)), 1.0);
+  // hand the scene depth on, so overlay strokes and particles are hidden behind scenery
+  gl_FragDepthEXT = texture2D(tDepth, vUv).x;
 }
 `;
 
@@ -118,6 +123,9 @@ export class Pipeline {
   private postScene = new THREE.Scene();
   private postCam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
   readonly uniforms: Record<string, THREE.IUniform>;
+  /** Drawn straight onto the finished page after compositing (sketch strokes, particles, glows):
+   * depth-tested against the scene but never outlined. Shaders output display-ready colour. */
+  readonly overlay = new THREE.Scene();
   private scale = 1;
 
   constructor(container: HTMLElement) {
@@ -128,12 +136,13 @@ export class Pipeline {
     container.appendChild(r.domElement);
     this.target = new THREE.WebGLRenderTarget(1, 1, { count: 2, type: THREE.HalfFloatType, depthTexture: new THREE.DepthTexture(1, 1) });
     this.target.textures[1].type = THREE.UnsignedByteType;
+    G.tPaper.value = paperTexture();
     this.uniforms = {
       tColor: { value: this.target.textures[0] },
       tNormal: { value: this.target.textures[1] },
       tDepth: { value: this.target.depthTexture },
-      tPaper: { value: paperTexture() },
-      uRes: { value: new THREE.Vector2(1, 1) },
+      tPaper: G.tPaper,
+      uRes: G.uRes,
       uNear: { value: 0.1 },
       uFar: { value: 400 },
       uLine: { value: 1.4 },
@@ -151,8 +160,9 @@ export class Pipeline {
         vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }',
         fragmentShader: COMPOSITE,
         uniforms: this.uniforms,
-        depthTest: false,
-        depthWrite: false,
+        depthTest: true,
+        depthFunc: THREE.AlwaysDepth,
+        depthWrite: true,
       }),
     );
     this.quad.frustumCulled = false;
@@ -181,6 +191,11 @@ export class Pipeline {
     r.render(scene, camera);
     r.setRenderTarget(null);
     r.render(this.postScene, this.postCam);
+    if (this.overlay.children.length) {
+      r.autoClear = false;
+      r.render(this.overlay, camera);
+      r.autoClear = true;
+    }
   }
 
   get pixelScale() {

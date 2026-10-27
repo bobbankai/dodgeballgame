@@ -26,84 +26,8 @@ for _s in 'LR':
                    f'hand_{_s}': f'forearm_{_s}', f'thigh_{_s}': 'hips', f'shin_{_s}': f'thigh_{_s}', f'foot_{_s}': f'shin_{_s}'})
 
 
-def spline(keys, f, period=None):
-    if not isinstance(keys, list):
-        return keys
-    if len(keys) == 1:
-        return keys[0][1]
-    if period:
-        f %= period
-        ks = [(t - period, v) for t, v in keys[-2:]] + keys + [(t + period, v) for t, v in keys[:2]]
-    else:
-        if f <= keys[0][0]:
-            return keys[0][1]
-        if f >= keys[-1][0]:
-            return keys[-1][1]
-        ks = [keys[0]] + keys + [keys[-1]]
-
-    def tangent(i):
-        (t0, v0), (t1, v1), (t2, v2) = ks[i - 1], ks[i], ks[i + 1]
-        if t2 == t0 or (v1 - v0) * (v2 - v1) <= 0:
-            return 0.0  # clamp at extremes so poses hold their values instead of overshooting
-        return (v2 - v0) / (t2 - t0)
-
-    for i in range(1, len(ks) - 2):
-        (t0, v0), (t1, v1) = ks[i], ks[i + 1]
-        if t0 <= f <= t1 and t1 > t0:
-            h = t1 - t0
-            s = (f - t0) / h
-            m0, m1 = tangent(i) * h, tangent(i + 1) * h
-            s2, s3 = s * s, s * s * s
-            return (2 * s3 - 3 * s2 + 1) * v0 + (s3 - 2 * s2 + s) * m0 + (-2 * s3 + 3 * s2) * v1 + (s3 - s2) * m1
-    return ks[-2][1]
-
-
-def expand(ch, sym, N):
-    """Copy _L channels onto _R (mirrored, phase-shifted) where the clip doesn't pose _R itself."""
-    out = dict(ch)
-    if sym is None:
-        return out, {}
-    shift = {}
-    for b, c in ch.items():
-        if b.endswith('_L') and b[:-2] + '_R' not in ch:
-            r = b[:-2] + '_R'
-            m = {}
-            for k, v in c.items():
-                neg = k in ('ry', 'rz', 'tx')
-                if isinstance(v, list):
-                    m[k] = [(t, -x if neg else x) for t, x in v]
-                else:
-                    m[k] = -v if neg else v
-            out[r] = m
-            shift[r] = sym
-    return out, shift
-
-
-def pose_at(ch, shift, f, N, loop):
-    spec, absx = {}, {}
-    for b in BODY:
-        c = ch.get(b, {})
-        g = f + shift.get(b, 0)
-        val = {k: spline(v, g, N if loop else None) for k, v in c.items()}
-        parent_abs = absx.get(PARENT.get(b), 0.0)
-        rx = val['ax'] - parent_abs if 'ax' in val else val.get('rx', 0.0)
-        absx[b] = parent_abs + rx
-        spec[b] = {'r': (rx, val.get('ry', 0.0), val.get('rz', 0.0)),
-                   't': (val.get('tx', 0.0), val.get('ty', 0.0), val.get('tz', 0.0)),
-                   's': (val.get('sx', 1.0), val.get('sy', 1.0), val.get('sz', 1.0))}
-    return spec
-
-
 def clip(poser, name, N, ch, loop=True, sym=None, bones=None):
-    ch, shift = expand(ch, sym, N)
-    poser.begin(name)
-    for f in range(N + 1):
-        if bones is None:
-            poser.key(f, pose_at(ch, shift, f, N, loop), BODY)
-        else:
-            spec = {b: {'s': tuple(spline(ch[b].get(k, 1.0), f, N if loop else None) for k in ('sx', 'sy', 'sz'))} for b in bones}
-            poser.key(f, spec, bones)
-    poser.end(loop)
+    lib.clip(poser, name, N, ch, BODY, PARENT, loop=loop, sym=sym, bones=bones)
 
 
 # --- shared poses ----------------------------------------------------------------------------

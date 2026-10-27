@@ -11,6 +11,8 @@
     "assets": "node tools/build-assets.mjs"
   },
   "dependencies": {
+    "@fontsource/caveat": "^5.2.8",
+    "@fontsource/patrick-hand": "^5.2.8",
     "three": "^0.186.1",
     "three-mesh-bvh": "^0.9.1"
   },
