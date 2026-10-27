@@ -43,6 +43,9 @@ export class CameraRig {
   baseFov = 50;
   /** Extra height above Ada's feet that the camera looks at. */
   height = 1.15;
+  /** The camera never dips below this height (the sea's surface while sailing). */
+  floor = -Infinity;
+  private maxZoom = 7;
 
   constructor(readonly camera: THREE.PerspectiveCamera) {}
 
@@ -52,6 +55,20 @@ export class CameraRig {
     this.baseFov = on ? 62 : 50;
     this.pitch = on ? 0.18 : 0.32;
     this.height = on ? 1.0 : 1.15;
+    this.floor = -Infinity;
+    this.maxZoom = 7;
+  }
+
+  /** Further back and higher, to see the boat, the sail and the water ahead (and back). */
+  sailing(on: boolean) {
+    this.interior(false);
+    if (!on) return;
+    this.distance = this.zoomTarget = this.actual = 8;
+    this.baseFov = 54;
+    this.pitch = 0.22;
+    this.height = 1.7;
+    this.floor = 2.2;
+    this.maxZoom = 12;
   }
 
   snap(focus: THREE.Vector3, yaw = this.yaw) {
@@ -83,7 +100,7 @@ export class CameraRig {
       else this.idleLook += dt;
       this.yaw -= _d.x;
       this.pitch = THREE.MathUtils.clamp(this.pitch + _d.y, -0.3, 1.15);
-      this.zoomTarget = THREE.MathUtils.clamp(this.zoomTarget + input.zoom() * 0.45, 2.4, 7);
+      this.zoomTarget = THREE.MathUtils.clamp(this.zoomTarget + input.zoom() * 0.45, 2.4, this.maxZoom);
     }
     this.distance += (this.zoomTarget - this.distance) * (1 - Math.exp(-dt * 6));
 
@@ -110,6 +127,7 @@ export class CameraRig {
     if (hit !== null) want = Math.max(0.6, hit - 0.3);
     this.actual += (want - this.actual) * (1 - Math.exp(-dt * (want < this.actual ? 20 : 3)));
     _pos.copy(_look).addScaledVector(_off, this.actual);
+    _pos.y = Math.max(_pos.y, this.floor);
 
     // blend towards a cutscene shot
     this.blend += ((this.shot ? 1 : 0) - this.blend) * (1 - Math.exp(-dt * 2.2));

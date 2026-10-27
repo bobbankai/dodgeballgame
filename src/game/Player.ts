@@ -39,6 +39,8 @@ function angleTo(a: number, b: number) {
 
 export type PlayerMode = 'free' | 'trace' | 'talk' | 'locked';
 
+const _rideEuler = new THREE.Euler();
+
 /** Ada: movement, collision and animation. */
 export class Player {
   readonly root = new THREE.Group();
@@ -115,7 +117,39 @@ export class Player {
     return this.oneShot !== null;
   }
 
+  /** Sit on something that moves (the boat): follow `seat` exactly, physics off. */
+  ride(seat: THREE.Object3D | null, pose = 'tiller') {
+    this.riding = seat;
+    this.setPose(seat ? pose : null);
+    if (!seat) {
+      this.root.quaternion.identity();
+      this.root.rotation.set(0, this.yaw, 0);
+      this.velocity.set(0, 0, 0);
+    }
+  }
+
+  riding: THREE.Object3D | null = null;
+  /** While riding, the velocity of what Ada rides (for the camera). */
+  readonly rideVelocity = new THREE.Vector3();
+
+  /** Snap to the seat (call again after moving what she rides, so she never lags it a frame). */
+  syncRide() {
+    if (!this.riding) return;
+    this.riding.updateWorldMatrix(true, false);
+    this.riding.getWorldPosition(this.position);
+    this.riding.getWorldQuaternion(this.root.quaternion);
+    this.yaw = _rideEuler.setFromQuaternion(this.root.quaternion, 'YXZ').y;
+    this.velocity.copy(this.rideVelocity);
+  }
+
   update(dt: number, input: Input, camYaw: number, col: Collision) {
+    if (this.riding) {
+      this.syncRide();
+      this.grounded = true;
+      this.model.rotation.z = 0;
+      this.animate(dt, 0);
+      return;
+    }
     // ---- intent
     _want.set(0, 0, 0);
     const free = this.inputEnabled && this.mode === 'free' && !this.oneShot;

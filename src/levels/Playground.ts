@@ -36,6 +36,7 @@ export class Playground implements Level {
     }
     game.scene.add(s);
     game.collision.add(s);
+    G.uPigment.value.set(0, 0, 0);
     G.uBloomCount.value = 1;
     G.uBlooms.value[0].set(0, 0, 0, 9);
     game.player.teleport(new THREE.Vector3(0, 0, 4), Math.PI);

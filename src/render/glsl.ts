@@ -23,3 +23,24 @@ float ibHash2(vec2 p) {
   return fract((p3.x + p3.y) * p3.z);
 }
 `;
+
+/**
+ * The sea's waves (keep in step with seaHeight() in src/game/Sea.ts): four travelling waves,
+ * scaled up by the storm.
+ */
+export const WAVES = [
+  { amp: 0.32, len: 19.0, dir: [0.8, 0.6], speed: 1.0, phase: 0.0 },
+  { amp: 0.2, len: 11.0, dir: [-0.5, 0.86], speed: 1.25, phase: 1.7 },
+  { amp: 0.11, len: 6.3, dir: [0.96, -0.28], speed: 1.6, phase: 3.1 },
+  { amp: 0.07, len: 3.7, dir: [-0.2, -0.98], speed: 2.1, phase: 4.4 },
+];
+
+export const WAVES_GLSL = /* glsl */ `
+float seaWaves(vec2 p, float t, float storm) {
+  float h = 0.0;
+  ${WAVES.map((w) => `h += ${w.amp.toFixed(3)} * sin(dot(p, vec2(${w.dir[0].toFixed(3)}, ${w.dir[1].toFixed(3)})) * ${(
+    (2 * Math.PI) / w.len
+  ).toFixed(4)} + t * ${w.speed.toFixed(3)} + ${w.phase.toFixed(3)});`).join('\n  ')}
+  return h * (1.0 + storm * 1.8);
+}
+`;

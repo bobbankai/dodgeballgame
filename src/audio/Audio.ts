@@ -12,7 +12,7 @@ export function midi(name: string) {
 }
 const hz = (m: number) => 440 * Math.pow(2, (m - 69) / 12);
 
-type Piece = 'none' | 'attic' | 'village' | 'chase' | 'wonder' | 'title' | 'night';
+type Piece = 'none' | 'attic' | 'village' | 'chase' | 'wonder' | 'title' | 'night' | 'sea' | 'storm';
 
 interface Chord {
   root: string;
@@ -279,6 +279,43 @@ export class Sound {
         this.piano(pool[Math.floor(rnd() * pool.length)] + (rnd() < 0.3 ? 2 : 0), t, 0.32, spb);
       }
       this.nextTime += spb;
+    } else if (p === 'sea') {
+      // a lilting 6/8 in D: rolling broken chords like swell, the theme a fifth up every other phrase
+      const spb = 60 / 132;
+      const prog = [['D2', 'D3', 'F#3', 'A3', 'D4'], ['B1', 'B2', 'D3', 'F#3', 'B3'], ['G1', 'G2', 'B2', 'D3', 'G3'], ['A1', 'A2', 'C#3', 'E3', 'A3']];
+      const c = prog[Math.floor(this.bar / 2) % 4];
+      const e = this.beat;
+      if (e === 0) {
+        this.piano(midi(c[0]), t, 0.5, spb * 6);
+        this.pad(c.slice(2).map(midi), t, spb * 6, 0.02, 800);
+      }
+      const roll = [1, 2, 3, 4, 3, 2];
+      this.piano(midi(c[roll[e]]) + 12, t, e === 0 || e === 3 ? 0.34 : 0.22, spb * 1.5);
+      if (Math.floor(this.bar / 8) % 2 === 1 && (e === 0 || e === 3) && rnd() < 0.8) {
+        const idx = (this.bar % 8) * 2 + (e === 3 ? 1 : 0);
+        const [n] = THEME[idx % THEME.length];
+        this.piano(midi(n) + 7, t, 0.42, spb * 2.5);
+      }
+      this.nextTime += spb;
+      this.beat = (this.beat + 1) % 6;
+      if (this.beat === 0) this.bar++;
+      return;
+    } else if (p === 'storm') {
+      const spb = 60 / 144 / 2;
+      const prog = [['D1', 'D2', 'A2', 'F3'], ['Bb0', 'Bb1', 'F2', 'D3'], ['C1', 'C2', 'G2', 'E3'], ['A0', 'A1', 'E2', 'C#3']];
+      const c = prog[Math.floor(this.bar / 2) % 4];
+      const e = this.beat;
+      this.piano(midi(c[1]) + (e % 2 ? 12 : 0), t, e % 4 === 0 ? 0.66 : 0.42, spb * 0.8);
+      if (e === 0) {
+        this.piano(midi(c[0]), t, 0.7, spb * 8);
+        this.pad([midi(c[2]), midi(c[3]), midi(c[3]) + 12], t, spb * 8, 0.04, 1000);
+      }
+      if (e % 2 === 1 && rnd() < 0.5) this.piano(midi(c[3]) + 12 + [0, 1, 3, 5][Math.floor(rnd() * 4)], t, 0.35, spb);
+      if (e % 4 === 2) this.noiseBurst(t, 0.12, 300, 0.7, 0.08, this.musicBus);
+      this.nextTime += spb;
+      this.beat = (this.beat + 1) % 8;
+      if (this.beat === 0) this.bar++;
+      return;
     } else if (p === 'chase') {
       const spb = 60 / 138 / 2; // eighth notes
       const prog = [['A1', 'A2', 'E3', 'C4'], ['F1', 'F2', 'C3', 'A3'], ['G1', 'G2', 'D3', 'B3'], ['E1', 'E2', 'B2', 'G#3']];

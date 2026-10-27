@@ -7,6 +7,7 @@ import type { Player } from './Player';
 
 const _v = new THREE.Vector3();
 const _t = new THREE.Vector3();
+const _up = new THREE.Vector3(0, 1, 0);
 
 function angleTo(a: number, b: number) {
   let d = (b - a) % (Math.PI * 2);
@@ -56,8 +57,19 @@ export class Companion {
     return col.groundAt(_v, 4);
   }
 
+  /** Sit on something that moves (the boat's bow). */
+  riding: THREE.Object3D | null = null;
+
   update(dt: number, ada: Player, col: Collision) {
     const a = this.anim;
+    if (this.riding) {
+      this.riding.updateWorldMatrix(true, false);
+      this.riding.getWorldPosition(this.position);
+      this.riding.getWorldQuaternion(this.root.quaternion);
+      a.target({ [this.speaking ? 'talk' : 'sit']: 1 }, 6);
+      a.update(dt);
+      return;
+    }
     // where to be: a little behind and beside Ada, or the scripted goal
     let target: THREE.Vector3 | null = null;
     if (this.goal) target = this.goal;
@@ -132,7 +144,7 @@ export class Companion {
       if (trot) trot.timeScale = Math.max(0.6, s / 2.2);
       if (gal) gal.timeScale = Math.max(0.7, s / 4.4);
     }
-    this.root.rotation.y = this.yaw;
+    this.root.quaternion.setFromAxisAngle(_up, this.yaw);
     a.update(dt);
   }
 }

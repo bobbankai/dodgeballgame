@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { G, MAX_BLOOMS, MAX_ERASE } from './Globals';
-import { NOISE } from './glsl';
+import { NOISE, WAVES_GLSL } from './glsl';
 
 export interface InkOptions {
   color?: THREE.ColorRepresentation;
@@ -19,6 +19,10 @@ export interface InkOptions {
   side?: THREE.Side;
   /** Drawn water: rippling pencil lines over the surface. */
   water?: boolean;
+  /** Displace by the sea's waves (vertices in world space) and shade facet by facet. */
+  waves?: boolean;
+  /** One normal per triangle (folded paper look). */
+  flat?: boolean;
   transparent?: boolean;
   opacity?: number;
 }
@@ -35,6 +39,11 @@ varying vec3 vWorldPos;
 varying vec3 vWorldNormal;
 varying vec3 vViewNormal;
 varying vec3 vViewPos;
+#ifdef WAVES
+uniform float uTime;
+uniform float uStorm;
+${WAVES_GLSL}
+#endif
 void main() {
   #include <uv_vertex>
   #include <color_vertex>
@@ -47,6 +56,10 @@ void main() {
   #include <skinnormal_vertex>
   #include <defaultnormal_vertex>
   #include <begin_vertex>
+  #ifdef WAVES
+    // folded paper sea: the same waves the boat floats on (src/game/Sea.ts)
+    transformed.y += seaWaves(transformed.xz, uTime, uStorm);
+  #endif
   #include <morphtarget_vertex>
   #include <skinning_vertex>
   #include <project_vertex>
@@ -89,10 +102,11 @@ uniform float uSoft;
 uniform float uEmissive;
 uniform float uLineId;
 uniform float uTime;
+uniform float uStorm;
 uniform float uBoil;
 uniform vec4 uBlooms[${MAX_BLOOMS}];
 uniform int uBloomCount;
-uniform float uColorBase;
+uniform vec3 uBloomTint[${MAX_BLOOMS}];
 uniform vec4 uErase[${MAX_ERASE}];
 uniform int uEraseCount;
 uniform vec3 uPigment;
@@ -140,14 +154,17 @@ vec3 family(vec3 c) {
   return vec3(g, b, max(0.0, 1.0 - g - b));
 }
 
-float colorMask(vec3 p) {
-  float m = uColorBase;
+// how much of each pigment family is back here: the restored baseline, then each bloom spreading
+// its own pigments outward with a ragged watercolour edge
+vec3 colorMask(vec3 p) {
+  vec3 m = uPigment;
+  if (uBloomCount == 0) return m;
   float edge = ibFbm(p * 0.45) * 1.6 + ibFbm(p * 2.1) * 0.5;
   for (int i = 0; i < ${MAX_BLOOMS}; i++) {
     if (i >= uBloomCount) break;
     vec4 b = uBlooms[i];
     float d = length(p - b.xyz) + (edge - 1.05) * (1.0 + b.w * 0.12);
-    m = max(m, smoothstep(b.w, b.w - 1.2 - b.w * 0.08, d));
+    m = max(m, smoothstep(b.w, b.w - 1.2 - b.w * 0.08, d) * uBloomTint[i]);
   }
   return clamp(m, 0.0, 1.0);
 }
@@ -162,6 +179,12 @@ void main() {
   #endif
   vec3 N = normalize(vWorldNormal);
   vec3 VN = normalize(vViewNormal);
+  #ifdef FLAT
+    // folded facets: each triangle gets one normal, so creases catch the light (and the ink)
+    N = normalize(cross(dFdx(vWorldPos), dFdy(vWorldPos)));
+    if (N.y < 0.0) N = -N;
+    VN = normalize((viewMatrix * vec4(N, 0.0)).xyz);
+  #endif
   if (!gl_FrontFacing) { N = -N; VN = -VN; }
 
   vec3 L = vec3(0.0, 1.0, 0.0);
@@ -216,7 +239,7 @@ void main() {
   float pencil = dark * (h1 * 0.6 + h2 * 0.45 * deep) * mix(0.55, 1.0, uHatch);
   graphite = mix(graphite, uGraphite, clamp(pencil, 0.0, 1.0) * 0.7);
 
-  float m = max(colorMask(vWorldPos) * dot(family(base), uPigment), uAlwaysColor);
+  float m = max(dot(family(base), colorMask(vWorldPos)), uAlwaysColor);
   vec3 fin = mix(graphite, col, m);
   #ifdef WATER
     // water drawn the way you'd sketch it: short wavy strokes drifting downstream
@@ -286,6 +309,8 @@ export function inkMaterial(o: InkOptions = {}): THREE.ShaderMaterial {
     transparent: o.transparent ?? false,
   });
   if (o.water) mat.defines = { ...mat.defines, WATER: '' };
+  if (o.waves) mat.defines = { ...mat.defines, WAVES: '' };
+  if (o.flat || o.waves) mat.defines = { ...mat.defines, FLAT: '' };
   if (o.map) (mat as unknown as { map: THREE.Texture }).map = o.map;
   return mat;
 }

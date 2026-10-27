@@ -148,7 +148,6 @@ export class MarginVillage implements Level {
     // the look of the chapter: a pencil world, afternoon sun, paper sky
     game.setSun(v3(-0.5, 0.78, 0.42), 0xfff1dc, 1.0);
     G.uPigment.value.set(0, 0, 0);
-    G.uColorBase.value = 0;
     G.uBloomCount.value = 0;
     G.uFog.value.set(35, 150, 0.85);
     G.uAmbient.value.setRGB(0.55, 0.55, 0.58);
@@ -438,7 +437,7 @@ export class MarginVillage implements Level {
     g.particles.sparkles(to, 0x9fe07a, 60, 1.5, 0.25);
     G.uBloomCount.value = 1;
     G.uBlooms.value[0].set(heart.x, heart.y - 3, heart.z, 0);
-    G.uPigment.value.set(1, 0, 0);
+    G.uBloomTint.value[0].set(1, 0, 0);
     this.bloom = 0.001;
     // crane up and away as the green runs out across the whole page
     d.focus(null);
@@ -536,6 +535,8 @@ export class MarginVillage implements Level {
       this.bloom = Math.min(1, this.bloom + dt / 9);
       const k = this.bloom;
       G.uBlooms.value[0].w = 4 + 190 * k * k;
+      // fully spread: green is simply back everywhere, and the bloom costs nothing more per pixel
+      if (k >= 1) { G.uPigment.value.x = 1; G.uBloomCount.value = 0; }
       if (Math.random() < 0.6) {
         const a = Math.random() * Math.PI * 2;
         const r = G.uBlooms.value[0].w * (0.7 + Math.random() * 0.3);

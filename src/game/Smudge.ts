@@ -33,12 +33,14 @@ export class Smudge {
   speed = 2.4;
   maxSpeed = 3.1;
   catchRadius = 1.25;
+  /** Overall size (the storm over the sea is much bigger). */
+  scale = 1;
   onCatch?: () => void;
   private lines: SketchLines;
   private seg: Segments;
   private eyes: THREE.Sprite[] = [];
   private lastBoil = -1;
-  private patches: { p: THREE.Vector3; age: number }[] = [];
+  private patches: { p: THREE.Vector3; age: number; scale: number }[] = [];
   private lastPatch = new THREE.Vector3(1e9, 0, 0);
   private size = 0;
   private heading = new THREE.Vector3(0, 0, 1);
@@ -73,7 +75,7 @@ export class Smudge {
 
   private scribble(time: number) {
     const s = this.seg;
-    const R = 1.5 * this.size;
+    const R = 1.5 * this.size * this.scale;
     let k = 0;
     for (let l = 0; l < LOOPS; l++) {
       const c = new THREE.Vector3((Math.random() - 0.5) * 2, (Math.random() - 0.5) * 1.5, (Math.random() - 0.5) * 2).multiplyScalar(R * 0.6);
@@ -108,7 +110,7 @@ export class Smudge {
     const n = Math.min(this.patches.length, MAX_ERASE);
     for (let i = 0; i < n; i++) {
       const p = this.patches[this.patches.length - n + i];
-      const r = 2.6 * Math.min(1, p.age * 2) * (1 - THREE.MathUtils.smoothstep(p.age, 5, 8));
+      const r = 2.6 * p.scale * Math.min(1, p.age * 2) * (1 - THREE.MathUtils.smoothstep(p.age, 5, 8));
       G.uErase.value[i].set(p.p.x, p.p.y, p.p.z, r);
     }
     G.uEraseCount.value = n;
@@ -129,12 +131,12 @@ export class Smudge {
       this.speed = Math.min(this.maxSpeed, this.speed + dt * 0.05);
       this.position.addScaledVector(this.heading, this.speed * dt * this.size);
       const g = col.groundAt(new THREE.Vector3(this.position.x, Math.max(this.position.y, target.y) + 3, this.position.z), 12);
-      const want = (g ?? target.y) + 1.3;
+      const want = (g ?? target.y) + 1.3 * this.scale;
       this.position.y += (want - this.position.y) * (1 - Math.exp(-dt * 3));
-      if (this.position.distanceTo(new THREE.Vector3(target.x, target.y + 0.7, target.z)) < this.catchRadius * this.size) this.onCatch?.();
-      if (this.lastPatch.distanceTo(this.position) > 1.4) {
+      if (this.position.distanceTo(new THREE.Vector3(target.x, target.y + 0.7, target.z)) < this.catchRadius * this.size * this.scale) this.onCatch?.();
+      if (this.lastPatch.distanceTo(this.position) > 1.4 * this.scale) {
         this.lastPatch.copy(this.position);
-        this.patches.push({ p: new THREE.Vector3(this.position.x, (g ?? this.position.y - 1.3), this.position.z), age: 0 });
+        this.patches.push({ p: new THREE.Vector3(this.position.x, g ?? target.y, this.position.z), age: 0, scale: this.scale });
       }
       const near = 1 - THREE.MathUtils.smoothstep(this.position.distanceTo(target), 2, 18);
       audio.smudgeLevel(0.25 + near * 0.75);
@@ -146,9 +148,10 @@ export class Smudge {
     // two rubbed-out eyes looking where it goes
     const side = new THREE.Vector3(-this.heading.z, 0, this.heading.x);
     this.eyes.forEach((e, i) => {
-      e.position.copy(this.position).addScaledVector(this.heading, 0.9 * this.size).addScaledVector(side, (i ? 1 : -1) * 0.3 * this.size);
-      e.position.y += 0.25 * this.size + Math.sin(G.uTime.value * 3 + i) * 0.02;
-      e.scale.set(0.26 * this.size, 0.36 * this.size * (Math.sin(G.uTime.value * 0.7) > 0.97 ? 0.15 : 1), 1);
+      const k = this.size * this.scale;
+      e.position.copy(this.position).addScaledVector(this.heading, 0.9 * k).addScaledVector(side, (i ? 1 : -1) * 0.3 * k);
+      e.position.y += 0.25 * k + Math.sin(G.uTime.value * 3 + i) * 0.02;
+      e.scale.set(0.26 * k, 0.36 * k * (Math.sin(G.uTime.value * 0.7) > 0.97 ? 0.15 : 1), 1);
     });
   }
 

@@ -112,7 +112,7 @@ export class Game {
       this.onUpdate.clear();
       this.director.reset();
       G.uBloomCount.value = 0;
-      G.uColorBase.value = 0;
+      for (const t of G.uBloomTint.value) t.set(1, 1, 1);
       G.uEraseCount.value = 0;
     }
     this.level = level;

@@ -65,7 +65,6 @@ export class Attic implements Level {
     game.pipe.uniforms.uBloom.value = 1.6;
     game.pipe.uniforms.uTint.value.setRGB(0.9, 0.95, 1.12);
     G.uPigment.value.set(1, 1, 1);
-    G.uColorBase.value = 1;
     G.uAmbient.value.setRGB(0.16, 0.18, 0.3);
     G.uShadowTint.value.setRGB(0.3, 0.32, 0.52);
     G.uFog.value.set(60, 200, 0);

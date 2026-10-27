@@ -1,9 +1,9 @@
 import type { Input } from '../core/Input';
 import './ui.css';
 
-export type Speaker = 'Ada' | 'Pip' | 'Mum' | '';
+export type Speaker = 'Ada' | 'Pip' | 'Mum' | 'Keeper' | '';
 
-const COLORS: Record<string, string> = { Ada: 'var(--ada)', Pip: 'var(--pip)', Mum: 'var(--mum)' };
+const COLORS: Record<string, string> = { Ada: 'var(--ada)', Pip: 'var(--pip)', Mum: 'var(--mum)', Keeper: '#3d5f86' };
 
 function el(tag: string, cls: string, parent: HTMLElement, html = '') {
   const e = document.createElement(tag);
@@ -90,7 +90,7 @@ export class UI {
   /** Speak a line; resolves when the player moves on. */
   say(speaker: Speaker, text: string, speed = 42): Promise<void> {
     this.speaker = speaker;
-    this.who.textContent = speaker === 'Mum' ? 'Mum' : speaker;
+    this.who.textContent = speaker === 'Keeper' ? 'The Keeper' : speaker;
     this.who.style.color = COLORS[speaker] ?? 'var(--ink)';
     this.who.style.display = speaker ? '' : 'none';
     this.text.textContent = '';

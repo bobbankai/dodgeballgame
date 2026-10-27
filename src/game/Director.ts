@@ -29,6 +29,8 @@ export class Director {
   speaker: Speaker = '';
   /** Pip, if the level has it, so its mouth (head bob) can follow the dialogue. */
   pip: Companion | null = null;
+  /** Other characters who talk (they animate while their lines type out). */
+  readonly actors = new Map<Speaker, { speaking: boolean }>();
   private waits: { t: number; done: () => void }[] = [];
   private rails: Rail[] = [];
   private focusOn: THREE.Vector3 | (() => THREE.Vector3) | null = null;
@@ -43,6 +45,7 @@ export class Director {
     this.conds = [];
     this.cutscene = false;
     this.pip = null;
+    this.actors.clear();
   }
 
   wait(seconds: number): Promise<void> {
@@ -57,8 +60,11 @@ export class Director {
   async say(who: Speaker, text: string) {
     this.speaker = who;
     if (this.pip) this.pip.speaking = who === 'Pip';
+    const actor = this.actors.get(who);
+    if (actor) actor.speaking = true;
     await this.game.ui.say(who, text);
     if (this.pip) this.pip.speaking = false;
+    if (actor) actor.speaking = false;
     this.speaker = '';
   }
 
