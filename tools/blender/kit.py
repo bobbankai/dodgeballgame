@@ -188,7 +188,7 @@ def cottage(seed, w=4.6, d=4.0, h=2.6, roof='roof_red', door='door_green', wall=
 
 # --- trees ---------------------------------------------------------------------------------
 
-def blob(name, center, radius, mat, seed, flat=0.75, lumps=0.22, subdiv=3):
+def blob(name, center, radius, mat, seed, flat=0.75, lumps=0.22, subdiv=2):
     """A lumpy canopy clump: an icosphere pushed about by noise, its underside flattened."""
     bm = bmesh.new()
     bmesh.ops.create_icosphere(bm, subdivisions=subdiv, radius=1.0)

@@ -238,7 +238,12 @@ void main() {
   vec3 outN = mix(VN, vec3(0.0, 0.0, 1.0), step(0.5, er));
 
   outColor = vec4(fin, uOpacity);
-  outNormal = vec4(outN * 0.5 + 0.5, er > 0.5 ? 0.0 : uLineId / 255.0);
+  // baked scenery carries its ink line id in the vertex colour's alpha
+  float lid = uLineId / 255.0;
+  #ifdef USE_COLOR_ALPHA
+    if (vColor.a < 0.999) lid = vColor.a;
+  #endif
+  outNormal = vec4(outN * 0.5 + 0.5, er > 0.5 ? 0.0 : lid);
 }
 `;
 
@@ -254,7 +259,7 @@ export function inkMaterial(o: InkOptions = {}): THREE.ShaderMaterial {
     uAlwaysColor: { value: o.alwaysColor ? 1 : 0 },
     uSoft: { value: o.soft ?? 0.1 },
     uEmissive: { value: o.emissive ?? 0 },
-    uLineId: { value: o.lineId ?? (ids++ % 250) + 1 },
+    uLineId: { value: o.lineId ?? 200 + (ids++ % 54) },
     map: { value: o.map ?? null },
     mapTransform: { value: new THREE.Matrix3() },
     ...G,

@@ -20,7 +20,8 @@ let nextId = 1;
 export function lineIdFor(name: string) {
   let id = ids.get(name);
   if (id === undefined) {
-    id = (nextId++ % 250) + 1;
+    // 200+ so they never clash with ids baked into scenery vertex colours (10..199)
+    id = 200 + (nextId++ % 54);
     ids.set(name, id);
   }
   return id;

@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import levelUrl from '../assets/levels/margin_village.glb?url';
 import pipUrl from '../assets/models/pip.glb?url';
 import { audio } from '../audio/Audio';
-import { inkify, lineIdFor, loadGLTF } from '../core/Assets';
+import { inkify, loadGLTF } from '../core/Assets';
 import { Companion } from '../game/Companion';
 import type { Game, Level } from '../game/Game';
 import { scatter } from '../game/Scatter';
@@ -13,6 +13,8 @@ import { inkMaterial } from '../render/InkMaterial';
 import { P } from '../render/Particles';
 
 const v3 = (x = 0, y = 0, z = 0) => new THREE.Vector3(x, y, z);
+/** Ink line id baked into the terrain's vertex alpha (tools/blender/margin_village.py). */
+const TERRAIN_LINE_ID = 7;
 
 const NOTES: Record<string, { title: string; body: string }> = {
   board: {
@@ -77,12 +79,13 @@ export class MarginVillage implements Level {
       const n = o.name;
       if (/^(spawn|pip|cp|note|chase|smudge|pigment)_/.test(n)) this.m.set(n, o.getWorldPosition(v3()));
       if (n === 'windmill_sails') this.sails = o;
-      if ((o as THREE.Mesh).isMesh && /^(water|scenery_soft|windmill_sails)/.test(o.parent?.name ?? o.name)) o.castShadow = false;
+      if ((o as THREE.Mesh).isMesh && /^(water|windmill_sails)/.test(o.parent?.name ?? o.name)) o.castShadow = false;
     });
     const terrain = root.getObjectByName('terrain') as THREE.Mesh;
-    const scenery = root.getObjectByName('scenery')!;
     game.collision.add(terrain);
-    game.collision.add(scenery);
+    // the ground receives shadows but drawing it into the shadow maps costs more than it gives
+    terrain.traverse((o) => (o.castShadow = false));
+    for (const o of root.children) if (/^scenery_-?\d/.test(o.name)) game.collision.add(o);
 
     // grass and flowers wherever the ground is painted green
     const tm = (terrain.isMesh ? terrain : (terrain.children[0] as THREE.Mesh));
@@ -92,7 +95,7 @@ export class MarginVillage implements Level {
         min: new THREE.Vector2(-48, -112),
         max: new THREE.Vector2(48, 66),
         accept: (c, n) => c.g > c.r * 1.12 && c.g > c.b * 1.3 && n.y > 0.8,
-      }, 3, lineIdFor('terrain')),
+      }, 3, TERRAIN_LINE_ID),
     );
 
     // things Ada has to finish

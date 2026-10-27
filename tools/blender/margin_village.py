@@ -30,6 +30,8 @@ TERR = [(46.0, 2.6), (34.0, 5.6), (22.0, 8.6), (12.0, 12.0)]
 # ways up each terrace edge: angle round the tree (deg), and how
 WAYS = {0: (-90.0, 'stairs'), 1: (-20.0, 'ramp'), 2: (110.0, 'rocks'), 3: (-110.0, 'ramp')}
 STREAM_Y = -32.0
+# ink line id baked into the terrain's vertex alpha (the game's grass uses it too)
+TERRAIN_ID = 7
 
 
 def stream_y(x):
@@ -176,7 +178,7 @@ def terrain(step=0.8):
         c = [a + (b - a) * dirt for a, b in zip(c, DIRT)]
         rock = smooth01(0.25, 0.45, steep)
         c = [a + (b - a) * rock for a, b in zip(c, ROCK)]
-        attr.data[v.index].color = (*c, 1.0)
+        attr.data[v.index].color = (*c, TERRAIN_ID / 255.0)
     me.color_attributes.active_color_name = 'Col'
     return ob
 
@@ -347,10 +349,50 @@ def build():
             placed.append((x, y, 1.0))
 
     # bake scenery into a solid batch and a walk-through batch, so the game draws few objects
-    col = [o for o in scenery if o.get('col', 1)]
-    soft = [o for o in scenery if not o.get('col', 1)]
-    out = [ter, lib.join(col, 'scenery')] + ([lib.join(soft, 'scenery_soft')] if soft else []) + special
-    return out
+    # bake scenery into a few chunks (solid and walk-through) so the game draws few objects and
+    # can still skip the chunks behind the camera
+    out = [ter]
+    cells = {}
+    for o in scenery:
+        c = o.matrix_world @ Vector(o.bound_box[0]).lerp(Vector(o.bound_box[6]), 0.5)
+        key = (math.floor(c.x / 60.0), math.floor(c.y / 60.0), bool(o.get('col', 1)))
+        cells.setdefault(key, []).append(o)
+    for (cx, cy, solid), objs in cells.items():
+        ob = lib.join(objs, f"scenery{'' if solid else '_soft'}_{cx}_{cy}")
+        if not solid:
+            ob['col'] = 0
+        bake_materials(ob)
+        out.append(ob)
+    return out + special
+
+
+SCENERY = None
+LINE_IDS = {}
+
+
+def bake_materials(ob):
+    """Fold an object's materials into face-corner colours (rgb = colour, a = ink line id / 255) under
+    one shared material, so a whole chunk of scenery is one draw call but keeps its outlines."""
+    global SCENERY
+    if SCENERY is None:
+        SCENERY = lib.mat('scenery', '#FFFFFF')
+    me = ob.data
+    attr = me.color_attributes.new('Col', 'FLOAT_COLOR', 'CORNER')
+    cols = []
+    for m in me.materials:
+        if m.name not in LINE_IDS:
+            LINE_IDS[m.name] = 10 + len(LINE_IDS) % 190
+        base = m.node_tree.nodes['Principled BSDF'].inputs['Base Color'].default_value
+        cols.append((base[0], base[1], base[2], LINE_IDS[m.name] / 255.0))
+    for poly in me.polygons:
+        c = cols[poly.material_index] if cols else (1, 1, 1, 1)
+        for li in poly.loop_indices:
+            attr.data[li].color = c
+    me.color_attributes.active_color_name = 'Col'
+    me.materials.clear()
+    me.materials.append(SCENERY)
+    for poly in me.polygons:
+        poly.material_index = 0
 
 
 def water_mesh():
