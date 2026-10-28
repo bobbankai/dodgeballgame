@@ -28,7 +28,10 @@ python, system PIL is broken) tiles screenshots into one sheet, sorted by file n
 - `blender -b -P tools/blender/<script>.py -- --export` writes GLBs into `src/assets/`.
   `--preview out.png` renders Cycles previews; `--poses out.png` renders animation contact sheets.
 - `lib.py` shared helpers (shapes, materials, rig, Poser, spline clip authoring, bake_materials,
-  export). `kit.py` environment pieces. `ada.py` + `ada_anims.py`, `pip.py`, `attic.py`,
+  export). `sdf.py` sculpts with signed distance fields (numpy): primitives, smooth union / subtract /
+  intersect, shells, displacement, noise; `sculpt()` meshes a field (narrow-band surface nets, vertices
+  projected onto the field, decimated to a triangle budget); `bake_ao()` bakes Cycles AO per vertex.
+  Characters are sculpted this way, one continuous surface per material, AO painted into the colours. `kit.py` environment pieces. `ada.py` + `ada_anims.py`, `pip.py`, `attic.py`,
   `margin_village.py`; Chapter Two: `kit_sea.py` (lighthouse, boat, pier, stacks, inkwell), `crane.py`
   (the Keeper), `folded_sea.py` (level); Chapter Three: `mum.py` (Mum: her own design, nothing like Ada's,
   long copper hair and braid, indigo dress, paint-splashed apron, fingered hands; Ada's bone names so
@@ -43,7 +46,7 @@ python, system PIL is broken) tiles screenshots into one sheet, sorted by file n
 
 ## Renderer (src/render)
 
-- `InkMaterial.ts`: the only surface shader. Toon wash + cool shadow wash, sun (SunLight cascades)
+- `InkMaterial.ts`: the only surface shader (`gloss` / `glossSize` / `glossWhite`: highlights left as bare paper). Toon wash + cool shadow wash, sun (SunLight cascades)
   and point lights, world-space pencil hatching, graphite vs colour mixed by watercolour bloom masks
   and pigment families (green / blue / warm), erase field (the Smudge), drawn water. `uPigment` is
   what is restored everywhere; each bloom carries its own families (`uBloomTint`) as it spreads, and

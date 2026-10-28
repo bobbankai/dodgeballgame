@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import type { GLTF } from 'three/examples/jsm/loaders/GLTFLoader.js';
-import { inkify } from '../core/Assets';
+import { inkify, lineIdFor } from '../core/Assets';
 import type { Input } from '../core/Input';
 import { Animator } from './Animator';
 import type { Collision } from './Collision';
@@ -79,10 +79,22 @@ export class Player {
 
   constructor(gltf: GLTF) {
     this.model = gltf.scene;
+    // the eyes are drawn like a picture-book face: an ink line round the white and the iris, none
+    // round the pupil or the glints, no hatching, and the glints stay bright in shadow
+    const eye = ['ada_eye_white', 'ada_iris', 'ada_eye_hi'];
+    // what shines: the rubber boots and the raincoat most, then buttons, leather and a little hair
+    const shine: Record<string, [number, number, number]> = {
+      ada_boots: [0.75, 0.045, 1], ada_coat: [0.45, 0.04, 0.85], ada_coat_dark: [0.35, 0.04, 0.7], ada_button: [0.8, 0.05, 1],
+      ada_bag: [0.4, 0.06, 0.3], ada_strap: [0.3, 0.05, 0.3], ada_hair: [0.32, 0.08, 0.05], ada_sole: [0.3, 0.06, 0.4],
+      ada_skin: [0.18, 0.05, 0.25],
+    };
     inkify(this.model, (name) => ({
       alwaysColor: true,
-      hatch: name === 'ada_skin' ? 0.25 : 0.55,
-      soft: name === 'ada_skin' ? 0.16 : 0.1,
+      hatch: eye.includes(name) ? 0 : name === 'ada_skin' ? 0.25 : 0.55,
+      soft: name === 'ada_skin' ? 0.16 : eye.includes(name) ? 0.3 : 0.1,
+      ...(name === 'ada_eye_hi' ? { lineId: lineIdFor('ada_iris'), emissive: 0.7 } : {}),
+      ...(name === 'ada_eye_white' ? { emissive: 0.18 } : {}),
+      ...(shine[name] ? { gloss: shine[name][0], glossSize: shine[name][1], glossWhite: shine[name][2] } : {}),
     }));
     this.model.traverse((o) => {
       if (o.name === 'ada_pencil_ear') this.pencilEar = o;

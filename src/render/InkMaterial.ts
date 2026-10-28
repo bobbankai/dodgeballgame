@@ -27,6 +27,12 @@ export interface InkOptions {
   opacity?: number;
   /** Drawn in up to this world height (a shared uniform): above it, nothing yet; at it, the ink line. */
   reveal?: { value: number };
+  /** Shine (0..1): a highlight left as bare paper, the way a watercolourist paints a glossy surface. */
+  gloss?: number;
+  /** How broad that highlight is (0.05 a sharp glint .. 0.4 a soft sheen). */
+  glossSize?: number;
+  /** 1: the highlight is bare white paper (rubber, enamel); towards 0 a lighter wash of the colour (hair). */
+  glossWhite?: number;
 }
 
 const VERT = /* glsl */ `
@@ -104,6 +110,11 @@ uniform float uSoft;
 uniform float uEmissive;
 uniform float uLineId;
 uniform float uTime;
+#ifdef GLOSS
+uniform float uGloss;
+uniform float uGlossSize;
+uniform float uGlossWhite;
+#endif
 #ifdef REVEAL
 uniform float uCut;
 #endif
@@ -237,6 +248,15 @@ void main() {
   float rim = pow(1.0 - clamp(dot(VN, V), 0.0, 1.0), 3.0);
   col += base * rim * 0.12 * (0.4 + 0.6 * lit);
   col += base * uEmissive;
+  #ifdef GLOSS
+    // the highlight is paper left unpainted: a brushy-edged shape where the sun's reflection falls
+    vec3 Vw = normalize(cameraPosition - vWorldPos);
+    float nh = max(dot(N, normalize(L + Vw)), 0.0);
+    float gEdge = 1.0 - uGlossSize;
+    float gl = smoothstep(gEdge, gEdge + uGlossSize * 0.35, nh + wob * 0.06) * smoothstep(0.3, 0.8, lit) * uGloss;
+    vec3 hiCol = mix(min(col * 1.75 + 0.04, vec3(1.0)), uPaper * mix(sunCol, vec3(1.0), 0.5) * 1.04, uGlossWhite);
+    col = mix(col, max(col, hiCol), gl);
+  #endif
 
   // hatching in shadow: one direction for shade, a cross layer only where it's deep
   // hatching thins into a flat tone with distance, so it never shimmers
@@ -338,6 +358,12 @@ export function inkMaterial(o: InkOptions = {}): THREE.ShaderMaterial {
     mat.uniforms.uCut = o.reveal;
   }
   if (o.waves) mat.defines = { ...mat.defines, WAVES: '' };
+  if (o.gloss) {
+    mat.defines = { ...mat.defines, GLOSS: '' };
+    mat.uniforms.uGloss = { value: o.gloss };
+    mat.uniforms.uGlossSize = { value: o.glossSize ?? 0.12 };
+    mat.uniforms.uGlossWhite = { value: o.glossWhite ?? 1 };
+  }
   if (o.flat || o.waves) mat.defines = { ...mat.defines, FLAT: '' };
   if (o.map) (mat as unknown as { map: THREE.Texture }).map = o.map;
   return mat;

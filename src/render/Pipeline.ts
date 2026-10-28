@@ -67,15 +67,19 @@ void main() {
   if (isSky) col = sky(vUv);
 
   // glow: bright washes bleed light into their surroundings, like wet paint under a lamp
+  // (the tap pattern turns from pixel to pixel, so a small bright spot, like a glint in an eye,
+  // spreads as a soft haze instead of a ring of ghost copies of itself)
   vec3 glow = vec3(0.0);
+  float spin = ibHash2(floor(vUv * uRes)) * 6.2831;
   for (int i = 0; i < 12; i++) {
-    float a = float(i) * 2.39996;
+    float a = float(i) * 2.39996 + spin;
     float r = (0.012 + 0.05 * sqrt(float(i + 1) / 12.0));
     vec3 s = texture2D(tColor, vUv + vec2(cos(a), sin(a) * uRes.x / uRes.y) * r).rgb;
     glow += max(s - 0.72, 0.0);
   }
   glow /= 12.0;
-  col += glow * uBloom;
+  // light bleeds over paper and pale washes; dark pigment (pupils, ink) keeps it out
+  col += glow * uBloom * mix(0.25, 1.0, smoothstep(0.08, 0.4, dot(c0, vec3(0.333))));
 
   // depth of field for cinematics: the wash softens away from the focal plane
   float coc = 0.0;
