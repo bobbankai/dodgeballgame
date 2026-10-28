@@ -495,4 +495,13 @@ if __name__ == '__main__':
             lib.preview(os.path.join(d, f'{i:02d}_{name}_{f}.png'), target=(0, 0, 0.8), dist=3.2, yaw=yaw, pitch=8, size=(360, 480), lens=50, samples=10)
         ad.action = None
     if '--export' in argv:
+        # she only ever stands, talks, walks a little, waves and kneels: leave Ada's other clips out
+        keep = {'idle', 'talk', 'walk', 'wave', 'kneel_hug', 'kneel_hold', 'blink', 'speak'}
+        ad = arm.animation_data
+        for tr in list(ad.nla_tracks):
+            if tr.name not in keep:
+                ad.nla_tracks.remove(tr)
+        for act in list(bpy.data.actions):
+            if act.name not in keep:
+                bpy.data.actions.remove(act)
         lib.export_glb(os.path.join(lib.MODELS, 'mum.glb'), [arm] + meshes)

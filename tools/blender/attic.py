@@ -293,7 +293,7 @@ def build():
     for name, loc in (('spawn_attic', (0.0, -L + 1.0, 0.0)), ('lamp_light', (-0.35, L - 0.7, 1.2)), ('bulb_light', (0.0, 0.2, 2.2)),
                       ('look_window', (0.0, L - 0.4, 1.4)), ('look_drawing', (-2.3, 2.6, 0.6)), ('look_boxes', (1.6, -1.6, 0.4)),
                       ('look_fox', (-2.6, 1.3, 0.9)), ('look_easel', (-1.5, 1.2, 1.0)), ('look_book', (0.05, L - 0.8, 0.85)),
-                      ('spawn_morning', (0.4, L - 1.6, 0.0)),
+                      ('spawn_morning', (0.85, L - 2.2, 0.0)),  # clear of the desk chair
                       # the front of the easel's canvas, its centre (it leans back by 0.12 rad about X)
                       ('easel_face', (-1.6, 1.4 - 0.1 - 0.03 * math.cos(0.12), 1.06 - 0.03 * math.sin(0.12))),
                       # the open page of the sketchbook, for the drawing in the epilogue

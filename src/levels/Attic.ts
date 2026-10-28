@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import levelUrl from '../assets/levels/attic.glb?url';
+import pipUrl from '../assets/models/pip.glb?url';
 import { audio } from '../audio/Audio';
 import { inkify, loadGLTF } from '../core/Assets';
 import type { Game, Level } from '../game/Game';
@@ -49,7 +50,7 @@ export class Attic implements Level {
 
   async load(game: Game) {
     this.game = game;
-    const gltf = await loadGLTF(levelUrl);
+    const [gltf, pipGltf] = await Promise.all([loadGLTF(levelUrl), loadGLTF(pipUrl)]);
     const root = gltf.scene;
     game.scene.add(root);
     const mats = inkify(root, (name) => (name === 'scenery' ? { hatch: 0.55, soft: 0.12 } : { hatch: 0.4 }));
@@ -57,14 +58,32 @@ export class Attic implements Level {
       if (/^(spawn|look|lamp|bulb|easel|book)_/.test(o.name)) this.m.set(o.name, o.getWorldPosition(v3()));
     });
     this.sheet = root.getObjectByName('easel_sheet') ?? null;
-    this.fox = root.getObjectByName('paper_fox') ?? null;
-    if (this.morning) {
-      await this.loadMorning(game, mats);
-      return;
+    // the little folded fox on the bookshelf: Pip, in miniature (sitting where the attic's fox was)
+    const folded = root.getObjectByName('paper_fox');
+    if (folded) {
+      const box = new THREE.Box3().setFromObject(folded);
+      folded.visible = false;
+      const mini = pipGltf.scene;
+      inkify(mini, () => ({ alwaysColor: true, hatch: 0.5, soft: 0.04 }));
+      mini.scale.setScalar(0.26);
+      mini.position.set((box.min.x + box.max.x) / 2, box.min.y, (box.min.z + box.max.z) / 2);
+      mini.rotation.y = Math.PI / 2;
+      const sit = pipGltf.animations.find((c) => c.name === 'sit');
+      if (sit) {
+        const mixer = new THREE.AnimationMixer(mini);
+        mixer.clipAction(sit).play();
+        mixer.update(0.5);
+      }
+      game.scene.add(mini);
+      this.fox = mini;
     }
     for (const o of root.children) if (/^attic_/.test(o.name) && !/_glass$/.test(o.name)) game.collision.add(o);
     const book = root.getObjectByName('sketchbook')!;
     game.collision.add(book);
+    if (this.morning) {
+      await this.loadMorning(game, mats);
+      return;
+    }
 
     // night in the attic: moonlight through the window, the desk lamp's warm pool
     game.setSun(v3(0.2, 0.55, -1), 0x8fa6d8, 0.35);
@@ -122,8 +141,8 @@ export class Attic implements Level {
   private async loadMorning(game: Game, mats: Map<THREE.Material, THREE.ShaderMaterial>) {
     for (const m of mats.values()) {
       if (m.name === 'attic_glass') {
-        m.uniforms.uColor.value.setRGB(0.82, 0.9, 0.98);
-        m.uniforms.uEmissive.value = 0.9;
+        m.uniforms.uColor.value.setRGB(0.66, 0.8, 0.95);
+        m.uniforms.uEmissive.value = 0.45;
       }
     }
     game.setSun(v3(0.15, 0.5, -1), 0xfff0d6, 1.35);
@@ -242,7 +261,8 @@ export class Attic implements Level {
       sheet.visible = false;
       g.particles.dust(easel.clone().add(v3(0.4, -0.9, 0.4)), 8, 0.25);
     }
-    d.shot(easel.clone().add(v3(0.15, 0.05, 1.25)), easel.clone(), 42);
+    // from just in front of her, so the painting fills the frame
+    d.shot(easel.clone().add(v3(0.08, 0.03, 0.72)), easel.clone(), 52, true);
     d.focus(easel, 0.5);
     await d.wait(2.5);
     await d.talk([
@@ -268,24 +288,21 @@ export class Attic implements Level {
     d.cinematic(true);
     const fox = this.fox;
     const foxAt = this.m.get('look_fox')!;
-    d.shot(foxAt.clone().add(v3(0.9, 0.25, 0.5)), foxAt.clone().add(v3(0, 0.05, 0)), 30);
-    d.focus(foxAt, 0.9);
+    const foxLook = fox ? fox.position.clone().add(v3(0, 0.09, 0)) : foxAt;
+    d.shot(foxLook.clone().add(v3(0.5, 0.06, 0.18)), foxLook, 24);
+    d.focus(foxLook, 0.9);
     await d.wait(2.0);
     await d.talk([['Ada', 'Thank you, Pip.']]);
     g.ui.hideDialogue();
     await d.wait(0.6);
     // ...and the little paper fox turns its head, just once
     if (fox) {
-      const pivot = foxAt.clone();
-      const base = fox.position.clone();
-      for (let t = 0; t < 1; t += 1 / 24) {
-        const a = Math.sin(t * Math.PI) * 0.35;
-        fox.position.copy(base).sub(pivot).applyAxisAngle(v3(0, 1, 0), a).add(pivot);
-        fox.rotation.y = a;
+      const yaw = fox.rotation.y;
+      for (let t = 0; t < 1; t += 1 / 30) {
+        fox.rotation.y = yaw + Math.sin(t * Math.PI) * 0.5;
         await d.wait(1 / 30);
       }
-      fox.position.copy(base);
-      fox.rotation.y = 0;
+      fox.rotation.y = yaw;
     }
     g.particles.sparkles(foxAt.clone().add(v3(0, 0.1, 0)), 0xffd36a, 16, 0.2, 0.08);
     audio.pigment();
@@ -294,9 +311,10 @@ export class Attic implements Level {
     const win = this.m.get('look_window')!;
     d.focus(null);
     await d.rail({
-      path: [g.camera.position.clone(), win.clone().add(v3(0, 0.2, 2.0)), win.clone().add(v3(0, 0.3, 0.3))],
-      look: [foxAt, win.clone(), win.clone().add(v3(0, 0.6, -6))],
-      duration: 7,
+      // (up over the easel first, then across to the window and out)
+      path: [g.camera.position.clone(), foxAt.clone().add(v3(0.9, 1.3, 1.0)), win.clone().add(v3(-0.4, 0.3, 2.0)), win.clone().add(v3(0, 0.3, 0.3))],
+      look: [foxAt, win.clone().add(v3(-1, -0.2, 1)), win.clone(), win.clone().add(v3(0, 0.6, -6))],
+      duration: 8,
       fov: [36, 60],
     });
     await g.ui.fade(1, 2.5, '#f7f1e3');

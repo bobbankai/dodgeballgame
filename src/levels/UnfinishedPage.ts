@@ -360,8 +360,9 @@ export class UnfinishedPage implements Level {
     const across = v3().subVectors(this.pip.position, g.player.position).setY(0).normalize();
     const out = v3(-across.z, 0, across.x);
     if (out.dot(v3().subVectors(mid, this.at('note_studio')).setY(0)) < 0) out.negate();
-    d.shot(mid.clone().addScaledVector(out, 2.8).add(v3(0, 0.8, 0)), mid.clone().add(v3(0, 0.6, 0)), 36);
-    d.focus(() => this.pip.position.clone().add(v3(0, 0.3, 0)), 0.6);
+    // low behind Pip, looking up past him at Ada: the fox in the corner of the frame
+    d.shot(this.pip.position.clone().addScaledVector(across, 1.5).addScaledVector(out, 0.7).add(v3(0, 0.55, 0)), mid.clone().lerp(g.player.position, 0.6).add(v3(0, 0.75, 0)), 40);
+    d.focus(() => g.player.position.clone().add(v3(0, 1.0, 0)), 0.5);
     audio.play('attic');
     await d.talk([
       ['Ada', "Mum's desk. Her stool. Her pencils."],
@@ -568,8 +569,9 @@ export class UnfinishedPage implements Level {
     // kneeling, holding her hands, face to face
     mum.pose = 'kneel_hold';
     g.player.setPose(null);
-    d.shot(spot.clone().add(v3(-1.6, 1.1, 1.1)), spot.clone().add(v3(0.1, 1.0, 0.3)), 34);
-    d.focus(() => spot.clone().add(v3(0, 1.0, 0.25)), 0.7);
+    // past Ada's shoulder onto Mum's face
+    d.shot(spot.clone().add(v3(0.95, 1.3, 1.55)), spot.clone().add(v3(-0.05, 1.12, 0.05)), 34);
+    d.focus(() => spot.clone().add(v3(0, 1.15, 0.05)), 0.7);
     await d.talk([
       ['Mum', 'But you can. That is the thing about you, Ada. You always finish what you start.'],
       ['Ada', "I don't want to say goodbye."],
@@ -616,10 +618,12 @@ export class UnfinishedPage implements Level {
     d.cinematic(true);
     g.player.face(c, 1);
     // the picture, then Ada looking at it, then up and away over the whole golden page
-    d.shot(c.clone().add(v3(0.3, 0.05, 2.2)), c, 40);
+    // square on to the picture, from just in front of her
+    d.shot(c.clone().add(v3(0.0, 0.02, 1.05)), c, 50, true);
     d.focus(c, 0.3);
-    await d.wait(3.0);
-    d.shot(c.clone().add(v3(-1.6, -0.2, 1.4)), g.player.position.clone().add(v3(0.3, 1.1, 0)), 36);
+    await d.wait(3.5);
+    // her face, lit by it
+    d.shot(c.clone().add(v3(-0.75, -0.45, 0.5)), g.player.position.clone().add(v3(0, 1.15, 0)), 34);
     d.focus(() => g.player.position.clone().add(v3(0, 1.1, 0)), 0.6);
     await d.talk([
       ['Ada', 'Mum and me.'],
@@ -628,8 +632,8 @@ export class UnfinishedPage implements Level {
     d.focus(null);
     const from = g.camera.position.clone();
     await d.rail({
-      path: [from, c.clone().add(v3(-4, 4, 8)), c.clone().add(v3(-12, 16, 30)), c.clone().add(v3(-18, 34, 70))],
-      look: [c.clone(), c.clone().add(v3(0, -1, 6)), c.clone().add(v3(0, -4, 30)), c.clone().add(v3(0, -8, 60))],
+      path: [from, c.clone().add(v3(-2.5, 1.5, 4)), c.clone().add(v3(-10, 12, 26)), c.clone().add(v3(-18, 34, 70))],
+      look: [c.clone(), c.clone().add(v3(0, -0.5, 3)), c.clone().add(v3(0, -4, 28)), c.clone().add(v3(0, -8, 60))],
       duration: 14,
       fov: [40, 54],
     });
@@ -661,6 +665,8 @@ export class UnfinishedPage implements Level {
     if (this.pip.root.visible) this.pip.update(dt, g.player, g.collision);
     this.mum.update(dt);
     for (const path of this.paths) path.update(dt);
+    // at the last page it comes no closer than arm's length: it waits to be drawn
+    if (this.shading) this.smudge.speed = Math.hypot(this.smudge.position.x - p.x, this.smudge.position.z - p.z) > 4 ? 0.5 : 0;
     this.smudge.update(dt, p, g.collision);
     for (const n of this.notes) {
       n.mesh.position.copy(n.base).add(v3(0, Math.sin(time * 1.6) * 0.06, 0));

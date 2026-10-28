@@ -9,7 +9,8 @@ rigs, animations and levels; the game is TypeScript + three.js with a custom ink
 - `npm run dev` then open http://localhost:5173 (title screen).
 - Dev shortcuts: `?at=<checkpoint>` jumps into Chapter One (`arrival`, `stream`, `bridge`, `village`,
   `terrace1`, `terrace2`, `terrace3`, `plateau`); `?level=sea[&at=...]` Chapter Two (`arrival`, `shore`,
-  `headland`, `gallery`, `pier`, `sea1`-`sea3`, `island`); `?level=attic` the prologue; `?level=playground`.
+  `headland`, `gallery`, `pier`, `sea1`-`sea3`, `island`); `?level=page[&at=...]` Chapter Three (`arrival`,
+  `kitchen`, `garden`, `studio`, `page`); `?level=epilogue`; `?level=attic` the prologue; `?level=playground`.
 - `npx tsc --noEmit` typechecks; `npm run build` makes the production bundle.
 
 ## Testing without a GPU
@@ -29,7 +30,9 @@ python, system PIL is broken) tiles screenshots into one sheet, sorted by file n
 - `lib.py` shared helpers (shapes, materials, rig, Poser, spline clip authoring, bake_materials,
   export). `kit.py` environment pieces. `ada.py` + `ada_anims.py`, `pip.py`, `attic.py`,
   `margin_village.py`; Chapter Two: `kit_sea.py` (lighthouse, boat, pier, stacks, inkwell), `crane.py`
-  (the Keeper), `folded_sea.py` (level). Blender (x, y, z) is three (x, z, -y).
+  (the Keeper), `folded_sea.py` (level); Chapter Three: `mum.py` (Mum: Ada's bone names and layout
+  scaled up, so `ada_anims` authors onto her with `T_SCALE`; her own kneeling clips), `unfinished_page.py`.
+  Blender (x, y, z) is three (x, z, -y).
 - Rig conventions (Blender, character faces -Y, left = +X): pose rotations are written about the
   armature axes and converted per bone (`Poser`). +X bends an upward bone forwards / swings a
   downward bone back; `ax` sets a bone's absolute pitch. `sym=k` mirrors _L channels to _R k frames
@@ -49,6 +52,8 @@ python, system PIL is broken) tiles screenshots into one sheet, sorted by file n
   The composite writes scene depth so the `overlay` scene (sketch strokes, particles, sprites) is
   depth-tested but never outlined. Overlay shaders output display colours directly.
 - `Sketch.ts` screen-space pencil ribbons (must be double-sided) and ghost hatching.
+- `Portrait.ts` the last page, painted step by step on a canvas texture (pencil, washes, details);
+  `InkOptions.reveal` draws a figure in from the feet up with a gold edge (Mum).
 
 ## Game (src/game, src/levels)
 
@@ -56,11 +61,12 @@ Game loop, Player (floating capsule + ground ray, step-up, `ride()` a seat), Ani
 blending, face overlays), CameraRig (orbit, five-ray collision that looks past railings, shots,
 `guide` hook for awkward places like the spiral stair, `sailing()`), Director (async story scripts on
 game time, `rail()` camera moves, `focus()` depth of field, `cinematic()`), Trace (ink-in
-mechanic), Companion (Pip), Keeper (crane), Boat, Sea, Storm, Smudge, Flow (title, chapters in
-order, saves in localStorage, pause). A level only reaches the frame loop once `load()` finishes.
+mechanic), DrawnPath (paths Ada draws herself in Chapter Three), Companion (Pip), Keeper (crane),
+Mum, Boat, Sea, Storm, Smudge, Flow (title, prologue to epilogue in order, credits, saves in
+localStorage, pause). A level only reaches the frame loop once `load()` finishes.
 
 ## Status
 
-Done: Prologue (attic), Chapter One (Margin Village, green), Chapter Two (Folded Sea, blue).
-To do: Chapter Three (Unfinished Page, gold), Epilogue (Chapter Two's end currently returns to the
-title).
+Done: Prologue (attic), Chapter One (Margin Village, green), Chapter Two (Folded Sea, blue),
+Chapter Three (Unfinished Page, gold), Epilogue (morning attic) and credits. The whole story plays
+from the title screen through to the credits.

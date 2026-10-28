@@ -7,6 +7,8 @@ import type { Game } from './Game';
 
 const LOOPS = 34;
 const SEGS = 10;
+/** Room for the biggest Smudge: more, smaller, rounder loops rather than a few huge straight ones. */
+const MAX_SEGMENTS = 90 * 16;
 
 function eyeTexture() {
   const c = document.createElement('canvas');
@@ -46,7 +48,7 @@ export class Smudge {
   private heading = new THREE.Vector3(0, 0, 1);
 
   constructor(private game: Game) {
-    const n = LOOPS * SEGS;
+    const n = MAX_SEGMENTS;
     this.seg = { a: new Float32Array(n * 3), b: new Float32Array(n * 3), seed: new Float32Array(n * 2), count: n };
     this.lines = new SketchLines(this.seg, { width: 2.2, wobble: 0.0, color: 0x2a2629, alpha: 0.9 });
     this.lines.visible = false;
@@ -77,16 +79,21 @@ export class Smudge {
     const s = this.seg;
     const R = 1.5 * this.size * this.scale;
     let k = 0;
-    for (let l = 0; l < LOOPS; l++) {
+    // a big Smudge is a dense cloud of scribbles, each still small enough to read as a pencil loop
+    const grow = Math.min(2.6, Math.max(1, Math.pow(this.scale, 0.75)));
+    const loops = Math.round(LOOPS * grow);
+    const rMax = Math.min((R * 0.7) / Math.sqrt(grow), 2.2);
+    for (let l = 0; l < loops; l++) {
       const c = new THREE.Vector3((Math.random() - 0.5) * 2, (Math.random() - 0.5) * 1.5, (Math.random() - 0.5) * 2).multiplyScalar(R * 0.6);
-      const r = (0.25 + Math.random() * 0.7) * R * 0.7;
+      const r = (0.25 + Math.random() * 0.7) * rMax;
+      const segs = Math.max(SEGS, Math.min(16, Math.round(r * 9)));
       const u = new THREE.Vector3(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).normalize();
       const v = new THREE.Vector3(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).cross(u).normalize();
       const a0 = Math.random() * Math.PI * 2;
       const turns = 1.2 + Math.random() * 1.2;
       let prev: THREE.Vector3 | null = null;
-      for (let i = 0; i <= SEGS; i++) {
-        const a = a0 + (i / SEGS) * turns * Math.PI * 2;
+      for (let i = 0; i <= segs; i++) {
+        const a = a0 + (i / segs) * turns * Math.PI * 2;
         const rr = r * (0.75 + 0.35 * Math.sin(a * 2.3 + time));
         const p = c.clone().addScaledVector(u, Math.cos(a) * rr).addScaledVector(v, Math.sin(a) * rr).add(this.position);
         if (prev) {
@@ -127,7 +134,12 @@ export class Smudge {
       // drift towards Ada over everything, a little above the ground
       const to = new THREE.Vector3().subVectors(target, this.position).setY(0);
       const d = to.length();
-      if (d > 0.01) this.heading.lerp(to.normalize(), 1 - Math.exp(-dt * 2)).normalize();
+      if (d > 0.01) {
+        to.normalize();
+        // its quarry straight behind it: swing round through one side rather than never turning
+        if (this.heading.dot(to) < -0.6) this.heading.add(new THREE.Vector3(-to.z, 0, to.x).multiplyScalar(0.4));
+        this.heading.lerp(to, 1 - Math.exp(-dt * 2)).normalize();
+      }
       this.speed = Math.min(this.maxSpeed, this.speed + dt * 0.05);
       this.position.addScaledVector(this.heading, this.speed * dt * this.size);
       const g = col.groundAt(new THREE.Vector3(this.position.x, Math.max(this.position.y, target.y) + 3, this.position.z), 12);
