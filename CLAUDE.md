@@ -8,7 +8,8 @@ rigs, animations and levels; the game is TypeScript + three.js with a custom ink
 
 - `npm run dev` then open http://localhost:5173 (title screen).
 - Dev shortcuts: `?at=<checkpoint>` jumps into Chapter One (`arrival`, `stream`, `bridge`, `village`,
-  `terrace1`, `terrace2`, `terrace3`, `plateau`); `?level=attic` the prologue; `?level=playground`.
+  `terrace1`, `terrace2`, `terrace3`, `plateau`); `?level=sea[&at=...]` Chapter Two (`arrival`, `shore`,
+  `headland`, `gallery`, `pier`, `sea1`-`sea3`, `island`); `?level=attic` the prologue; `?level=playground`.
 - `npx tsc --noEmit` typechecks; `npm run build` makes the production bundle.
 
 ## Testing without a GPU
@@ -16,8 +17,10 @@ rigs, animations and levels; the game is TypeScript + three.js with a custom ink
 `node tools/play.mjs "http://localhost:5173/?test&at=village" <outDir> '<json script>' [w] [h]` steps the
 game deterministically (software WebGL) while holding keys and taking screenshots. Script steps:
 `{"keys":["KeyW"],"t":1.0,"shot":"name","eval":"js"}`. In `?test` mode `window.__game` and
-`window.THREE` are exposed. `tools/tile.py <dir> <out.png> [cols]` (run with the scratchpad venv's
-python, system PIL is broken) tiles screenshots into one sheet.
+`window.THREE` are exposed; `__game.ui.autoAdvance = 0.4` makes dialogue and notes move on by
+themselves. Scripted walking: set `__game.player.goal` with `inputEnabled = false` (goals are ignored
+while the player has control). `tools/tile.py <dir> <out.png> [cols]` (run with the scratchpad venv's
+python, system PIL is broken) tiles screenshots into one sheet, sorted by file name (b10 < b2).
 
 ## Assets (Blender 4.5 at /opt/blender, run headless)
 
@@ -25,7 +28,8 @@ python, system PIL is broken) tiles screenshots into one sheet.
   `--preview out.png` renders Cycles previews; `--poses out.png` renders animation contact sheets.
 - `lib.py` shared helpers (shapes, materials, rig, Poser, spline clip authoring, bake_materials,
   export). `kit.py` environment pieces. `ada.py` + `ada_anims.py`, `pip.py`, `attic.py`,
-  `margin_village.py`, and one script per later chapter.
+  `margin_village.py`; Chapter Two: `kit_sea.py` (lighthouse, boat, pier, stacks, inkwell), `crane.py`
+  (the Keeper), `folded_sea.py` (level). Blender (x, y, z) is three (x, z, -y).
 - Rig conventions (Blender, character faces -Y, left = +X): pose rotations are written about the
   armature axes and converted per bone (`Poser`). +X bends an upward bone forwards / swings a
   downward bone back; `ax` sets a bone's absolute pitch. `sym=k` mirrors _L channels to _R k frames
@@ -37,7 +41,9 @@ python, system PIL is broken) tiles screenshots into one sheet.
 
 - `InkMaterial.ts`: the only surface shader. Toon wash + cool shadow wash, sun (SunLight cascades)
   and point lights, world-space pencil hatching, graphite vs colour mixed by watercolour bloom masks
-  and pigment families (green / blue / warm), erase field (the Smudge), drawn water.
+  and pigment families (green / blue / warm), erase field (the Smudge), drawn water. `uPigment` is
+  what is restored everywhere; each bloom carries its own families (`uBloomTint`) as it spreads, and
+  folds into `uPigment` when done. `waves` displaces by the sea (`glsl.ts` WAVES = `Sea.seaHeight`).
 - `Pipeline.ts`: MRT (colour + view normal/line id) + depth -> composite: ink lines (inverse-depth
   laplacian, normals, ids, dry-brush break-up), bloom, wash banding, wet edges, paper, grading.
   The composite writes scene depth so the `overlay` scene (sketch strokes, particles, sprites) is
@@ -46,11 +52,15 @@ python, system PIL is broken) tiles screenshots into one sheet.
 
 ## Game (src/game, src/levels)
 
-Game loop, Player (floating capsule + ground ray, step-up), Animator (weighted clip blending,
-face overlays), CameraRig (orbit, collision, shots), Director (async story scripts on game time),
-Trace (ink-in mechanic), Companion (Pip), Smudge, Flow (title, saves in localStorage, pause).
+Game loop, Player (floating capsule + ground ray, step-up, `ride()` a seat), Animator (weighted clip
+blending, face overlays), CameraRig (orbit, five-ray collision that looks past railings, shots,
+`guide` hook for awkward places like the spiral stair, `sailing()`), Director (async story scripts on
+game time, `rail()` camera moves, `focus()` depth of field, `cinematic()`), Trace (ink-in
+mechanic), Companion (Pip), Keeper (crane), Boat, Sea, Storm, Smudge, Flow (title, chapters in
+order, saves in localStorage, pause). A level only reaches the frame loop once `load()` finishes.
 
 ## Status
 
-Done: Prologue (attic), Chapter One (Margin Village, green). In progress: cinematic camera paths,
-Chapter Two (Folded Sea, blue), Chapter Three (Unfinished Page, gold), Epilogue.
+Done: Prologue (attic), Chapter One (Margin Village, green), Chapter Two (Folded Sea, blue).
+To do: Chapter Three (Unfinished Page, gold), Epilogue (Chapter Two's end currently returns to the
+title).

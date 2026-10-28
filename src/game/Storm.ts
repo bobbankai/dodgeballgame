@@ -5,6 +5,7 @@ import { SketchLines, type Segments } from '../render/Sketch';
 import type { Game } from './Game';
 
 const DROPS = 260;
+const _stormTint = new THREE.Color(0.42, 0.46, 0.58);
 
 /**
  * Weather: pencilled rain slanting past the camera, lightning bolts inked across the sky with a
@@ -21,7 +22,7 @@ export class Storm {
   private boltLife = 0;
   private nextBolt = 4;
   private flash = 0;
-  private base = { sun: 1, sky: new THREE.Color(), ambient: new THREE.Color(), fog: new THREE.Vector3() };
+  private base = { sun: 1, sky: new THREE.Color(), ambient: new THREE.Color(), fog: new THREE.Vector3(), tint: new THREE.Color(), contrast: 1 };
 
   constructor(private game: Game) {
     this.rseg = { a: new Float32Array(DROPS * 3), b: new Float32Array(DROPS * 3), seed: new Float32Array(DROPS * 2), count: DROPS };
@@ -39,6 +40,11 @@ export class Storm {
     game.pipe.overlay.add(this.rain, this.bolt);
   }
 
+  /** True while there is any weather to draw (otherwise the level owns the lighting). */
+  get active() {
+    return this.target > 0 || this.level > 0.002;
+  }
+
   /** Remember the calm-weather lighting to blend back to. */
   captureBase() {
     const g = this.game;
@@ -46,9 +52,12 @@ export class Storm {
     this.base.sky.copy(g.pipe.uniforms.uSkyTop.value);
     this.base.ambient.copy(G.uAmbient.value);
     this.base.fog.copy(G.uFog.value);
+    this.base.tint.copy(g.pipe.uniforms.uTint.value);
+    this.base.contrast = g.pipe.uniforms.uContrast.value;
   }
 
-  private strike() {
+  /** A lightning bolt somewhere around the camera, a white flash, and thunder after it. */
+  strike() {
     const cam = this.game.camera.position;
     const yaw = Math.random() * Math.PI * 2;
     const start = new THREE.Vector3(cam.x + Math.sin(yaw) * 45, 40, cam.z + Math.cos(yaw) * 45);
@@ -82,6 +91,14 @@ export class Storm {
 
   update(dt: number) {
     const g = this.game;
+    this.boltLife -= dt;
+    this.bolt.alpha = this.boltLife > 0 ? 1 : 0;
+    if (!this.active) {
+      this.level = 0;
+      G.uStorm.value = 0;
+      this.rain.alpha = 0;
+      return;
+    }
     this.level += (this.target - this.level) * (1 - Math.exp(-dt * 0.6));
     const L = this.level;
     G.uStorm.value = L;
@@ -92,6 +109,9 @@ export class Storm {
     g.pipe.uniforms.uSkyTop.value.copy(this.base.sky).lerp(new THREE.Color(0.42, 0.44, 0.5), L);
     G.uAmbient.value.copy(this.base.ambient).lerp(new THREE.Color(0.36, 0.38, 0.46), L);
     G.uFog.value.set(THREE.MathUtils.lerp(this.base.fog.x, 18, L), THREE.MathUtils.lerp(this.base.fog.y, 85, L), this.base.fog.z);
+    // the whole page dims, graphite included, as if the lamp over the book had been turned down
+    g.pipe.uniforms.uTint.value.copy(this.base.tint).lerp(_stormTint, L).multiplyScalar(1 + f * 0.9);
+    g.pipe.uniforms.uContrast.value = this.base.contrast + 0.18 * L;
     // rain: streaks fall and slant past the camera, re-pencilled on the boil
     this.rain.alpha = L * 0.7;
     if (L > 0.02) {
@@ -112,7 +132,5 @@ export class Storm {
         this.nextBolt = 4 + Math.random() * 6;
       }
     }
-    this.boltLife -= dt;
-    this.bolt.alpha = this.boltLife > 0 ? 1 : 0;
   }
 }

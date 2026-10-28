@@ -5,6 +5,7 @@ import * as THREE from 'three';
 import { Flow } from './game/Flow';
 import { Game } from './game/Game';
 import { Attic } from './levels/Attic';
+import { FoldedSea } from './levels/FoldedSea';
 import { MarginVillage } from './levels/MarginVillage';
 import { Playground } from './levels/Playground';
 
@@ -18,6 +19,7 @@ const flow = new Flow(game);
 // ?level=... and ?at=... jump straight in (development and testing)
 const level = params.get('level');
 if (level === 'playground') await game.loadLevel(new Playground());
+else if (level === 'sea') await game.loadLevel(new FoldedSea(params.get('at') ?? 'arrival'));
 else if (level === 'attic') {
   const a = new Attic();
   await game.loadLevel(a);

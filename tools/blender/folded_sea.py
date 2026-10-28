@@ -146,9 +146,13 @@ def build():
     lz = HEAD_Z + kit_sea.LH_H + 0.25
     marker('lamp', LIGHTHOUSE.x, LIGHTHOUSE.y, lz + 1.2)
     marker('crane_home', LIGHTHOUSE.x - 3.2, LIGHTHOUSE.y - 4.0, HEAD_Z)
-    marker('crane_gallery', LIGHTHOUSE.x - 1.6, LIGHTHOUSE.y - 1.6, lz)
+    def on_gallery(local_deg, r):
+        a = math.radians(local_deg) - math.pi / 4
+        return LIGHTHOUSE.x + math.cos(a) * r, LIGHTHOUSE.y + math.sin(a) * r
+    # where the stair comes out on the gallery (just past the hatch), and the Keeper's perch
+    marker('crane_gallery', *on_gallery(-95, 2.0), lz)
     marker('cp_headland', LIGHTHOUSE.x - 4.5, LIGHTHOUSE.y - 6.5, HEAD_Z)
-    marker('cp_gallery', LIGHTHOUSE.x + 1.7, LIGHTHOUSE.y + 0.9, lz)
+    marker('cp_gallery', *on_gallery(-42, 1.95), lz)
     for k in range(10):
         a = math.radians(200 + k * 14)
         r = 12.4

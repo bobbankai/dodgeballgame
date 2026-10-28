@@ -111,13 +111,16 @@ export class Game {
       this.interactables.clear();
       this.onUpdate.clear();
       this.director.reset();
+      this.rig.guide = null;
       G.uBloomCount.value = 0;
       for (const t of G.uBloomTint.value) t.set(1, 1, 1);
       G.uEraseCount.value = 0;
     }
-    this.level = level;
+    // the frame loop keeps running while a level loads: it only gets the level once it is ready
+    this.level = null;
     await level.load(this);
     this.collision.build();
+    this.level = level;
   }
 
   overlayRemove(o: THREE.Object3D) {
@@ -138,12 +141,17 @@ export class Game {
 
   start() {
     const frame = () => {
+      requestAnimationFrame(frame);
       this.timer.update();
       const raw = this.timer.getDelta();
       const dt = Math.min(raw, 1 / 20);
-      this.step(dt);
+      // a bad frame is logged, not fatal: the loop must survive it
+      try {
+        this.step(dt);
+      } catch (e) {
+        console.error(e);
+      }
       this.adaptResolution(raw);
-      requestAnimationFrame(frame);
     };
     frame();
   }

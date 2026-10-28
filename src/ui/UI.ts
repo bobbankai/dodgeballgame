@@ -37,6 +37,9 @@ export class UI {
 
   private typing: { full: string; shown: number; done: () => void; speed: number; pause: number } | null = null;
   private waitingNote: (() => void) | null = null;
+  /** Testing: lines and notes move on by themselves after this many seconds (0 = wait for input). */
+  autoAdvance = 0;
+  private held = 0;
   private fadeAnim: { from: number; to: number; t: number; dur: number; done: () => void } | null = null;
   private fadeValue = 0;
   private toastTime = 0;
@@ -260,8 +263,13 @@ export class UI {
       this.tickTimers(dt);
       return;
     }
-    const skip = this.input.justPressed('skip') || this.input.justPressed('interact');
+    let skip = this.input.justPressed('skip') || this.input.justPressed('interact');
     const ty = this.typing;
+    if (this.autoAdvance > 0 && ((ty && ty.shown >= ty.full.length) || this.waitingNote)) {
+      this.held += dt;
+      if (this.held >= this.autoAdvance) skip = true;
+    } else this.held = 0;
+    if (skip) this.held = 0;
     if (ty) {
       if (ty.shown < ty.full.length) {
         if (skip) ty.shown = ty.full.length;

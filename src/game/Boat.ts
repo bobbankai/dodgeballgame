@@ -27,6 +27,8 @@ export class Boat {
   private spray = 0;
   /** Steering is off during cutscenes. */
   control = false;
+  /** Sail setting while the player isn't steering (cutscenes sail the boat themselves). */
+  autoThrottle = 0;
   /** Keep inside this circle (the edge of the page). */
   bounds = { center: new THREE.Vector2(0, -60), radius: 150 };
   maxSpeed = 7.5;
@@ -43,7 +45,7 @@ export class Boat {
 
   update(dt: number, input: Input | null, col: Collision, fx: Particles) {
     // steering: relative to the boat, so it handles like a boat rather than a cursor
-    let throttle = 0, steer = 0;
+    let throttle = this.autoThrottle, steer = 0;
     if (input && this.control) {
       input.move(_move);
       throttle = _move.y;

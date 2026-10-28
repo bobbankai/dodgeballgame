@@ -33,10 +33,48 @@ def ring_tube(name, center, radius, thick, mat, z=0.0, n=24):
 # --- lighthouse ------------------------------------------------------------------------------
 
 LH_H = 14.0       # gallery height
+STAIR_N, STAIR_TURNS, STAIR_A0 = 62, 1.6, math.radians(-150)
 
 
 def lh_radius(z):
     return 2.4 - 0.8 * (z / LH_H)
+
+
+def stair_angle(i):
+    """Angle round the tower of stair step i (the stair winds clockwise as it climbs)."""
+    return STAIR_A0 - STAIR_TURNS * 2 * math.pi * i / (STAIR_N - 1)
+
+
+# the hatch in the gallery deck where the stair comes up through it: open above the last steps,
+# so there is headroom all the way to the top (local angles, before the tower is placed)
+HATCH = (stair_angle(STAIR_N - 1) + math.radians(3) + 2 * math.pi * 2, stair_angle(49) + math.radians(5) + 2 * math.pi * 2)
+
+
+def in_hatch(a, margin=0.0):
+    a = (a - HATCH[0]) % (2 * math.pi)
+    return a < HATCH[1] - HATCH[0] + margin or a > 2 * math.pi - margin
+
+
+def sector(name, r0, r1, z0, z1, a0, a1, mat, segs=24):
+    """A slab of an annulus between radii r0..r1, heights z0..z1 and angles a0..a1."""
+    bm = bmesh.new()
+    sl = []
+    for k in range(segs + 1):
+        a = a0 + (a1 - a0) * k / segs
+        c, s = math.cos(a), math.sin(a)
+        sl.append([bm.verts.new((c * r, s * r, z)) for r, z in ((r0, z0), (r1, z0), (r1, z1), (r0, z1))])
+    for k in range(segs):
+        for j in range(4):
+            bm.faces.new([sl[k][j], sl[k][(j + 1) % 4], sl[k + 1][(j + 1) % 4], sl[k + 1][j]])
+    bm.faces.new(sl[0])
+    bm.faces.new(list(reversed(sl[-1])))
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+    return lib.obj_from_bm(name, bm, mat, smooth=False)
+
+
+def arc_tube(name, radius, thick, mat, z, a0, a1, n=24):
+    pts = [(math.cos(a0 + (a1 - a0) * k / n) * radius, math.sin(a0 + (a1 - a0) * k / n) * radius, z) for k in range(n + 1)]
+    return lib.tube(name, pts, [thick] * (n + 1), M(mat), sides=6, cap=True, subsurf=0)
 
 
 def lighthouse():
@@ -54,22 +92,29 @@ def lighthouse():
         r = lh_radius(z)
         rot = Matrix.Rotation(a + math.pi / 2, 3, 'Z')
         parts.append(box('lh_window', (0.6, 0.2, 0.9), (math.cos(a) * r, math.sin(a) * r, z), M('glass'), rot=rot))
-    # gallery deck and railing
-    parts.append(lib.lathe('lh_gallery', [(0.0, LH_H), (2.45, LH_H), (2.45, LH_H + 0.25), (0.0, LH_H + 0.25)], M('lh_white'), segs=28, subsurf=0))
+    # gallery deck and railing, open over the top of the stair
+    h0, h1 = HATCH
+    parts.append(lib.lathe('lh_gallery', [(0.0, LH_H), (1.45, LH_H), (1.45, LH_H + 0.25), (0.0, LH_H + 0.25)], M('lh_white'), segs=28, subsurf=0))
+    parts.append(sector('lh_gallery', 1.45, 2.45, LH_H, LH_H + 0.25, h1, h0 + 2 * math.pi, M('lh_white')))
     for k in range(20):
         a = 2 * math.pi * k / 20
+        if in_hatch(a, math.radians(4)):
+            continue
         parts.append(lib.tube('lh_post', [(math.cos(a) * 2.35, math.sin(a) * 2.35, LH_H + 0.25), (math.cos(a) * 2.35, math.sin(a) * 2.35, LH_H + 1.25)],
                               [0.035, 0.035], M('tar'), sides=5, subsurf=0))
-    parts.append(ring_tube('lh_rail', (0, 0, 0), 2.35, 0.045, 'tar', z=LH_H + 1.25))
-    parts.append(ring_tube('lh_rail', (0, 0, 0), 2.35, 0.03, 'tar', z=LH_H + 0.7))
-    # lantern room: glazing between iron mullions, copper dome, ball and a fish weathervane
+    parts.append(arc_tube('lh_rail', 2.35, 0.045, 'tar', LH_H + 1.25, h1, h0 + 2 * math.pi))
+    parts.append(arc_tube('lh_rail', 2.35, 0.03, 'tar', LH_H + 0.7, h1, h0 + 2 * math.pi))
+    # a rail round the inner edge of the hatch, so nobody steps back down it by accident
+    parts.append(arc_tube('lh_rail', 1.5, 0.035, 'tar', LH_H + 1.0, h0 + math.radians(8), h1 - math.radians(2), n=12))
+    # lantern room: iron mullions and glazing bars, copper dome, ball and a fish weathervane. The
+    # glass is left undrawn (a few bars say it is there) so the lamp and lens show from outside.
     lz = LH_H + 0.25
+    parts.append(lib.lathe('lh_sill', [(1.0, lz), (1.42, lz), (1.42, lz + 0.32), (1.3, lz + 0.36), (1.0, lz + 0.36)], M('lh_white'), segs=24, subsurf=0))
     for k in range(8):
-        a = 2 * math.pi * k / 8 + math.pi / 8
-        rot = Matrix.Rotation(a + math.pi / 2, 3, 'Z')
-        parts.append(box('lh_pane', (1.0, 0.05, 2.0), (math.cos(a) * 1.22, math.sin(a) * 1.22, lz + 1.1), M('glass'), rot=rot))
-        b = a + math.pi / 8
-        parts.append(box('lh_mullion', (0.08, 0.08, 2.3), (math.cos(b) * 1.3, math.sin(b) * 1.3, lz + 1.15), M('tar')))
+        b = 2 * math.pi * k / 8
+        parts.append(box('lh_mullion', (0.08, 0.08, 1.95), (math.cos(b) * 1.3, math.sin(b) * 1.3, lz + 1.32), M('tar')))
+    for z in (lz + 0.36, lz + 1.3, lz + 2.25):
+        parts.append(ring_tube('lh_bar', (0, 0, 0), 1.3, 0.035 if z < lz + 2 else 0.06, 'tar', z=z))
     parts.append(lib.lathe('lh_dome', [(1.55, lz + 2.25), (1.45, lz + 2.4), (0.9, lz + 2.95), (0.2, lz + 3.25), (0.0, lz + 3.3)], M('copper'), segs=24, subsurf=0))
     parts.append(lib.ellipsoid('lh_ball', (0, 0, lz + 3.45), (0.18, 0.18, 0.18), M('brass'), segs=(12, 8)))
     parts.append(lib.tube('lh_vane', [(0, 0, lz + 3.5), (0, 0, lz + 4.3)], [0.03, 0.02], M('tar'), sides=5, subsurf=0))
@@ -84,13 +129,13 @@ def lighthouse():
     lens.append(lib.lathe('lens_base', [(0.0, lz + 0.05), (0.7, lz + 0.05), (0.6, lz + 0.5), (0.0, lz + 0.5)], M('brass'), segs=16, subsurf=0))
     # outside spiral stair from the door up to the gallery; a stretch of it is missing
     stairs, missing = [], []
-    n = 62
-    turns = 1.6
-    a0 = math.radians(-150)
+    n = STAIR_N
+    turns = STAIR_TURNS
+    a0 = STAIR_A0
     for i in range(n):
         t = i / (n - 1)
         z = LH_H * t + 0.22
-        a = a0 - turns * 2 * math.pi * t
+        a = stair_angle(i)
         r = lh_radius(min(z, LH_H)) + 0.55
         rot = Matrix.Rotation(a, 3, 'Z')
         step = box('lh_step', (1.0, 0.42, 0.12), (math.cos(a) * r, math.sin(a) * r, z), M('wood'), rot=rot)

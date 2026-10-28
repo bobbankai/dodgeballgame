@@ -206,6 +206,11 @@ void main() {
   // shadow is a second, cooler wash of the same pigment rather than a darkening
   vec3 shadCol = base * uShadowTint;
   vec3 col = mix(shadCol, litCol, lit);
+  #ifdef FLAT
+    // folded paper: facets tipped toward the sun lift a tone, those tipped away drop one
+    float fold = clamp((ndl - L.y) * 5.0, -1.0, 1.0);
+    col *= 1.0 + fold * 0.3;
+  #endif
   // lamps: warm pools of light with the same soft-edged wash
   #if NUM_POINT_LIGHTS > 0
     for (int i = 0; i < NUM_POINT_LIGHTS; i++) {
@@ -238,6 +243,9 @@ void main() {
   graphite *= 1.0 - dark * 0.1;
   float pencil = dark * (h1 * 0.6 + h2 * 0.45 * deep) * mix(0.55, 1.0, uHatch);
   graphite = mix(graphite, uGraphite, clamp(pencil, 0.0, 1.0) * 0.7);
+  #ifdef FLAT
+    graphite *= 1.0 + fold * 0.16;
+  #endif
 
   float m = max(dot(family(base), colorMask(vWorldPos)), uAlwaysColor);
   vec3 fin = mix(graphite, col, m);

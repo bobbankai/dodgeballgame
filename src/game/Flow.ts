@@ -1,9 +1,10 @@
 import { audio } from '../audio/Audio';
 import { Attic } from '../levels/Attic';
+import { FoldedSea } from '../levels/FoldedSea';
 import { MarginVillage } from '../levels/MarginVillage';
 import type { Game, Level } from './Game';
 
-export type Chapter = 'prologue' | 'village';
+export type Chapter = 'prologue' | 'village' | 'sea';
 
 interface Save {
   chapter: Chapter;
@@ -37,7 +38,7 @@ export class Flow {
   constructor(private game: Game) {
     game.onCheckpoint = (at) => writeSave({ chapter: this.chapter, at });
     game.onPause = () => this.pause();
-    window.addEventListener('chapter-complete', () => this.chapterComplete());
+    window.addEventListener('chapter-complete', (e) => this.chapterComplete((e as CustomEvent<number>).detail));
   }
 
   /** Show the title over the attic, then start or continue. */
@@ -81,16 +82,21 @@ export class Flow {
       await a.finished;
       return this.play('village', 'arrival');
     }
-    level = new MarginVillage(at);
+    level = chapter === 'sea' ? new FoldedSea(at) : new MarginVillage(at);
     writeSave({ chapter, at });
     await g.loadLevel(level);
     if (at !== 'arrival') g.ui.fade(0, 1.2);
   }
 
-  private async chapterComplete() {
-    // later chapters are still being drawn: back to the title for now
+  private async chapterComplete(chapter: number) {
     const g = this.game;
-    writeSave({ chapter: 'village', at: 'plateau' });
+    if (chapter === 1) {
+      // straight on over the edge of the page to the sea
+      await this.play('sea', 'arrival');
+      return;
+    }
+    // later chapters are still being drawn: back to the title for now
+    writeSave({ chapter: 'sea', at: 'island' });
     await g.ui.fade(1, 1);
     await this.title();
   }

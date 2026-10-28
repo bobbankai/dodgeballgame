@@ -45,7 +45,7 @@ export class Smudge {
   private size = 0;
   private heading = new THREE.Vector3(0, 0, 1);
 
-  constructor(game: Game) {
+  constructor(private game: Game) {
     const n = LOOPS * SEGS;
     this.seg = { a: new Float32Array(n * 3), b: new Float32Array(n * 3), seed: new Float32Array(n * 2), count: n };
     this.lines = new SketchLines(this.seg, { width: 2.2, wobble: 0.0, color: 0x2a2629, alpha: 0.9 });
@@ -152,6 +152,8 @@ export class Smudge {
       e.position.copy(this.position).addScaledVector(this.heading, 0.9 * k).addScaledVector(side, (i ? 1 : -1) * 0.3 * k);
       e.position.y += 0.25 * k + Math.sin(G.uTime.value * 3 + i) * 0.02;
       e.scale.set(0.26 * k, 0.36 * k * (Math.sin(G.uTime.value * 0.7) > 0.97 ? 0.15 : 1), 1);
+      // an eye right in front of the lens would just be a white blot: it melts away instead
+      (e.material as THREE.SpriteMaterial).opacity = THREE.MathUtils.smoothstep(this.game.camera.position.distanceTo(e.position), 1.2 * k, 3 * k);
     });
   }
 
