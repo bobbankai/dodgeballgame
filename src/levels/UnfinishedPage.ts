@@ -305,15 +305,20 @@ export class UnfinishedPage implements Level {
       ['Pip', 'Ada. Behind us.'],
     ]);
     // it wells up out of the blank, between them and the way they came
-    const back = this.at('path2_b').add(v3(0, 0, 3));
     this.smudge.scale = 1.6;
-    this.smudge.spawn(back.add(v3(0, -1, 0)));
-    this.smudge.speed = 1.4;
-    this.smudge.maxSpeed = 1.9;
+    this.smudge.spawn(this.smudgeBack().add(v3(0, -1, 0)));
+    this.smudge.speed = 1.1;
+    this.smudge.maxSpeed = 1.5;
     g.rig.addShake(0.3);
     audio.play('chase');
     this.flags.add('chase');
     g.ui.toast('Draw a way up to the next page before it reaches you!', 5);
+  }
+
+  /** Where the Smudge comes up out of the blank behind the garden: back along the way Ada came. */
+  private smudgeBack() {
+    const a = this.at('path2_a'), b = this.at('path2_b');
+    return b.clone().add(a.sub(b).setY(0).normalize().multiplyScalar(9)).add(v3(0, 1, 0));
   }
 
   private async caught() {
@@ -332,8 +337,8 @@ export class UnfinishedPage implements Level {
       this.smudge.position.copy(this.at('smudge_spawn')).add(v3(0, 2, 0));
       this.shade = Math.max(0, this.shade - 0.15);
     } else {
-      this.smudge.spawn(this.at('path2_b').add(v3(0, 1, 3)));
-      this.smudge.speed = 1.2;
+      this.smudge.spawn(this.smudgeBack());
+      this.smudge.speed = 1.1;
     }
     this.smudge.clearTrail();
     await g.director.wait(0.4);
