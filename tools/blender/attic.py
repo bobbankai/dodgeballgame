@@ -213,10 +213,13 @@ def shelf_and_frames():
         parts.append(lib.tube('easelleg', [(ex + a * 1.2, ey - 0.15, 0.0), (ex + a * 0.2, ey, 1.7)], [0.025, 0.02], M('desk'), sides=6, subsurf=0))
     parts.append(lib.tube('easelleg', [(ex, ey + 0.55, 0.0), (ex, ey + 0.02, 1.6)], [0.025, 0.02], M('desk'), sides=6, subsurf=0))
     parts.append(B('easelbar', (0.8, 0.05, 0.04), (ex, ey - 0.12, 0.62), 'desk'))
-    canvas = B('canvas', (0.7, 0.06, 0.9), (ex, ey - 0.1, 1.1), 'cloth', rot=Matrix.Rotation(0.12, 3, 'X'))
+    # (the canvas and its sheet are their own objects: in the epilogue Ada lifts the sheet off)
+    canvas = B('canvas', (1.0, 0.06, 0.74), (ex, ey - 0.1, 1.06), 'cloth', rot=Matrix.Rotation(0.12, 3, 'X'))
+    canvas['sep'] = 'easel_canvas'
     parts.append(canvas)
-    sheet = lib.lathe('sheet', [(0.5, 0.0), (0.42, 0.5), (0.3, 0.9), (0.1, 1.0)], M('sheet'), segs=10, center=(ex, ey - 0.08, 0.62), depth=0.35, subsurf=1,
+    sheet = lib.lathe('sheet', [(0.58, 0.0), (0.5, 0.45), (0.36, 0.86), (0.12, 0.98)], M('sheet'), segs=12, center=(ex, ey - 0.08, 0.62), depth=0.32, subsurf=1,
                       close_bottom=False)
+    sheet['sep'] = 'easel_sheet'
     parts.append(sheet)
     # rocking chair
     rx, ry = 1.5, 1.2
@@ -265,6 +268,11 @@ def build():
     groups = {'shell': shell(), 'desk': desk_area(), 'boxes': boxes(), 'room': shelf_and_frames()}
     out = []
     for name, objs in groups.items():
+        for o in [o for o in objs if o.get('sep')]:
+            lib.apply_modifiers(o)
+            o.name = o['sep']
+            out.append(o)
+        objs = [o for o in objs if not o.get('sep')]
         solid = [o for o in objs if not o.get('nocol')]
         soft = [o for o in objs if o.get('nocol')]
         for o in solid + soft:
@@ -284,7 +292,12 @@ def build():
     out.append(lib.join(fx, 'paper_fox'))
     for name, loc in (('spawn_attic', (0.0, -L + 1.0, 0.0)), ('lamp_light', (-0.35, L - 0.7, 1.2)), ('bulb_light', (0.0, 0.2, 2.2)),
                       ('look_window', (0.0, L - 0.4, 1.4)), ('look_drawing', (-2.3, 2.6, 0.6)), ('look_boxes', (1.6, -1.6, 0.4)),
-                      ('look_fox', (-2.6, 1.3, 0.9)), ('look_easel', (-1.5, 1.2, 1.0)), ('look_book', (0.05, L - 0.8, 0.85))):
+                      ('look_fox', (-2.6, 1.3, 0.9)), ('look_easel', (-1.5, 1.2, 1.0)), ('look_book', (0.05, L - 0.8, 0.85)),
+                      ('spawn_morning', (0.4, L - 1.6, 0.0)),
+                      # the front of the easel's canvas, its centre (it leans back by 0.12 rad about X)
+                      ('easel_face', (-1.6, 1.4 - 0.1 - 0.03 * math.cos(0.12), 1.06 - 0.03 * math.sin(0.12))),
+                      # the open page of the sketchbook, for the drawing in the epilogue
+                      ('book_page', (0.05, L - 0.8, 0.848))):
         e = bpy.data.objects.new(name, None)
         e.location = loc
         lib.link(e)

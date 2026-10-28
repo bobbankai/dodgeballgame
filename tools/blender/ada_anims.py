@@ -26,7 +26,15 @@ for _s in 'LR':
                    f'hand_{_s}': f'forearm_{_s}', f'thigh_{_s}': 'hips', f'shin_{_s}': f'thigh_{_s}', f'foot_{_s}': f'shin_{_s}'})
 
 
+# Offsets (tx/ty/tz) are written for Ada; a taller rig sharing her bone layout (Mum) scales them.
+T_SCALE = 1.0
+
+
 def clip(poser, name, N, ch, loop=True, sym=None, bones=None):
+    if T_SCALE != 1.0:
+        def scaled(v):
+            return [(t, x * T_SCALE) for t, x in v] if isinstance(v, list) else v * T_SCALE
+        ch = {b: {k: scaled(v) if k in ('tx', 'ty', 'tz') else v for k, v in c.items()} for b, c in ch.items()}
     lib.clip(poser, name, N, ch, BODY, PARENT, loop=loop, sym=sym, bones=bones)
 
 

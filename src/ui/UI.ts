@@ -37,6 +37,8 @@ export class UI {
 
   private typing: { full: string; shown: number; done: () => void; speed: number; pause: number } | null = null;
   private waitingNote: (() => void) | null = null;
+  private creditsLayer: HTMLElement;
+  private skipCredits: (() => void) | null = null;
   /** Testing: lines and notes move on by themselves after this many seconds (0 = wait for input). */
   autoAdvance = 0;
   private held = 0;
@@ -72,6 +74,8 @@ export class UI {
     this.card = el('div', 'title-card', layer);
     this.menuLayer = el('div', 'ui-layer', this.root);
     this.fadeEl = el('div', 'fade', this.root);
+    // the credits roll over the faded-out page
+    this.creditsLayer = el('div', 'ui-layer', this.root);
   }
 
   /** Show a button prompt (or hide it with null). `hold` (0..1) draws a progress ring. */
@@ -132,6 +136,37 @@ export class UI {
         this.card.classList.remove('show');
         this.later(1.2, done);
       });
+    });
+  }
+
+  /** The closing credits, rolling up over the scene ([role, name] rows). Skippable after a moment. */
+  credits(rows: [string, string][], seconds = 30): Promise<void> {
+    const wrap = el('div', 'credits', this.creditsLayer);
+    const roll = el('div', 'roll', wrap);
+    roll.innerHTML = rows
+      .map(([a, b]) => `<div class="row">${a ? `<div class="role">${a}</div>` : ''}${b ? `<div class="name">${b}</div>` : ''}</div>`)
+      .join('');
+    roll.style.transition = `transform ${seconds}s linear`;
+    requestAnimationFrame(() =>
+      requestAnimationFrame(() => {
+        wrap.classList.add('show');
+        roll.style.transform = 'translateY(calc(-100% - 100vh))';
+      }),
+    );
+    return new Promise((done) => {
+      let over = false;
+      const finish = () => {
+        if (over) return;
+        over = true;
+        this.skipCredits = null;
+        wrap.classList.remove('show');
+        this.later(2, () => {
+          wrap.remove();
+          done();
+        });
+      };
+      this.later(seconds, finish);
+      this.later(3, () => !over && (this.skipCredits = finish));
     });
   }
 
@@ -293,6 +328,7 @@ export class UI {
         ty.done();
       }
     }
+    if (this.skipCredits && skip) this.skipCredits();
     if (this.waitingNote && skip) {
       const d = this.waitingNote;
       this.waitingNote = null;

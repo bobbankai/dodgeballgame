@@ -25,6 +25,8 @@ export interface InkOptions {
   flat?: boolean;
   transparent?: boolean;
   opacity?: number;
+  /** Drawn in up to this world height (a shared uniform): above it, nothing yet; at it, the ink line. */
+  reveal?: { value: number };
 }
 
 const VERT = /* glsl */ `
@@ -102,6 +104,9 @@ uniform float uSoft;
 uniform float uEmissive;
 uniform float uLineId;
 uniform float uTime;
+#ifdef REVEAL
+uniform float uCut;
+#endif
 uniform float uStorm;
 uniform float uBoil;
 uniform vec4 uBlooms[${MAX_BLOOMS}];
@@ -170,6 +175,11 @@ vec3 colorMask(vec3 p) {
 }
 
 void main() {
+  #ifdef REVEAL
+    // being drawn in: a slightly ragged pencil edge sweeping up the figure
+    float cutAt = uCut + (ibNoise(vec3(vWorldPos.xz * 18.0, uBoil * 0.3)) - 0.5) * 0.03;
+    if (vWorldPos.y > cutAt) discard;
+  #endif
   vec3 base = uColor;
   #ifdef USE_MAP
     base *= texture2D(map, vMapUv).rgb;
@@ -279,6 +289,12 @@ void main() {
   fin = mix(fin, uPaper * (1.0 - 0.05 * step(0.93, ibHash(floor(vWorldPos * 14.0)))), er);
   vec3 outN = mix(VN, vec3(0.0, 0.0, 1.0), step(0.5, er));
 
+  #ifdef REVEAL
+    // the line being drawn glows gold for a moment, with an ink edge just behind it
+    float edgeBand = smoothstep(cutAt - 0.06, cutAt, vWorldPos.y);
+    fin = mix(fin, uGraphite, smoothstep(cutAt - 0.1, cutAt - 0.05, vWorldPos.y) * (1.0 - edgeBand) * 0.7);
+    fin = mix(fin, vec3(1.0, 0.82, 0.38) * 1.4, edgeBand);
+  #endif
   outColor = vec4(fin, uOpacity);
   // baked scenery carries its ink line id in the vertex colour's alpha
   float lid = uLineId / 255.0;
@@ -317,6 +333,10 @@ export function inkMaterial(o: InkOptions = {}): THREE.ShaderMaterial {
     transparent: o.transparent ?? false,
   });
   if (o.water) mat.defines = { ...mat.defines, WATER: '' };
+  if (o.reveal) {
+    mat.defines = { ...mat.defines, REVEAL: '' };
+    mat.uniforms.uCut = o.reveal;
+  }
   if (o.waves) mat.defines = { ...mat.defines, WAVES: '' };
   if (o.flat || o.waves) mat.defines = { ...mat.defines, FLAT: '' };
   if (o.map) (mat as unknown as { map: THREE.Texture }).map = o.map;

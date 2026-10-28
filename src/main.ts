@@ -8,6 +8,7 @@ import { Attic } from './levels/Attic';
 import { FoldedSea } from './levels/FoldedSea';
 import { MarginVillage } from './levels/MarginVillage';
 import { Playground } from './levels/Playground';
+import { UnfinishedPage } from './levels/UnfinishedPage';
 
 const params = new URLSearchParams(location.search);
 const game = new Game(document.getElementById('app')!);
@@ -20,6 +21,8 @@ const flow = new Flow(game);
 const level = params.get('level');
 if (level === 'playground') await game.loadLevel(new Playground());
 else if (level === 'sea') await game.loadLevel(new FoldedSea(params.get('at') ?? 'arrival'));
+else if (level === 'page') await game.loadLevel(new UnfinishedPage(params.get('at') ?? 'arrival'));
+else if (level === 'epilogue') void flow.play('epilogue', 'start');
 else if (level === 'attic') {
   const a = new Attic();
   await game.loadLevel(a);

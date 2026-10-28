@@ -2,9 +2,10 @@ import { audio } from '../audio/Audio';
 import { Attic } from '../levels/Attic';
 import { FoldedSea } from '../levels/FoldedSea';
 import { MarginVillage } from '../levels/MarginVillage';
+import { UnfinishedPage } from '../levels/UnfinishedPage';
 import type { Game, Level } from './Game';
 
-export type Chapter = 'prologue' | 'village' | 'sea';
+export type Chapter = 'prologue' | 'village' | 'sea' | 'page' | 'epilogue';
 
 interface Save {
   chapter: Chapter;
@@ -12,6 +13,20 @@ interface Save {
 }
 
 const KEY = 'inkbound.save.v1';
+
+const CREDITS: [string, string][] = [
+  ['', 'Inkbound'],
+  ['A story drawn in pencil', ''],
+  ['Ada', 'who finished it'],
+  ['Pip', 'the best bit'],
+  ['The Keeper', 'who waited'],
+  ['Mum', 'who drew all of it'],
+  ['', ''],
+  ['Made with', 'three.js and Blender'],
+  ['Every model, rig, animation and level', 'built from code'],
+  ['', ''],
+  ['', 'For everyone with a page they keep putting off.'],
+];
 
 function readSave(): Save | null {
   try {
@@ -82,7 +97,11 @@ export class Flow {
       await a.finished;
       return this.play('village', 'arrival');
     }
-    level = chapter === 'sea' ? new FoldedSea(at) : new MarginVillage(at);
+    if (chapter === 'epilogue') {
+      writeSave({ chapter, at: 'start' });
+      return this.epilogue();
+    }
+    level = chapter === 'sea' ? new FoldedSea(at) : chapter === 'page' ? new UnfinishedPage(at) : new MarginVillage(at);
     writeSave({ chapter, at });
     await g.loadLevel(level);
     if (at !== 'arrival') g.ui.fade(0, 1.2);
@@ -90,14 +109,25 @@ export class Flow {
 
   private async chapterComplete(chapter: number) {
     const g = this.game;
-    if (chapter === 1) {
-      // straight on over the edge of the page to the sea
-      await this.play('sea', 'arrival');
-      return;
-    }
-    // later chapters are still being drawn: back to the title for now
-    writeSave({ chapter: 'sea', at: 'island' });
+    // each chapter runs straight on into the next; the last page leads out of the book
+    if (chapter === 1) return this.play('sea', 'arrival');
+    if (chapter === 2) return this.play('page', 'arrival');
+    if (chapter === 3) return this.play('epilogue', 'start');
     await g.ui.fade(1, 1);
+    await this.title();
+  }
+
+  /** Morning in the attic, and then the credits. Back to the title after. */
+  private async epilogue() {
+    const g = this.game;
+    this.chapter = 'epilogue';
+    const attic = new Attic();
+    attic.morning = true;
+    await g.loadLevel(attic);
+    await attic.epilogue();
+    await g.ui.credits(CREDITS);
+    writeSave({ chapter: 'epilogue', at: 'done' });
+    await g.ui.fade(1, 1.5, '#120f14');
     await this.title();
   }
 

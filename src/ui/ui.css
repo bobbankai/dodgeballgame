@@ -208,6 +208,41 @@
   width: 60%;
 }
 
+/* closing credits */
+.credits {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  opacity: 0;
+  transition: opacity 2s;
+  background: linear-gradient(90deg, transparent 15%, rgba(247, 241, 227, 0.72) 35%, rgba(247, 241, 227, 0.72) 65%, transparent 85%);
+}
+.credits.show {
+  opacity: 1;
+}
+.credits .roll {
+  position: absolute;
+  top: 100%;
+  width: 100%;
+  text-align: center;
+}
+.credits .row {
+  margin: 0 0 46px;
+}
+.credits .role {
+  font-size: 20px;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: var(--graphite);
+}
+.credits .name {
+  font-family: 'Caveat', cursive;
+  font-weight: 700;
+  font-size: clamp(34px, 4.6vw, 54px);
+  line-height: 1.1;
+  color: var(--ink);
+}
+
 /* fades and letterbox */
 .fade {
   position: absolute;
