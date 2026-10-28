@@ -574,9 +574,17 @@ export class UnfinishedPage implements Level {
     // kneeling, holding her hands, face to face
     mum.pose = 'kneel_hold';
     g.player.setPose(null);
-    // past Ada's shoulder onto Mum's face
-    d.shot(spot.clone().add(v3(0.95, 1.3, 1.55)), spot.clone().add(v3(-0.05, 1.12, 0.05)), 34);
-    d.focus(() => spot.clone().add(v3(0, 1.15, 0.05)), 0.7);
+    // side on, the two of them face to face: Mum kneeling, holding Ada's hands
+    await d.wait(0.6);
+    const mumFace = mum.face();
+    const adaFace = g.player.position.clone().add(v3(0, 1.15, 0));
+    const between = mumFace.clone().lerp(adaFace, 0.5);
+    const across = v3().subVectors(adaFace, mumFace).setY(0).normalize();
+    const side = v3(-across.z, 0, across.x);
+    if (side.x < 0) side.negate();
+    // (aimed low, so their faces sit high in the frame, clear of the dialogue)
+    d.shot(between.clone().addScaledVector(side, 1.85).add(v3(0, -0.06, 0)), between.clone().add(v3(0, -0.16, 0)), 40);
+    d.focus(() => mum.face().lerp(g.player.position.clone().add(v3(0, 1.15, 0)), 0.5), 0.7);
     await d.talk([
       ['Mum', 'But you can. That is the thing about you, Ada. You always finish what you start.'],
       ['Ada', "I don't want to say goodbye."],

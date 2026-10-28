@@ -1,10 +1,11 @@
 import * as THREE from 'three';
 import type { GLTF } from 'three/examples/jsm/loaders/GLTFLoader.js';
-import { inkify } from '../core/Assets';
+import { inkify, lineIdFor } from '../core/Assets';
 import { Animator } from './Animator';
 
 /**
- * Mum, as she drew herself into the last page. She is drawn in (and out again) from the feet up
+ * Mum, as she drew herself into the last page (tools/blender/mum.py): long copper hair and a braid,
+ * an indigo dress under a paint-splashed apron. She is drawn in (and out again) from the feet up
  * with a line of gold, holds a pose for each moment of the scene, talks, blinks and turns to look.
  */
 export class Mum {
@@ -20,11 +21,30 @@ export class Mum {
 
   constructor(gltf: GLTF) {
     const model = gltf.scene;
-    inkify(model, () => ({ alwaysColor: true, hatch: 0.5, soft: 0.05, reveal: this.cut }));
+    // freckles and blush are part of her skin: no ink line round each one
+    inkify(model, (name) => ({
+      alwaysColor: true,
+      hatch: name === 'mum_hair' ? 0.6 : 0.45,
+      soft: 0.05,
+      reveal: this.cut,
+      ...(name === 'mum_freckle' ? { lineId: lineIdFor('mum_skin') } : {}),
+    }));
     model.traverse((o) => (o.frustumCulled = false));
     this.root.add(model);
     this.anim = new Animator(model, gltf.animations);
     this.root.visible = false;
+  }
+
+  private headBone: THREE.Object3D | null = null;
+
+  /** Where her face is right now (follows the pose: standing, kneeling...). */
+  face(out = new THREE.Vector3()) {
+    this.headBone ??= this.root.getObjectByName('head') ?? null;
+    if (!this.headBone) return out.copy(this.root.position).add(new THREE.Vector3(0, 1.6, 0));
+    this.root.updateMatrixWorld(true);
+    this.headBone.getWorldPosition(out);
+    // the head bone starts at the base of the skull: the face is a little above and in front
+    return out.add(new THREE.Vector3(Math.sin(this.yaw) * 0.06, 0.11, Math.cos(this.yaw) * 0.06));
   }
 
   place(p: THREE.Vector3, yaw = this.yaw) {

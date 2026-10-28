@@ -30,8 +30,9 @@ python, system PIL is broken) tiles screenshots into one sheet, sorted by file n
 - `lib.py` shared helpers (shapes, materials, rig, Poser, spline clip authoring, bake_materials,
   export). `kit.py` environment pieces. `ada.py` + `ada_anims.py`, `pip.py`, `attic.py`,
   `margin_village.py`; Chapter Two: `kit_sea.py` (lighthouse, boat, pier, stacks, inkwell), `crane.py`
-  (the Keeper), `folded_sea.py` (level); Chapter Three: `mum.py` (Mum: Ada's bone names and layout
-  scaled up, so `ada_anims` authors onto her with `T_SCALE`; her own kneeling clips), `unfinished_page.py`.
+  (the Keeper), `folded_sea.py` (level); Chapter Three: `mum.py` (Mum: her own design, nothing like Ada's,
+  long copper hair and braid, indigo dress, paint-splashed apron, fingered hands; Ada's bone names so
+  the scenes and her walk work, with her own idle, talk and kneeling clips), `unfinished_page.py`.
   Blender (x, y, z) is three (x, z, -y).
 - Rig conventions (Blender, character faces -Y, left = +X): pose rotations are written about the
   armature axes and converted per bone (`Poser`). +X bends an upward bone forwards / swings a
