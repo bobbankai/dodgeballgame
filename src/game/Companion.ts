@@ -3,6 +3,7 @@ import type { GLTF } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { inkify, lineIdFor } from '../core/Assets';
 import type { InkOptions } from '../render/InkMaterial';
 import { Animator } from './Animator';
+import { FoxFace } from './Face';
 import type { Collision } from './Collision';
 import type { Player } from './Player';
 
@@ -34,6 +35,7 @@ function angleTo(a: number, b: number) {
 export class Companion {
   readonly root = new THREE.Group();
   readonly anim: Animator;
+  readonly expression: FoxFace;
   readonly position = this.root.position;
   yaw = 0;
   /** Scripted destination; while set, Pip ignores Ada. */
@@ -55,6 +57,7 @@ export class Companion {
     model.traverse((o) => (o.frustumCulled = false));
     this.root.add(model);
     this.anim = new Animator(model, gltf.animations, ['hop']);
+    this.expression = new FoxFace(model, gltf.animations);
   }
 
   place(p: THREE.Vector3, yaw = 0) {
@@ -78,7 +81,9 @@ export class Companion {
       this.riding.getWorldPosition(this.position);
       this.riding.getWorldQuaternion(this.root.quaternion);
       a.target({ [this.speaking ? 'talk' : 'sit']: 1 }, 6);
+      this.expression.restore();
       a.update(dt);
+      this.expression.update(dt);
       return;
     }
     // where to be: a little behind and beside Ada, or the scripted goal
@@ -156,6 +161,8 @@ export class Companion {
       if (gal) gal.timeScale = Math.max(0.7, s / 4.4);
     }
     this.root.quaternion.setFromAxisAngle(_up, this.yaw);
+    this.expression.restore();
     a.update(dt);
+    this.expression.update(dt);
   }
 }

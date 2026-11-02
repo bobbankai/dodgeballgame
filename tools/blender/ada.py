@@ -50,6 +50,8 @@ EYE_AT = (0.056, 1.19)          # x, z of each eye's centre
 EYE_R = V((0.0255, 0.0065, 0.0325))
 EYE_SINK = 0.0025               # how far the dome's centre sits under the skin
 IRIS_C = {}
+# where the face's expression bones sit (filled in by head()): mouth corners and brow middles
+FACE_PTS = {}
 
 
 IRIS = (0.0178, 0.0236)        # iris half width, half height
@@ -83,13 +85,13 @@ def mouth_pts(h):
 def head():
     h = head_base()
     mp = mouth_pts(h)
-    # a little crease where the mouth is (no eye sockets: when she blinks the eye folds down to a
-    # closed line on smooth skin, which reads far better than an empty socket)
-    h = subtract(h, tube(mp, [0.0016, 0.0024, 0.0026, 0.0024, 0.0016]), k=0.004)
-    part('head', h, (-0.17, -0.18, 0.93), (0.17, 0.17, 1.39), 0.0017, 'skin', 'head', 6500)
-    # mouth: a small closed smile (the mouth bone opens it when she talks)
+    FACE_PTS['mouth_L'], FACE_PTS['mouth_R'] = Vector(tuple(mp[-1])), Vector(tuple(mp[0]))
+    # smooth skin, no creases: the mouth and brows move for her expressions and take the skin
+    # around them along (no eye sockets either: when she blinks the eye folds down to a closed line)
+    part('head', h, (-0.17, -0.18, 0.93), (0.17, 0.17, 1.39), 0.0017, 'skin', 'face', 6500)
+    # mouth: a small closed smile; its corners have their own bones (smiles, frowns), the middle opens
     part('mouth', tube(mp, [0.0016, 0.0031, 0.0034, 0.0031, 0.0016]), (-0.03, -0.16, 1.115), (0.03, -0.12, 1.145),
-         0.0006, 'mouth', 'mouth', 300)
+         0.0006, 'mouth', 'mouthline', 300)
     base = head_base()
     for s, side in ((1, 'L'), (-1, 'R')):
         E, R = figure.eye_frame(base, s * EYE_AT[0], EYE_AT[1], EYE_SINK)
@@ -114,8 +116,9 @@ def head():
              lo, hi, 0.0005, 'lash', f'eye_{side}', 400)
         # brows: short confident strokes on the brow ridge, under the fringe
         brow = [on(base, (s * x, -0.2, z), (0, 1, 0), lift=0.0022) for x, z in ((0.03, 1.2335), (0.052, 1.2405), (0.074, 1.2372), (0.088, 1.2295))]
+        FACE_PTS[f'brow_{side}'] = Vector(tuple((brow[1] + brow[2]) / 2))
         part(f'brow_{side}', tube(brow, [0.0028, 0.0042, 0.0036, 0.0016]), (s * 0.05 - 0.06, -0.17, 1.2), (s * 0.05 + 0.06, -0.09, 1.27),
-             0.0006, 'hair', 'head', 300)
+             0.0006, 'hair', f'brow_{side}', 300)
 
 
 # --- hair ---------------------------------------------------------------------------------------
@@ -479,6 +482,11 @@ def bones():
          ('scarf1', (0.045, -0.09, 0.975), (0.05, -0.125, 0.9), 'chest'),
          ('scarf2', (0.05, -0.125, 0.9), (0.057, -0.13, 0.79), 'scarf1'),
          ('bag', (-0.165, 0, 0.69), (-0.19, 0, 0.6), 'hips')]
+    # expression bones: the brows and the corners of the mouth
+    for side in ('L', 'R'):
+        for k in (f'brow_{side}', f'mouth_{side}'):
+            c = FACE_PTS[k]
+            B.append((k, (c[0], c[1], c[2]), (c[0], c[1], c[2] + 0.02), 'head'))
     for s, side in ((1, 'L'), (-1, 'R')):
         d = (WR[s] - EL[s]) / np.linalg.norm(WR[s] - EL[s])
         B += [(f'eye_{side}', (s * 0.057, -0.13, 1.176), (s * 0.057, -0.13, 1.216), 'head'),
@@ -525,16 +533,38 @@ def head_weights(p):
     return {'head': hw, 'chest': cw, 'neck': max(0.0, 1 - hw - cw)}
 
 
+def face_weights(p):
+    w = head_weights(p)
+    # the skin round the mouth corners and under the brows goes with them (cheeks bunch in a smile)
+    front = smooth01(-0.06, -0.1, p.y)
+    extra = {}
+    for side in ('L', 'R'):
+        extra[f'mouth_{side}'] = 0.6 * front * smooth01(0.02, 0.004, (p - FACE_PTS[f'mouth_{side}']).length)
+        extra[f'brow_{side}'] = 0.35 * front * smooth01(0.022, 0.005, (p - FACE_PTS[f'brow_{side}']).length)
+    k = max(0.0, 1.0 - sum(extra.values()))
+    w = {b: v * k for b, v in w.items()}
+    w.update(extra)
+    return w
+
+
 def weight_fn(kind, segs):
     def seg(*names, mult=None, power=5.0):
         sub = {n: segs[n] for n in names}
         return lambda p: lib.dist_weights(p, sub, mult, power)
     if kind == 'head':
         return head_weights
+    if kind == 'face':
+        return face_weights
     if kind == 'pencil_ear':
         return lambda p: {'head': 1.0}
-    if kind in ('eye_L', 'eye_R', 'mouth', 'bag'):
+    if kind in ('eye_L', 'eye_R', 'mouth', 'bag', 'brow_L', 'brow_R'):
         return lambda p: {kind: 1.0}
+    if kind == 'mouthline':
+        # the corners on their own bones, fading into the middle (which opens when she talks)
+        def mouthline(p):
+            wl, wr = smooth01(0.003, 0.019, p.x), smooth01(0.003, 0.019, -p.x)
+            return {'mouth_L': wl, 'mouth_R': wr, 'mouth': max(0.0, 1.0 - wl - wr)}
+        return mouthline
     if kind == 'pencil_hand':
         return lambda p: {'hand_R': 1.0}
     if kind == 'coat':

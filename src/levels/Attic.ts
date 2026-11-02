@@ -212,8 +212,8 @@ export class Attic implements Level {
     d.focus(() => g.player.position.clone().add(v3(0, 1.1, 0)), 0.6);
     await d.wait(2.0);
     await d.talk([
-      ['Ada', "The rain's stopped."],
-      ['Ada', 'Mum would have said the colours outside look freshly painted.'],
+      ['Ada', "The rain's stopped.", 'tender'],
+      ['Ada', 'Mum would have said the colours outside look freshly painted.', 'tender'],
     ]);
     d.end();
     g.ui.toast('Her sketchbook is on the desk. Her easel is by the shelf.', 6);
@@ -235,7 +235,7 @@ export class Attic implements Level {
     const page = new Portrait();
     page.paint(1);
     await g.ui.note('the last page', `<img src="${page.canvas.toDataURL('image/jpeg', 0.9)}" style="width:100%;border-radius:2px;display:block">`, '');
-    await d.talk([['Ada', "It's still there. Mum and me."]]);
+    await d.talk([['Ada', "It's still there. Mum and me.", 'tender']]);
     d.end();
     this.checkMorning();
   }
@@ -269,9 +269,9 @@ export class Attic implements Level {
     d.focus(easel, 0.5);
     await d.wait(2.5);
     await d.talk([
-      ['Ada', '...She was painting us.'],
-      ['Ada', 'The same picture. The whole time.'],
-      ['Ada', 'She did finish it. She just needed me to do my half.'],
+      ['Ada', '...She was painting us.', 'wonder'],
+      ['Ada', 'The same picture. The whole time.', 'tender'],
+      ['Ada', 'She did finish it. She just needed me to do my half.', 'happy'],
     ]);
     d.end();
     this.checkMorning();
@@ -295,7 +295,7 @@ export class Attic implements Level {
     d.shot(foxLook.clone().add(v3(0.5, 0.06, 0.18)), foxLook, 24);
     d.focus(foxLook, 0.9);
     await d.wait(2.0);
-    await d.talk([['Ada', 'Thank you, Pip.']]);
+    await d.talk([['Ada', 'Thank you, Pip.', 'tender']]);
     g.ui.hideDialogue();
     await d.wait(0.6);
     // ...and the little paper fox turns its head, just once
@@ -338,8 +338,8 @@ export class Attic implements Level {
     g.ui.fade(0, 2.5);
     await d.wait(2.0);
     await d.talk([
-      ['Ada', 'Dad said I could pick one thing of hers to keep.'],
-      ['Ada', 'Just one.'],
+      ['Ada', 'Dad said I could pick one thing of hers to keep.', 'sad'],
+      ['Ada', 'Just one.', 'sad'],
     ]);
     d.end();
     g.ui.toast(g.input.device === 'gamepad' ? 'Left stick to move  ·  X to look at things' : 'WASD to move  ·  E to look at things  ·  click, then move the mouse to look', 7);
@@ -368,8 +368,8 @@ export class Attic implements Level {
     audio.paper();
     await g.ui.note('a label on the cover', 'For Ada &mdash;<br>when you\'re ready.', '');
     await d.talk([
-      ['Ada', "I don't know if I'm ready."],
-      ['Ada', '...But I want to see.'],
+      ['Ada', "I don't know if I'm ready.", 'worried'],
+      ['Ada', '...But I want to see.', 'determined'],
     ]);
     for (let i = 0; i < 4; i++) {
       audio.pageTurn();

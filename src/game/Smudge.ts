@@ -47,6 +47,17 @@ export class Smudge {
   private size = 0;
   private heading = new THREE.Vector3(0, 0, 1);
 
+  private frightened = false;
+
+  /** Ada and Pip look frightened while it is close (and settle once it isn't). */
+  private fright(on: boolean) {
+    if (on === this.frightened) return;
+    this.frightened = on;
+    const e = on ? 'scared' : 'neutral';
+    this.game.player.expression.setBase(e);
+    this.game.director.pip?.expression.setBase(e);
+  }
+
   constructor(private game: Game) {
     const n = MAX_SEGMENTS;
     this.seg = { a: new Float32Array(n * 3), b: new Float32Array(n * 3), seed: new Float32Array(n * 2), count: n };
@@ -128,6 +139,7 @@ export class Smudge {
     this.size += ((this.active ? 1 : 0) - this.size) * (1 - Math.exp(-dt * (this.active ? 1.5 : 3)));
     if (!vis) {
       audio.smudgeLevel(0);
+      this.fright(false);
       return;
     }
     if (this.active) {
@@ -152,7 +164,11 @@ export class Smudge {
       }
       const near = 1 - THREE.MathUtils.smoothstep(this.position.distanceTo(target), 2, 18);
       audio.smudgeLevel(0.25 + near * 0.75);
-    } else audio.smudgeLevel(this.size * 0.3);
+      this.fright(near > 0.15);
+    } else {
+      audio.smudgeLevel(this.size * 0.3);
+      this.fright(false);
+    }
     if (G.uBoil.value !== this.lastBoil) {
       this.lastBoil = G.uBoil.value;
       this.scribble(G.uTime.value);

@@ -94,6 +94,8 @@ EYE_SINK = 0.0016
 IRIS = (0.0074, 0.0084)
 PUPIL = 0.5
 IRIS_C = {}
+# where the face's expression bones sit (filled in by head()): mouth corners and brow middles
+FACE_PTS = {}
 MOUTH_Z = 1.527
 FRECKLES = []
 
@@ -119,7 +121,7 @@ def head():
     # the corners of her mouth tuck in a little
     for s in (1, -1):
         h = subtract(h, sdf.sphere(mouth_c + V((s * 0.0132, 0.0016, 0.0012)), 0.0018), k=0.003)
-    part('head', h, (-0.11, -0.13, 1.25), (0.11, 0.13, 1.72), 0.0011, 'skin', 'head', 15000)
+    part('head', h, (-0.11, -0.13, 1.25), (0.11, 0.13, 1.72), 0.0011, 'skin', 'face', 15000)
 
     for s, side in ((1, 'L'), (-1, 'R')):
         E, R = frames[s]
@@ -143,19 +145,21 @@ def head():
         part(f'lashlow_{side}', tube(low, [0.0003, 0.0005, 0.0006, 0.0003]), lo, hi, 0.0003, 'lash', f'eye_{side}', 160)
         # fine arched brows, a shade darker than her hair
         brow = [on(base, (s * x, -0.3, z), (0, 1, 0), lift=0.0011) for x, z in ((0.011, 1.6205), (0.024, 1.627), (0.038, 1.628), (0.052, 1.6225))]
+        FACE_PTS[f'brow_{side}'] = Vector(tuple((brow[1] + brow[2]) / 2))
         part(f'brow_{side}', tube(brow, [0.0009, 0.0013, 0.0011, 0.0005]), (s * 0.03 - 0.04, -0.11, 1.6), (s * 0.03 + 0.04, -0.05, 1.65),
-             0.0004, 'hair_dark', 'head', 300)
+             0.0004, 'hair_dark', f'brow_{side}', 300)
     # lips: a full lower lip, a bowed upper one, a warm closed smile; a dark line between them that
     # the mouth bone opens into her mouth when she talks
     y0 = mouth_c[1] + 0.0016
     upper = sdf.mirror_x(ellipsoid((0.0058, y0, MOUTH_Z + 0.0024), (0.0092, 0.0024, 0.0021), sdf.rot(0, 12, 0)))
     lower = ellipsoid((0, y0 + 0.0002, MOUTH_Z - 0.003), (0.0105, 0.0026, 0.0027))
     lips = union(upper, lower, k=0.0015)
-    part('lips', lips, mouth_c - 0.03, mouth_c + 0.03, 0.0003, 'lips', 'mouth', 900)
+    part('lips', lips, mouth_c - 0.03, mouth_c + 0.03, 0.0003, 'lips', 'lips', 900)
     line = [V((x, 0, MOUTH_Z + dz)) for x, dz in ((-0.0128, 0.0016), (-0.0065, -0.0002), (0.0, 0.0), (0.0065, -0.0002), (0.0128, 0.0016))]
     face_lips = union(base, lips)
     line = [on(face_lips, p + V((0, -0.3, 0)), (0, 1, 0), lift=-0.0003) for p in line]
-    part('mouth', tube(line, [0.0003, 0.0006, 0.0007, 0.0006, 0.0003]), mouth_c - 0.03, mouth_c + 0.03, 0.0003, 'mouth', 'mouth', 300)
+    FACE_PTS['mouth_L'], FACE_PTS['mouth_R'] = Vector(tuple(line[-1])), Vector(tuple(line[0]))
+    part('mouth', tube(line, [0.0003, 0.0006, 0.0007, 0.0006, 0.0003]), mouth_c - 0.03, mouth_c + 0.03, 0.0003, 'mouth', 'mouthline', 300)
     # freckles across her nose and cheeks: little dabs of colour painted into her skin (see tint)
     rnd = random.Random(31)
     FRECKLES.clear()
@@ -538,6 +542,11 @@ def bones():
          ('scarf1', tuple(BRAID[2]), tuple(BRAID[5]), 'chest'),
          ('scarf2', tuple(BRAID[5]), tuple(BRAID[7] + V((0, 0, -0.05))), 'scarf1'),
          ('bag', (-0.17, 0, 0.98), (-0.19, 0, 0.9), 'hips')]
+    # expression bones: the brows and the corners of the mouth
+    for side in ('L', 'R'):
+        for k in (f'brow_{side}', f'mouth_{side}'):
+            c = FACE_PTS[k]
+            B.append((k, (c[0], c[1], c[2]), (c[0], c[1], c[2] + 0.015), 'head'))
     for s, side in ((1, 'L'), (-1, 'R')):
         d = (WR[s] - EL[s]) / np.linalg.norm(WR[s] - EL[s])
         B += [(f'eye_{side}', (s * 0.033, -0.08, 1.5905), (s * 0.033, -0.08, 1.612), 'head'),
@@ -585,6 +594,28 @@ def head_weights(p):
     return {'head': hw, 'chest': cw, 'neck': max(0.0, 1 - hw - cw)}
 
 
+def face_weights(p):
+    w = head_weights(p)
+    # the skin round the mouth corners and under the brows goes with them (cheeks lift in a smile)
+    front = smooth01(-0.05, -0.075, p.y)
+    extra = {}
+    for side in ('L', 'R'):
+        extra[f'mouth_{side}'] = 0.6 * front * smooth01(0.014, 0.003, (p - FACE_PTS[f'mouth_{side}']).length)
+        extra[f'brow_{side}'] = 0.35 * front * smooth01(0.016, 0.004, (p - FACE_PTS[f'brow_{side}']).length)
+    k = max(0.0, 1.0 - sum(extra.values()))
+    w = {b: v * k for b, v in w.items()}
+    w.update(extra)
+    return w
+
+
+def corners(width):
+    # the corners on their own bones, fading into the middle (which opens when she talks)
+    def f(p):
+        wl, wr = smooth01(0.002, width, p.x), smooth01(0.002, width, -p.x)
+        return {'mouth_L': wl, 'mouth_R': wr, 'mouth': max(0.0, 1.0 - wl - wr)}
+    return f
+
+
 def hair_weights(p):
     # the long hair hangs from her head but lies on her back: blend down from head to chest
     t = smooth01(1.52, 1.34, p.z) * smooth01(-0.02, 0.04, p.y)
@@ -597,8 +628,14 @@ def weight_fn(kind, segs):
         return lambda p: lib.dist_weights(p, sub, mult, power)
     if kind == 'head':
         return head_weights
-    if kind in ('eye_L', 'eye_R', 'mouth'):
+    if kind == 'face':
+        return face_weights
+    if kind in ('eye_L', 'eye_R', 'mouth', 'brow_L', 'brow_R'):
         return lambda p: {kind: 1.0}
+    if kind == 'mouthline':
+        return corners(0.0115)
+    if kind == 'lips':
+        return corners(0.0125)
     if kind == 'hair':
         braid = seg('neck', 'scarf1', 'scarf2', mult={'neck': 0.6}, power=4)
 

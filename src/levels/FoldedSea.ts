@@ -441,18 +441,18 @@ export class FoldedSea implements Level {
     await d.wait(1.6);
     this.pip.lookAt = g.player.position;
     await d.talk([
-      ['Ada', 'Sand. Real sand.'],
-      ['Ada', '...Well. Pencil sand.'],
+      ['Ada', 'Sand. Real sand.', 'wonder'],
+      ['Ada', '...Well. Pencil sand.', 'happy'],
     ]);
     // the sea, as she sees it: grey folds all the way to the edge of the page
     d.focus(null);
     d.shot(sp.clone().add(v3(-1.7, 1.55, 2.2)), v3(4, 0.5, -40), 46);
     await d.wait(1.4);
     await d.talk([
-      ['Pip', 'The Folded Sea. She folded every one of these waves by hand, you know. One crease at a time.'],
-      ['Ada', "It's grey. All of it."],
+      ['Pip', 'The Folded Sea. She folded every one of these waves by hand, you know. One crease at a time.', 'tender'],
+      ['Ada', "It's grey. All of it.", 'sad'],
       ['Pip', 'The blue is out there, in her inkwell, on the island past the stacks. Nobody has crossed since the light went out.'],
-      ['Ada', 'What light?'],
+      ['Ada', 'What light?', 'curious'],
     ]);
     // low under the headland, up at the dark lantern
     d.focus(lamp, 0.35);
@@ -460,7 +460,7 @@ export class FoldedSea implements Level {
     await d.wait(1.2);
     await d.talk([
       ['Pip', "The Keeper's. Up on the headland."],
-      ['Pip', "He'll know what to do. Come on!"],
+      ['Pip', "He'll know what to do. Come on!", 'happy'],
     ]);
     this.pip.lookAt = null;
     this.pip.follow = true;
@@ -497,7 +497,7 @@ export class FoldedSea implements Level {
     d.shot(home.clone().lerp(stand, 0.5).addScaledVector(side, 4.2).add(v3(0, 1.3, 0)), home.clone().lerp(stand, 0.5).add(v3(0, 0.9, 0)), 42);
     d.focus(() => k.root.position.clone().lerp(g.player.position, 0.5).add(v3(0, 1, 0)), 0.4);
     await d.talk([
-      ['Pip', "Keeper! It's me, Pip. And this is Ada."],
+      ['Pip', "Keeper! It's me, Pip. And this is Ada.", 'joy'],
     ]);
     // close on the Keeper as he takes her in, and bows
     d.shot(stand.clone().addScaledVector(toAda, 0.5).addScaledVector(side, 0.9).add(v3(0, 1.2, 0)), home.clone().add(v3(0, 0.95, 0)), 34);
@@ -512,14 +512,14 @@ export class FoldedSea implements Level {
     d.overShoulder(k.root.position.clone().add(v3(0, 0.5, 0)), 40);
     d.focus(() => k.root.position.clone().add(v3(0, 1.0, 0)), 0.5);
     await d.talk([
-      ['Ada', 'You knew my mum?'],
+      ['Ada', 'You knew my mum?', 'surprised'],
       ['Keeper', 'She drew me. On a Tuesday, I believe, out of the corner of a shopping list.'],
       ['Keeper', 'Then the Smudge came for the blue, and my light went out with it. No light, no crossing. In the dark the sea folds itself into knots.'],
-      ['Ada', "Can't you light it again?"],
+      ['Ada', "Can't you light it again?", 'worried'],
       ['Keeper', 'The stair up to the lantern was never finished. She always said she would come back to it.'],
-      ['Pip', 'She said that about bridges, too.'],
+      ['Pip', 'She said that about bridges, too.', 'happy'],
       ['Keeper', 'Finish the stair, child. I will meet you at the top.'],
-      ['Pip', "I'll wait down here. Foxes and spiral staircases don't mix."],
+      ['Pip', "I'll wait down here. Foxes and spiral staircases don't mix.", 'happy'],
     ]);
     k.lookAt = null;
     d.end();
@@ -577,7 +577,7 @@ export class FoldedSea implements Level {
     d.focus(lamp, 0.6);
     await d.talk([
       ['Keeper', 'There is the lamp. And there is where the lens should be: seven rings of glass to throw the light across the sea.'],
-      ['Ada', 'She drew the lamp but not the glass.'],
+      ['Ada', 'She drew the lamp but not the glass.', 'curious'],
       ['Keeper', 'Glass is hard to draw. You have to draw what is not there.'],
     ]);
     d.end();
@@ -630,15 +630,15 @@ export class FoldedSea implements Level {
     k.lookAt = g.player.position;
     await d.talk([
       ['Keeper', 'Do you see it? Out past the stacks. The inkwell, where she kept her blue.'],
-      ['Ada', "It's so far."],
+      ['Ada', "It's so far.", 'worried'],
     ]);
     this.fog.set(45, 175, 0.9);
     d.overShoulder(k.root.position.clone().add(v3(0, 0.5, 0)), 42);
     d.focus(() => k.root.position.clone().add(v3(0, 1, 0)), 0.45);
     await d.talk([
       ['Keeper', 'Then you will want a boat. She left one at the end of the pier. Well. The idea of one.'],
-      ['Pip', 'Ada can draw ANYTHING!'],
-      ['Ada', '...Mostly anything.'],
+      ['Pip', 'Ada can draw ANYTHING!', 'joy'],
+      ['Ada', '...Mostly anything.', 'happy'],
       ['Keeper', 'The quick way down is a great deal quicker than the slow way. Hold on to my legs.'],
     ]);
     await g.ui.fade(1, 0.8);
@@ -663,7 +663,7 @@ export class FoldedSea implements Level {
     const d = this.game.director;
     this.keeper.lookAt = this.game.player.position;
     await d.talk([
-      ['Pip', 'There! Or... there-ish.'],
+      ['Pip', 'There! Or... there-ish.', 'happy'],
       ['Keeper', 'A hull, a mast, a sail and a tiller. She always did the tiller last.'],
     ]);
     this.keeper.lookAt = null;
@@ -758,7 +758,7 @@ export class FoldedSea implements Level {
     d.shot(b.position.clone().addScaledVector(fwd, -3.2).addScaledVector(side, 1.6).add(v3(0, 1.1, 0)), sm(), 40, true);
     await d.wait(2.5);
     this.storm.strike();
-    await d.talk([['Pip', 'Ada... the sea is folding the wrong way.']]);
+    await d.talk([['Pip', 'Ada... the sea is folding the wrong way.', 'scared']]);
     // Ada turns to look
     d.shot(b.position.clone().addScaledVector(fwd, 1.4).addScaledVector(side, -1.1).add(v3(0, 1.5, 0)), g.player.position.clone().add(v3(0, 1.0, 0)), 36, true);
     d.focus(() => g.player.position.clone().add(v3(0, 1.0, 0)), 0.9);
@@ -776,7 +776,7 @@ export class FoldedSea implements Level {
     });
     this.storm.strike();
     await d.talk([
-      ['Pip', 'The Smudge! Fill the sail, Ada! Keep to the light and DON\'T let it catch us!'],
+      ['Pip', 'The Smudge! Fill the sail, Ada! Keep to the light and DON\'T let it catch us!', 'scared'],
     ]);
     await wide;
     b.autoThrottle = 0;
@@ -815,9 +815,9 @@ export class FoldedSea implements Level {
     audio.ambience('sea');
     audio.play('sea');
     await this.game.director.talk([
-      ['Pip', "...It's stopped. It won't come any closer to the island."],
-      ['Ada', 'Like at the Tree.'],
-      ['Pip', 'Like at the Tree.'],
+      ['Pip', "...It's stopped. It won't come any closer to the island.", 'worried'],
+      ['Ada', 'Like at the Tree.', 'curious'],
+      ['Pip', 'Like at the Tree.', 'worried'],
     ]);
   }
 
@@ -854,11 +854,11 @@ export class FoldedSea implements Level {
     await tilt;
     d.focus(ink, 0.3);
     await d.talk([
-      ['Pip', 'The inkwell. Her inkwell.'],
-      ['Ada', "It's the one from her desk. The one with the chipped lid. It's... enormous."],
-      ['Ada', 'And empty.'],
-      ['Pip', 'Not empty. Asleep. Look at the label.'],
-      ['Ada', "That's her writing."],
+      ['Pip', 'The inkwell. Her inkwell.', 'wonder'],
+      ['Ada', "It's the one from her desk. The one with the chipped lid. It's... enormous.", 'wonder'],
+      ['Ada', 'And empty.', 'sad'],
+      ['Pip', 'Not empty. Asleep. Look at the label.', 'tender'],
+      ['Ada', "That's her writing.", 'tender'],
     ]);
     d.end();
     this.traces.get('trace_label')!.enabled = true;
@@ -931,12 +931,12 @@ export class FoldedSea implements Level {
     await d.wait(1.0);
     this.twoShot();
     await d.talk([
-      ['Ada', 'Blue.'],
-      ['Pip', "That's two."],
-      ['Ada', 'Pip... how did you know where she kept it? The inkwell. The boat. The steps.'],
-      ['Pip', "I... don't know. I just did. Like remembering a dream you had a long, long time ago."],
-      ['Pip', 'Gold is the last one. It is on the very last page. The one she never got to finish.'],
-      ['Ada', "Then we'll finish it for her."],
+      ['Ada', 'Blue.', 'wonder'],
+      ['Pip', "That's two.", 'happy'],
+      ['Ada', 'Pip... how did you know where she kept it? The inkwell. The boat. The steps.', 'curious'],
+      ['Pip', "I... don't know. I just did. Like remembering a dream you had a long, long time ago.", 'worried'],
+      ['Pip', 'Gold is the last one. It is on the very last page. The one she never got to finish.', 'sad'],
+      ['Ada', "Then we'll finish it for her.", 'determined'],
     ]);
     this.pip.lookAt = null;
     d.end();
@@ -980,10 +980,10 @@ export class FoldedSea implements Level {
     d.focus(lamp, 0.4);
     await d.talk([
       ['Keeper', 'She used to sit just there, you know. Drawing the light going round.'],
-      ['Ada', 'She never told me about any of this.'],
+      ['Ada', 'She never told me about any of this.', 'sad'],
       ['Keeper', 'Perhaps she was saving it. For when you were ready to finish it with her.'],
-      ['Ada', 'It should be orange. Sunsets are supposed to be orange.'],
-      ['Pip', "Then let's go and find the gold."],
+      ['Ada', 'It should be orange. Sunsets are supposed to be orange.', 'determined'],
+      ['Pip', "Then let's go and find the gold.", 'happy'],
     ]);
     await push;
     audio.play('title');

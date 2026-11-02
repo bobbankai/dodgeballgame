@@ -259,15 +259,15 @@ export class MarginVillage implements Level {
     g.player.face(this.pip.position, 1);
     d.overShoulder(this.pip.position.clone().add(v3(0, 0.3, 0)));
     await d.talk([
-      ['Pip', "Oh! Oh, you're in colour! You must be her!"],
-      ['Ada', 'Her? ...Who are you?'],
-      ['Pip', 'Pip. Folded from the corner of page forty-one. I have been waiting for you, Ada.'],
-      ['Ada', 'You know my name?'],
-      ['Pip', 'Everybody in the margins knows your name. She wrote it on every page.'],
-      ['Ada', 'Mum...'],
-      ['Pip', 'Something has been rubbing the colour out of her book. The Smudge. Green, blue, gold. All gone grey.'],
-      ['Pip', "But you've got her pencil. Whatever you go over in ink, stays."],
-      ['Pip', 'The village is just over the stream. Come on!'],
+      ['Pip', "Oh! Oh, you're in colour! You must be her!", 'joy'],
+      ['Ada', 'Her? ...Who are you?', 'surprised'],
+      ['Pip', 'Pip. Folded from the corner of page forty-one. I have been waiting for you, Ada.', 'happy'],
+      ['Ada', 'You know my name?', 'surprised'],
+      ['Pip', 'Everybody in the margins knows your name. She wrote it on every page.', 'tender'],
+      ['Ada', 'Mum...', 'sad'],
+      ['Pip', 'Something has been rubbing the colour out of her book. The Smudge. Green, blue, gold. All gone grey.', 'worried'],
+      ['Pip', "But you've got her pencil. Whatever you go over in ink, stays.", 'happy'],
+      ['Pip', 'The village is just over the stream. Come on!', 'joy'],
     ]);
     this.pip.lookAt = null;
     this.pip.follow = true;
@@ -281,8 +281,8 @@ export class MarginVillage implements Level {
     const d = this.game.director;
     this.pip.goal = this.at('cp_bridge_south').add(v3(1.2, 0, 0.5));
     await d.talk([
-      ['Pip', "Ah. The bridge. She never finished bridges, she always said she'd come back to them."],
-      ['Pip', "Go on, you do it. Stand close and hold the button. Go over her pencil lines."],
+      ['Pip', "Ah. The bridge. She never finished bridges, she always said she'd come back to them.", 'tender'],
+      ['Pip', "Go on, you do it. Stand close and hold the button. Go over her pencil lines.", 'happy'],
     ]);
     this.game.ui.toast('Hold E near a pencil sketch to ink it in', 6);
   }
@@ -290,10 +290,10 @@ export class MarginVillage implements Level {
   private async villageTalk() {
     const d = this.game.director;
     await d.talk([
-      ['Pip', 'Margin Village! It is usually much busier than this.'],
-      ['Ada', "Where is everyone?"],
-      ['Pip', "Not drawn yet. Or rubbed out. It's hard to tell, in the grey."],
-      ['Pip', "There's something pinned to the board by the well. That's her handwriting, I'd know it anywhere."],
+      ['Pip', 'Margin Village! It is usually much busier than this.', 'happy'],
+      ['Ada', "Where is everyone?", 'worried'],
+      ['Pip', "Not drawn yet. Or rubbed out. It's hard to tell, in the grey.", 'worried'],
+      ['Pip', "There's something pinned to the board by the well. That's her handwriting, I'd know it anywhere.", 'curious'],
       ['Pip', 'And the green went to sleep in the Great Tree, up the hill. The steps are behind the village.'],
     ]);
   }
@@ -331,8 +331,8 @@ export class MarginVillage implements Level {
     d.shot(ada.clone().addScaledVector(dir, -4.5).addScaledVector(side, 2.2).add(v3(0, 1.0, 0)), sp.clone().lerp(ada, 0.45).add(v3(0, 1.0, 0)), 52, true);
     d.focus(null);
     await d.talk([
-      ['Pip', "The Smudge! Don't let it touch you, it rubs out everything it touches!"],
-      ['Pip', "RUN, Ada! Up the rocks! It won't follow us near the Tree!"],
+      ['Pip', "The Smudge! Don't let it touch you, it rubs out everything it touches!", 'scared'],
+      ['Pip', "RUN, Ada! Up the rocks! It won't follow us near the Tree!", 'scared'],
     ]);
     g.player.setPose(null);
     d.end();
@@ -368,9 +368,9 @@ export class MarginVillage implements Level {
     this.smudge.dismiss();
     audio.play('village');
     await this.game.director.talk([
-      ['Pip', "...It's stopped. It won't come any closer to the Tree."],
-      ['Ada', "Why not?"],
-      ['Pip', "I don't know. Maybe it's afraid of what it would find here."],
+      ['Pip', "...It's stopped. It won't come any closer to the Tree.", 'worried'],
+      ['Ada', "Why not?", 'curious'],
+      ['Pip', "I don't know. Maybe it's afraid of what it would find here.", 'worried'],
     ]);
   }
 
@@ -392,8 +392,8 @@ export class MarginVillage implements Level {
     await d.say('Pip', 'The Great Tree. Or half of it.');
     await move;
     await d.talk([
-      ['Ada', 'Mum drew this. It was on our fridge for years. It had six big branches.'],
-      ['Pip', 'Then you know how it goes. Finish it, Ada.'],
+      ['Ada', 'Mum drew this. It was on our fridge for years. It had six big branches.', 'tender'],
+      ['Pip', 'Then you know how it goes. Finish it, Ada.', 'determined'],
     ]);
     d.end();
     for (const b of [1, 2, 3]) this.traces.get(`trace_branch${b}`)!.enabled = true;
@@ -452,11 +452,11 @@ export class MarginVillage implements Level {
     });
     await d.wait(1.0);
     await d.talk([
-      ['Ada', 'Green...'],
-      ['Pip', "That's one. Blue is out past the edge of the page, in the Folded Sea."],
-      ['Ada', "Then we'll need a boat."],
-      ['Pip', 'Can you draw a boat?'],
-      ['Ada', 'I can draw anything she taught me.'],
+      ['Ada', 'Green...', 'wonder'],
+      ['Pip', "That's one. Blue is out past the edge of the page, in the Folded Sea.", 'happy'],
+      ['Ada', "Then we'll need a boat.", 'determined'],
+      ['Pip', 'Can you draw a boat?', 'curious'],
+      ['Ada', 'I can draw anything she taught me.', 'determined'],
     ]);
     const note = this.notes.find((n) => n.key === 'tree')!;
     note.shown = true;
@@ -501,10 +501,10 @@ export class MarginVillage implements Level {
     // rack focus out to the valley
     d.focus(look.clone().add(v3(0, 4, -18)), 0.5);
     await d.talk([
-      ['Ada', '...'],
-      ['Pip', 'Ada? Are you all right?'],
-      ['Ada', "I'm fine. I just... I miss her handwriting. Isn't that silly?"],
-      ['Pip', "No. It isn't silly at all."],
+      ['Ada', '...', 'sad'],
+      ['Pip', 'Ada? Are you all right?', 'worried'],
+      ['Ada', "I'm fine. I just... I miss her handwriting. Isn't that silly?", 'sad'],
+      ['Pip', "No. It isn't silly at all.", 'tender'],
     ]);
     await push;
     audio.play('title');
@@ -571,7 +571,7 @@ export class MarginVillage implements Level {
       this.villageTalk();
     } else if (this.traces.get('trace_stairs')!.done && !f.has('stairsDone')) {
       f.add('stairsDone');
-      g.director.talk([['Pip', 'Up we go!']]);
+      g.director.talk([['Pip', 'Up we go!', 'happy']]);
     } else if (!f.has('chase') && p.distanceTo(this.at('cp_terrace2')) < 5 && g.player.grounded) {
       this.chaseScene();
     } else if (f.has('chase') && !f.has('chaseDone') && p.y > this.at('cp_terrace3').y - 0.5 && p.distanceTo(this.at('cp_terrace3')) < 12) {

@@ -272,16 +272,16 @@ export class UnfinishedPage implements Level {
     d.focus(null);
     await d.wait(1.0);
     await d.talk([
-      ['Ada', "It's... empty."],
-      ['Pip', 'The last page. She never finished it.'],
-      ['Ada', "There's nothing to go over. No lines at all."],
+      ['Ada', "It's... empty.", 'worried'],
+      ['Pip', 'The last page. She never finished it.', 'sad'],
+      ['Ada', "There's nothing to go over. No lines at all.", 'worried'],
     ]);
     this.pip.lookAt = g.player.position;
     d.overShoulder(this.pip.position.clone().add(v3(0, 0.3, 0)), 40);
     await d.talk([
-      ['Pip', 'Then you will have to draw it yourself.'],
-      ['Ada', 'Draw what?'],
-      ['Pip', 'Whatever gets you to the other side.'],
+      ['Pip', 'Then you will have to draw it yourself.', 'tender'],
+      ['Ada', 'Draw what?', 'curious'],
+      ['Pip', 'Whatever gets you to the other side.', 'happy'],
     ]);
     this.pip.lookAt = null;
     this.pip.follow = true;
@@ -293,17 +293,17 @@ export class UnfinishedPage implements Level {
 
   private async kitchenTalk() {
     await this.game.director.talk([
-      ['Ada', 'Our kitchen table.'],
-      ['Ada', 'We drew here every Sunday. She always let me have the blue crayon.'],
-      ['Pip', 'She remembered. She remembered all of it.'],
+      ['Ada', 'Our kitchen table.', 'wonder'],
+      ['Ada', 'We drew here every Sunday. She always let me have the blue crayon.', 'tender'],
+      ['Pip', 'She remembered. She remembered all of it.', 'tender'],
     ]);
   }
 
   private async gardenTalk() {
     const g = this.game, d = g.director;
     await d.talk([
-      ['Ada', 'My swing...'],
-      ['Pip', 'Ada. Behind us.'],
+      ['Ada', 'My swing...', 'wonder'],
+      ['Pip', 'Ada. Behind us.', 'scared'],
     ]);
     // it wells up out of the blank, between them and the way they came
     this.smudge.scale = 1.6;
@@ -371,23 +371,23 @@ export class UnfinishedPage implements Level {
     d.focus(() => g.player.position.clone().add(v3(0, 1.0, 0)), 0.5);
     audio.play('attic');
     await d.talk([
-      ['Ada', "Mum's desk. Her stool. Her pencils."],
-      ['Pip', 'Ada... I have to tell you something.'],
-      ['Pip', "I wasn't folded from the corner of page forty-one."],
-      ['Pip', 'I was drawn on the back of this page. The last one.'],
+      ['Ada', "Mum's desk. Her stool. Her pencils.", 'tender'],
+      ['Pip', 'Ada... I have to tell you something.', 'worried'],
+      ['Pip', "I wasn't folded from the corner of page forty-one.", 'sad'],
+      ['Pip', 'I was drawn on the back of this page. The last one.', 'tender'],
     ]);
     d.shot(this.pip.position.clone().addScaledVector(out, 1.1).add(v3(0, 0.45, 0)), this.pip.position.clone().add(v3(0, 0.35, 0)), 32);
     await d.talk([
-      ['Pip', 'Your mum always drew herself as a fox. In the margins. On birthday cards. On the notes in your lunchbox.'],
-      ['Ada', 'The fox on my lunchbox notes...'],
-      ['Pip', 'I am the bit of her she left in the book. To keep you company until you got here.'],
+      ['Pip', 'Your mum always drew herself as a fox. In the margins. On birthday cards. On the notes in your lunchbox.', 'tender'],
+      ['Ada', 'The fox on my lunchbox notes...', 'wonder'],
+      ['Pip', 'I am the bit of her she left in the book. To keep you company until you got here.', 'tender'],
     ]);
     d.shot(g.player.position.clone().addScaledVector(out, 1.3).addScaledVector(across, 0.4).add(v3(0, 1.15, 0)), g.player.position.clone().add(v3(0, 1.1, 0)), 32);
     d.focus(() => g.player.position.clone().add(v3(0, 1.1, 0)), 0.8);
     await d.talk([
-      ['Ada', 'Pip... are you... Mum?'],
-      ['Pip', 'Only a little bit of her.'],
-      ['Pip', 'The best bit, she would say.'],
+      ['Ada', 'Pip... are you... Mum?', 'surprised'],
+      ['Pip', 'Only a little bit of her.', 'tender'],
+      ['Pip', 'The best bit, she would say.', 'happy'],
     ]);
     // far off, at the last page, the grey gathers
     const page = this.at('smudge_spawn');
@@ -400,8 +400,8 @@ export class UnfinishedPage implements Level {
     g.rig.addShake(0.2);
     await d.wait(1.5);
     await d.talk([
-      ['Pip', 'It is waiting for us. At the last page.'],
-      ['Ada', 'Then that is where we are going.'],
+      ['Pip', 'It is waiting for us. At the last page.', 'worried'],
+      ['Ada', 'Then that is where we are going.', 'determined'],
     ]);
     this.pip.pose = null;
     this.pip.lookAt = null;
@@ -433,18 +433,18 @@ export class UnfinishedPage implements Level {
     g.rig.addShake(0.3);
     this.pip.goal = ada.clone().addScaledVector(side, 1.2);
     await d.talk([
-      ['Ada', 'Pip, what IS it?'],
+      ['Ada', 'Pip, what IS it?', 'scared'],
     ]);
     d.overShoulder(this.pip.position.clone().add(v3(0, 0.3, 0)), 40);
     d.focus(() => this.pip.position.clone().add(v3(0, 0.3, 0)), 0.5);
     audio.play('none');
     await d.talk([
-      ['Pip', 'Every eraser mark in the book. Every line she rubbed out because it was not good enough.'],
-      ['Pip', 'Every evening she sat down to draw this page and could not.'],
-      ['Pip', 'It is what is left when you want to undo something that cannot be undone.'],
-      ['Ada', '...Like missing someone.'],
-      ['Pip', 'You cannot outrun it. Nobody can.'],
-      ['Pip', 'But you can draw WITH it. Every drawing needs its shadows, Ada.'],
+      ['Pip', 'Every eraser mark in the book. Every line she rubbed out because it was not good enough.', 'sad'],
+      ['Pip', 'Every evening she sat down to draw this page and could not.', 'sad'],
+      ['Pip', 'It is what is left when you want to undo something that cannot be undone.', 'sad'],
+      ['Ada', '...Like missing someone.', 'sad'],
+      ['Pip', 'You cannot outrun it. Nobody can.', 'tender'],
+      ['Pip', 'But you can draw WITH it. Every drawing needs its shadows, Ada.', 'determined'],
     ]);
     d.end();
     this.flags.add('page');
@@ -497,10 +497,10 @@ export class UnfinishedPage implements Level {
     d.overShoulder(spot.clone().add(v3(0, 0.3, 0)), 38);
     d.focus(() => this.pip.position.clone().add(v3(0, 0.3, 0)), 0.5);
     await d.talk([
-      ['Ada', 'It is gone.'],
-      ['Pip', 'Not gone. Drawn in. It is part of the picture now. It always will be.'],
-      ['Pip', 'There is one more thing, Ada. The gold.'],
-      ['Pip', 'It was never lost. I kept it. Right here.'],
+      ['Ada', 'It is gone.', 'wonder'],
+      ['Pip', 'Not gone. Drawn in. It is part of the picture now. It always will be.', 'tender'],
+      ['Pip', 'There is one more thing, Ada. The gold.', 'happy'],
+      ['Pip', 'It was never lost. I kept it. Right here.', 'tender'],
     ]);
     g.ui.hideDialogue();
     // Pip unfolds into light
@@ -564,12 +564,12 @@ export class UnfinishedPage implements Level {
     const ring = d.rail({ path: orbit, look: spot.clone().add(v3(0, 0.95, 0.3)), duration: 22, fov: [38, 34], ease: 'linear' });
     await d.wait(3.0);
     await d.talk([
-      ['Mum', 'Look at you. You came all this way.'],
-      ['Ada', "I missed you. I miss you all the time."],
-      ['Mum', 'I know, love. I know.'],
-      ['Mum', "I'm sorry I didn't finish it. The book."],
-      ['Ada', "Why didn't you?"],
-      ['Mum', 'Because finishing it meant saying goodbye. And I couldn\'t. Not to you.'],
+      ['Mum', 'Look at you. You came all this way.', 'tender'],
+      ['Ada', "I missed you. I miss you all the time.", 'sad'],
+      ['Mum', 'I know, love. I know.', 'tender'],
+      ['Mum', "I'm sorry I didn't finish it. The book.", 'sad'],
+      ['Ada', "Why didn't you?", 'sad'],
+      ['Mum', 'Because finishing it meant saying goodbye. And I couldn\'t. Not to you.', 'sad'],
     ]);
     await ring;
     // kneeling, holding her hands, face to face
@@ -587,11 +587,11 @@ export class UnfinishedPage implements Level {
     d.shot(between.clone().addScaledVector(side, 1.85).add(v3(0, -0.06, 0)), between.clone().add(v3(0, -0.16, 0)), 40);
     d.focus(() => mum.face().lerp(g.player.position.clone().add(v3(0, 1.15, 0)), 0.5), 0.7);
     await d.talk([
-      ['Mum', 'But you can. That is the thing about you, Ada. You always finish what you start.'],
-      ['Ada', "I don't want to say goodbye."],
-      ['Mum', 'Then don\'t. Draw us instead. Then it isn\'t goodbye.'],
-      ['Mum', "It's a picture you get to keep."],
-      ['Mum', 'The last page is yours, love.'],
+      ['Mum', 'But you can. That is the thing about you, Ada. You always finish what you start.', 'happy'],
+      ['Ada', "I don't want to say goodbye.", 'sad'],
+      ['Mum', 'Then don\'t. Draw us instead. Then it isn\'t goodbye.', 'tender'],
+      ['Mum', "It's a picture you get to keep.", 'happy'],
+      ['Mum', 'The last page is yours, love.', 'tender'],
     ]);
     // she stands, and goes back into the page as gold
     mum.pose = 'idle';
@@ -607,7 +607,7 @@ export class UnfinishedPage implements Level {
     }
     mum.drawn = 0;
     await d.wait(1.0);
-    await d.talk([['Ada', '...Okay.']]);
+    await d.talk([['Ada', '...Okay.', 'determined']]);
     d.end();
     this.flags.add('canDraw');
     audio.play('title');
@@ -640,8 +640,8 @@ export class UnfinishedPage implements Level {
     d.shot(c.clone().add(v3(-0.75, -0.45, 0.5)), g.player.position.clone().add(v3(0, 1.15, 0)), 34);
     d.focus(() => g.player.position.clone().add(v3(0, 1.1, 0)), 0.6);
     await d.talk([
-      ['Ada', 'Mum and me.'],
-      ['Ada', 'There. Finished.'],
+      ['Ada', 'Mum and me.', 'tender'],
+      ['Ada', 'There. Finished.', 'happy'],
     ]);
     d.focus(null);
     const from = g.camera.position.clone();

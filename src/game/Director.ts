@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import type { Speaker } from '../ui/UI';
+import { inferEmotion, type Emotion, type Expressive } from './Face';
 import type { Companion } from './Companion';
 import type { Game } from './Game';
 
@@ -20,6 +21,9 @@ interface Rail {
   done: () => void;
 }
 
+/** A line of dialogue: who, what, and (optionally) how they feel saying it. */
+export type Line = [Speaker, string] | [Speaker, string, Emotion];
+
 /**
  * Story scripting on game time: scripts are async functions that await waits, conditions and
  * dialogue lines. Cutscenes take control of the camera and Ada; dialogue drives who is talking.
@@ -30,7 +34,7 @@ export class Director {
   /** Pip, if the level has it, so its mouth (head bob) can follow the dialogue. */
   pip: Companion | null = null;
   /** Other characters who talk (they animate while their lines type out). */
-  readonly actors = new Map<Speaker, { speaking: boolean }>();
+  readonly actors = new Map<Speaker, { speaking: boolean; expression?: Expressive }>();
   private waits: { t: number; done: () => void }[] = [];
   private rails: Rail[] = [];
   private focusOn: THREE.Vector3 | (() => THREE.Vector3) | null = null;
@@ -57,21 +61,55 @@ export class Director {
     return new Promise((done) => this.conds.push({ fn, done }));
   }
 
-  async say(who: Speaker, text: string) {
+  /** Whoever can show a feeling: Ada always, Pip and the others while they're in the scene. */
+  faceOf(who: Speaker): Expressive | undefined {
+    if (who === 'Ada') return this.game.player.expression;
+    if (who === 'Pip') return this.pip?.expression;
+    return this.actors.get(who)?.expression;
+  }
+
+  private faces(): [Speaker, Expressive][] {
+    const out: [Speaker, Expressive][] = [];
+    for (const w of ['Ada', 'Pip', 'Mum', 'Keeper'] as Speaker[]) {
+      const f = this.faceOf(w);
+      if (f) out.push([w, f]);
+    }
+    return out;
+  }
+
+  /** Say a line with a feeling (given, or read from the words); the others react a little. */
+  async say(who: Speaker, text: string, feeling?: Emotion) {
     this.speaker = who;
     if (this.pip) this.pip.speaking = who === 'Pip';
     const actor = this.actors.get(who);
     if (actor) actor.speaking = true;
+    const e = feeling ?? inferEmotion(text);
+    // listeners catch a softer echo of it (a frightened line worries them; anger only worries)
+    const echo: Partial<Record<Emotion, [Emotion, number]>> = {
+      sad: ['sad', 0.5], joy: ['happy', 0.6], happy: ['happy', 0.4], tender: ['tender', 0.5], scared: ['worried', 0.6],
+      worried: ['worried', 0.4], surprised: ['surprised', 0.4], wonder: ['wonder', 0.5], angry: ['worried', 0.4],
+    };
+    for (const [w, f] of this.faces()) {
+      if (w === who) f.set(e, 1);
+      else if (echo[e]) f.set(echo[e][0], echo[e][1]);
+    }
     await this.game.ui.say(who, text);
+    this.faceOf(who)?.quiet();
     if (this.pip) this.pip.speaking = false;
     if (actor) actor.speaking = false;
     this.speaker = '';
   }
 
-  /** A run of lines, then the dialogue box closes. */
-  async talk(lines: [Speaker, string][]) {
-    for (const [w, t] of lines) await this.say(w, t);
+  /** A run of lines, then the dialogue box closes and faces settle back. */
+  async talk(lines: Line[]) {
+    for (const [w, t, e] of lines) await this.say(w, t, e);
     this.game.ui.hideDialogue();
+    for (const [, f] of this.faces()) f.set('neutral', 1, 0.01);
+  }
+
+  /** Show a feeling outside dialogue (a gasp, a grin), easing back after `seconds`. */
+  feel(who: Speaker, e: Emotion, seconds = 2.5, strength = 1) {
+    this.faceOf(who)?.set(e, strength, seconds);
   }
 
   begin(bars = true) {

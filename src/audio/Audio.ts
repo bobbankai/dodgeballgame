@@ -48,6 +48,8 @@ export class Sound {
   private smudge: { gain: GainNode; hi: GainNode; nodes: AudioNode[] } | null = null;
   private amb: { stop: () => void } | null = null;
   musicVolume = 0.55;
+  /** Called when a pigment chime plays (faces light up). */
+  onPigment?: () => void;
   sfxVolume = 0.8;
 
   /** Must be called from a user gesture. */
@@ -440,6 +442,7 @@ export class Sound {
   }
 
   pigment() {
+    this.onPigment?.();
     if (!this.ctx) return;
     const t = this.now;
     [65, 69, 72, 77, 81, 84, 89].forEach((m, i) => this.bell(m, t + i * 0.11, 0.09, this.sfxBus));

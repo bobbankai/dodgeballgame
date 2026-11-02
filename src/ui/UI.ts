@@ -47,7 +47,7 @@ export class UI {
   private toastTime = 0;
   private timers: { t: number; fn: () => void }[] = [];
   /** Called for each typed character (for the scratchy pencil voice). */
-  onType?: (speaker: Speaker) => void;
+  onType?: (speaker: Speaker, letter: string) => void;
   private speaker: Speaker = '';
 
   constructor(private input: Input) {
@@ -315,7 +315,7 @@ export class UI {
           const now = Math.floor(ty.shown);
           if (now > before) {
             const c = ty.full[now - 1];
-            if (/\S/.test(c)) this.onType?.(this.speaker);
+            this.onType?.(this.speaker, c);
             // a natural breath after punctuation
             if (c === ',') ty.pause = 0.12;
             else if (c === '.' || c === '?' || c === '!' || c === '—') ty.pause = 0.3;

@@ -65,7 +65,14 @@ export class Game {
     this.pipe = new Pipeline(container);
     this.input = new Input(this.pipe.renderer.domElement);
     this.ui = new UI(this.input);
-    this.ui.onType = (s) => audio.type(s);
+    audio.onPigment = () => {
+      this.director.feel('Ada', 'joy', 3.5);
+      this.director.feel('Pip', 'joy', 3.5);
+    };
+    this.ui.onType = (s, c) => {
+      this.director.faceOf(s)?.letter(c);
+      if (/\S/.test(c)) audio.type(s);
+    };
     this.director = new Director(this);
     this.sun.castShadow = true;
     this.sun.shadow.mapSize.set(2048, 2048);

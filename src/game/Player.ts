@@ -3,6 +3,7 @@ import type { GLTF } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { inkify, lineIdFor } from '../core/Assets';
 import type { Input } from '../core/Input';
 import { Animator } from './Animator';
+import { Face } from './Face';
 import type { Collision } from './Collision';
 
 const RADIUS = 0.21;
@@ -46,6 +47,8 @@ export class Player {
   readonly root = new THREE.Group();
   readonly model: THREE.Object3D;
   readonly anim: Animator;
+  /** Her expressions and the mouth moving as she talks. */
+  readonly expression: Face;
   readonly position = this.root.position;
   readonly velocity = new THREE.Vector3();
   yaw = 0;
@@ -66,6 +69,7 @@ export class Player {
   private landTimer = 0;
   private phase = 0;
   private blinkIn = 2;
+  private lastMode = '';
   private turnRate = 0;
   private lean = 0;
   private pencilEar: THREE.Object3D | null = null;
@@ -106,6 +110,7 @@ export class Player {
     if (this.pencilHand) this.pencilHand.visible = false;
     this.root.add(this.model);
     this.anim = new Animator(this.model, gltf.animations, ['jump', 'land', 'pickup', 'point', 'surprise']);
+    this.expression = new Face(this.model, gltf.animations, 1);
   }
 
   teleport(p: THREE.Vector3, yaw = this.yaw) {
@@ -327,13 +332,20 @@ export class Player {
     }
     this.landTimer = Math.max(0, this.landTimer - dt);
 
+    if (this.mode !== this.lastMode) {
+      // drawing takes concentration
+      if (this.mode === 'trace') this.expression.setBase('determined');
+      else if (this.lastMode === 'trace') this.expression.setBase('neutral');
+      this.lastMode = this.mode;
+    }
     this.blinkIn -= dt;
-    if (this.blinkIn <= 0) {
+    if (this.blinkIn <= 0 && !this.expression.has) {
       a.blink();
       this.blinkIn = 1.5 + Math.random() * 3.5;
       if (Math.random() < 0.15) this.blinkIn = 0.25; // a double blink now and then
     }
-    a.overlay('speak', this.speaking);
+    a.overlay('speak', this.speaking && !this.expression.has);
     a.update(dt);
+    this.expression.update(dt);
   }
 }

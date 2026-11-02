@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import type { GLTF } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { inkify, lineIdFor } from '../core/Assets';
 import { Animator } from './Animator';
+import { Face } from './Face';
 
 /**
  * Mum, as she drew herself into the last page (tools/blender/mum.py): long copper hair and a braid,
@@ -11,6 +12,7 @@ import { Animator } from './Animator';
 export class Mum {
   readonly root = new THREE.Group();
   readonly anim: Animator;
+  readonly expression: Face;
   /** World height she is drawn up to (see InkOptions.reveal). */
   readonly cut = { value: -1e3 };
   speaking = false;
@@ -42,6 +44,8 @@ export class Mum {
     model.traverse((o) => (o.frustumCulled = false));
     this.root.add(model);
     this.anim = new Animator(model, gltf.animations);
+    // a grown-up's features are finer than Ada's: the same expressions, smaller movements
+    this.expression = new Face(model, gltf.animations, 0.62);
     this.root.visible = false;
   }
 
@@ -78,12 +82,13 @@ export class Mum {
       this.yaw += d * (1 - Math.exp(-dt * 3));
     }
     this.blinkIn -= dt;
-    if (this.blinkIn <= 0) {
+    if (this.blinkIn <= 0 && !this.expression.has) {
       a.blink();
       this.blinkIn = 2 + Math.random() * 3;
     }
-    a.overlay('speak', this.speaking);
+    a.overlay('speak', this.speaking && !this.expression.has);
     this.root.rotation.y = this.yaw;
     a.update(dt);
+    this.expression.update(dt);
   }
 }
