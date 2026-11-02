@@ -472,24 +472,41 @@ def rock(seed, size=1.0, mat='stone'):
 
 
 def well():
+    """The village well: a round wall of coursed stone under a ring of capstones, water inside, two
+    posts braced to a shingled roof, the axle and its crank, a rope and a bucket."""
     parts = []
-    for k in range(14):
-        a = k / 14 * math.tau
-        parts.append(box('wellstone', (0.62, 0.34, 0.36), (math.cos(a) * 0.82, math.sin(a) * 0.82, 0.18), M('stone'),
-                         rot=Matrix.Rotation(a + math.pi / 2, 3, 'Z'), bevel=0.05))
-        parts.append(box('wellstone', (0.62, 0.34, 0.34), (math.cos(a + 0.22) * 0.82, math.sin(a + 0.22) * 0.82, 0.53), M('stone'),
-                         rot=Matrix.Rotation(a + 0.22 + math.pi / 2, 3, 'Z'), bevel=0.05))
-    parts.append(lib.ellipsoid('wellwater', (0, 0, 0.45), (0.68, 0.68, 0.02), M('glass'), segs=(20, 6)))
+
+    def ring(P):
+        return np.hypot(P[:, 0], P[:, 1])
+
+    def courses(P):
+        th = np.arctan2(P[:, 1], P[:, 0])
+        v = P[:, 2] / 0.24
+        u = th * 0.82 / 0.42 + 0.5 * np.floor(v)
+        g = np.maximum(np.exp(-((v - np.round(v)) / 0.1) ** 2), np.exp(-((u - np.round(u)) / 0.08) ** 2))
+        return -0.03 * g + 0.015 * (sdf.noise(P, 4.0, 11) - 0.5)
+    wall = sdf.displace(intersect(lambda P: np.abs(ring(P) - 0.83) - 0.19, lambda P: np.abs(P[:, 2] - 0.3) - 0.42, k=0.03), courses)
+    parts.append(sculpt('wellwall', wall, (-1.2, -1.2, -0.2), (1.2, 1.2, 0.8), 0.022, M('stone'), 6000))
+    caps = sdf.displace(intersect(lambda P: np.abs(ring(P) - 0.83) - 0.24, lambda P: np.abs(P[:, 2] - 0.76) - 0.065, k=0.04),
+                        lambda P: 0.012 * (sdf.noise(P, 5.0, 12) - 0.5) - 0.02 * np.exp(-(((np.arctan2(P[:, 1], P[:, 0]) * 0.83 / 0.55) % 1.0 - 0.5) / 0.05) ** 2))
+    parts.append(sculpt('wellcap', caps, (-1.2, -1.2, 0.6), (1.2, 1.2, 0.9), 0.02, M('stone_dark'), 2400))
+    posts = []
     for x in (-0.85, 0.85):
-        parts.append(box('wellpost', (0.15, 0.15, 2.32), (x, 0, 1.16), M('wood_dark')))
+        posts.append(sbox((x, 0, 1.18), (0.075, 0.075, 1.16), 0.025))
+        for s in (-1, 1):
+            posts.append(tube([(x, s * 0.05, 1.8), (x, s * 0.34, 2.02)], [0.035, 0.03]))
+    parts.append(sculpt('wellpost', union(*posts, k=0.02), (-1.1, -0.6, 0.0), (1.1, 0.6, 2.4), 0.014, M('wood_dark'), 1800))
+    parts.append(lib.lathe('wellwater', [(0.0, 0.43), (0.67, 0.43), (0.67, 0.46), (0.0, 0.46)], M('glass'), segs=36, subsurf=0))
     parts.append(sculpt('axle', union(tube([(-0.95, 0, 1.55), (0.95, 0, 1.55)], [0.055, 0.055]),
                                       tube([(0.95, 0, 1.55), (1.05, 0, 1.55), (1.07, -0.18, 1.55), (1.15, -0.2, 1.55)], [0.025] * 4), k=0.01),
                         (-1.2, -0.4, 1.3), (1.4, 0.3, 1.8), 0.012, M('wood'), 500))
     parts.append(lib.tube('rope', [(0.1, 0, 1.55), (0.1, 0, 1.05)], [0.015, 0.015], M('rope'), sides=6, subsurf=0))
-    bucket = subtract(sdf.revolve([(0.12, 0.0), (0.15, 0.24), (0.155, 0.25)], c=(0.1, 0, 0.82)), cylinder((0.1, 0, 1.1), 0.13, 0.27, 0.0), k=0.01)
-    bucket = union(bucket, torus((0.1, 0, 0.88), 0.135, 0.008), torus((0.1, 0, 1.04), 0.15, 0.008), k=0.004)
-    bucket = union(bucket, tube([(-0.05, 0, 1.06), (0.1, 0, 1.2), (0.25, 0, 1.06)], [0.006] * 3), k=0.004)
-    parts.append(sculpt('bucket', bucket, (-0.2, -0.3, 0.75), (0.4, 0.3, 1.3), 0.008, M('wood'), 700))
+    # the bucket: staves turned as one clean shell, two iron hoops and a bail handle
+    prof = [(0.0, 0.82), (0.12, 0.82), (0.15, 1.06), (0.158, 1.072), (0.15, 1.08), (0.137, 1.065), (0.108, 0.84), (0.0, 0.84)]
+    parts.append(lib.lathe('bucket', prof, M('wood'), segs=28, center=(0.1, 0, 0), subsurf=0, close_top=False, close_bottom=False))
+    iron = union(torus((0.1, 0, 0.88), 0.128, 0.008), torus((0.1, 0, 1.03), 0.149, 0.008),
+                 tube([(-0.055, 0, 1.06), (0.1, 0, 1.2), (0.255, 0, 1.06)], [0.006] * 3), k=0.004)
+    parts.append(sculpt('bucket_iron', iron, (-0.2, -0.3, 0.75), (0.4, 0.3, 1.3), 0.005, M('iron'), 900))
     # a little shingled roof
     pitch = math.radians(35)
     rf = union(roof_field(1.6, 1.0, 2.05, pitch, 0.24, 0.36, 'roof_red', 7), tube([(-1.18, 0, 2.38), (1.18, 0, 2.38)], [0.07, 0.07]), k=0.03)
@@ -588,17 +605,42 @@ def crate(size=0.6):
 
 
 def door_frame():
-    """The freestanding pencilled door Ada steps out of."""
-    parts = [box('dframe', (0.16, 0.2, 2.4), (x, 0, 1.2), M('wood_dark'), bevel=0.02) for x in (-0.62, 0.62)]
-    parts.append(box('dframe', (1.4, 0.2, 0.16), (0, 0, 2.48), M('wood_dark'), bevel=0.02))
-    parts.append(box('dsill', (1.5, 0.5, 0.1), (0, 0, 0.05), M('stone')))
-    # the door stands open, swung outwards
-    hinge = Vector((-0.55, -0.1, 0))
-    r = Matrix.Rotation(math.radians(-70), 3, 'Z')
-    for k in range(4):
-        c = Vector((0.14 + k * 0.27, -0.03, 1.18))
-        parts.append(box('dpanel', (0.26, 0.06, 2.3), hinge + r @ c, M('door_blue'), rot=r))
-    parts.append(box('dknob', (0.06, 0.08, 0.06), hinge + r @ Vector((0.95, -0.09, 1.15)), M('iron'), rot=r))
+    """The freestanding pencilled door Ada steps out of: a moulded frame under a little cornice on a
+    worn stone sill, and a four-panelled door standing open on its hinges, a knob on each face."""
+    parts = []
+
+    def post(x):
+        f = sbox((x, 0, 1.2), (0.085, 0.1, 1.22), 0.02)
+        # a bead run down each face of the frame
+        return subtract(f, lambda P: np.maximum(np.abs(np.abs(P[:, 1]) - 0.1) - 0.012, np.abs(P[:, 0] - x) - 0.012), k=0.006)
+    frame = union(post(-0.64), post(0.64), sbox((0, 0, 2.5), (0.73, 0.1, 0.09), 0.02),
+                  sbox((0, 0, 2.63), (0.82, 0.15, 0.04), 0.015), sbox((0, 0, 2.7), (0.77, 0.13, 0.03), 0.012), k=0.01)
+    parts.append(sculpt('dframe', frame, (-1.0, -0.4, -0.1), (1.0, 0.4, 2.9), 0.012, M('wood_dark'), 1800))
+    sill = sdf.displace(sbox((0, 0, 0.05), (0.78, 0.26, 0.07), 0.035),
+                        lambda P: 0.012 * (sdf.noise(P, 5.0, 3) - 0.5) - 0.012 * sdf.smooth01(0.3, 0.0, np.abs(P[:, 0])) * sdf.smooth01(0.2, 0.0, np.abs(P[:, 1])))
+    parts.append(sculpt('dsill', sill, (-1.0, -0.5, -0.1), (1.0, 0.5, 0.25), 0.015, M('stone'), 500))
+    # the door, modelled closed about its hinge, then swung open
+    hinge = V((-0.555, -0.06, 0.0))
+    R = sdf.rot(0, 0, -70)
+
+    def door(Q):
+        x, y, z = Q[:, 0], Q[:, 1], Q[:, 2]
+        d = np.maximum(np.maximum(np.abs(x - 0.555) - 0.545, np.abs(z - 1.19) - 1.15), np.abs(y) - 0.03) - 0.004
+        for cx in (0.3, 0.81):
+            for cz, hz in ((0.62, 0.42), (1.6, 0.5)):
+                rec = np.maximum(np.maximum(np.abs(x - cx) - 0.2, np.abs(z - cz) - hz), np.abs(np.abs(y) - 0.03) - 0.012)
+                field = np.maximum(np.maximum(np.abs(x - cx) - 0.15, np.abs(z - cz) - hz + 0.05), np.abs(y) - 0.026) - 0.008
+                d = np.minimum(np.maximum(d, -rec), field)
+        return d
+    parts.append(sculpt('dpanel', lambda P: door((P - hinge) @ R), (-1.0, -1.4, -0.1), (0.2, 0.3, 2.5), 0.01, M('door_blue'), 2400))
+    knob = []
+    for s in (-1, 1):
+        c = hinge + R @ V((0.98, s * 0.06, 1.12))
+        knob += [sdf.sphere(c + R @ V((0, s * 0.03, 0)), 0.035), sdf.cylinder(c, 0.045, 0.01, 0.004, R @ sdf.rot(90, 0, 0))]
+    parts.append(sculpt('dknob', union(*knob, k=0.01), (-0.6, -1.3, 0.9), (0.2, 0.0, 1.4), 0.006, M('iron'), 400))
+    for z in (0.35, 2.0):
+        c = hinge + R @ V((0.12, -0.035, z))
+        parts.append(sculpt('dhinge', sbox(c, (0.12, 0.006, 0.025), 0.004, R), c - 0.3, c + 0.3, 0.006, M('iron'), 80))
     return parts
 
 
@@ -991,16 +1033,34 @@ def bridge(length=9.0, width=1.8):
 
 
 def stairs(width=2.4, rise=2.4, run=3.0, steps=8):
-    """Stone steps climbing +Y from z=0 to z=rise, with low side walls."""
-    parts = []
+    """Stone steps climbing +Y from z=0 to z=rise: each tread a slab with a worn, rounded nosing and
+    a dip where feet have gone, between dry-stone side walls in courses under rounded capstones."""
+    tread = run / steps
+    slabs, walls, caps = [], [], []
     for i in range(steps):
         z = rise * (i + 1) / steps
-        y = run * i / steps
-        parts.append(box('stair', (width, run / steps + 0.05, z), (0, y + run / steps / 2, z / 2), M('stone'), bevel=0.02))
-    for s in (-1, 1):
-        for i in range(steps):
-            z = rise * (i + 1) / steps
-            y = run * i / steps
-            parts.append(box('stairwall', (0.3, run / steps + 0.06, z + 0.35), (s * (width / 2 + 0.15), y + run / steps / 2, (z + 0.35) / 2),
-                             M('stone_dark'), bevel=0.02))
+        y0 = tread * i
+        slabs.append(sbox((0, y0 + tread / 2 + 0.03, z / 2), (width / 2, tread / 2 + 0.06, z / 2), 0.04))
+        for s in (-1, 1):
+            walls.append(sbox((s * (width / 2 + 0.17), y0 + tread / 2, (z + 0.35) / 2 - 0.1), (0.18, tread / 2 + 0.035, (z + 0.35) / 2 + 0.1), 0.03))
+            caps.append(sbox((s * (width / 2 + 0.17), y0 + tread / 2, z + 0.3), (0.21, tread / 2 + 0.02, 0.06), 0.035))
+
+    def wear(P):
+        # each step a little uneven, its middle worn down
+        k = np.floor(P[:, 1] / tread)
+        top = rise * (k + 1) / steps
+        dip = 0.025 * np.exp(-(P[:, 0] / (width * 0.28)) ** 2) * sdf.smooth01(-0.05, 0.02, P[:, 2] - top)
+        return 0.012 * (sdf.noise(P, 4.0, 2) - 0.5) - dip + 0.008 * np.sin(k * 2.3)
+    st = sdf.displace(union(*slabs), wear)
+    lo, hi = (-width / 2 - 0.6, -0.4, -0.3), (width / 2 + 0.6, run + 0.4, rise + 0.6)
+    parts = [sculpt('stair', st, lo, hi, 0.03, M('stone'), 4000, sharp=40.0)]
+
+    def coursed(P):
+        v = P[:, 2] / 0.22
+        u = P[:, 1] / 0.4 + 0.5 * np.floor(v)
+        g = np.maximum(np.exp(-((v - np.round(v)) / 0.1) ** 2), np.exp(-((u - np.round(u)) / 0.08) ** 2))
+        return -0.025 * g + 0.015 * (sdf.noise(P, 3.0, 7) - 0.5)
+    parts.append(sculpt('stairwall', sdf.displace(union(*walls), coursed), lo, hi, 0.03, M('stone_dark'), 7000, sharp=40.0))
+    caps = sdf.displace(union(*caps, k=0.04), lambda P: 0.015 * (sdf.noise(P, 3.5, 9) - 0.5))
+    parts.append(sculpt('stairwall_cap', caps, lo, hi, 0.03, M('stone'), 2000, sharp=40.0))
     return parts

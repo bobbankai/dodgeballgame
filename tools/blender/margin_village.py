@@ -15,11 +15,13 @@ import sys
 
 import bmesh
 import bpy
+import numpy as np
 from mathutils import Vector, noise
 
 sys.path.insert(0, os.path.dirname(__file__))
 import kit  # noqa: E402
 import lib  # noqa: E402
+import sdf  # noqa: E402
 from lib import smooth01  # noqa: E402
 
 VILLAGE = Vector((0.0, 0.0))
@@ -380,11 +382,28 @@ def water_mesh():
 
 
 def rock_pillar(seed, h):
-    parts = kit.rock(seed + 90, 0.95)
-    p = parts[0]
-    p.data.transform(__import__('mathutils').Matrix.Translation((0, 0, h - 0.6)))
-    col = lib.lathe('pillar', [(1.0, -2.0), (1.05, h * 0.5), (0.9, h)], kit.M('stone'), segs=9, subsurf=0)
-    return [col, p]
+    """A stepping pillar: a ragged column of bedded stone, chiselled into rough faces, the beds wearing
+    back unevenly, its top a worn flat landing a little above h (where the old capstone's top was)."""
+    rnd = random.Random(seed + 50)
+    prof = [(1.25, -2.0), (1.12, 0.0), (1.15, h * 0.5), (1.05, h - 0.3), (1.02, h + 0.3)]
+
+    def rag(th, z):
+        q = np.stack([np.cos(th) * 1.3, np.sin(th) * 1.3, z * 0.3], 1)
+        return 1.0 + 0.2 * (sdf.noise(q, 0.8, seed) - 0.5) + 0.08 * (sdf.noise(q, 2.2, seed + 4) - 0.5)
+    f = sdf.revolve(prof, rmod=rag)
+    for k in range(7):
+        a = k * math.tau / 7 + rnd.uniform(-0.3, 0.3)
+        n = sdf.V((math.cos(a), math.sin(a), rnd.uniform(-0.12, 0.12)))
+        f = sdf.intersect(f, sdf.plane(n * rnd.uniform(0.9, 1.02), n), k=0.05)
+
+    def beds(P):
+        u = P[:, 2] / 0.75 + 1.6 * sdf.noise(P * sdf.V((1.0, 1.0, 0.35)), 0.45, seed) + 0.08 * P[:, 0]
+        # the beds jut in places and wear back flush in others
+        amp = 0.015 + 0.1 * sdf.smooth01(0.4, 0.72, sdf.noise(P, 1.1, seed + 8))
+        return amp * (u % 1.0) ** 2.5 - 0.04 + 0.02 * (sdf.noise(P, 2.6, seed + 3) - 0.5)
+    f = sdf.displace(f, beds)
+    f = sdf.intersect(f, lambda P: P[:, 2] - (h + 0.15) - 0.03 * (sdf.noise(P, 2.0, seed + 6) - 0.5), k=0.12)
+    return [kit.sculpt('pillar', f, (-1.8, -1.8, -2.1), (1.8, 1.8, h + 0.4), 0.04, kit.M('stone'), 3000, sharp=35.0)]
 
 
 if __name__ == '__main__':

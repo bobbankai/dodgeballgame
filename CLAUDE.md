@@ -37,8 +37,14 @@ python, system PIL is broken) tiles screenshots into one sheet, sorted by file n
   decimated symmetrically to flat facets (folded paper). `kit.py` environment pieces: `box()` is a
   hand-made block (rounded edges, a slight lean, `wobble=0` where pieces must meet exactly);
   `sculpt()` for sculpted scenery (cottages, roofs via `roof_field`, trees and rocks from a few
-  cached variants, props, `turned_leg`, `spindle_chair`, `mug`). `ada.py` + `ada_anims.py`, `pip.py`, `attic.py`,
-  `margin_village.py`; Chapter Two: `kit_sea.py` (lighthouse, boat, pier, stacks, inkwell), `crane.py`
+  cached variants, props, `turned_leg`, `spindle_chair`, `mug`; the windmill, shed, Great Tree,
+  bridge, stairs and door frame). Give a sculpt enough triangles for its detail: a grooved surface
+  (stone courses, boards) decimated too hard shatters into shards, so check every new piece in a
+  preview. Long thin round things (poles, whips) are cleaner as `lib.tube` meshes; openings in a
+  round wall use cylindrical coordinates so their surrounds follow the curve.
+  `ada.py` + `ada_anims.py`, `pip.py`, `attic.py`,
+  `margin_village.py`; Chapter Two: `kit_sea.py` (lighthouse, the dinghy (a lofted clinker hull
+  from `hull_lines`, seats cut to it with `fitted_plank`), pier, stacks, inkwell), `crane.py`
   (the Keeper), `folded_sea.py` (level); Chapter Three: `mum.py` (Mum: her own design, nothing like Ada's,
   long copper hair and braid, indigo dress, paint-splashed apron, fingered hands; Ada's bone names so
   the scenes and her walk work, with her own idle, talk and kneeling clips), `unfinished_page.py`.
