@@ -31,7 +31,13 @@ python, system PIL is broken) tiles screenshots into one sheet, sorted by file n
   export). `sdf.py` sculpts with signed distance fields (numpy): primitives, smooth union / subtract /
   intersect, shells, displacement, noise; `sculpt()` meshes a field (narrow-band surface nets, vertices
   projected onto the field, decimated to a triangle budget); `bake_ao()` bakes Cycles AO per vertex.
-  Characters are sculpted this way, one continuous surface per material, AO painted into the colours. `kit.py` environment pieces. `ada.py` + `ada_anims.py`, `pip.py`, `attic.py`,
+  Characters are sculpted this way, one continuous surface per material, AO painted into the colours;
+  `figure.py` holds the shared character pieces (surface placement, eyes with a painted iris clipped
+  by the lids, hands, sleeve weighting, the AO-aware painter). Pip and the Keeper are sculpted then
+  decimated symmetrically to flat facets (folded paper). `kit.py` environment pieces: `box()` is a
+  hand-made block (rounded edges, a slight lean, `wobble=0` where pieces must meet exactly);
+  `sculpt()` for sculpted scenery (cottages, roofs via `roof_field`, trees and rocks from a few
+  cached variants, props, `turned_leg`, `spindle_chair`, `mug`). `ada.py` + `ada_anims.py`, `pip.py`, `attic.py`,
   `margin_village.py`; Chapter Two: `kit_sea.py` (lighthouse, boat, pier, stacks, inkwell), `crane.py`
   (the Keeper), `folded_sea.py` (level); Chapter Three: `mum.py` (Mum: her own design, nothing like Ada's,
   long copper hair and braid, indigo dress, paint-splashed apron, fingered hands; Ada's bone names so

@@ -399,6 +399,42 @@ def tree(seed, height=5.5, kind='round'):
     return out
 
 
+# --- furniture -------------------------------------------------------------------------------
+
+def turned_leg(x, y, z0, z1, r):
+    """A turned wooden leg (a field): a collar and bead under the top, a long taper, a little foot."""
+    h = z1 - z0
+    prof = [(r * 0.75, z0), (r * 0.95, z0 + h * 0.04), (r * 0.62, z0 + h * 0.1), (r * 0.8, z0 + h * 0.62), (r * 1.05, z0 + h * 0.74),
+            (r * 0.8, z0 + h * 0.8), (r * 1.0, z0 + h * 0.86), (r * 1.0, z1)]
+    return intersect(sdf.revolve(prof, c=(x, y, 0)), lambda P: np.maximum(z0 - P[:, 2], P[:, 2] - z1), k=r * 0.3)
+
+
+def spindle_chair(mat, seat_h=0.46, w=0.23, d=0.22, back=0.98):
+    """A kitchen chair at the origin facing -Y: a dished seat on turned legs, a back of spindles
+    between two posts under a curved top rail. One sculpted object."""
+    seat = sbox((0, 0, seat_h), (w, d, 0.025), 0.018)
+    seat = sdf.displace(seat, lambda P: -0.008 * np.exp(-((P[:, 0] / 0.14) ** 2 + (P[:, 1] / 0.13) ** 2)))
+    parts = [seat] + [turned_leg(sx * (w - 0.04), sy * (d - 0.04), 0.0, seat_h - 0.01, 0.022) for sx in (-1, 1) for sy in (-1, 1)]
+    for sx in (-1, 1):
+        x = sx * (w - 0.04)
+        parts.append(tube([(x, d - 0.04, seat_h), (x, d - 0.01, seat_h + 0.26), (x * 0.97, d + 0.02, back)], [0.02, 0.018, 0.016]))
+    rail = [(x, d + 0.02 + 0.03 * (1 - (x / w) ** 2), back - 0.03 + 0.02 * (1 - (x / w) ** 2)) for x in np.linspace(-w + 0.03, w - 0.03, 7)]
+    parts.append(tube(rail, [0.022] * 7))
+    for x in np.linspace(-w * 0.5, w * 0.5, 4):
+        parts.append(tube([(x, d - 0.035, seat_h + 0.01), (x, d - 0.005, seat_h + 0.26), (x, d + 0.035, back - 0.03)], [0.01, 0.012, 0.01]))
+    return sculpt('chair', union(*parts, k=0.01), (-w - 0.15, -d - 0.15, -0.05), (w + 0.15, d + 0.2, back + 0.1), 0.006, mat, 3200)
+
+
+def mug(x, y, z, mat, scale=1.0):
+    """A hand-thrown mug: a slightly bellied cup with a lip, hollow, a looped handle."""
+    r, h = 0.056 * scale, 0.115 * scale
+    cup = sdf.revolve([(r * 0.92, z - 0.01), (r, z + h * 0.15), (r * 1.04, z + h * 0.6), (r * 0.98, z + h)], c=(x, y, 0))
+    cup = intersect(cup, lambda P: np.maximum(z - P[:, 2], P[:, 2] - (z + h)), k=0.004 * scale)
+    cup = subtract(cup, cylinder((x, y, z + h * 0.6 + 0.01), r * 0.84, h * 0.5, 0.004), k=0.003)
+    handle = intersect(torus((x + r * 1.02, y, z + h * 0.52), h * 0.26, 0.009 * scale, sdf.rot(90, 0, 0)), lambda P: (x + r * 0.95) - P[:, 0], k=0.003)
+    return sculpt('mug', union(cup, handle, k=0.006), (x - 0.15, y - 0.15, z - 0.05), (x + 0.2, y + 0.15, z + h + 0.05), 0.003, mat, 900)
+
+
 # --- small props -----------------------------------------------------------------------------
 
 def fence(length, seed, height=0.95):

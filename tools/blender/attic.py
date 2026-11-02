@@ -44,12 +44,7 @@ def S(name, f, lo, hi, step, mat, tris, sharp=50.0):
     return kit.sculpt(name, f, lo, hi, step, M(mat), tris, sharp)
 
 
-def turned_leg(x, y, z0, z1, r):
-    """A turned wooden leg: a bead and collar under the top, a long taper, a little foot."""
-    h = z1 - z0
-    prof = [(r * 0.75, z0), (r * 0.95, z0 + h * 0.04), (r * 0.62, z0 + h * 0.1), (r * 0.8, z0 + h * 0.62), (r * 1.05, z0 + h * 0.74),
-            (r * 0.8, z0 + h * 0.8), (r * 1.0, z0 + h * 0.86), (r * 1.0, z1)]
-    return sdf.intersect(sdf.revolve(prof, c=(x, y, 0)), lambda P: np.maximum(z0 - P[:, 2], P[:, 2] - z1), k=r * 0.3)
+turned_leg = kit.turned_leg
 
 
 def roof_z(x):

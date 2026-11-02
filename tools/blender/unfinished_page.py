@@ -19,6 +19,9 @@ from mathutils import Matrix, Vector, noise
 
 sys.path.insert(0, os.path.dirname(__file__))
 import kit  # noqa: E402
+import numpy as np  # noqa: E402
+import sdf  # noqa: E402
+from sdf import cylinder, ellipsoid, torus, tube, union  # noqa: E402
 import lib  # noqa: E402
 from kit import box  # noqa: E402
 from lib import smooth01  # noqa: E402
@@ -141,26 +144,18 @@ def marker(name, x, y, z, **props):
 # --- the memories ------------------------------------------------------------------------------
 
 def kitchen():
-    parts = [box('tabletop', (1.7, 1.0, 0.07), (0, 0, 0.76), M('table'), bevel=0.015)]
-    for x in (-0.75, 0.75):
-        for y in (-0.42, 0.42):
-            parts.append(lib.tube('tableleg', [(x, y, 0.0), (x, y, 0.73)], [0.04, 0.035], M('table_dark'), sides=8, subsurf=0))
+    top = sdf.box((0, 0, 0.76), (0.85, 0.5, 0.035), 0.02)
+    top = sdf.displace(top, lambda P: 0.0015 * np.abs(np.sin(P[:, 1] * 45)))
+    legs = [kit.turned_leg(x, y, 0.0, 0.73, 0.045) for x in (-0.75, 0.75) for y in (-0.42, 0.42)]
+    parts = [kit.sculpt('tabletop', top, (-1.0, -0.7, 0.6), (1.0, 0.7, 0.9), 0.012, M('table'), 900),
+             kit.sculpt('tableleg', union(*legs), (-0.9, -0.6, -0.05), (0.9, 0.6, 0.8), 0.006, M('table_dark'), 2400)]
     for s in (-1, 1):
-        cx = s * 1.15
-        parts.append(box('chairseat', (0.46, 0.46, 0.05), (cx, 0, 0.46), M('table'), bevel=0.01))
-        for x in (-0.19, 0.19):
-            for y in (-0.19, 0.19):
-                parts.append(lib.tube('chairleg', [(cx + x, y, 0), (cx + x, y, 0.44)], [0.025, 0.022], M('table_dark'), sides=6, subsurf=0))
-        bx = cx + s * 0.21
-        for y in (-0.19, 0.19):
-            parts.append(lib.tube('chairpost', [(bx, y, 0.46), (bx, y, 1.0)], [0.022, 0.02], M('table_dark'), sides=6, subsurf=0))
-        parts.append(box('chairback', (0.05, 0.44, 0.22), (bx, 0, 0.86), M('table')))
+        ch = kit.spindle_chair(M('table'))
+        kit.transform([ch], (s * 1.15, 0, 0), -s * math.pi / 2)
+        parts.append(ch)
     # two mugs (a big one and a small one), a sketchpad between them, crayons spilling out
     for (x, y, mat, sc) in ((-0.5, 0.18, 'mug_a', 1.0), (0.42, -0.2, 'mug_b', 0.8)):
-        parts.append(lib.lathe('mug', [(0.0, 0.0), (0.055 * sc, 0.0), (0.058 * sc, 0.11 * sc), (0.052 * sc, 0.115 * sc)], M(mat), segs=16,
-                               center=(x, y, 0.795), subsurf=0, close_top=False))
-        parts.append(lib.tube('handle', [(x + 0.055 * sc, y, 0.82 + 0.02 * sc), (x + 0.095 * sc, y, 0.85 * 1.0), (x + 0.055 * sc, y, 0.88 + 0.01 * sc)],
-                              [0.01 * sc] * 3, M(mat), sides=6, subsurf=0))
+        parts.append(kit.mug(x, y, 0.795, M(mat), sc))
     parts.append(box('pad', (0.5, 0.36, 0.02), (0.02, 0.05, 0.805), M('pad'), rot=Matrix.Rotation(0.12, 3, 'Z')))
     parts.append(box('pad2', (0.34, 0.25, 0.015), (-0.2, -0.22, 0.802), M('pad'), rot=Matrix.Rotation(-0.3, 3, 'Z')))
     rnd = random.Random(4)
@@ -177,13 +172,40 @@ def kitchen():
 def swing_tree():
     parts = kit.tree(77, 5.4, 'round')
     # a branch reaching out, two ropes down to a painted seat
-    parts.append(lib.tube('branch', [(0.1, 0, 2.9), (1.0, 0.0, 3.25), (2.0, 0.1, 3.4)], [0.13, 0.1, 0.07], kit.M('bark'), sides=8, subsurf=0))
+    branch = sdf.displace(tube([(0.1, 0, 2.9), (1.0, 0.0, 3.25), (2.0, 0.1, 3.4), (2.3, 0.15, 3.42)], [0.14, 0.1, 0.07, 0.02]),
+                          lambda P: 0.008 * np.abs(np.sin(np.arctan2(P[:, 1], P[:, 2] - 3.2) * 6 + P[:, 0] * 3)))
+    parts.append(kit.sculpt('branch', branch, (-0.2, -0.4, 2.6), (2.5, 0.5, 3.7), 0.02, kit.M('bark'), 700))
+    ropes = []
     for y in (-0.28, 0.28):
-        parts.append(lib.tube('swingrope', [(1.55, y, 3.35), (1.55, y, 0.5)], [0.016, 0.016], M('rope'), sides=6, subsurf=0))
-    parts.append(box('swingseat', (0.32, 0.72, 0.05), (1.55, 0.0, 0.47), M('seat'), bevel=0.01))
+        ropes.append(sdf.displace(tube([(1.55, y, 3.38), (1.55, y, 0.5)], [0.016, 0.016]),
+                                  lambda P: 0.004 * np.sin(P[:, 2] * 60 + np.arctan2(P[:, 1], P[:, 0] - 1.55) * 2)))
+        ropes.append(torus((1.55, y, 3.36), 0.07, 0.016, sdf.rot(0, 90, 0)))
+    parts.append(kit.sculpt('swingrope', union(*ropes, k=0.01), (1.3, -0.5, 0.3), (1.8, 0.5, 3.5), 0.008, M('rope'), 1200))
+    seat = sdf.box((1.55, 0.0, 0.47), (0.16, 0.36, 0.025), 0.02)
+    parts.append(kit.sculpt('swingseat', seat, (1.3, -0.5, 0.35), (1.8, 0.5, 0.6), 0.008, M('seat'), 400))
     for o in parts[-3:]:
         o['col'] = 0
     return parts
+
+
+_HEADS = {}
+
+
+def flower_head(at, mat, rnd):
+    """A five-petalled bloom round a little bead of a centre (sculpted once per colour, then copied)."""
+    key = mat.name
+    if key not in _HEADS or _HEADS[key].name not in bpy.data.objects:
+        petals = [ellipsoid((math.cos(a) * 0.028, math.sin(a) * 0.028, 0.0), (0.028, 0.017, 0.008), sdf.rot(0, -12, math.degrees(a)))
+                  for a in np.linspace(0, math.tau, 6)[:-1]]
+        f = union(union(*petals, k=0.006), sdf.sphere((0, 0, 0.006), 0.012), k=0.004)
+        proto = kit.sculpt('bloom', f, (-0.08, -0.08, -0.04), (0.08, 0.08, 0.05), 0.0025, mat, 260)
+        bpy.context.scene.collection.objects.unlink(proto)
+        proto.use_fake_user = True
+        _HEADS[key] = proto
+    ob = bpy.data.objects.new('bloom', _HEADS[key].data.copy())
+    bpy.context.scene.collection.objects.link(ob)
+    ob.data.transform(Matrix.Translation(Vector(at)) @ Matrix.Rotation(rnd.uniform(0, math.tau), 4, 'Z'))
+    return ob
 
 
 def flowers(rnd, n, radius):
@@ -194,8 +216,8 @@ def flowers(rnd, n, radius):
         x, y = math.cos(a) * r, math.sin(a) * r
         h = rnd.uniform(0.18, 0.34)
         mat = rnd.choice(('flower_red', 'flower_pink', 'flower_yellow', 'flower_white'))
-        parts.append(lib.tube('stem', [(x, y, 0), (x + rnd.uniform(-0.03, 0.03), y, h)], [0.008, 0.006], kit.M('leaf2'), sides=4, subsurf=0))
-        parts.append(lib.ellipsoid('bloom', (x, y, h + 0.02), (0.045, 0.045, 0.025), kit.M(mat), segs=(8, 5)))
+        parts.append(lib.tube('stem', [(x, y, 0), (x + rnd.uniform(-0.03, 0.03), y, h)], [0.008, 0.006], kit.M('leaf2'), sides=6, subsurf=0))
+        parts.append(flower_head((x, y, h + 0.02), kit.M(mat), rnd))
     for o in parts:
         o['col'] = 0
     return parts
@@ -228,11 +250,12 @@ def studio():
                          rot=Matrix.Rotation(rnd.uniform(-0.15, 0.15), 3, 'Z')))
     parts.append(box('sketch', (0.4, 0.3, 0.008), (-0.05, -0.12, 0.815), M('pad'), rot=Matrix.Rotation(0.3, 3, 'Z')))
     # her stool
-    parts.append(lib.lathe('stool', [(0.0, 0.62), (0.2, 0.62), (0.19, 0.67), (0.0, 0.67)], M('table'), segs=16, center=(-0.1, -0.7, 0), subsurf=0))
+    stool = [cylinder((-0.1, -0.7, 0.645), 0.2, 0.025, 0.02)]
     for k in range(3):
         a = k / 3 * math.tau + 0.3
-        parts.append(lib.tube('stoolleg', [(-0.1 + math.cos(a) * 0.12, -0.7 + math.sin(a) * 0.12, 0.62), (-0.1 + math.cos(a) * 0.2, -0.7 + math.sin(a) * 0.2, 0)],
-                              [0.02, 0.018], M('table_dark'), sides=6, subsurf=0))
+        stool.append(tube([(-0.1 + math.cos(a) * 0.12, -0.7 + math.sin(a) * 0.12, 0.62), (-0.1 + math.cos(a) * 0.2, -0.7 + math.sin(a) * 0.2, 0)], [0.021, 0.017]))
+    stool.append(torus((-0.1, -0.7, 0.25), 0.17, 0.011))
+    parts.append(kit.sculpt('stool', union(*stool, k=0.01), (-0.45, -1.05, -0.05), (0.25, -0.35, 0.72), 0.006, M('table'), 1600))
     return parts
 
 
@@ -256,9 +279,10 @@ def window_frame():
 def easel():
     parts = []
     # three legs, a ledge for the canvas and a crossbar
-    for x in (-0.7, 0.7):
-        parts.append(lib.tube('easelleg', [(x * 0.6, 0.15, 3.0), (x, -0.05, 0.0)], [0.045, 0.05], M('easel'), sides=8, subsurf=0))
-    parts.append(lib.tube('easelleg', [(0, 0.2, 2.9), (0, 1.1, 0.0)], [0.045, 0.05], M('easel'), sides=8, subsurf=0))
+    legs = [tube([(x * 0.6, 0.15, 3.0), (x, -0.05, 0.0)], [0.045, 0.052]) for x in (-0.7, 0.7)]
+    legs.append(tube([(0, 0.2, 2.9), (0, 1.1, 0.0)], [0.045, 0.052]))
+    legs.append(sdf.box((0, 0.17, 2.98), (0.12, 0.06, 0.06), 0.02))
+    parts.append(kit.sculpt('easelleg', union(*legs, k=0.02), (-1.0, -0.4, -0.1), (1.0, 1.4, 3.2), 0.015, M('easel'), 1400))
     parts.append(box('ledge', (1.9, 0.18, 0.06), (0, -0.12, 0.85), M('easel'), bevel=0.01))
     parts.append(box('crossbar', (0.9, 0.08, 0.08), (0, 0.13, 2.95), M('easel')))
     # the last page itself: blank, propped on the ledge, leaning back a little
