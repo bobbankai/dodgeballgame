@@ -33,7 +33,7 @@ def M(name):
     return lib.mat('attic_' + name, PAL[name])
 
 
-def B(name, size, loc, mat, rot=None, bevel=0.0):
+def B(name, size, loc, mat, rot=None, bevel=None):
     return kit.box(name, size, loc, M(mat), rot=rot, bevel=bevel)
 
 

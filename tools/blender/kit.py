@@ -8,9 +8,12 @@ import random
 
 import bmesh
 import bpy
+import numpy as np
 from mathutils import Matrix, Vector, noise
 
 import lib
+import sdf
+from sdf import V, box as sbox, cone, cylinder, ellipsoid, intersect, subtract, tube, union
 
 PAL = {
     'plaster': '#EDE3CF', 'plaster2': '#E6D3B3', 'timber': '#5E4632', 'stone': '#B9B2A6', 'stone_dark': '#8F877B',
@@ -26,20 +29,52 @@ def M(name):
     return lib.mat('kit_' + name, PAL[name])
 
 
-def box(name, size, loc, mat, rot=None, bevel=0.0):
+def hand_made(bm, size, seed, amount=1.0):
+    """Nothing in a drawn village is quite true: nudge every vertex a little (more on bigger pieces),
+    smoothly, so faces stay faces but edges lean and sag."""
+    k = min(0.022, 0.006 * max(size)) * amount
+    off = Vector((seed * 1.37, seed * 2.11, seed * 0.73))
+    for v in bm.verts:
+        q = v.co * (1.3 / max(0.3, max(size))) + off
+        v.co += Vector((noise.noise(q), noise.noise(q + Vector((5.2, 1.3, 2.8))), noise.noise(q + Vector((1.7, 9.2, 4.4))))) * k
+
+
+def soften(ob, angle=50.0):
+    """Shade smooth across rounded edges, keep real corners crisp."""
+    me = ob.data
+    bm = bmesh.new()
+    bm.from_mesh(me)
+    lim = math.radians(angle)
+    for e in bm.edges:
+        e.smooth = not (len(e.link_faces) == 2 and e.calc_face_angle(0.0) > lim)
+    for f in bm.faces:
+        f.smooth = True
+    bm.to_mesh(me)
+    bm.free()
+    return ob
+
+
+_box_n = [0]
+
+
+def box(name, size, loc, mat, rot=None, bevel=None, wobble=1.0):
+    """A hand-made block: its edges rounded (bevel = radius; None: in proportion to its size; 0: sharp),
+    leaning very slightly out of true, shaded smooth over the rounding and crisp at the corners."""
+    m = min(size)
+    r = min(0.045, m * 0.2) if bevel is None else min(bevel * 1.4, m * 0.45)
     bm = bmesh.new()
     bmesh.ops.create_cube(bm, size=1.0)
     bmesh.ops.scale(bm, vec=Vector(size), verts=bm.verts)
+    if r > 0.003:
+        bmesh.ops.bevel(bm, geom=list(bm.edges), offset=r, offset_type='OFFSET', segments=2 if m > 0.16 else 1, profile=0.5,
+                        affect='EDGES', clamp_overlap=True)
+    _box_n[0] += 1
+    if wobble:
+        hand_made(bm, size, _box_n[0] * 0.37 + sum(loc) * 0.11, wobble)
     if rot is not None:
         bmesh.ops.rotate(bm, cent=(0, 0, 0), matrix=rot, verts=bm.verts)
     bmesh.ops.translate(bm, vec=Vector(loc), verts=bm.verts)
-    ob = lib.obj_from_bm(name, bm, mat, smooth=False)
-    if bevel:
-        b = ob.modifiers.new('bevel', 'BEVEL')
-        b.width = bevel
-        b.segments = 1
-        b.limit_method = 'ANGLE'
-    return ob
+    return soften(lib.obj_from_bm(name, bm, mat, smooth=True))
 
 
 def transform(objs, loc=(0, 0, 0), rot_z=0.0, scale=1.0):
@@ -68,190 +103,298 @@ def merge(objs, name):
 
 # --- cottage ---------------------------------------------------------------------------------
 
+def sculpt(name, f, lo, hi, step, mat, tris, sharp=50.0):
+    """A sculpted (sdf.py) piece of scenery, shaded smooth with crisp creases."""
+    ob = sdf.sculpt(name, f, lo, hi, step, mat, tris)
+    return soften(ob, sharp)
+
+
+def roof_field(w, d, top, pitch, over, side, kind, seed):
+    """A thick, soft roof: the ridge sags a little in the middle, the eaves kick up, rounded edges all
+    round; clay tiles in scalloped courses, slates in uneven courses, or a deep lumpy thatch."""
+    t = math.tan(pitch)
+    cp = math.cos(pitch)
+    half_y, half_x = d / 2 + over, w / 2 + side
+    T = 0.36 if kind == 'roof_thatch' else 0.16
+    course = 0.36
+
+    def f(P):
+        x, y, z = P[:, 0], P[:, 1], P[:, 2]
+        ay = np.abs(y)
+        zr = top + (d / 2 - ay) * t
+        # the ridge sags and the eaves lift a touch: nothing hand-built is straight
+        zr = zr - 0.1 * (1 - (x / half_x) ** 2) * (1 - ay / half_y) + 0.06 * sdf.smooth01(d / 2 - 0.2, half_y, ay)
+        s = (half_y - ay) / cp
+        if kind == 'roof_thatch':
+            q = P * 2.2 + seed
+            zr = zr + 0.05 * (sdf.noise(P, 2.5, seed) - 0.5) + 0.025 * (sdf.noise(q, 4.0, seed + 1) - 0.5)
+        else:
+            u = s / course
+            lip = (1.0 - (u - np.floor(u))) ** 1.5
+            zr = zr + 0.032 * lip
+            if kind == 'roof_red':
+                stagger = np.floor(u) * 0.11
+                zr = zr + 0.014 * np.abs(np.sin(np.pi * (x + stagger) / 0.22))
+            else:
+                zr = zr + 0.012 * (sdf.noise(np.stack([x * 4, np.floor(u), y * 0 + seed], 1), 1.0, seed) - 0.5) * 2
+        upper = (z - zr) * cp
+        lower = (zr - T - z) * cp
+        return np.maximum(np.maximum(upper, lower), np.maximum(ay - half_y, np.abs(x) - half_x))
+    return intersect(f, lambda P: np.abs(P[:, 0]) - half_x, k=0.06)
+
+
 def cottage(seed, w=4.6, d=4.0, h=2.6, roof='roof_red', door='door_green', wall='plaster', stories=1):
     rnd = random.Random(seed)
     parts = []
     plinth = 0.35
     H = h * stories
-    parts.append(box('plinth', (w + 0.14, d + 0.14, plinth), (0, 0, plinth / 2), M('stone'), bevel=0.03))
-    parts.append(box('walls', (w, d, H), (0, 0, plinth + H / 2), M(wall)))
     top = plinth + H
     pitch = math.radians(rnd.uniform(38, 48))
-    over, side = 0.38, 0.3
-    half = d / 2 + over
-    rise = half * math.tan(pitch)
-    # gable ends: the triangles under the roof on each side wall
-    apex = top + (d / 2) * math.tan(pitch)
-    for x0, x1 in ((-w / 2, -w / 2 + 0.12), (w / 2 - 0.12, w / 2)):
-        bm = bmesh.new()
-        tri = [(-d / 2, top), (d / 2, top), (0, apex)]
-        a = [bm.verts.new((x0, y, z)) for y, z in tri]
-        b = [bm.verts.new((x1, y, z)) for y, z in tri]
-        bm.faces.new(a)
-        bm.faces.new(list(reversed(b)))
-        for i in range(3):
-            j = (i + 1) % 3
-            bm.faces.new([a[i], b[i], b[j], a[j]])
-        bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
-        parts.append(lib.obj_from_bm('gable', bm, M(wall), smooth=False))
-    # roof: rows of overlapping shingle slabs on both slopes (ridge along X)
-    rows = max(4, int(half / math.cos(pitch) / 0.42))
-    L = half / math.cos(pitch)
-    for s in (-1, 1):
-        for i in range(rows):
-            t0, t1 = i / rows, (i + 1) / rows + 0.06
-            # distance up the slope from the eave
-            y0 = s * (half - t0 * half)
-            y1 = s * (half - min(1.0, t1) * half)
-            z0 = top - over * math.tan(pitch) + t0 * rise
-            z1 = top - over * math.tan(pitch) + min(1.0, t1) * rise
-            th = 0.08
-            # each course kicks up at its lower edge and tucks under the one above
-            pts = [(y0, z0 + 0.06), (y1, z1), (y1, z1 + th), (y0, z0 + 0.06 + th)]
-            bm = bmesh.new()
-            xa, xb = -w / 2 - side, w / 2 + side
-            va = [bm.verts.new((xa, py, pz)) for py, pz in pts]
-            vb = [bm.verts.new((xb, py, pz)) for py, pz in pts]
-            bm.faces.new(va)
-            bm.faces.new(list(reversed(vb)))
-            for k in range(4):
-                bm.faces.new([va[k], vb[k], vb[(k + 1) % 4], va[(k + 1) % 4]])
-            bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
-            # a slight wobble per row so the rows read as hand-laid
-            jit = rnd.uniform(-0.015, 0.015)
-            bmesh.ops.translate(bm, vec=(0, 0, jit), verts=bm.verts)
-            parts.append(lib.obj_from_bm('roof', bm, M(roof), smooth=False))
-    parts.append(box('ridge', (w + 2 * side + 0.06, 0.2, 0.16), (0, 0, top + rise - over * math.tan(pitch) + 0.1), M(roof)))
+    over, side = 0.42, 0.34
+    t = math.tan(pitch)
+    apex = top + (d / 2) * t
+    # walls: thick plaster, wider at the foot, the gables under the roof part of them
+    dx = rnd.choice([-0.8, 0.0, 0.8]) * (w / 4.6)
+    windows = [(wx, -d / 2) for wx in (-w / 2 + 1.0, w / 2 - 1.0) if abs(wx - dx) > 1.2]
+    sides = [sx for sx in (-1, 1) if rnd.random() < 0.8]
+    side_y = {sx: rnd.uniform(-0.6, 0.6) for sx in sides}
+
+    def taper(P):
+        Q = P.copy()
+        k = 1.0 + 0.03 * sdf.smooth01(top, plinth, P[:, 2])
+        Q[:, 0] /= k
+        Q[:, 1] /= k
+        return Q
+    walls = sdf.warp(sbox((0, 0, plinth + H / 2 + 0.05), (w / 2, d / 2, H / 2 + 0.05), 0.09), taper)
+    gable = intersect(lambda P: np.abs(P[:, 0]) - (w / 2 - 0.02), lambda P: P[:, 2] - (top + (d / 2 - np.abs(P[:, 1])) * t - 0.3),
+                      lambda P: top - 0.2 - P[:, 2])
+    walls = union(walls, gable, k=0.05)
+    # doors and windows are set into the thickness of the wall
+    door_f = union(sbox((dx, -d / 2, plinth + 0.82), (0.52, 0.14, 0.82), 0.03), cylinder((dx, -d / 2, plinth + 1.64), 0.52, 0.14, 0.03, sdf.rot(90, 0, 0)), k=0.02)
+    walls = subtract(walls, door_f, k=0.03)
+    wz = plinth + h * 0.55
+    holes = [sbox((wx, wy, wz), (0.44, 0.12, 0.46), 0.03) for wx, wy in windows]
+    holes += [sbox((sx * w / 2, side_y[sx], wz), (0.12, 0.44, 0.46), 0.03) for sx in sides]
+    for st in range(1, stories):
+        holes += [sbox((wx, -d / 2, plinth + h * st + h * 0.55), (0.44, 0.12, 0.46), 0.03) for wx in (-w / 4, w / 4)]
+    walls = subtract(walls, union(*holes), k=0.02)
+    lo, hi = (-w / 2 - 0.4, -d / 2 - 0.4, plinth - 0.1), (w / 2 + 0.4, d / 2 + 0.4, apex + 0.2)
+    parts.append(sculpt('walls', walls, lo, hi, 0.035, M(wall), 1600))
+    # a stone plinth, the stones bulging a little
+    st = sdf.displace(sbox((0, 0, plinth / 2), (w / 2 + 0.1, d / 2 + 0.1, plinth / 2), 0.07),
+                      lambda P: 0.025 * (sdf.noise(P, 3.2, seed) - 0.5) + 0.02 * np.abs(np.sin(P[:, 2] * 18)))
+    parts.append(sculpt('plinth', st, (-w / 2 - 0.3, -d / 2 - 0.3, -0.1), (w / 2 + 0.3, d / 2 + 0.3, plinth + 0.15), 0.035, M('stone'), 600))
+    # the roof, and a rolled ridge along its top
+    rf = roof_field(w, d, top, pitch, over, side, roof, seed)
+    ridge_z = apex - 0.1
+    ridge = tube([(-w / 2 - side - 0.02, 0, ridge_z + 0.02), (0, 0, ridge_z - 0.06), (w / 2 + side + 0.02, 0, ridge_z + 0.02)],
+                 [0.13 if roof == 'roof_thatch' else 0.1] * 3)
+    rf = union(rf, ridge, k=0.05)
+    rlo = (-w / 2 - side - 0.3, -d / 2 - over - 0.3, top - over * t - 0.6)
+    rhi = (w / 2 + side + 0.3, d / 2 + over + 0.3, apex + 0.4)
+    parts.append(sculpt('roof', rf, rlo, rhi, 0.04, M(roof), 2600, sharp=70.0))
     # timber frame on the front and back faces, and corner posts
     tm = M('timber')
-    for y in (-d / 2 - 0.03, d / 2 + 0.03):
-        parts.append(box('beam', (w + 0.06, 0.08, 0.14), (0, y, plinth + 0.07), tm))
-        parts.append(box('beam', (w + 0.06, 0.08, 0.14), (0, y, top - 0.07), tm))
+    for y in (-d / 2 - 0.04, d / 2 + 0.04):
+        parts.append(box('beam', (w + 0.1, 0.1, 0.15), (0, y, plinth + 0.075), tm))
+        parts.append(box('beam', (w + 0.1, 0.1, 0.15), (0, y, top - 0.075), tm))
         if stories > 1:
-            parts.append(box('beam', (w + 0.06, 0.08, 0.14), (0, y, plinth + h), tm))
-    for x in (-w / 2, w / 2):
-        for y in (-d / 2, d / 2):
-            parts.append(box('post', (0.16, 0.16, H), (x, y, plinth + H / 2), tm))
-    # door with planks, frame and a step
-    dx = rnd.choice([-0.8, 0.0, 0.8]) * (w / 4.6)
-    fy = -d / 2 - 0.04
-    parts.append(box('doorframe', (1.14, 0.1, 2.12), (dx, fy, plinth + 1.06), tm))
-    for k in range(4):
-        parts.append(box('door', (0.235, 0.06, 1.95), (dx - 0.36 + k * 0.24, fy - 0.03, plinth + 0.99), M(door)))
-    parts.append(box('knob', (0.06, 0.06, 0.06), (dx + 0.3, fy - 0.08, plinth + 1.0), M('iron')))
-    parts.append(box('step', (1.3, 0.5, plinth * 0.6), (dx, -d / 2 - 0.3, plinth * 0.3), M('stone_dark'), bevel=0.03))
-    # windows: front either side of the door, and the sides
+            parts.append(box('beam', (w + 0.1, 0.1, 0.15), (0, y, plinth + h), tm))
+    for x in (-w / 2 - 0.02, w / 2 + 0.02):
+        for y in (-d / 2 - 0.02, d / 2 + 0.02):
+            parts.append(box('post', (0.18, 0.18, H), (x, y, plinth + H / 2), tm))
+    # the door: planks under a round arch, iron hinges and a ring pull, a worn step
+    fy = -d / 2
+    door_s = intersect(union(sbox((dx, fy + 0.07, plinth + 0.8), (0.48, 0.035, 0.8), 0.01), cylinder((dx, fy + 0.07, plinth + 1.6), 0.48, 0.035, 0.01, sdf.rot(90, 0, 0)), k=0.01),
+                       lambda P: plinth + 0.01 - P[:, 2])
+    door_s = subtract(door_s, lambda P: np.maximum(np.abs(((P[:, 0] - dx + 0.6) % 0.24) - 0.12) - 0.008, P[:, 1] - (fy + 0.045)), k=0.004)
+    parts.append(sculpt('door', door_s, (dx - 0.7, fy - 0.2, plinth - 0.1), (dx + 0.7, fy + 0.3, plinth + 2.3), 0.012, M(door), 500))
+    arch = subtract(union(sbox((dx, fy - 0.01, plinth + 0.82), (0.62, 0.06, 0.82), 0.03), cylinder((dx, fy - 0.01, plinth + 1.64), 0.62, 0.06, 0.03, sdf.rot(90, 0, 0)), k=0.02),
+                    union(sbox((dx, fy - 0.01, plinth + 0.8), (0.5, 0.2, 0.84), 0.0), cylinder((dx, fy - 0.01, plinth + 1.64), 0.5, 0.2, 0.0, sdf.rot(90, 0, 0)), k=0.0), k=0.015)
+    arch = intersect(arch, lambda P: plinth + 0.02 - P[:, 2])
+    parts.append(sculpt('doorframe', arch, (dx - 0.9, fy - 0.2, plinth - 0.1), (dx + 0.9, fy + 0.2, plinth + 2.4), 0.014, tm, 400))
+    for hz in (plinth + 0.45, plinth + 1.3):
+        parts.append(box('hinge', (0.42, 0.03, 0.06), (dx - 0.2, fy + 0.025, hz), M('iron')))
+    parts.append(lib.tube('ring', [(dx + 0.3, fy + 0.02, plinth + 1.02), (dx + 0.32, fy + 0.0, plinth + 0.95), (dx + 0.3, fy + 0.02, plinth + 0.9)],
+                          [0.012] * 3, M('iron'), sides=6, subsurf=0))
+    step = sdf.displace(sbox((dx, -d / 2 - 0.34, plinth * 0.3), (0.7, 0.3, plinth * 0.3), 0.06), lambda P: 0.015 * (sdf.noise(P, 4.0, seed + 3) - 0.5))
+    parts.append(sculpt('step', step, (dx - 1.0, -d / 2 - 0.8, -0.1), (dx + 1.0, -d / 2 + 0.1, plinth), 0.03, M('stone_dark'), 300))
+
+    # windows: glass set back in the wall, a frame, mullions, a sill, shutters and sometimes flowers
     def window(cx, cy, cz, facing):
         r = Matrix.Rotation(facing, 3, 'Z')
         out = []
+
         def at(v):
             return r @ Vector(v) + Vector((cx, cy, cz))
+
         def b(name, size, off, mat):
             out.append(box(name, size, at(off), mat, rot=r))
-        b('glass', (0.86, 0.06, 0.9), (0, -0.02, 0), M('glass'))
-        b('wframe', (1.0, 0.1, 0.1), (0, -0.04, 0.5), tm)
-        b('wframe', (1.0, 0.1, 0.1), (0, -0.04, -0.5), tm)
-        b('wframe', (0.1, 0.1, 1.0), (-0.48, -0.04, 0), tm)
-        b('wframe', (0.1, 0.1, 1.0), (0.48, -0.04, 0), tm)
-        b('mullion', (0.05, 0.08, 0.9), (0, -0.05, 0), tm)
-        b('mullion', (0.86, 0.08, 0.05), (0, -0.05, 0.05), tm)
-        b('sill', (1.12, 0.2, 0.07), (0, -0.1, -0.53), M('wood'))
+        b('glass', (0.86, 0.04, 0.9), (0, 0.06, 0), M('glass'))
+        b('wframe', (1.02, 0.12, 0.11), (0, -0.04, 0.5), tm)
+        b('wframe', (1.02, 0.12, 0.11), (0, -0.04, -0.5), tm)
+        b('wframe', (0.11, 0.12, 1.0), (-0.49, -0.04, 0), tm)
+        b('wframe', (0.11, 0.12, 1.0), (0.49, -0.04, 0), tm)
+        b('mullion', (0.05, 0.08, 0.9), (0, 0.02, 0), tm)
+        b('mullion', (0.86, 0.08, 0.05), (0, 0.02, 0.05), tm)
+        b('sill', (1.16, 0.24, 0.08), (0, -0.12, -0.55), M('wood'))
         for sx in (-1, 1):
-            b('shutter', (0.42, 0.05, 0.98), (sx * 0.74, -0.05, 0), M(door))
-            b('shutter_slat', (0.34, 0.06, 0.04), (sx * 0.74, -0.08, 0.2), M(door))
-            b('shutter_slat', (0.34, 0.06, 0.04), (sx * 0.74, -0.08, -0.2), M(door))
+            b('shutter', (0.42, 0.05, 0.98), (sx * 0.76, -0.07, 0), M(door))
+            for zz in (-0.3, 0.0, 0.3):
+                b('shutter_slat', (0.34, 0.03, 0.05), (sx * 0.76, -0.1, zz), M(door))
         if rnd.random() < 0.75:
-            b('flowerbox', (0.98, 0.24, 0.2), (0, -0.2, -0.66), M('wood_dark'))
+            b('flowerbox', (1.0, 0.26, 0.22), (0, -0.24, -0.68), M('wood_dark'))
             fl = rnd.choice(['flower_red', 'flower_pink', 'flower_yellow', 'flower_white'])
-            for k in range(6):
-                o = lib.ellipsoid('flower', at((-0.4 + k * 0.16, -0.2 + rnd.uniform(-0.04, 0.04), -0.5 + rnd.uniform(0, 0.06))),
-                                  (0.07, 0.07, 0.06), M(fl if k % 2 == 0 else 'leaf3'), segs=(8, 6))
-                out.append(o)
+            leaves = []
+            blooms = []
+            for k in range(7):
+                p = at((-0.42 + k * 0.14, -0.24 + rnd.uniform(-0.04, 0.04), -0.52 + rnd.uniform(0, 0.05)))
+                leaves.append(ellipsoid(p - Vector((0, 0, 0.03)), (0.08, 0.07, 0.06)))
+                if k % 2 == 0 or rnd.random() < 0.4:
+                    blooms.append(ellipsoid(p + Vector((rnd.uniform(-0.03, 0.03), 0, 0.03)), (0.045, 0.045, 0.035)))
+            c = at((0, -0.24, -0.52))
+            out.append(sculpt('leaves', sdf.displace(union(*leaves, k=0.04), lambda P: 0.012 * (sdf.noise(P, 30.0, seed) - 0.5)),
+                              c - Vector((0.7, 0.7, 0.3)), c + Vector((0.7, 0.7, 0.3)), 0.012, M('leaf3'), 180))
+            out.append(sculpt('flowers', union(*blooms, k=0.01), c - Vector((0.7, 0.7, 0.3)), c + Vector((0.7, 0.7, 0.3)), 0.01, M(fl), 160))
         return nocol(out)
-    wz = plinth + h * 0.55
-    for wx in [x for x in (-w / 2 + 1.0, w / 2 - 1.0) if abs(x - dx) > 1.2]:
-        parts += window(wx, -d / 2 - 0.02, wz, 0)
-    for sx in (-1, 1):
-        if rnd.random() < 0.8:
-            parts += window(sx * (w / 2 + 0.02), rnd.uniform(-0.6, 0.6), wz, sx * math.pi / 2)
+    for wx, wy in windows:
+        parts += window(wx, wy - 0.02, wz, 0)
+    for sx in sides:
+        parts += window(sx * (w / 2 + 0.02), side_y[sx], wz, sx * math.pi / 2)
     for st in range(1, stories):
         for wx in (-w / 4, w / 4):
             parts += window(wx, -d / 2 - 0.02, plinth + h * st + h * 0.55, 0)
-    # chimney
+    # a chimney of stacked stone, leaning a little, with a pot on top
     cx = rnd.choice([-1, 1]) * (w / 2 - 0.7)
     cy = rnd.uniform(-0.3, 0.6)
-    ch = top + rise + 0.4
-    parts.append(box('chimney', (0.55, 0.55, ch - top + 0.2), (cx, cy, (ch + top) / 2), M('stone'), bevel=0.02))
-    parts.append(box('chimney_cap', (0.68, 0.68, 0.12), (cx, cy, ch + 0.15), M('stone_dark')))
+    ch = apex + 0.55
+    lean = rnd.uniform(-0.04, 0.04)
+
+    def ch_warp(P):
+        Q = P.copy()
+        Q[:, 0] -= lean * (P[:, 2] - top)
+        k = 1.0 + 0.08 * sdf.smooth01(ch, top, P[:, 2])
+        Q[:, 0] = cx + (Q[:, 0] - cx) / k
+        Q[:, 1] = cy + (Q[:, 1] - cy) / k
+        return Q
+    chim = sdf.warp(sbox((cx, cy, (ch + top) / 2), (0.28, 0.28, (ch - top) / 2), 0.05), ch_warp)
+    chim = sdf.displace(chim, lambda P: 0.015 * np.abs(np.sin(P[:, 2] * 16 + 0.5 * np.sin(P[:, 0] * 9))) + 0.01 * (sdf.noise(P, 6.0, seed) - 0.5))
+    capz = ch + 0.06
+    chim = union(chim, sdf.warp(sbox((cx, cy, capz), (0.35, 0.35, 0.06), 0.04), ch_warp), k=0.02)
+    pot = subtract(cone((cx + lean * (capz - top), cy, capz), (cx + lean * (capz + 0.3 - top), cy, capz + 0.3), 0.12, 0.09),
+                   cylinder((cx + lean * (capz + 0.3 - top), cy, capz + 0.3), 0.065, 0.12, 0.0), k=0.01)
+    parts.append(sculpt('chimney', chim, (cx - 0.6, cy - 0.6, top - 0.2), (cx + 0.6, cy + 0.6, ch + 0.3), 0.03, M('stone'), 500))
+    parts.append(sculpt('chimney_pot', pot, (cx - 0.4, cy - 0.4, capz - 0.1), (cx + 0.4, cy + 0.4, capz + 0.45), 0.012, M('roof_red'), 300))
     return parts
 
 
 # --- trees ---------------------------------------------------------------------------------
 
 def blob(name, center, radius, mat, seed, flat=0.75, lumps=0.22, subdiv=2):
-    """A lumpy canopy clump: an icosphere pushed about by noise, its underside flattened."""
-    bm = bmesh.new()
-    bmesh.ops.create_icosphere(bm, subdivisions=subdiv, radius=1.0)
-    off = Vector((seed * 7.1, seed * 3.3, seed * 1.7))
-    for v in bm.verts:
-        n = noise.noise(v.co * 1.6 + off) * lumps + noise.noise(v.co * 3.7 + off) * lumps * 0.4
-        v.co *= 1.0 + n
-        if v.co.z < 0:
-            v.co.z *= flat
-    bmesh.ops.scale(bm, vec=(radius, radius, radius * 0.85), verts=bm.verts)
-    bmesh.ops.translate(bm, vec=Vector(center), verts=bm.verts)
-    return lib.obj_from_bm(name, bm, mat, smooth=True)
-
-
-def tree(seed, height=5.5, kind='round'):
+    """A soft canopy cloud: a cluster of rounded lobes blended together, leafy bumps, a flatter underside."""
     rnd = random.Random(seed)
+    c = V(tuple(center))
+    R = radius
+    lobes = [ellipsoid(c, (R, R, R * 0.85))]
+    for k in range(7):
+        a, e = rnd.uniform(0, math.tau), rnd.uniform(-0.25, 0.75)
+        dvec = V((math.cos(a) * math.cos(e), math.sin(a) * math.cos(e), math.sin(e)))
+        lobes.append(sdf.sphere(c + dvec * R * 0.72, R * rnd.uniform(0.42, 0.6)))
+    f = union(*lobes, k=R * 0.3)
+    f = intersect(f, lambda P: (c[2] - R * 0.62 * flat / 0.75) - P[:, 2], k=R * 0.25)
+    f = sdf.displace(f, lambda P: R * lumps * 0.3 * (sdf.noise(P, 1.8 / R, seed) - 0.5) + R * lumps * 0.14 * (sdf.noise(P, 4.5 / R, seed + 7) - 0.5))
+    step = max(0.03, R / 28)
+    return sculpt(name, f, c - R * 1.7, c + R * 1.7, step, mat, 900 if subdiv >= 3 else 240)
+
+
+_PROTOS = {}
+
+
+def _cached(key, build):
+    """Build a piece once per scene and hand out copies (trees and rocks come in a few variants)."""
+    protos = _PROTOS.get(key)
+    try:
+        ok = protos is not None and all(o.name in bpy.data.objects for o in protos)
+    except ReferenceError:
+        ok = False
+    if not ok:
+        protos = build()
+        for o in protos:
+            bpy.context.scene.collection.objects.unlink(o)
+            o.use_fake_user = True
+        _PROTOS[key] = protos
+    out = []
+    for proto in protos:
+        ob = bpy.data.objects.new(proto.name, proto.data.copy())
+        bpy.context.scene.collection.objects.link(ob)
+        for k in proto.keys():
+            ob[k] = proto[k]
+        out.append(ob)
+    return out
+
+
+TREE_H = 6.0
+
+
+def _tree_proto(variant, kind):
+    rnd = random.Random(variant * 101 + len(kind))
+    height = TREE_H
     parts = []
-    lean = Vector((rnd.uniform(-0.3, 0.3), rnd.uniform(-0.3, 0.3), 0))
+    lean = V((rnd.uniform(-0.3, 0.3), rnd.uniform(-0.3, 0.3), 0))
     trunk_h = height * (0.55 if kind == 'round' else 0.45)
-    pts = [Vector((0, 0, -0.3)), Vector((0, 0, trunk_h * 0.35)) + lean * 0.2, Vector((0, 0, trunk_h * 0.7)) + lean * 0.6,
-           Vector((0, 0, trunk_h)) + lean]
-    r0 = height * 0.045
-    trunk = lib.tube('trunk', pts, [r0 * 1.25, r0, r0 * 0.8, r0 * 0.6], M('bark'), sides=8, subsurf=0)
-    parts.append(trunk)
-    for k in range(3):
-        a = k * 2.1 + rnd.uniform(0, 1)
-        d = Vector((math.cos(a), math.sin(a), 0))
-        parts.append(lib.tube('root', [Vector((0, 0, 0.35)) + d * r0 * 0.4, d * r0 * 2.2 + Vector((0, 0, -0.05))],
-                              [r0 * 0.5, r0 * 0.15], M('bark'), sides=6, subsurf=0))
+    pts = [V((0, 0, -0.3)), V((0, 0, trunk_h * 0.35)) + lean * 0.2, V((0, 0, trunk_h * 0.7)) + lean * 0.6, V((0, 0, trunk_h)) + lean]
+    r0 = height * 0.05
+    trunk = tube(pts, [r0 * 1.3, r0, r0 * 0.8, r0 * 0.6])
+    # the trunk flares into its roots
+    for k in range(4):
+        a = k * math.tau / 4 + rnd.uniform(-0.3, 0.3)
+        dvec = V((math.cos(a), math.sin(a), 0))
+        trunk = union(trunk, cone(V((0, 0, 0.5)) + dvec * r0 * 0.3, dvec * r0 * 2.6 + V((0, 0, -0.12)), r0 * 0.55, r0 * 0.12), k=r0 * 0.5)
     tops = [pts[-1]]
-    for k in range(rnd.randint(2, 3)):
+    for k in range(rnd.randint(2, 3) if kind == 'round' else 0):
         a = rnd.uniform(0, math.tau)
-        base = pts[2].lerp(pts[3], rnd.uniform(0.0, 0.6))
-        end = base + Vector((math.cos(a), math.sin(a), 0)) * height * 0.22 + Vector((0, 0, height * 0.18))
-        parts.append(lib.tube('branch', [base, base.lerp(end, 0.5) + Vector((0, 0, 0.1)), end], [r0 * 0.5, r0 * 0.35, r0 * 0.2],
-                              M('bark'), sides=6, subsurf=0))
+        base = pts[2] + (pts[3] - pts[2]) * rnd.uniform(0.0, 0.6)
+        end = base + V((math.cos(a), math.sin(a), 0)) * height * 0.22 + V((0, 0, height * 0.18))
+        trunk = union(trunk, tube([base, (base + end) / 2 + V((0, 0, 0.1)), end], [r0 * 0.5, r0 * 0.36, r0 * 0.22]), k=r0 * 0.4)
         tops.append(end)
+    bark = sdf.displace(trunk, lambda P: r0 * 0.07 * np.abs(np.sin(np.arctan2(P[:, 1], P[:, 0]) * 7 + P[:, 2] * 0.9)) + r0 * 0.05 * (sdf.noise(P, 3.0, variant) - 0.5))
+    parts.append(sculpt('trunk', bark, (-2.5, -2.5, -0.6), (2.5, 2.5, trunk_h + height * 0.25), 0.03, M('bark'), 340))
     leaves = ['leaf1', 'leaf2', 'leaf3', 'leaf4']
     canopy = []
     if kind == 'round':
         R = height * 0.26
-        for i, t in enumerate(tops):
-            canopy.append(blob('canopy', t + Vector((0, 0, R * 0.35)), R * rnd.uniform(0.8, 1.05), M(rnd.choice(leaves)), seed * 10 + i))
-        canopy.append(blob('canopy', pts[-1] + Vector((0, 0, R * 0.9)), R * 0.9, M(rnd.choice(leaves)), seed * 10 + 9))
+        for i, tp in enumerate(tops):
+            canopy.append(blob('canopy', tp + V((0, 0, R * 0.35)), R * rnd.uniform(0.8, 1.05), M(rnd.choice(leaves)), variant * 10 + i))
+        canopy.append(blob('canopy', pts[-1] + V((0, 0, R * 0.9)), R * 0.9, M(rnd.choice(leaves)), variant * 10 + 9))
     elif kind == 'poplar':
+        lobes = []
+        for i in range(5):
+            z = trunk_h * 0.55 + i * height * 0.12
+            r = height * (0.17 - i * 0.022)
+            lobes.append(ellipsoid(V((0, 0, z)) + lean * (0.8 + i * 0.1), (r, r, r * 1.25)))
+        f = union(*lobes, k=height * 0.06)
+        f = sdf.displace(f, lambda P: 0.09 * (sdf.noise(P, 1.4, variant) - 0.5) + 0.05 * (sdf.noise(P, 3.5, variant + 3) - 0.5))
+        canopy.append(sculpt('canopy', f, (-2.2, -2.2, trunk_h * 0.2), (2.2, 2.2, height + 0.8), 0.06, M(rnd.choice(leaves)), 380))
+    else:
+        # a fir: drooping tiers of branches, each fanned into soft points
         for i in range(4):
-            z = trunk_h * 0.6 + i * height * 0.15
-            canopy.append(blob('canopy', Vector((0, 0, z)) + lean, height * (0.17 - i * 0.025), M(rnd.choice(leaves)), seed * 10 + i,
-                               flat=0.9))
-    else:  # pine: stacked drooping cones
-        tiers = 4
-        for i in range(tiers):
             z = height * (0.3 + i * 0.17)
             r = height * (0.28 - i * 0.055)
-            bm = bmesh.new()
-            bmesh.ops.create_cone(bm, cap_ends=True, segments=9, radius1=r, radius2=0.0, depth=height * 0.32)
-            for v in bm.verts:
-                if v.co.z < 0:
-                    v.co.z -= 0.08 * math.sin(math.atan2(v.co.y, v.co.x) * 9) * r
-            bmesh.ops.translate(bm, vec=Vector((0, 0, z)) + lean, verts=bm.verts)
-            canopy.append(lib.obj_from_bm('canopy', bm, M('leaf4' if i % 2 else 'leaf2'), smooth=False))
+            hgt = height * 0.32
+            prof = [(r * 0.82, -hgt * 0.5), (r, -hgt * 0.42), (r * 0.5, 0.0), (r * 0.06, hgt * 0.5)]
+            rev = sdf.revolve(prof, c=tuple(V((0, 0, z)) + lean), rmod=lambda th, zz, ph=i: 1.0 + 0.13 * np.abs(np.sin(th * 4.5 + ph)) ** 0.7)
+            canopy.append(sculpt('canopy', rev, (-r - 0.6, -r - 0.6, z - hgt), (r + 0.6, r + 0.6, z + hgt), 0.05,
+                                 M('leaf4' if i % 2 else 'leaf2'), 210, sharp=40.0))
     nocol(canopy)
     return parts + canopy
+
+
+def tree(seed, height=5.5, kind='round'):
+    out = _cached(('tree', kind, seed % 5), lambda: _tree_proto(seed % 5, kind))
+    k = height / TREE_H
+    for o in out:
+        o.data.transform(Matrix.Scale(k, 4))
+    return out
 
 
 # --- small props -----------------------------------------------------------------------------
@@ -270,15 +413,24 @@ def fence(length, seed, height=0.95):
     return parts
 
 
+def _rock_proto(variant, mat):
+    rnd = random.Random(variant * 7 + 3)
+    f = ellipsoid((0, 0, 0.1), (1.0, 0.85, 0.72), sdf.rot(0, 0, rnd.uniform(0, 90)))
+    f = sdf.displace(f, lambda P: 0.22 * (sdf.noise(P, 1.3, variant) - 0.5) + 0.06 * (sdf.noise(P, 3.4, variant + 5) - 0.5))
+    # chiselled: a few flat faces knocked off it
+    for k in range(7):
+        a, e = k * math.tau / 7 + rnd.uniform(-0.3, 0.3), rnd.uniform(0.1, 1.1)
+        n = (math.cos(a) * math.cos(e), math.sin(a) * math.cos(e), math.sin(e))
+        f = intersect(f, sdf.plane(V(n) * rnd.uniform(0.42, 0.6) + V((0, 0, 0.1)), n), k=0.03)
+    f = intersect(f, lambda P: -0.35 - P[:, 2])
+    return [sculpt('rock', lambda P: f(P), (-1.6, -1.6, -0.5), (1.6, 1.6, 1.3), 0.04, M(mat), 150, sharp=24.0)]
+
+
 def rock(seed, size=1.0, mat='stone'):
-    bm = bmesh.new()
-    bmesh.ops.create_icosphere(bm, subdivisions=2, radius=1.0)
-    off = Vector((seed * 2.3, seed * 1.1, seed * 0.7))
-    for v in bm.verts:
-        v.co *= 1 + noise.noise(v.co * 1.3 + off) * 0.3
-        v.co.z = v.co.z * 0.7 if v.co.z > 0 else v.co.z * 0.4
-    bmesh.ops.scale(bm, vec=(size, size * 0.85, size), verts=bm.verts)
-    return [lib.obj_from_bm('rock', bm, M(mat), smooth=False)]
+    out = _cached(('rock', mat, seed % 8), lambda: _rock_proto(seed % 8, mat))
+    for o in out:
+        o.data.transform(Matrix.Scale(size, 4))
+    return out
 
 
 def well():
