@@ -1,9 +1,20 @@
 import * as THREE from 'three';
 import type { GLTF } from 'three/examples/jsm/loaders/GLTFLoader.js';
-import { inkify } from '../core/Assets';
+import { inkify, lineIdFor } from '../core/Assets';
+import type { InkOptions } from '../render/InkMaterial';
 import { Animator } from './Animator';
 import type { Collision } from './Collision';
 import type { Player } from './Player';
+
+/** How Pip is painted: folded paper, ink eyes (no hatching, a bright glint with no line round it), a wool collar. */
+export function pipLook(name: string): InkOptions {
+  const o: InkOptions = { alwaysColor: true, hatch: 0.5, soft: 0.04 };
+  if (name === 'pip_ink' || name === 'pip_eye_hi') o.hatch = 0;
+  if (name === 'pip_eye_hi') Object.assign(o, { emissive: 0.7, lineId: lineIdFor('pip_ink') });
+  if (name === 'pip_ink') Object.assign(o, { gloss: 0.6, glossSize: 0.05, glossWhite: 1 });
+  if (name === 'pip_collar') Object.assign(o, { sheen: 0.3, soft: 0.1 });
+  return o;
+}
 
 const _v = new THREE.Vector3();
 const _t = new THREE.Vector3();
@@ -40,7 +51,7 @@ export class Companion {
 
   constructor(gltf: GLTF) {
     const model = gltf.scene;
-    inkify(model, () => ({ alwaysColor: true, hatch: 0.5, soft: 0.04 }));
+    inkify(model, pipLook);
     model.traverse((o) => (o.frustumCulled = false));
     this.root.add(model);
     this.anim = new Animator(model, gltf.animations, ['hop']);

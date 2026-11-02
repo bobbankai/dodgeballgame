@@ -437,7 +437,7 @@ def to_mesh(name, verts, quads, material=None):
     return ob
 
 
-def tidy(ob, tris=None, smooth_iters=0):
+def tidy(ob, tris=None, smooth_iters=0, symmetric=False):
     """Merge slivers, optionally relax, decimate to about `tris` triangles, shade smooth."""
     bm = bmesh.new()
     bm.from_mesh(ob.data)
@@ -455,6 +455,9 @@ def tidy(ob, tris=None, smooth_iters=0):
             md.decimate_type = 'COLLAPSE'
             md.ratio = tris / cur
             md.use_collapse_triangulate = True
+            if symmetric:
+                md.use_symmetry = True
+                md.symmetry_axis = 'X'
             bpy.context.view_layer.objects.active = ob
             bpy.ops.object.modifier_apply(modifier=md.name)
     for p in ob.data.polygons:
@@ -462,11 +465,11 @@ def tidy(ob, tris=None, smooth_iters=0):
     return ob
 
 
-def sculpt(name, f, lo, hi, step, material=None, tris=None, project=2):
+def sculpt(name, f, lo, hi, step, material=None, tris=None, project=2, symmetric=False):
     """Mesh a shape into a smooth-shaded Blender object (the one call most scripts need)."""
     verts, quads = polygonize(f, lo, hi, step, project=project)
     ob = to_mesh(name, verts, quads, material)
-    return tidy(ob, tris)
+    return tidy(ob, tris, symmetric=symmetric)
 
 
 # --- ambient occlusion ---------------------------------------------------------------------------

@@ -3,6 +3,7 @@ import levelUrl from '../assets/levels/attic.glb?url';
 import pipUrl from '../assets/models/pip.glb?url';
 import { audio } from '../audio/Audio';
 import { inkify, loadGLTF } from '../core/Assets';
+import { pipLook } from '../game/Companion';
 import type { Game, Level } from '../game/Game';
 import { G } from '../render/Globals';
 import { inkMaterial } from '../render/InkMaterial';
@@ -64,7 +65,7 @@ export class Attic implements Level {
       const box = new THREE.Box3().setFromObject(folded);
       folded.visible = false;
       const mini = pipGltf.scene;
-      inkify(mini, () => ({ alwaysColor: true, hatch: 0.5, soft: 0.04 }));
+      inkify(mini, pipLook);
       mini.scale.setScalar(0.26);
       mini.position.set((box.min.x + box.max.x) / 2, box.min.y, (box.min.z + box.max.z) / 2);
       mini.rotation.y = Math.PI / 2;

@@ -22,9 +22,9 @@ class Figure:
     def M(self, name):
         return lib.mat(f'{self.prefix}_{name}', self.palette[name], vcol=True)
 
-    def part(self, name, f, lo, hi, step, mname, kind, tris):
+    def part(self, name, f, lo, hi, step, mname, kind, tris, symmetric=False):
         """Sculpt a field into a part of this figure."""
-        ob = sdf.sculpt(name, f, lo, hi, step, self.M(mname), tris)
+        ob = sdf.sculpt(name, f, lo, hi, step, self.M(mname), tris, symmetric=symmetric)
         return self.add(ob, kind)
 
     def add(self, ob, kind):

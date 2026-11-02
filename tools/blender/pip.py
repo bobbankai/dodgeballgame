@@ -2,148 +2,126 @@
 Pip: an origami fox, folded from one sheet of orange paper with a cream underside. Wears a tiny red
 knitted collar, the same wool as Ada's scarf.
 
+The fox is sculpted as a living animal first (sdf.py: a deep chest and slim waist, haunches, a ruff
+of cheek fur, a pointed snout, big ears, a brush of a tail, legs growing out of the body) and then
+folded: the surface is reduced to a few thousand flat facets, mirror-symmetric, so it reads as one
+sheet of creased paper. The cream side shows facet by facet where a fox is pale.
+
 Blender axes: Z up, Pip faces -Y, its left is +X. About 0.45 m to the tips of its ears.
 
 Run: blender -b -P tools/blender/pip.py [-- --preview out.png] [--poses out.png] [--export]
 """
-import math
 import os
 import sys
 
-import bmesh
 import bpy
+import numpy as np
 from mathutils import Vector
 
 sys.path.insert(0, os.path.dirname(__file__))
+import figure  # noqa: E402
 import lib  # noqa: E402
+import sdf  # noqa: E402
+from figure import on  # noqa: E402
+from sdf import V, cone, ellipsoid, intersect, subtract, torus, tube, union  # noqa: E402
 
 DZ = -0.06
 C = {'paper': '#E0782F', 'cream': '#F3E3C4', 'ink': '#1E1A1C', 'collar': '#C8483A', 'eye_hi': '#FFFFFF'}
+FIG = figure.Figure('pip', C)
+M = FIG.M
 
 
-def M(name):
-    return lib.mat('pip_' + name, C[name])
+def fox():
+    """The whole animal but its ears, in its final place (DZ included)."""
+    body = union(ellipsoid((0, -0.095, 0.228), (0.06, 0.085, 0.068)), ellipsoid((0, 0.095, 0.222), (0.054, 0.075, 0.058)), k=0.06)
+    body = union(body, ellipsoid((0, 0.0, 0.232), (0.052, 0.11, 0.054)), k=0.04)
+    # a tucked-up belly behind the ribs
+    body = subtract(body, ellipsoid((0, 0.04, 0.13), (0.09, 0.07, 0.04)), k=0.035)
+    body = union(body, ellipsoid((0, -0.168, 0.212), (0.044, 0.04, 0.052)), k=0.03)      # the bib of the chest
+    body = union(body, cone((0, -0.14, 0.245), (0, -0.2, 0.292), 0.046, 0.04), k=0.03)   # neck
+    head = union(ellipsoid((0, -0.235, 0.315), (0.06, 0.058, 0.052)),
+                 sdf.mirror_x(ellipsoid((0.05, -0.243, 0.288), (0.034, 0.03, 0.026), sdf.rot(0, -20, 15))), k=0.025)
+    head = union(head, cone((0, -0.262, 0.303), (0, -0.348, 0.286), 0.028, 0.0105), k=0.02)
+    body = union(body, head, k=0.025)
+    legs = []
+    for s in (1, -1):
+        legs.append(union(tube([(s * 0.042, -0.115, 0.215), (s * 0.046, -0.122, 0.11), (s * 0.047, -0.13, 0.03)], [0.027, 0.0155, 0.013]),
+                          ellipsoid((s * 0.047, -0.142, 0.013), (0.016, 0.025, 0.013)), k=0.01))
+        hind = union(ellipsoid((s * 0.042, 0.105, 0.19), (0.034, 0.055, 0.055)),
+                     tube([(s * 0.05, 0.13, 0.17), (s * 0.052, 0.152, 0.1), (s * 0.052, 0.125, 0.03)], [0.024, 0.015, 0.013]), k=0.02)
+        legs.append(union(hind, ellipsoid((s * 0.052, 0.112, 0.013), (0.016, 0.025, 0.013)), k=0.01))
+    body = union(body, *legs, k=0.022)
+    # a brush of a tail, swept up in a curve
+    tail = tube([(0, 0.165, 0.228), (0, 0.235, 0.236), (0, 0.31, 0.262), (0, 0.385, 0.315), (0, 0.44, 0.38), (0, 0.475, 0.44), (0, 0.485, 0.48)],
+                [0.024, 0.042, 0.058, 0.06, 0.05, 0.03, 0.004])
+    return union(body, tail, k=0.02)
 
 
-def tag(objs, kind):
-    for o in objs if isinstance(objs, list) else [objs]:
-        o['kind'] = kind
-    return objs if isinstance(objs, list) else [objs]
+def cream(c, n):
+    """Where the paper's cream side shows: chest and throat, belly, muzzle and cheeks, paws, the tip of the tail."""
+    x, y, z = c
+    if z < 0.035:
+        return True                                         # paws
+    if y > 0.43:
+        return True                                         # tail tip
+    if n.z < -0.5 and -0.2 < y < 0.16:
+        return True                                         # belly
+    if y < -0.13 and n.y < -0.25 and 0.165 < z < 0.27 and abs(x) < 0.045:
+        return True                                         # bib
+    if y < -0.25 and z < 0.293:
+        return True                                         # under the muzzle
+    if y < -0.215 and abs(x) > 0.05 and z < 0.3:
+        return True                                         # cheek ruffs
+    return False
 
 
-def loft(name, rings, tip_start=None, tip_end=None, cream=None):
-    """Flat-shaded folded paper through rings of points (each ring the same count), optionally
-    closing to a point at either end. cream(face centre, normal) picks the underside colour."""
-    bm = bmesh.new()
-    vr = [[bm.verts.new(p) for p in r] for r in rings]
-    n = len(rings[0])
-    for a, b in zip(vr, vr[1:]):
-        for k in range(n):
-            bm.faces.new([a[k], a[(k + 1) % n], b[(k + 1) % n], b[k]])
-    for tip, ring, rev in ((tip_start, vr[0], True), (tip_end, vr[-1], False)):
-        if tip is None:
-            continue
-        t = bm.verts.new(tip)
-        for k in range(n):
-            f = [ring[k], ring[(k + 1) % n], t]
-            bm.faces.new(list(reversed(f)) if rev else f)
-    bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
-    me = bpy.data.meshes.new(name)
-    bm.to_mesh(me)
-    bm.free()
-    ob = lib.link(bpy.data.objects.new(name, me))
+def paper(ob, pick):
+    """Fold the sculpt flat: one normal per facet, orange or cream by facet."""
+    me = ob.data
+    me.materials.clear()
     me.materials.append(M('paper'))
     me.materials.append(M('cream'))
-    for p in me.polygons:
-        p.use_smooth = False
-        if cream and cream(p.center, p.normal):
-            p.material_index = 1
-    return ob
+    for poly in me.polygons:
+        poly.use_smooth = False
+        poly.material_index = 1 if pick(poly.center, poly.normal) else 0
 
 
-def ring6(y, z, w, h, ridge=1.0):
-    """A folded cross-section: sharp spine ridge on top, flat-ish belly."""
-    return [Vector(p) for p in ((0, y, z + h * ridge), (w * 0.92, y, z + h * 0.32), (w * 0.7, y, z - h * 0.62),
-                                (0, y, z - h), (-w * 0.7, y, z - h * 0.62), (-w * 0.92, y, z + h * 0.32))]
+def ear(s, side):
+    base, tip = V((s * 0.04, -0.222, 0.345)), V((s * 0.09, -0.207, 0.458))
+    a = (tip - base) / np.linalg.norm(tip - base)
+    f = V((s * 0.3, -1.0, 0.15))
+    n = f - a * np.dot(a, f)
+    n /= np.linalg.norm(n)
+    outer = intersect(cone(base, tip, 0.034, 0.003), lambda P: np.abs((P - base) @ n) - 0.0075, k=0.002)
+    # the front is hollowed out, a rim of paper round a cream inside
+    e = subtract(outer, cone(base - n * 0.0085 + a * 0.012, tip - n * 0.0075 - a * 0.012, 0.024, 0.0015), k=0.003)
+    ob = FIG.part(f'ear_{side}', e, np.minimum(base, tip) - 0.05, np.maximum(base, tip) + 0.05, 0.0009, 'paper', f'ear_{side}', 120, False)
+    paper(ob, lambda c, nn: nn.dot(Vector(tuple(-n))) > 0.45)
 
 
-def body():
-    rings = [ring6(-0.175, 0.3, 0.05, 0.055), ring6(-0.12, 0.29, 0.075, 0.075), ring6(-0.02, 0.28, 0.08, 0.07, 1.1),
-             ring6(0.08, 0.28, 0.078, 0.066, 1.15), ring6(0.16, 0.285, 0.068, 0.06)]
-    belly = lambda c, n: n.z < -0.55
-    ob = loft('body', rings, tip_start=Vector((0, -0.2, 0.31)), tip_end=Vector((0, 0.2, 0.3)), cream=belly)
-    # chest bib: the cream inside of the fold shows at the throat
-    neck = [ring6(-0.16, 0.315, 0.045, 0.05), ring6(-0.2, 0.37, 0.04, 0.045)]
-    nk = loft('neck', neck, cream=lambda c, n: n.y < -0.3 or n.z < -0.5)
-    return tag([ob, nk], 'body')
-
-
-def head():
-    # a triangular mask: broad cheeks tapering to a pointed snout
-    back = [Vector(p) for p in ((0, -0.205, 0.44), (0.085, -0.225, 0.37), (0.06, -0.225, 0.31), (0, -0.215, 0.29),
-                                (-0.06, -0.225, 0.31), (-0.085, -0.225, 0.37))]
-    mid = [Vector(p) for p in ((0, -0.27, 0.41), (0.06, -0.285, 0.355), (0.04, -0.285, 0.315), (0, -0.28, 0.3),
-                               (-0.04, -0.285, 0.315), (-0.06, -0.285, 0.355))]
-    snout = [Vector(p) for p in ((0, -0.335, 0.37), (0.022, -0.345, 0.345), (0.016, -0.345, 0.325), (0, -0.34, 0.318),
-                                 (-0.016, -0.345, 0.325), (-0.022, -0.345, 0.345))]
-    cheeks = lambda c, n: c.z < 0.33 or (abs(c.x) > 0.045 and n.y < -0.4 and c.z < 0.36)
-    h = loft('head', [back, mid, snout], tip_start=Vector((0, -0.19, 0.36)), tip_end=Vector((0, -0.37, 0.346)), cream=cheeks)
-    parts = [h]
-    parts.append(lib.ellipsoid('nose', (0, -0.369, 0.347), (0.011, 0.009, 0.009), M('ink'), segs=(12, 8)))
-    for s in (1, -1):
-        rz = lib_rot(s)
-        parts.append(lib.ellipsoid('eye', (s * 0.045, -0.272, 0.375), (0.009, 0.006, 0.013), M('ink'), segs=(12, 8), rot=rz))
-        parts.append(lib.ellipsoid('eye_hi', (s * 0.042, -0.278, 0.38), (0.003, 0.002, 0.0035), M('eye_hi'), segs=(8, 6)))
-    return tag(parts, 'head')
-
-
-def lib_rot(s):
-    from mathutils import Matrix
-    return Matrix.Rotation(s * math.radians(30), 3, 'Z')
-
-
-def ears():
-    parts = []
+def face(head_f):
     for s, side in ((1, 'L'), (-1, 'R')):
-        base = [Vector((s * 0.03, -0.215, 0.425)), Vector((s * 0.088, -0.225, 0.39)), Vector((s * 0.06, -0.19, 0.41))]
-        tip = Vector((s * 0.1, -0.205, 0.53))
-        # front face cream (the inside of the ear), back orange
-        ob = loft('ear', [base, [b.lerp(tip, 0.55) for b in base]], tip_end=tip, cream=lambda c, n: n.y < -0.2)
-        parts += tag(ob, 'ear_' + side)
-    return parts
-
-
-def tail():
-    rings, cr = [], []
-    pts = [(0.17, 0.28, 0.035), (0.25, 0.31, 0.055), (0.33, 0.35, 0.062), (0.4, 0.4, 0.052), (0.45, 0.445, 0.034)]
-    for y, z, r in pts:
-        rings.append([Vector(p) for p in ((0, y, z + r), (r * 0.85, y, z), (0, y + r * 0.2, z - r * 0.9), (-r * 0.85, y, z))])
-    ob = loft('tail', rings, tip_start=Vector((0, 0.15, 0.27)), tip_end=Vector((0, 0.5, 0.48)), cream=lambda c, n: c.y > 0.39 or n.z < -0.6)
-    return tag(ob, 'tail')
-
-
-def legs():
-    parts = []
-    for s, side in ((1, 'L'), (-1, 'R')):
-        for front, y0, x0 in ((True, -0.12, 0.048), (False, 0.12, 0.052)):
-            y1 = y0 + (0.0 if front else 0.02)
-            r = []
-            for z, w, yy in ((0.2, 0.027, y0), (0.1, 0.02, y1), (0.035, 0.017, y0 - 0.005), (0.01, 0.021, y0 - 0.02)):
-                r.append([Vector(p) for p in ((s * x0, yy - w, z), (s * x0 + w, yy, z), (s * x0, yy + w * 0.8, z), (s * x0 - w, yy, z))])
-            ob = loft('leg', r, tip_end=Vector((s * x0, y0 - 0.02, 0.0)), cream=lambda c, n: c.z < 0.05)
-            parts += tag(ob, ('legF_' if front else 'legB_') + side)
-    return parts
+        p = on(head_f, (s * 0.033, -0.4, 0.323), (0, 1, 0), lift=-0.001)
+        R = figure.frame_on(head_f, p) @ sdf.rot(0, s * 18, 0)
+        FIG.part(f'eye_{side}', ellipsoid(p, (0.0088, 0.0035, 0.0122), R), p - 0.03, p + 0.03, 0.0004, 'ink', 'head', 160)
+        g = p + R @ V((s * 0.0028, -0.0028, 0.0042))
+        FIG.part(f'eyehi_{side}', ellipsoid(g, (0.0026, 0.0012, 0.003), R), g - 0.02, g + 0.02, 0.0003, 'eye_hi', 'head', 60)
+    nose = V((0, -0.356, 0.288))
+    FIG.part('nose', ellipsoid(nose, (0.0105, 0.009, 0.0085)), nose - 0.03, nose + 0.03, 0.0005, 'ink', 'head', 160)
 
 
 def collar():
-    # a ring around the neck, perpendicular to it, with a little knot under the chin
-    c0 = Vector((0, -0.182, 0.343 + DZ))
-    d = Vector((0, -0.04, 0.055)).normalized()
-    u = d.cross(Vector((1, 0, 0))).normalized()
-    ring = [c0 + Vector((1, 0, 0)) * math.cos(t) * 0.043 + u * math.sin(t) * 0.047 for t in (2 * math.pi * k / 14 for k in range(15))]
-    c = lib.tube('collar', ring, [0.009] * 15, M('collar'), sides=8, cap=False, subsurf=0)
-    k = lib.ellipsoid('collar_knot', c0 - u * 0.05, (0.015, 0.011, 0.012), M('collar'), segs=(10, 6))
-    return tag([c, k], 'collar')
+    """A ring of red wool round the neck, ribbed, knotted under the chin with a little tassel."""
+    c0 = V((0, -0.17, 0.262))
+    d = V((0, -0.06, 0.047))
+    d /= np.linalg.norm(d)
+    R = sdf.frame(d)
+    ring = torus(c0, 0.044, 0.0085, R)
+    ring = sdf.displace(ring, lambda P: 0.0011 * np.abs(np.sin(np.arctan2(*((P - c0) @ R)[:, :2].T[::-1]) * 14)))
+    # (the knot sits at the side of the neck: under the chin it looked like an open mouth)
+    knot = c0 + R @ V((0.04, -0.03, 0.004))
+    w = union(ring, ellipsoid(knot, (0.013, 0.01, 0.01)), k=0.004)
+    FIG.part('collar', w, c0 - 0.08, c0 + 0.08, 0.0007, 'collar', 'collar', 1400)
 
 
 def bones():
@@ -176,21 +154,26 @@ def weight_fn(kind, segs):
     def seg(*names, power=8.0):
         sub = {n: segs[n] for n in names}
         return lambda p: lib.dist_weights(p, sub, None, power)
-    if kind in ('head',):
+    if kind == 'head':
         return lambda p: {'head': 1.0}
     if kind.startswith('ear'):
         return lambda p: {kind: 1.0}
-    if kind == 'body':
-        return seg('hips', 'chest', 'neck', power=6.0)
     if kind == 'collar':
         return seg('neck', 'chest')
-    if kind == 'tail':
-        return seg('hips', 'tail1', 'tail2', 'tail3', power=6.0)
-    side = kind[-1]
-    if kind.startswith('legF'):
-        return seg(f'legF_{side}', f'shinF_{side}', 'chest')
-    if kind.startswith('legB'):
-        return seg(f'legB_{side}', f'shinB_{side}', 'hips')
+    if kind == 'fox':
+        bones = [b for b in BODY if not b.startswith('ear')]
+        each = seg(*bones, power=9.0)
+
+        def w(p):
+            # the head is rigid from just behind the cheeks forwards
+            h = lib.smooth01(-0.19, -0.215, p.y) * lib.smooth01(0.255, 0.275, p.z)
+            out = {b: v * (1 - h) for b, v in each(p).items()} if h < 1 else {}
+            s = sum(out.values())
+            if s > 0:
+                out = {b: v / s * (1 - h) for b, v in out.items()}
+            out['head'] = out.get('head', 0.0) + h
+            return out
+        return w
     raise ValueError(kind)
 
 
@@ -280,21 +263,24 @@ def author(arm):
 
 def build():
     lib.reset()
+    FIG.parts.clear()
     bpy.context.scene.render.fps = 30
-    parts = body() + head() + ears() + tail()
-    # the body sits lower than it was drawn, on short sturdy legs
-    for ob in parts:
-        for v in ob.data.vertices:
-            v.co.z += DZ
-    parts += legs() + collar()
-    for ob in parts:
-        lib.apply_modifiers(ob)
+    f = fox()
+    body = FIG.part('fox', f, (-0.12, -0.4, -0.01), (0.12, 0.53, 0.5), 0.0018, 'paper', 'fox', 1300, symmetric=True)
+    paper(body, cream)
+    for s, side in ((1, 'L'), (-1, 'R')):
+        ear(s, side)
+    face(f)
+    collar()
+    ao = sdf.bake_ao([o for o in FIG.parts if o.name not in ('eyehi_L', 'eyehi_R')], distance=0.05, samples=48)
+    figure.paint(FIG.parts, lambda p, k, m: (1.0, 1.0, 1.0), ao, no_ao=('pip_ink', 'pip_eye_hi'))
     arm = lib.armature('pip_rig', bones())
     segs = {b.name: (b.head_local.copy(), b.tail_local.copy()) for b in arm.data.bones}
-    for ob in parts:
+    for ob in FIG.parts:
         lib.set_weights(ob, weight_fn(ob['kind'], segs))
-    mesh = lib.join(parts, 'pip')
+    mesh = lib.join(FIG.parts, 'pip')
     lib.bind(mesh, arm)
+    print('pip:', sum(len(p.vertices) - 2 for p in mesh.data.polygons), 'tris')
     return arm, mesh
 
 
@@ -304,7 +290,8 @@ if __name__ == '__main__':
     author(arm)
     if '--preview' in argv:
         out = argv[argv.index('--preview') + 1]
-        for yaw, name in ((-35, 'front'), (140, 'back'), (-90, 'side')):
+        figure.rest_pose(arm)
+        for yaw, name in ((-35, 'front'), (140, 'back'), (-90, 'side'), (0, 'face')):
             lib.preview(out.replace('.png', f'_{name}.png'), target=(0, 0.05, 0.2), dist=1.2, yaw=yaw, pitch=12, size=(800, 600), lens=55)
     if '--poses' in argv:
         out = argv[argv.index('--poses') + 1]
@@ -321,4 +308,5 @@ if __name__ == '__main__':
                         size=(400, 320), lens=50, samples=12)
         ad.action = None
     if '--export' in argv:
+        figure.rest_pose(arm)
         lib.export_glb(os.path.join(lib.MODELS, 'pip.glb'), [arm, mesh])
