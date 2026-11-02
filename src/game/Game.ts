@@ -35,6 +35,9 @@ export interface Interactable {
   focus?: (p: THREE.Vector3) => THREE.Vector3;
 }
 
+const _fwd = new THREE.Vector3();
+const _upv = new THREE.Vector3();
+
 /** Owns the renderer, the world, Ada and the frame loop. Levels plug into it. */
 export class Game {
   readonly pipe: Pipeline;
@@ -71,7 +74,7 @@ export class Game {
     };
     this.ui.onType = (s, c) => {
       this.director.faceOf(s)?.letter(c);
-      if (/\S/.test(c)) audio.type(s);
+      audio.voice(s, c);
     };
     this.director = new Director(this);
     this.sun.castShadow = true;
@@ -106,10 +109,11 @@ export class Game {
       this.particles.dust(this.player.position, 4 + Math.round(k * 6), 0.16 + k * 0.1);
       audio.land(0.4 + k * 0.6);
     };
-    this.player.onStep = () => audio.footstep(this.player.velocity.length() > 2 ? 1 : 0.6);
+    this.player.onStep = () => audio.footstep(this.player.velocity.length() > 2 ? 1 : 0.6, this.collision.surfaceBelow(this.player.position));
   }
 
   async loadLevel(level: Level) {
+    audio.stopEmitters();
     if (this.level) {
       this.level.dispose?.();
       for (const o of [...this.scene.children]) if (o !== this.sun && o !== this.player.root) this.scene.remove(o);
@@ -240,6 +244,11 @@ export class Game {
       this.rig.update(dt, this.director.cutscene ? null : this.input, this.player.position, this.player.velocity, this.collision, this.time);
       this.particles.update(dt);
     }
+    // the ears go where the camera goes
+    const c = this.camera;
+    _fwd.set(0, 0, -1).applyQuaternion(c.quaternion);
+    _upv.set(0, 1, 0).applyQuaternion(c.quaternion);
+    audio.listen(c.position.x, c.position.y, c.position.z, _fwd.x, _fwd.y, _fwd.z, _upv.x, _upv.y, _upv.z);
     this.ui.update(dt);
     if (render) this.pipe.render(this.scene, this.camera);
     this.input.endFrame();

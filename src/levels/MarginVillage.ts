@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import levelUrl from '../assets/levels/margin_village.glb?url';
 import pipUrl from '../assets/models/pip.glb?url';
 import { audio } from '../audio/Audio';
+import { Soundscape } from '../audio/Soundscape';
 import { inkify, loadGLTF } from '../core/Assets';
 import { Companion } from '../game/Companion';
 import type { Game, Level } from '../game/Game';
@@ -52,6 +53,7 @@ export class MarginVillage implements Level {
   pip!: Companion;
   private smudge!: Smudge;
   private sails: THREE.Object3D | null = null;
+  private sound = new Soundscape();
   private checkpoint = v3();
   private flags = new Set<string>();
   private pigment: THREE.Group | null = null;
@@ -84,6 +86,29 @@ export class MarginVillage implements Level {
       if (n === 'windmill_sails') this.sails = o;
       if ((o as THREE.Mesh).isMesh && /^(water|windmill_sails)/.test(o.parent?.name ?? o.name)) o.castShadow = false;
     });
+    // sounds in the world: the stream along its whole length, the windmill turning
+    const water = root.getObjectByName('water');
+    if (water) {
+      const cols = new Map<number, { y: number; z: number; n: number }>();
+      const w = v3();
+      water.updateMatrixWorld(true);
+      water.traverse((o) => {
+        const m = o as THREE.Mesh;
+        if (!m.isMesh) return;
+        const pos = m.geometry.attributes.position;
+        for (let i = 0; i < pos.count; i++) {
+          w.fromBufferAttribute(pos, i).applyMatrix4(m.matrixWorld);
+          const k = Math.round(w.x / 3);
+          const c = cols.get(k) ?? { y: 0, z: 0, n: 0 };
+          c.y += w.y;
+          c.z += w.z;
+          c.n++;
+          cols.set(k, c);
+        }
+      });
+      this.sound.line('stream', [...cols.entries()].sort((a, b) => a[0] - b[0]).map(([k, c]) => v3(k * 3, c.y / c.n + 0.2, c.z / c.n)));
+    }
+    if (this.sails) this.sound.point('windmill', this.sails.getWorldPosition(v3()));
     const terrain = root.getObjectByName('terrain') as THREE.Mesh;
     game.collision.add(terrain);
     // the ground receives shadows but drawing it into the shadow maps costs more than it gives
@@ -522,6 +547,7 @@ export class MarginVillage implements Level {
     this.pip.update(dt, g.player, g.collision);
     for (const t of this.traces.values()) t.update(dt);
     if (this.sails) this.sails.rotateOnAxis(v3(0, 0, 1), dt * 0.35);
+    this.sound.update(g.camera.position);
     for (const n of this.notes) {
       if (!n.shown) continue;
       n.mesh.position.copy(n.base).add(v3(0, Math.sin(time * 1.6) * 0.06, 0));

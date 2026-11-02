@@ -3,6 +3,7 @@ import levelUrl from '../assets/levels/unfinished_page.glb?url';
 import mumUrl from '../assets/models/mum.glb?url';
 import pipUrl from '../assets/models/pip.glb?url';
 import { audio } from '../audio/Audio';
+import { Soundscape } from '../audio/Soundscape';
 import { inkify, loadGLTF } from '../core/Assets';
 import { Companion } from '../game/Companion';
 import { DrawnPath, type PathKind } from '../game/DrawnPath';
@@ -49,6 +50,7 @@ export class UnfinishedPage implements Level {
   readonly name = 'unfinished_page';
   private game!: Game;
   private m = new Map<string, THREE.Vector3>();
+  private sound = new Soundscape();
   private extras = new Map<string, Record<string, number>>();
   pip!: Companion;
   private mum!: Mum;
@@ -91,6 +93,7 @@ export class UnfinishedPage implements Level {
     });
     for (const o of root.children) {
       if (/^frag_/.test(o.name)) {
+        if (o.name === 'frag_garden') this.sound.point('chimes', o.getWorldPosition(v3()).add(v3(0, 2.6, 0)));
         game.collision.add(o);
         o.traverse((c) => (c.castShadow = false));
       }
@@ -678,6 +681,7 @@ export class UnfinishedPage implements Level {
     const g = this.game, p = g.player.position, f = this.flags;
     if (this.pip.root.visible) this.pip.update(dt, g.player, g.collision);
     this.mum.update(dt);
+    this.sound.update(g.camera.position);
     for (const path of this.paths) path.update(dt);
     // at the last page it comes no closer than arm's length: it waits to be drawn
     if (this.shading) this.smudge.speed = Math.hypot(this.smudge.position.x - p.x, this.smudge.position.z - p.z) > 4 ? 0.5 : 0;

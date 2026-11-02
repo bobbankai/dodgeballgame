@@ -4,6 +4,7 @@ import '@fontsource/caveat/700.css';
 import * as THREE from 'three';
 import { Flow } from './game/Flow';
 import { Game } from './game/Game';
+import { audio } from './audio/Audio';
 import { G } from './render/Globals';
 import { Attic } from './levels/Attic';
 import { FoldedSea } from './levels/FoldedSea';
@@ -16,6 +17,7 @@ const game = new Game(document.getElementById('app')!);
 const w = window as unknown as Record<string, unknown>;
 w.__game = game;
 w.__G = G;
+w.__audio = audio;
 
 await game.init();
 const flow = new Flow(game);

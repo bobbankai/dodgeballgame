@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { audio } from '../audio/Audio';
 import type { Speaker } from '../ui/UI';
 import { inferEmotion, type Emotion, type Expressive } from './Face';
 import type { Companion } from './Companion';
@@ -84,6 +85,7 @@ export class Director {
     const actor = this.actors.get(who);
     if (actor) actor.speaking = true;
     const e = feeling ?? inferEmotion(text);
+    audio.setMood(e);
     // listeners catch a softer echo of it (a frightened line worries them; anger only worries)
     const echo: Partial<Record<Emotion, [Emotion, number]>> = {
       sad: ['sad', 0.5], joy: ['happy', 0.6], happy: ['happy', 0.4], tender: ['tender', 0.5], scared: ['worried', 0.6],

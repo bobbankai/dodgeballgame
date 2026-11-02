@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import levelUrl from '../assets/levels/attic.glb?url';
 import pipUrl from '../assets/models/pip.glb?url';
 import { audio } from '../audio/Audio';
+import { Soundscape } from '../audio/Soundscape';
 import { inkify, loadGLTF } from '../core/Assets';
 import { pipLook } from '../game/Companion';
 import type { Game, Level } from '../game/Game';
@@ -25,6 +26,7 @@ export class Attic implements Level {
   readonly name = 'attic';
   private game!: Game;
   private m = new Map<string, THREE.Vector3>();
+  private sound = new Soundscape();
   private rain!: SketchLines;
   private seg!: Segments;
   private drops: { x: number; y: number; len: number; speed: number }[] = [];
@@ -90,6 +92,7 @@ export class Attic implements Level {
     game.setSun(v3(0.2, 0.55, -1), 0x8fa6d8, 0.35);
     this.lamp = new THREE.PointLight(0xffc27a, 1.4, 7, 1.1);
     this.lamp.position.copy(this.m.get('lamp_light')!);
+    this.sound.point('clock', this.m.get('lamp_light')!.clone().add(v3(0.4, -0.3, 0.2)));
     game.scene.add(this.lamp);
     const bulb = new THREE.PointLight(0xffd9a0, 0.18, 5, 1.2);
     bulb.position.copy(this.m.get('bulb_light')!);
@@ -385,6 +388,7 @@ export class Attic implements Level {
   }
 
   update(dt: number) {
+    this.sound.update(this.game.camera.position);
     if (this.morning) return;
     // rain: short streaks sliding down the glass, re-drawn on the boil
     const win = v3(0, 1.95, -4.17);

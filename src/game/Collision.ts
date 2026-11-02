@@ -11,6 +11,23 @@ export interface Body {
   bvh: MeshBVH;
   enabled: boolean;
   name: string;
+  /** What each vertex is made of (for footsteps): see Surface. */
+  surface: Uint8Array;
+}
+
+/** What the ground is made of, read from its painted colour. */
+export const SURFACES = ['grass', 'wood', 'stone', 'sand', 'paper', 'water'] as const;
+export type Surface = (typeof SURFACES)[number];
+
+function classify(r: number, g: number, b: number): number {
+  const mx = Math.max(r, g, b), mn = Math.min(r, g, b);
+  const sat = mx > 1e-4 ? (mx - mn) / mx : 0;
+  if (mx > 0.82 && sat < 0.16) return 4; // paper
+  if (sat < 0.16) return 2; // grey: stone
+  if (g >= r && g > b) return 0; // green: grass
+  if (b > r && b > g) return 5; // blue: water
+  // warm: bright and pale is sand or a dirt path, darker and richer is wood
+  return mx > 0.55 && sat < 0.5 ? 3 : 1;
 }
 
 const _box = new THREE.Box3();
@@ -24,8 +41,10 @@ const _o = new THREE.Vector3();
 /** Bake every mesh under `roots` into one world-space triangle soup. */
 function bake(roots: THREE.Object3D[]) {
   const parts: Float32Array[] = [];
+  const kinds: Uint8Array[] = [];
   let total = 0;
   const v = new THREE.Vector3();
+  const c = new THREE.Color();
   for (const root of roots) {
     root.updateMatrixWorld(true);
     root.traverse((o) => {
@@ -42,6 +61,16 @@ function bake(roots: THREE.Object3D[]) {
       }
       parts.push(arr);
       total += arr.length;
+      // the surface of each vertex: its painted colour, or the material's
+      const kind = new Uint8Array(pos.count);
+      const col = g.attributes.color;
+      const mat = (Array.isArray(m.material) ? m.material[0] : m.material) as THREE.ShaderMaterial;
+      const base = (mat?.uniforms?.uColor?.value as THREE.Color | undefined) ?? c.set(1, 1, 1);
+      const k0 = classify(base.r, base.g, base.b);
+      for (let i = 0; i < pos.count; i++) {
+        kind[i] = col ? classify(col.getX(i) * base.r, col.getY(i) * base.g, col.getZ(i) * base.b) : k0;
+      }
+      kinds.push(kind);
     });
   }
   const all = new Float32Array(total);
@@ -52,7 +81,13 @@ function bake(roots: THREE.Object3D[]) {
   }
   const geo = new THREE.BufferGeometry();
   geo.setAttribute('position', new THREE.BufferAttribute(all, 3));
-  return geo;
+  const surface = new Uint8Array(total / 3);
+  let s = 0;
+  for (const k of kinds) {
+    surface.set(k, s);
+    s += k.length;
+  }
+  return { geo, surface };
 }
 
 /** Level collision: bodies of static triangles, each with its own BVH. */
@@ -74,7 +109,8 @@ export class Collision {
   }
 
   addBody(name: string, roots: THREE.Object3D[], enabled = true): Body {
-    const body = { bvh: new MeshBVH(bake(roots)), enabled, name };
+    const { geo, surface } = bake(roots);
+    const body = { bvh: new MeshBVH(geo), enabled, name, surface };
     this.bodies.push(body);
     return body;
   }
@@ -146,6 +182,22 @@ export class Collision {
       }
     }
     return best;
+  }
+
+  /** What the ground under a point is made of (for footsteps), or null if there is none close by. */
+  surfaceBelow(p: THREE.Vector3): Surface | null {
+    _ray.set(_o.set(p.x, p.y + 0.4, p.z), _down);
+    let best: { d: number; s: number } | null = null;
+    for (const body of this.bodies) {
+      if (!body.enabled) continue;
+      const h = body.bvh.raycastFirst(_ray, THREE.DoubleSide, 0, 1.2);
+      if (h && h.faceIndex != null && (!best || h.distance < best.d)) {
+        const idx = body.bvh.geometry.index;
+        const vtx = idx ? idx.getX(h.faceIndex * 3) : h.faceIndex * 3;
+        best = { d: h.distance, s: body.surface[vtx] };
+      }
+    }
+    return best ? SURFACES[best.s] : null;
   }
 
   /** Ground height below a point (within `down` metres), or null. */

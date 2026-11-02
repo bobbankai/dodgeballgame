@@ -3,6 +3,7 @@ import levelUrl from '../assets/levels/folded_sea.glb?url';
 import craneUrl from '../assets/models/crane.glb?url';
 import pipUrl from '../assets/models/pip.glb?url';
 import { audio } from '../audio/Audio';
+import { Soundscape } from '../audio/Soundscape';
 import { inkify, loadGLTF } from '../core/Assets';
 import { Boat } from '../game/Boat';
 import { Companion } from '../game/Companion';
@@ -83,6 +84,9 @@ export class FoldedSea implements Level {
   pip!: Companion;
   private keeper!: Keeper;
   private boat!: Boat;
+  private sound = new Soundscape();
+  private shore: THREE.Vector3[] | null = null;
+  private land = new THREE.Box3();
   private beam = new Beam(240, 12);
   private beamYaw = 0;
   private beamSpin = 0.75;
@@ -148,6 +152,7 @@ export class FoldedSea implements Level {
     });
     for (const name of ['terrain', 'terrain_island']) {
       const t = root.getObjectByName(name)!;
+      this.land.union(new THREE.Box3().setFromObject(t));
       game.collision.add(t);
       t.traverse((o) => (o.castShadow = false));
     }
@@ -1012,8 +1017,27 @@ export class FoldedSea implements Level {
 
   // --- per frame ------------------------------------------------------------------------------
 
+  /** Where the land meets the sea (the ground within a hand of sea level), for the surf. */
+  private findShore() {
+    const out: THREE.Vector3[] = [];
+    const b = this.land, col = this.game.collision;
+    for (let x = b.min.x; x <= b.max.x; x += 3) {
+      for (let z = b.min.z; z <= b.max.z; z += 3) {
+        const h = col.groundAt(v3(x, 80, z), 160);
+        if (h !== null && h > -0.3 && h < 0.4) out.push(v3(x, 0.2, z));
+      }
+    }
+    return out.length ? out : [v3(0, 0, 0)];
+  }
+
   update(dt: number, time: number) {
     const g = this.game, p = g.player.position, f = this.flags;
+    if (!this.shore) {
+      this.shore = this.findShore();
+      this.sound.nearest('surf', this.shore, 2, 16);
+      this.sound.follow('lapping', () => (this.traces.get('trace_boat')!.done ? this.boat.position : null));
+    }
+    this.sound.update(g.camera.position);
     // the boat first, so Ada and Pip sit exactly on it this frame
     if (this.traces.get('trace_boat')!.done) {
       const steer = this.boat.control && !this.reading && !g.director.cutscene && !g.ui.inDialogue;

@@ -17,8 +17,11 @@ rigs, animations and levels; the game is TypeScript + three.js with a custom ink
 
 `node tools/play.mjs "http://localhost:5173/?test&at=village" <outDir> '<json script>' [w] [h]` steps the
 game deterministically (software WebGL) while holding keys and taking screenshots. Script steps:
-`{"keys":["KeyW"],"t":1.0,"shot":"name","eval":"js"}`. In `?test` mode `window.__game` and
-`window.THREE` are exposed; `__game.ui.autoAdvance = 0.4` makes dialogue and notes move on by
+`{"keys":["KeyW"],"t":1.0,"shot":"name","eval":"js"}` (a step's `eval` runs before its wait). In `?test`
+mode `window.__game`, `window.__G` (the shared uniforms: `__G.uPigment.value.set(1,1,1)` shows colour),
+`window.__audio` and `window.THREE` are exposed; `__game.pipe.uniforms.uDebug.value` = 1/2/3 shows the
+ambient occlusion, contact shadow or bloom buffer; `__game.player.expression.set('joy')` (and
+`.autoBlink = false`) poses a face; headless timing is meaningless (no real GPU); `__game.ui.autoAdvance = 0.4` makes dialogue and notes move on by
 themselves. Scripted walking: set `__game.player.goal` with `inputEnabled = false` (goals are ignored
 while the player has control). `tools/tile.py <dir> <out.png> [cols]` (run with the scratchpad venv's
 python, system PIL is broken) tiles screenshots into one sheet, sorted by file name (b10 < b2).
@@ -49,6 +52,9 @@ python, system PIL is broken) tiles screenshots into one sheet, sorted by file n
   long copper hair and braid, indigo dress, paint-splashed apron, fingered hands; Ada's bone names so
   the scenes and her walk work, with her own idle, talk and kneeling clips), `unfinished_page.py`.
   Blender (x, y, z) is three (x, z, -y).
+- Faces: Ada and Mum have expression bones `brow_L/R` and `mouth_L/R` (the mouth line and Mum's lips
+  fade from the corners into `mouth`, the skin round them follows: weight kind `face`), plus
+  `eye_L/R` and `mouth` as before.
 - Rig conventions (Blender, character faces -Y, left = +X): pose rotations are written about the
   armature axes and converted per bone (`Poser`). +X bends an upward bone forwards / swings a
   downward bone back; `ax` sets a bone's absolute pitch. `sym=k` mirrors _L channels to _R k frames
@@ -63,8 +69,13 @@ python, system PIL is broken) tiles screenshots into one sheet, sorted by file n
   and pigment families (green / blue / warm), erase field (the Smudge), drawn water. `uPigment` is
   what is restored everywhere; each bloom carries its own families (`uBloomTint`) as it spreads, and
   folds into `uPigment` when done. `waves` displaces by the sea (`glsl.ts` WAVES = `Sea.seaHeight`).
-- `Pipeline.ts`: MRT (colour + view normal/line id) + depth -> composite: ink lines (inverse-depth
-  laplacian, normals, ids, dry-brush break-up), bloom, wash banding, wet edges, paper, grading.
+- `Pipeline.ts`: MRT (colour + view normal/line id; colour alpha = how sunlit) + depth, 4x MSAA at
+  high quality -> half-res ambient occlusion + sun contact shadows (depth-aware blur) -> quarter/eighth
+  bloom -> composite: AO and contact shadows as cool washes, reflections on water (line id 3, marched
+  through the depth buffer), ink lines (inverse-depth laplacian, normals, ids, dry-brush break-up),
+  wash banding, wet edges, paper, grading, filmic shoulder, dither. `setQuality('high'|'medium'|'low')`
+  (pause menu, remembered; `?quality=`). Materials add sky fill / ground bounce (`setFill` per level),
+  aerial perspective toward `uSkyTop`, and slow pigment variation.
   The composite writes scene depth so the `overlay` scene (sketch strokes, particles, sprites) is
   depth-tested but never outlined. Overlay shaders output display colours directly.
 - `Sketch.ts` screen-space pencil ribbons (must be double-sided) and ghost hatching.
@@ -74,12 +85,23 @@ python, system PIL is broken) tiles screenshots into one sheet, sorted by file n
 ## Game (src/game, src/levels)
 
 Game loop, Player (floating capsule + ground ray, step-up, `ride()` a seat), Animator (weighted clip
-blending, face overlays), CameraRig (orbit, five-ray collision that looks past railings, shots,
+blending), Face (`expression` on Ada, Mum: twelve emotions as brow/eye/mouth poses, its own blinks,
+lip flaps on vowels; FoxFace for Pip: ears, tail, head tilt; it sets bones from rest each frame
+because the mixer only writes values that change), dialogue lines `[who, text, emotion?]` (else
+`inferEmotion`), listeners echo, `director.feel()`, CameraRig (orbit, five-ray collision that looks past railings, shots,
 `guide` hook for awkward places like the spiral stair, `sailing()`), Director (async story scripts on
 game time, `rail()` camera moves, `focus()` depth of field, `cinematic()`), Trace (ink-in
 mechanic), DrawnPath (paths Ada draws herself in Chapter Three), Companion (Pip), Keeper (crane),
 Mum, Boat, Sea, Storm, Smudge, Flow (title, prologue to epilogue in order, credits, saves in
 localStorage, pause). A level only reaches the frame loop once `load()` finishes.
+
+Audio (src/audio, all synthesised): the score (felt piano panned by pitch, string section, flute,
+harp, bells; generative around Mum's lullaby), voices (formant syllables per speaker, bent by the
+line's emotion, music ducks under them), footsteps by surface (Collision classifies the ground's
+painted colour: grass, wood, stone, sand, paper, water), ambiences (gusting wind, birds placed in the
+trees, gulls), and `Soundscape` emitters in the world with the camera as listener (the stream along
+its length, the windmill, surf on the nearest beaches, water lapping the boat, the attic clock,
+chimes on the last page).
 
 ## Status
 
