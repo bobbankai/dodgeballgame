@@ -7,11 +7,14 @@ import math
 import random
 
 import bmesh
-from mathutils import Matrix, Vector, noise
+import numpy as np
+from mathutils import Matrix, Vector
 
 import kit
 import lib
-from kit import box, nocol
+import sdf
+from kit import box, nocol, sculpt
+from sdf import V
 
 PAL = {
     'lh_white': '#EEE8DA', 'lh_red': '#B5423A', 'copper': '#3E6E66', 'glass': '#35507A', 'brass': '#C9A04A',
@@ -85,13 +88,32 @@ def lighthouse():
         z0, z1 = LH_H * b / bands, LH_H * (b + 1) / bands
         parts.append(lib.lathe('lh_band', [(lh_radius(z0), z0), (lh_radius(z1), z1)], M('lh_red' if b % 2 else 'lh_white'), segs=28,
                                subsurf=0, close_top=False, close_bottom=b == 0))
-    parts.append(box('lh_door', (1.1, 0.25, 2.1), (0, -lh_radius(1) - 0.05, 1.05), kit.M('door_green')))
-    parts.append(box('lh_doorframe', (1.35, 0.2, 2.35), (0, -lh_radius(1) + 0.02, 1.15), M('wood_dark')))
+    # an arched door of planks in a stone surround, a step up to it
+    ry = -lh_radius(1.0)
+    door = sdf.union(sdf.box((0, ry - 0.06, 0.95), (0.55, 0.06, 0.95), 0.02), sdf.cylinder((0, ry - 0.06, 1.9), 0.55, 0.06, 0.02, sdf.rot(90, 0, 0)), k=0.01)
+    door = sdf.intersect(door, lambda P: 0.01 - P[:, 2])
+    door = sdf.subtract(door, lambda P: np.maximum(np.abs(((P[:, 0] + 0.6) % 0.22) - 0.11) - 0.008, P[:, 1] - (ry - 0.1)), k=0.004)
+    parts.append(sculpt('lh_door', door, (-0.8, ry - 0.4, -0.1), (0.8, ry + 0.3, 2.6), 0.014, kit.M('door_green'), 600))
+    surround = sdf.subtract(sdf.union(sdf.box((0, ry - 0.08, 1.0), (0.78, 0.12, 1.0), 0.04), sdf.cylinder((0, ry - 0.08, 1.95), 0.78, 0.12, 0.04, sdf.rot(90, 0, 0)), k=0.02),
+                            sdf.union(sdf.box((0, ry - 0.08, 0.95), (0.56, 0.3, 1.0), 0.0), sdf.cylinder((0, ry - 0.08, 1.9), 0.56, 0.3, 0.0, sdf.rot(90, 0, 0))), k=0.02)
+    surround = sdf.displace(sdf.intersect(surround, lambda P: 0.01 - P[:, 2]), lambda P: 0.02 * (sdf.noise(P, 3.0, 5) - 0.5))
+    parts.append(sculpt('lh_doorframe', surround, (-1.1, ry - 0.5, -0.1), (1.1, ry + 0.3, 2.9), 0.02, M('rock'), 900))
+    parts.append(box('lh_step', (1.6, 0.6, 0.18), (0, ry - 0.45, 0.09), M('rock')))
+    # deep-set windows with stone sills and a frame and cross of wood
     for k, z in enumerate((4.0, 7.5, 11.0)):
         a = math.radians(-90 + (k - 1) * 70)
-        r = lh_radius(z)
+        r = lh_radius(z) + 0.02
         rot = Matrix.Rotation(a + math.pi / 2, 3, 'Z')
-        parts.append(box('lh_window', (0.6, 0.2, 0.9), (math.cos(a) * r, math.sin(a) * r, z), M('glass'), rot=rot))
+        c = Vector((math.cos(a) * r, math.sin(a) * r, z))
+        out = Vector((math.cos(a), math.sin(a), 0))
+        parts.append(box('lh_window', (0.6, 0.14, 0.9), c - out * 0.04, M('glass'), rot=rot))
+        for dz, sz in ((0.48, (0.82, 0.16, 0.1)), (-0.48, (0.82, 0.16, 0.1))):
+            parts.append(box('lh_wframe', sz, c + out * 0.04 + Vector((0, 0, dz)), M('wood_dark'), rot=rot))
+        for dx in (-0.36, 0.36):
+            parts.append(box('lh_wframe', (0.1, 0.16, 1.06), c + out * 0.04 + rot @ Vector((dx, 0, 0)), M('wood_dark'), rot=rot))
+        parts.append(box('lh_wframe', (0.05, 0.1, 0.9), c + out * 0.03, M('wood_dark'), rot=rot))
+        parts.append(box('lh_wframe', (0.62, 0.1, 0.05), c + out * 0.03, M('wood_dark'), rot=rot))
+        parts.append(box('lh_sill', (0.96, 0.3, 0.1), c + out * 0.12 + Vector((0, 0, -0.56)), M('rock'), rot=rot))
     # gallery deck and railing, open over the top of the stair
     h0, h1 = HATCH
     parts.append(lib.lathe('lh_gallery', [(0.0, LH_H), (1.45, LH_H), (1.45, LH_H + 0.25), (0.0, LH_H + 0.25)], M('lh_white'), segs=28, subsurf=0))
@@ -261,56 +283,66 @@ def pier(length=18.0, width=2.4):
 
 
 def stack(seed, height=12.0, radius=3.0):
-    """A sea stack: a ragged rock pillar with a grassy cap."""
-    bm = bmesh.new()
-    rings = 9
-    segs = 14
-    off = Vector((seed * 3.1, seed * 1.7, 0))
-    vr = []
-    for i in range(rings + 1):
-        t = i / rings
-        z = -4.0 + (height + 4.0) * t
-        r = radius * (1.15 - 0.35 * t) * (1 + 0.15 * math.sin(t * 9 + seed))
-        ring = []
-        for k in range(segs):
-            a = 2 * math.pi * k / segs
-            n = noise.noise(Vector((math.cos(a) * 1.5, math.sin(a) * 1.5, t * 3)) + off)
-            rr = r * (1 + 0.28 * n)
-            ring.append(bm.verts.new((math.cos(a) * rr, math.sin(a) * rr, z)))
-        vr.append(ring)
-    for a, b in zip(vr, vr[1:]):
-        for k in range(segs):
-            bm.faces.new([a[k], a[(k + 1) % segs], b[(k + 1) % segs], b[k]])
-    top = bm.verts.new((0, 0, height + 0.4))
-    for k in range(segs):
-        bm.faces.new([vr[-1][k], vr[-1][(k + 1) % segs], top])
-    bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
-    rock = lib.obj_from_bm('stack', bm, M('rock'), smooth=False)
-    cap = kit.blob('stack_grass', (0, 0, height + 0.1), radius * 0.75, kit.M('leaf2'), seed + 40, flat=0.25, lumps=0.15)
+    """A sea stack: a ragged pillar of layered rock, ledges where the strata wear back, the sea
+    gnawing its waist, a grassy cap."""
+    zs = np.linspace(-4.0, height, 9)
+    t = (zs + 4.0) / (height + 4.0)
+    prof = [(float(radius * (1.15 - 0.35 * tt) * (1 + 0.13 * math.sin(tt * 9 + seed))), float(z)) for tt, z in zip(t, zs)]
+
+    def rag(th, z):
+        q = np.stack([np.cos(th) * 1.6, np.sin(th) * 1.6, z * 0.22], 1)
+        return 1.0 + 0.3 * (sdf.noise(q, 1.0, seed) - 0.5) + 0.1 * (sdf.noise(q, 2.7, seed + 9) - 0.5)
+    f = sdf.revolve(prof, rmod=rag)
+    # strata: each bed of rock juts a little at its top edge
+    def strata(P):
+        # beds of uneven thickness, tilted a little, wearing back unevenly round the stack
+        u = P[:, 2] / 1.25 + 0.9 * sdf.noise(P * V((1.0, 1.0, 0.15)), 0.35, seed) + 0.04 * P[:, 0]
+        bed = (u % 1.0) ** 3
+        return (0.12 + 0.14 * sdf.noise(P, 0.6, seed + 4)) * bed - 0.08
+    f = sdf.displace(f, strata)
+    f = sdf.intersect(f, lambda P: P[:, 2] - height, k=0.4)
+    R = radius * 1.6
+    rock = sculpt('stack', f, (-R, -R, -4.2), (R, R, height + 0.6), max(0.1, radius / 26), M('rock'), 1500, sharp=32.0)
+    cap = kit.blob('stack_grass', (0, 0, height + 0.05), radius * 0.78, kit.M('leaf2'), seed + 40, flat=0.25, lumps=0.15)
     cap['col'] = 0
     return [rock, cap]
 
 
 def inkwell():
-    """The giant ink bottle the sea pours out of. Origin at its base."""
+    """The giant ink bottle the sea pours out of: an eight-sided bottle with rounded shoulders, a cork
+    half pulled out, a label wrapped round it with a few lines of writing, ink spilling to the sea.
+    Origin at its base."""
     parts = []
-    body = lib.lathe('iw_body', [(0.0, 0.0), (4.2, 0.0), (4.3, 0.4), (4.3, 4.2), (3.8, 4.9), (1.7, 5.6), (1.6, 6.6), (1.85, 6.8), (1.85, 7.2), (1.4, 7.25)],
-                     M('glass'), segs=8, subsurf=0, close_top=False)
-    body.data.transform(Matrix.Rotation(math.pi / 8, 4, 'Z'))
-    parts.append(body)
-    # the ink inside shows dark through the glass; a cork, half pulled out
-    parts.append(lib.lathe('iw_cork', [(0.0, 6.9), (1.38, 6.9), (1.5, 8.2), (0.0, 8.25)], M('cork'), segs=16, subsurf=0))
-    parts.append(lib.lathe('iw_ink', [(0.0, 7.0), (1.35, 7.0), (1.35, 7.05), (0.0, 7.05)], M('ink'), segs=16, subsurf=0))
-    # the label, with a few lines of handwriting
-    rot = Matrix.Rotation(0, 3, 'Z')
-    parts.append(box('iw_label', (4.2, 0.06, 2.6), (0, -4.3, 2.4), M('label'), rot=rot))
+    oct_r = math.cos(math.pi / 8)
+
+    def octagon(th, z):
+        a = (th % (math.pi / 4)) - math.pi / 8
+        return np.minimum(oct_r / np.cos(a), 1.0 + 0.0 * z)
+    prof = [(4.0, -0.2), (4.25, 0.2), (4.3, 0.6), (4.3, 4.0), (4.0, 4.7), (2.9, 5.35), (1.75, 5.7), (1.6, 6.3), (1.62, 6.7), (1.85, 6.85), (1.85, 7.15)]
+    body = sdf.revolve(prof, rmod=octagon)
+    body = sdf.intersect(body, lambda P: np.maximum(-P[:, 2], P[:, 2] - 7.2), k=0.12)
+    body = sdf.subtract(body, sdf.cylinder((0, 0, 7.3), 1.42, 0.3, 0.0), k=0.08)
+    parts.append(sculpt('iw_body', body, (-5, -5, -0.4), (5, 5, 7.6), 0.06, M('glass'), 2200, sharp=40.0))
+    cork = sdf.displace(sdf.revolve([(1.38, 6.85), (1.44, 7.6), (1.52, 8.2)]), lambda P: 0.03 * (sdf.noise(P, 4.0, 3) - 0.5))
+    cork = sdf.intersect(cork, lambda P: np.maximum(6.86 - P[:, 2], P[:, 2] - 8.22), k=0.08)
+    parts.append(sculpt('iw_cork', cork, (-2, -2, 6.6), (2, 2, 8.6), 0.03, M('cork'), 700))
+    parts.append(lib.lathe('iw_ink', [(0.0, 7.0), (1.35, 7.0), (1.35, 7.05), (0.0, 7.05)], M('ink'), segs=24, subsurf=0))
+    # the label: a band of paper wrapped round the front faces, its corners a little lifted
+    label = sdf.intersect(sdf.shell(sdf.offset(body, 0.03), 0.05), lambda P: np.abs(P[:, 2] - 2.4) - 1.3,
+                          lambda P: np.abs(np.arctan2(P[:, 0], -P[:, 1])) - 0.55, k=0.03)
+    parts.append(sculpt('iw_label', label, (-3.5, -5, 0.8), (3.5, -2, 4.0), 0.03, M('label'), 900))
     rnd = random.Random(2)
     for k in range(3):
         z = 3.2 - k * 0.6
-        pts = [(-1.6 + i * 0.3, -4.36, z + 0.08 * math.sin(i * 1.7 + k) + rnd.uniform(-0.03, 0.03)) for i in range(12)]
-        parts.append(lib.tube('iw_writing', pts, [0.04] * 12, M('ink'), sides=4, cap=False, subsurf=0))
+        pts = []
+        for i in range(12):
+            a = -0.42 + i * 0.075
+            pts.append((math.sin(a) * 4.34, -math.cos(a) * 4.34, z + 0.08 * math.sin(i * 1.7 + k) + rnd.uniform(-0.03, 0.03)))
+        parts.append(lib.tube('iw_writing', pts, [0.045] * 12, M('ink'), sides=5, cap=False, subsurf=0))
     # spilled ink running down to the sea
-    parts.append(lib.ellipsoid('iw_spill', (0, -5.4, 0.05), (2.2, 2.0, 0.08), M('ink'), segs=(16, 6)))
+    spill = sdf.intersect(sdf.displace(sdf.ellipsoid((0, -5.6, 0.0), (2.4, 2.4, 0.12)), lambda P: 0.5 * (sdf.noise(P, 0.9, 4) - 0.5)),
+                          lambda P: -0.02 - P[:, 2], k=0.05)
+    parts.append(sculpt('iw_spill', spill, (-3.5, -9, -0.3), (3.5, -2.5, 0.4), 0.05, M('ink'), 500))
     return parts
 
 
