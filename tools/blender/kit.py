@@ -13,7 +13,7 @@ from mathutils import Matrix, Vector, noise
 
 import lib
 import sdf
-from sdf import V, box as sbox, cone, cylinder, ellipsoid, intersect, subtract, tube, union
+from sdf import V, box as sbox, cone, cylinder, ellipsoid, intersect, subtract, torus, tube, union
 
 PAL = {
     'plaster': '#EDE3CF', 'plaster2': '#E6D3B3', 'timber': '#5E4632', 'stone': '#B9B2A6', 'stone_dark': '#8F877B',
@@ -115,15 +115,17 @@ def roof_field(w, d, top, pitch, over, side, kind, seed):
     t = math.tan(pitch)
     cp = math.cos(pitch)
     half_y, half_x = d / 2 + over, w / 2 + side
-    T = 0.36 if kind == 'roof_thatch' else 0.16
-    course = 0.36
+    # small roofs (a well, a notice board) get gentler sag and finer tiles
+    sc = min(1.0, half_x / 2.6)
+    T = (0.36 if kind == 'roof_thatch' else 0.16) * (0.5 + 0.5 * sc)
+    course = 0.36 * (0.55 + 0.45 * sc)
 
     def f(P):
         x, y, z = P[:, 0], P[:, 1], P[:, 2]
         ay = np.abs(y)
         zr = top + (d / 2 - ay) * t
         # the ridge sags and the eaves lift a touch: nothing hand-built is straight
-        zr = zr - 0.1 * (1 - (x / half_x) ** 2) * (1 - ay / half_y) + 0.06 * sdf.smooth01(d / 2 - 0.2, half_y, ay)
+        zr = zr - 0.1 * sc * (1 - (x / half_x) ** 2) * (1 - ay / half_y) + 0.06 * sc * sdf.smooth01(d / 2 - 0.2 * sc, half_y, ay)
         s = (half_y - ay) / cp
         if kind == 'roof_thatch':
             q = P * 2.2 + seed
@@ -131,10 +133,10 @@ def roof_field(w, d, top, pitch, over, side, kind, seed):
         else:
             u = s / course
             lip = (1.0 - (u - np.floor(u))) ** 1.5
-            zr = zr + 0.032 * lip
+            zr = zr + 0.032 * lip * (0.5 + 0.5 * sc)
             if kind == 'roof_red':
                 stagger = np.floor(u) * 0.11
-                zr = zr + 0.014 * np.abs(np.sin(np.pi * (x + stagger) / 0.22))
+                zr = zr + 0.014 * (0.5 + 0.5 * sc) * np.abs(np.sin(np.pi * (x + stagger) / 0.22))
             else:
                 zr = zr + 0.012 * (sdf.noise(np.stack([x * 4, np.floor(u), y * 0 + seed], 1), 1.0, seed) - 0.5) * 2
         upper = (z - zr) * cp
@@ -435,59 +437,110 @@ def rock(seed, size=1.0, mat='stone'):
 
 def well():
     parts = []
-    ring = []
     for k in range(14):
         a = k / 14 * math.tau
         parts.append(box('wellstone', (0.62, 0.34, 0.36), (math.cos(a) * 0.82, math.sin(a) * 0.82, 0.18), M('stone'),
-                         rot=Matrix.Rotation(a + math.pi / 2, 3, 'Z'), bevel=0.03))
+                         rot=Matrix.Rotation(a + math.pi / 2, 3, 'Z'), bevel=0.05))
         parts.append(box('wellstone', (0.62, 0.34, 0.34), (math.cos(a + 0.22) * 0.82, math.sin(a + 0.22) * 0.82, 0.53), M('stone'),
-                         rot=Matrix.Rotation(a + 0.22 + math.pi / 2, 3, 'Z'), bevel=0.03))
+                         rot=Matrix.Rotation(a + 0.22 + math.pi / 2, 3, 'Z'), bevel=0.05))
     parts.append(lib.ellipsoid('wellwater', (0, 0, 0.45), (0.68, 0.68, 0.02), M('glass'), segs=(20, 6)))
     for x in (-0.85, 0.85):
-        parts.append(box('wellpost', (0.14, 0.14, 2.1), (x, 0, 1.05), M('wood_dark'), bevel=0.02))
-    parts.append(lib.tube('axle', [(-0.95, 0, 1.55), (0.95, 0, 1.55)], [0.05, 0.05], M('wood'), sides=8, subsurf=0))
+        parts.append(box('wellpost', (0.15, 0.15, 2.32), (x, 0, 1.16), M('wood_dark')))
+    parts.append(sculpt('axle', union(tube([(-0.95, 0, 1.55), (0.95, 0, 1.55)], [0.055, 0.055]),
+                                      tube([(0.95, 0, 1.55), (1.05, 0, 1.55), (1.07, -0.18, 1.55), (1.15, -0.2, 1.55)], [0.025] * 4), k=0.01),
+                        (-1.2, -0.4, 1.3), (1.4, 0.3, 1.8), 0.012, M('wood'), 500))
     parts.append(lib.tube('rope', [(0.1, 0, 1.55), (0.1, 0, 1.05)], [0.015, 0.015], M('rope'), sides=6, subsurf=0))
-    parts.append(lib.lathe('bucket', [(0.12, 0.0), (0.15, 0.24), (0.155, 0.25)], M('wood'), segs=12, center=(0.1, 0, 0.82), subsurf=0, close_top=False))
+    bucket = subtract(sdf.revolve([(0.12, 0.0), (0.15, 0.24), (0.155, 0.25)], c=(0.1, 0, 0.82)), cylinder((0.1, 0, 1.1), 0.13, 0.27, 0.0), k=0.01)
+    bucket = union(bucket, torus((0.1, 0, 0.88), 0.135, 0.008), torus((0.1, 0, 1.04), 0.15, 0.008), k=0.004)
+    bucket = union(bucket, tube([(-0.05, 0, 1.06), (0.1, 0, 1.2), (0.25, 0, 1.06)], [0.006] * 3), k=0.004)
+    parts.append(sculpt('bucket', bucket, (-0.2, -0.3, 0.75), (0.4, 0.3, 1.3), 0.008, M('wood'), 700))
+    # a little shingled roof
     pitch = math.radians(35)
-    for s in (-1, 1):
-        parts.append(box('wellroof', (2.3, 0.85, 0.07), (0, s * 0.33, 2.25), M('roof_red'), rot=Matrix.Rotation(-s * pitch, 3, 'X')))
+    rf = union(roof_field(1.6, 1.0, 2.05, pitch, 0.24, 0.36, 'roof_red', 7), tube([(-1.18, 0, 2.38), (1.18, 0, 2.38)], [0.07, 0.07]), k=0.03)
+    parts.append(sculpt('wellroof', rf, (-1.5, -1.1, 1.6), (1.5, 1.1, 2.7), 0.025, M('roof_red'), 1400, sharp=70.0))
     return parts
 
 
 def lamp_post():
-    parts = [box('lampbase', (0.3, 0.3, 0.3), (0, 0, 0.15), M('stone'), bevel=0.03),
-             lib.tube('lamppole', [(0, 0, 0.3), (0, 0, 2.6)], [0.06, 0.045], M('iron'), sides=8, subsurf=0),
-             lib.tube('lamparm', [(0, 0, 2.5), (0, -0.25, 2.62), (0, -0.4, 2.55)], [0.03, 0.03, 0.03], M('iron'), sides=6, subsurf=0)]
-    lamp = [box('lampglass', (0.22, 0.22, 0.3), (0, -0.4, 2.3), M('lamp')),
-            box('lamptop', (0.32, 0.32, 0.06), (0, -0.4, 2.48), M('iron'))]
-    for o in lamp:
-        o['emissive'] = 1
+    """A wrought-iron street lamp: a fluted post with collars, a scrolled arm and a glazed lantern."""
+    parts = [box('lampbase', (0.34, 0.34, 0.32), (0, 0, 0.16), M('stone'))]
+    pole = tube([(0, 0, 0.3), (0, 0, 1.4), (0, 0, 2.62)], [0.065, 0.05, 0.042])
+    pole = sdf.displace(pole, lambda P: 0.006 * np.abs(np.sin(np.arctan2(P[:, 1], P[:, 0]) * 4)))
+    for z, r in ((0.36, 0.085), (1.25, 0.07), (2.45, 0.06)):
+        pole = union(pole, torus((0, 0, z), r, 0.018), k=0.01)
+    pole = union(pole, sdf.sphere((0, 0, 2.66), 0.055), k=0.01)
+    # the arm sweeps out over the path and curls back under itself
+    arm = [(0, 0, 2.5), (0, -0.16, 2.64), (0, -0.33, 2.66), (0, -0.42, 2.6)]
+    brace = [(0, 0, 2.3), (0, -0.12, 2.42), (0, -0.26, 2.6)]
+    pole = union(pole, tube(arm, [0.026, 0.024, 0.022, 0.02]), tube(brace, [0.014] * 3), k=0.012)
+    parts.append(sculpt('lamppole', pole, (-0.3, -0.7, 0.2), (0.3, 0.3, 2.8), 0.012, M('iron'), 1600))
+    # the lantern: glass in a frame, a pointed cap and a finial
+    L = V((0, -0.42, 2.32))
+    glass = sdf.warp(sbox(L, (0.11, 0.11, 0.16), 0.02), lambda P: np.column_stack([P[:, 0] / (1 + 0.25 * (P[:, 2] - L[2])), (P[:, 1] - L[1]) / (1 + 0.25 * (P[:, 2] - L[2])) + L[1], P[:, 2]]))
+    lamp = [sculpt('lampglass', glass, L - 0.3, L + 0.3, 0.012, M('lamp'), 300)]
+    frame = [tube([L + V((sx * 0.11, sy * 0.11, -0.16)), L + V((sx * 0.135, sy * 0.135, 0.16))], [0.012, 0.012]) for sx in (-1, 1) for sy in (-1, 1)]
+    frame.append(sbox(L + V((0, 0, -0.17)), (0.13, 0.13, 0.02), 0.012))
+    cap = intersect(cone(L + V((0, 0, 0.165)), L + V((0, 0, 0.29)), 0.16, 0.012), lambda P: np.maximum(np.abs(P[:, 0] - L[0]), np.abs(P[:, 1] - L[1])) - 0.145, k=0.01)
+    frame += [cap, sdf.sphere(L + V((0, 0, 0.31)), 0.022)]
+    lamp.append(sculpt('lampframe', union(*frame, k=0.008), L - 0.4, L + 0.45, 0.01, M('iron'), 1100))
+    lamp[0]['emissive'] = 1
     return parts + nocol(lamp)
 
 
 def notice_board():
-    parts = [box('nbpost', (0.12, 0.12, 2.0), (x, 0, 1.0), M('wood_dark'), bevel=0.015) for x in (-0.75, 0.75)]
-    parts.append(box('nbboard', (1.6, 0.08, 1.0), (0, -0.02, 1.35), M('wood')))
-    parts.append(box('nbroof', (1.9, 0.5, 0.06), (0, 0, 2.0), M('roof_red'), rot=Matrix.Rotation(0.25, 3, 'X')))
+    parts = [box('nbpost', (0.13, 0.13, 2.05), (x, 0, 1.02), M('wood_dark')) for x in (-0.75, 0.75)]
+    parts.append(box('nbboard', (1.5, 0.07, 0.94), (0, -0.02, 1.35), M('wood')))
+    for z in (0.86, 1.84):
+        parts.append(box('nbrail', (1.66, 0.1, 0.1), (0, -0.04, z), M('wood_dark')))
+    for x in (-0.8, 0.8):
+        parts.append(box('nbrail', (0.1, 0.1, 1.08), (x, -0.04, 1.35), M('wood_dark')))
+    rf = roof_field(1.5, 0.22, 2.0, math.radians(30), 0.16, 0.18, 'roof_red', 5)
+    parts.append(sculpt('nbroof', rf, (-1.2, -0.6, 1.8), (1.2, 0.6, 2.4), 0.02, M('roof_red'), 900, sharp=70.0))
     rnd = random.Random(5)
     for k in range(4):
-        parts.append(box('nbpaper', (0.32, 0.02, 0.4), (-0.5 + k * 0.33 + rnd.uniform(-0.03, 0.03), -0.07, 1.35 + rnd.uniform(-0.15, 0.15)),
-                         M('paper'), rot=Matrix.Rotation(rnd.uniform(-0.15, 0.15), 3, 'Y')))
+        cx, cz = -0.5 + k * 0.33 + rnd.uniform(-0.03, 0.03), 1.35 + rnd.uniform(-0.15, 0.15)
+        tilt = rnd.uniform(-0.15, 0.15)
+        R = sdf.rot(0, math.degrees(tilt), 0)
+
+        def curl(P, cx=cx, cz=cz):
+            # the bottom corner of each sheet lifts off the board
+            q = (P - V((cx, -0.07, cz))) @ R
+            return 0.03 * sdf.smooth01(-0.05, -0.2, q[:, 2]) * sdf.smooth01(0.05, 0.16, q[:, 0])
+        sheet = sdf.displace(sbox((cx, -0.07, cz), (0.16, 0.006, 0.2), 0.004, R), curl)
+        parts.append(sculpt('nbpaper', sheet, (cx - 0.3, -0.2, cz - 0.3), (cx + 0.3, 0.05, cz + 0.3), 0.008, M('paper'), 160))
     return parts
 
 
 def bench():
-    parts = [box('bseat', (1.5, 0.42, 0.07), (0, 0, 0.45), M('wood'), bevel=0.01),
-             box('bback', (1.5, 0.06, 0.32), (0, 0.2, 0.72), M('wood'), rot=Matrix.Rotation(-0.15, 3, 'X'), bevel=0.01)]
-    for x in (-0.62, 0.62):
-        parts.append(box('bleg', (0.08, 0.38, 0.45), (x, 0, 0.22), M('wood_dark')))
+    """A park bench: rounded slats on cast-iron scroll ends."""
+    parts = []
+    for k, y in enumerate((-0.15, 0.0, 0.15)):
+        parts.append(box('bseat', (1.56, 0.13, 0.055), (0, y, 0.46), M('wood')))
+    r = Matrix.Rotation(-0.22, 3, 'X')
+    for z in (0.66, 0.82):
+        parts.append(box('bback', (1.56, 0.12, 0.05), r @ Vector((0, 0.0, z - 0.6)) + Vector((0, 0.24, 0.6)), M('wood'), rot=r))
+    ends = []
+    for x in (-0.66, 0.66):
+        front = [(x, -0.2, 0.0), (x, -0.19, 0.24), (x, -0.2, 0.44), (x, -0.23, 0.6), (x, -0.16, 0.66), (x, -0.06, 0.62)]
+        back = [(x, 0.17, 0.0), (x, 0.16, 0.24), (x, 0.2, 0.46), (x, 0.26, 0.66), (x, 0.31, 0.88)]
+        seat = [(x, -0.2, 0.43), (x, 0.2, 0.43)]
+        ends += [tube(front, [0.026, 0.022, 0.022, 0.02, 0.018, 0.016]), tube(back, [0.026, 0.022, 0.022, 0.02, 0.018]), tube(seat, [0.02, 0.02])]
+        ends += [ellipsoid((x, -0.22, 0.012), (0.03, 0.05, 0.016)), ellipsoid((x, 0.19, 0.012), (0.03, 0.05, 0.016))]
+    parts.append(sculpt('bench_iron', union(*ends, k=0.02), (-0.8, -0.4, -0.05), (0.8, 0.45, 1.0), 0.01, M('iron'), 1400))
     return parts
 
 
 def barrel():
-    return [lib.lathe('barrel', [(0.26, 0.0), (0.31, 0.2), (0.33, 0.4), (0.31, 0.6), (0.26, 0.8)], M('wood'), segs=14, subsurf=0),
-            lib.lathe('hoop', [(0.32, 0.17), (0.325, 0.23)], M('iron'), segs=14, subsurf=0, close_top=False, close_bottom=False),
-            lib.lathe('hoop', [(0.325, 0.57), (0.32, 0.63)], M('iron'), segs=14, subsurf=0, close_top=False, close_bottom=False)]
+    """A cooper's barrel: bellied staves with grooves between them, iron hoops, the lid set in."""
+    def staves(th, z):
+        return 1.0 - 0.018 * (1.0 - np.abs(np.sin(th * 7.0))) ** 10
+    b = sdf.revolve([(0.26, 0.0), (0.31, 0.2), (0.33, 0.4), (0.31, 0.6), (0.26, 0.8)], rmod=staves)
+    b = intersect(b, lambda P: np.maximum(-P[:, 2], P[:, 2] - 0.8), k=0.01)
+    b = subtract(b, cylinder((0, 0, 0.84), 0.235, 0.05, 0.0), k=0.01)
+    parts = [sculpt('barrel', b, (-0.45, -0.45, -0.05), (0.45, 0.45, 0.9), 0.008, M('wood'), 1300)]
+    hoops = union(torus((0, 0, 0.1), 0.293, 0.012), torus((0, 0, 0.7), 0.293, 0.012), torus((0, 0, 0.77), 0.268, 0.01), torus((0, 0, 0.03), 0.268, 0.01))
+    parts.append(sculpt('hoop', hoops, (-0.4, -0.4, -0.05), (0.4, 0.4, 0.85), 0.006, M('iron'), 900))
+    return parts
 
 
 def crate(size=0.6):
@@ -514,11 +567,21 @@ def door_frame():
 
 
 def signpost(texts=2):
-    parts = [box('spost', (0.12, 0.12, 2.0), (0, 0, 1.0), M('wood_dark'), bevel=0.015)]
+    """A post with arrow boards pointing the way, a little crooked."""
+    post = union(sbox((0, 0, 1.0), (0.065, 0.065, 1.0), 0.02), cone((0, 0, 2.0), (0, 0, 2.12), 0.075, 0.01), k=0.01)
+    parts = [sculpt('spost', post, (-0.3, -0.3, -0.1), (0.3, 0.3, 2.3), 0.015, M('wood_dark'), 400)]
+    arrow = sdf.polygon2d([(-0.05, -0.1), (0.72, -0.1), (0.86, 0.0), (0.72, 0.1), (-0.05, 0.1)])
     for k in range(texts):
         a = (0.4 if k % 2 else -0.5)
-        r = Matrix.Rotation(a, 3, 'Z')
-        parts.append(box('sarrow', (0.9, 0.05, 0.2), r @ Vector((0.4, 0, 0)) + Vector((0, 0, 1.6 - k * 0.3)), M('wood'), rot=r))
+        z0 = 1.6 - k * 0.3
+        R = sdf.rot(0, (k * 3 - 2), math.degrees(a))
+        c = V((0, 0, z0))
+
+        def f(P, R=R, c=c):
+            q = (P - c) @ R
+            return intersect(lambda Q: arrow(Q[:, 0], Q[:, 2]), lambda Q: np.abs(Q[:, 1]) - 0.025, k=0.01)(q)
+        board = sdf.displace(f, lambda P: 0.004 * (sdf.noise(P, 8.0, k) - 0.5))
+        parts.append(sculpt('sarrow', board, c - 1.0, c + 1.0, 0.012, M('wood'), 300))
     return parts
 
 
