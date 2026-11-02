@@ -638,87 +638,355 @@ def tuft(seed, mat='leaf3'):
     return parts
 
 
+def _arch(w, h):
+    """2D distance to an arched opening w wide and h tall (u across, v up from the sill)."""
+    r = w / 2
+
+    def f(u, v):
+        box_d = np.maximum(np.abs(u) - r, np.maximum(-v, v - (h - r)))
+        return np.minimum(box_d, np.sqrt(u * u + (v - (h - r)) ** 2) - r)
+    return f
+
+
+MILL_PROF = [(2.06, -0.6), (2.05, 0.0), (1.95, 1.2), (1.8, 3.0), (1.63, 5.2), (1.5, 6.85), (1.5, 7.05)]
+MILL_HUB = Vector((0, -2.05, 7.5))
+
+
 def windmill():
-    """A stone tower with a timber cap; its sails are a separate object ('sails') the game turns."""
-    parts = [lib.lathe('mill_tower', [(2.0, 0.0), (1.85, 2.0), (1.55, 5.5), (1.4, 7.0)], M('plaster2'), segs=10, subsurf=0),
-             lib.lathe('mill_cap', [(1.65, 7.0), (1.6, 7.6), (1.0, 8.6), (0.2, 9.1)], M('roof_thatch'), segs=10, subsurf=0)]
-    parts.append(box('mill_door', (1.0, 0.15, 1.9), (0, -1.98, 0.95), M('door_green')))
-    for z in (3.0, 5.2):
-        parts.append(box('mill_window', (0.6, 0.12, 0.7), (0, -1.75 + (z - 3) * 0.13, z), M('glass')))
-    parts.append(lib.tube('mill_axle', [(0, -1.2, 7.4), (0, -2.0, 7.5)], [0.14, 0.12], M('wood_dark'), sides=8, subsurf=0))
-    sails = []
-    for k in range(4):
-        a = k * math.pi / 2
-        r = Matrix.Rotation(a, 3, 'Y')
-        sails.append(box('sail_arm', (0.16, 0.1, 5.2), r @ Vector((0, 0, 2.6)) + Vector((0, -2.05, 7.5)), M('wood_dark'), rot=r))
-        sails.append(box('sail', (0.95, 0.04, 3.6), r @ Vector((0.6, 0, 3.0)) + Vector((0, -2.08, 7.5)), M('paper'), rot=r))
-    for o in sails:
-        o['col'] = 0
+    """A tower mill: a tapering plastered tower on a coursed stone foot, a boarded door and small
+    arched windows set into the thick wall, a thatched cap swelling out behind into a fantail, the
+    windshaft, and four lattice sails with canvas spread on them. Returns (tower parts, sail parts);
+    the sails turn about MILL_HUB."""
+    parts = []
+    rad = sdf.curve([z for _, z in MILL_PROF], [r for r, _ in MILL_PROF])
+
+    def uneven(th, z):
+        q = np.stack([np.cos(th) * 1.6, np.sin(th) * 1.6, z * 0.3], 1)
+        return 1.0 + 0.016 * (sdf.noise(q, 1.0, 3) - 0.5)
+    tower = intersect(sdf.revolve(MILL_PROF, rmod=uneven), lambda P: P[:, 2] - 7.0, k=0.04)
+
+    def cyl(P, phi, z0):
+        """Coordinates on the tower wall round an opening at angle phi: across (m), up from z0, out from the wall."""
+        th = np.arctan2(P[:, 1], P[:, 0])
+        Rz = rad(P[:, 2])[0]
+        return Rz * ((th - phi + np.pi) % math.tau - np.pi), P[:, 2] - z0, np.hypot(P[:, 0], P[:, 1]) - Rz
+    front = -math.pi / 2
+    # (angle round the tower, sill height, width, height, recess depth)
+    openings = [(front, 0.0, 1.0, 2.05, 0.18), (front + 0.5, 2.7, 0.52, 0.82, 0.15), (front - 0.55, 4.5, 0.48, 0.78, 0.15),
+                (math.pi / 2 - 0.4, 3.5, 0.5, 0.8, 0.15)]
+    cuts = []
+    for phi, z0, w, h, dep in openings:
+        ar = _arch(w, h)
+        cuts.append(lambda P, phi=phi, z0=z0, ar=ar, dep=dep: (lambda u, v, d: np.maximum(ar(u, v), -dep - d))(*cyl(P, phi, z0)))
+    tower = subtract(tower, union(*cuts), k=0.03)
+    parts.append(sculpt('mill_tower', tower, (-2.5, -2.5, -0.7), (2.5, 2.5, 7.2), 0.04, M('plaster2'), 4200))
+    # the stone foot: coursed blocks, its top edge ragged where the plaster laps over it
+    foot_prof = [(2.15, -0.6), (2.14, 0.0), (2.06, 1.0)]
+
+    def courses(P):
+        th = np.arctan2(P[:, 1], P[:, 0])
+        v = P[:, 2] / 0.3
+        u = th * 2.1 / 0.55 + 0.5 * np.floor(v)
+        g = np.maximum(np.exp(-((v - np.round(v)) / 0.09) ** 2), np.exp(-((u - np.round(u)) / 0.07) ** 2))
+        return -0.03 * g + 0.012 * (sdf.noise(P, 4.0, 5) - 0.5)
+    foot = sdf.displace(intersect(sdf.revolve(foot_prof), lambda P: P[:, 2] - (0.78 + 0.16 * sdf.noise(P * V((1, 1, 0)), 0.9, 2)), k=0.06), courses)
+    foot = subtract(foot, cuts[0], k=0.03)
+    parts.append(sculpt('mill_foot', foot, (-2.5, -2.5, -0.7), (2.5, 2.5, 1.2), 0.03, M('stone'), 8000))
+    # the door, the window panes, glazing bars, the stone surrounds and sills
+    for i, (phi, z0, w, h, dep) in enumerate(openings):
+        ar = _arch(w, h)
+        c = V((math.cos(phi) * 2.0, math.sin(phi) * 2.0, z0 + h / 2))
+        hs = max(w, h) / 2 + 0.45
+        lo, hi = c - hs, c + hs
+        loc = lambda P, phi=phi, z0=z0: cyl(P, phi, z0)  # noqa: E731
+        ring = lambda P, ar=ar, loc=loc: (lambda u, v, d: np.maximum(np.maximum(np.abs(ar(u, v) - 0.08) - 0.08, np.abs(d - 0.01) - 0.05), -v))(*loc(P))  # noqa: E731
+        ring = sdf.displace(ring, lambda P: 0.01 * (sdf.noise(P, 9.0, i) - 0.5))
+        parts.append(sculpt('mill_surround', ring, lo, hi, 0.014, M('stone'), 500))
+        if i == 0:
+            def door(P, ar=ar, loc=loc, dep=dep):
+                u, v, d = loc(P)
+                slab = np.maximum(ar(u, v) + 0.005, np.abs(d + dep - 0.03) - 0.03)
+                grooves = np.maximum(np.abs(((u + 0.6) % 0.2) - 0.1) - 0.009, -(d + dep - 0.045))
+                ledges = np.maximum(np.maximum(np.abs(u) - w / 2 + 0.06, np.minimum(np.abs(v - 0.35), np.abs(v - 1.35)) - 0.06), np.abs(d + dep - 0.07) - 0.025)
+                return np.minimum(np.maximum(slab, -grooves), ledges)
+            parts.append(sculpt('mill_door', door, lo, hi, 0.012, M('door_green'), 900))
+            parts += [box('hinge', (0.5, 0.03, 0.05), (-0.18, -2.05 + 0.18 - 0.08, zz), M('iron'), wobble=0.5) for zz in (0.35, 1.35)]
+            step = sdf.displace(sbox((0, -2.42, 0.06), (0.75, 0.32, 0.14), 0.06), lambda P: 0.015 * (sdf.noise(P, 4.0, 9) - 0.5))
+            parts.append(sculpt('mill_step', step, (-1.0, -2.9, -0.2), (1.0, -1.9, 0.4), 0.025, M('stone_dark'), 300))
+        else:
+            def glass(P, ar=ar, loc=loc, dep=dep):
+                u, v, d = loc(P)
+                return np.maximum(ar(u, v) + 0.005, np.abs(d + dep) - 0.015)
+
+            def bars(P, ar=ar, loc=loc, dep=dep, h=h):
+                u, v, d = loc(P)
+                cross = np.minimum(np.abs(u), np.abs(v - h * 0.55)) - 0.02
+                return np.maximum(np.maximum(cross, ar(u, v)), np.abs(d + dep - 0.02) - 0.025)
+
+            def sill(P, loc=loc, w=w):
+                u, v, d = loc(P)
+                return np.maximum(np.maximum(np.abs(u) - w / 2 - 0.1, np.abs(v + 0.05) - 0.05), np.abs(d - 0.02) - 0.08) - 0.01
+            win = [sculpt('mill_glass', glass, lo, hi, 0.014, M('glass'), 120)]
+            win.append(sculpt('mill_glazing', bars, lo, hi, 0.01, M('timber'), 300))
+            win.append(sculpt('mill_sill', sill, lo, hi, 0.012, M('stone'), 200))
+            parts += nocol(win)
+    # the cap: thatch in courses, swelling out behind into the fantail's frame, a curb ring, a finial
+    cap_prof = [(1.66, 6.96), (1.7, 7.18), (1.6, 7.62), (1.3, 8.2), (0.84, 8.68), (0.32, 9.02), (0.04, 9.12)]
+
+    def boat(th, z):
+        return 1.0 + 0.22 * np.maximum(0.0, np.sin(th)) ** 2
+
+    def straw(P):
+        u = (9.2 - P[:, 2]) / 0.26
+        return 0.045 * (1 - (u - np.floor(u))) ** 1.5 + 0.03 * (sdf.noise(P, 2.5, 4) - 0.5) + 0.012 * (sdf.noise(P * V((6, 6, 1)), 1.0, 8) - 0.5)
+    cap = sdf.displace(intersect(sdf.revolve(cap_prof, rmod=boat), lambda P: 6.96 - P[:, 2], k=0.05), straw)
+    parts.append(sculpt('mill_cap', cap, (-2.1, -2.1, 6.8), (2.1, 2.5, 9.4), 0.03, M('roof_thatch'), 6000, sharp=70.0))
+    wood = union(torus((0, 0, 7.02), 1.56, 0.1), sdf.sphere((0, 0, 9.2), 0.1), cone((0, 0, 9.25), (0, 0, 9.55), 0.04, 0.008),
+                 tube([(0, -1.15, 7.42), (0, -1.95, 7.5)], [0.16, 0.15]), k=0.02)
+    # the fantail's frame and its little wheel of vanes, turning the cap into the wind
+    fan = V((0, 2.75, 8.0))
+    for s in (-1, 1):
+        wood = union(wood, tube([(s * 0.45, 1.6, 7.25), (s * 0.12, 2.7, 8.0)], [0.05, 0.04]), tube([(s * 0.3, 1.75, 7.9), (s * 0.12, 2.72, 8.02)], [0.04, 0.035]), k=0.02)
+    wood = union(wood, tube([(-0.2, 2.75, 8.0), (0.2, 2.75, 8.0)], [0.06, 0.06]), k=0.01)
+    parts.append(sculpt('mill_timber', wood, (-2.0, -2.2, 6.8), (2.0, 3.2, 9.7), 0.016, M('timber'), 2600))
+    vanes = []
+    for k in range(6):
+        a = k * math.tau / 6
+        r = sdf.rot(math.degrees(a) - 90, 0, 0)
+        vanes.append(sbox(fan + V((0.0, math.cos(a) * 0.42, math.sin(a) * 0.42)), (0.012, 0.11, 0.3), 0.008, r @ sdf.rot(0, 0, 25)))
+    parts.append(sculpt('mill_fantail', union(*vanes), fan - 0.8, fan + 0.8, 0.01, M('plaster'), 700))
+    sails = _mill_sails()
     return parts, sails
 
 
-def shed():
-    parts = [box('shed_walls', (2.6, 2.2, 2.0), (0, 0, 1.0), M('wood'), bevel=0.02)]
-    for k in range(7):
-        parts.append(box('shed_plank', (0.06, 0.06, 2.0), (-1.2 + k * 0.4, -1.12, 1.0), M('wood_dark')))
-    for s in (-1, 1):
-        parts.append(box('shed_roof', (3.0, 1.5, 0.08), (0, s * 0.6, 2.35), M('roof_slate'), rot=Matrix.Rotation(-s * 0.5, 3, 'X')))
-    parts.append(box('shed_door', (0.9, 0.08, 1.7), (0.5, -1.13, 0.85), M('wood_dark')))
+def kit_tube(name, pts, radii, mat, sides=10):
+    """A plain smooth tube mesh (poles, whips, spars): cleaner than a sculpt for long thin round things."""
+    return lib.tube(name, pts, radii, mat, sides=sides, subsurf=0)
+
+
+def _mill_sails():
+    """Four lattice sails about MILL_HUB: a tapering whip, sail bars and hemlaths, the canvas spread
+    over them bellying a little between the bars, and the iron poll end the stocks pass through."""
+    lattice = []
+    for i in range(11):
+        z = 1.0 + i * 0.42
+        lattice.append(sbox((0.4, 0.035, z), (0.72, 0.022, 0.022), 0.012))
+    for x in (-0.32, 0.45, 1.12):
+        lattice.append(sbox((x, 0.035, 3.1), (0.024, 0.024, 2.13), 0.012))
+    proto = [sculpt('sail_frame', union(*lattice, k=0.01), (-0.6, -0.25, 0.7), (1.4, 0.25, 5.6), 0.012, M('wood_dark'), 3200),
+             kit_tube('sail_whip', [(0, 0, -0.3), (0, 0, 1.0), (0, 0, 2.5), (0, 0, 4.0), (0, 0, 5.5)], [0.1, 0.092, 0.08, 0.068, 0.055], M('wood_dark'))]
+
+    def canvas(P):
+        x, y, z = P[:, 0], P[:, 1], P[:, 2]
+        fz = ((z - 1.0) / 0.42) % 1.0
+        yc = -0.045 + 0.028 * np.sin(np.pi * fz) * np.clip(np.sin(np.pi * (x - 0.12) / 0.92), 0, 1)
+        sheet = np.abs(y - yc) - 0.015
+        # the cloth is spread on the trailing side of the whip only
+        return np.maximum(sheet, np.maximum(np.abs(x - 0.58) - 0.46, np.abs(z - 3.12) - 1.96))
+    proto.append(sculpt('sail_canvas', canvas, (-0.5, -0.2, 0.9), (1.3, 0.15, 5.4), 0.011, M('paper'), 1400))
+    sails = []
+    for k in range(4):
+        m = Matrix.Translation(MILL_HUB) @ Matrix.Rotation(k * math.pi / 2, 4, 'Y')
+        for p in proto:
+            ob = lib.link(bpy.data.objects.new(p.name, p.data.copy()))
+            ob.data.transform(m)
+            sails.append(ob)
+    for p in proto:
+        bpy.data.objects.remove(p)
+    H = V(tuple(MILL_HUB))
+    poll = union(sbox(H + V((0, -0.05, 0)), (0.2, 0.17, 0.2), 0.06), sdf.cylinder(H + V((0, -0.24, 0)), 0.1, 0.06, 0.03, sdf.rot(90, 0, 0)), k=0.02)
+    sails.append(sculpt('poll_end', poll, H - 0.5, H + 0.5, 0.012, M('iron'), 300))
+    return nocol(sails)
+
+
+def shed(seed=3):
+    """A garden shed: weatherboards lapping down the walls on a low stone footing, corner posts, a
+    slate roof, a ledged-and-braced door with a latch, a little four-pane window, a water butt and
+    a rake leaning by the door."""
+    rnd = random.Random(seed)
+    parts = []
+    w, d, h, plinth = 2.6, 2.2, 1.9, 0.2
+    top = plinth + h
+    pitch = math.radians(32)
+    t = math.tan(pitch)
+    apex = top + d / 2 * t
+
+    def boards(P):
+        u = (P[:, 2] - plinth) / 0.21
+        return 0.016 * (1 - (u - np.floor(u))) ** 1.2
+    walls = sdf.displace(sbox((0, 0, plinth + h / 2), (w / 2, d / 2, h / 2), 0.03), boards)
+    gable = intersect(lambda P: np.abs(P[:, 0]) - (w / 2 - 0.01), lambda P: P[:, 2] - (top + (d / 2 - np.abs(P[:, 1])) * t - 0.25),
+                      lambda P: top - 0.1 - P[:, 2])
+    walls = union(walls, sdf.displace(gable, boards), k=0.03)
+    dx, wx = 0.42, -0.72
+    door_hole = sbox((dx, -d / 2, plinth + 0.88), (0.44, 0.2, 0.88), 0.02)
+    win_hole = sbox((wx, -d / 2, plinth + 1.25), (0.3, 0.2, 0.27), 0.02)
+    walls = subtract(walls, union(door_hole, win_hole), k=0.02)
+    parts.append(sculpt('shed_walls', walls, (-w / 2 - 0.3, -d / 2 - 0.3, plinth - 0.1), (w / 2 + 0.3, d / 2 + 0.3, apex + 0.1), 0.022, M('wood'), 3200))
+    st = sdf.displace(sbox((0, 0, plinth / 2 - 0.1), (w / 2 + 0.08, d / 2 + 0.08, plinth / 2 + 0.1), 0.05),
+                      lambda P: 0.02 * (sdf.noise(P, 3.5, seed) - 0.5) + 0.015 * np.abs(np.sin(P[:, 0] * 9 + 2 * np.sin(P[:, 2] * 7))))
+    parts.append(sculpt('shed_footing', st, (-w / 2 - 0.3, -d / 2 - 0.3, -0.3), (w / 2 + 0.3, d / 2 + 0.3, plinth + 0.1), 0.03, M('stone'), 1400))
+    for x in (-w / 2, w / 2):
+        for y in (-d / 2, d / 2):
+            parts.append(box('shed_post', (0.13, 0.13, h - 0.08), (x, y, plinth + h / 2 - 0.04), M('timber')))
+    rf = union(roof_field(w, d, top, pitch, 0.32, 0.26, 'roof_slate', seed),
+               tube([(-w / 2 - 0.28, 0, apex + 0.02), (0, 0, apex - 0.03), (w / 2 + 0.28, 0, apex + 0.02)], [0.07] * 3), k=0.03)
+    parts.append(sculpt('shed_roof', rf, (-w / 2 - 0.6, -d / 2 - 0.6, top - 0.6), (w / 2 + 0.6, d / 2 + 0.6, apex + 0.3), 0.025, M('roof_slate'), 2200, sharp=70.0))
+    # the door: planks, three ledges and two braces on its face, a thumb latch
+    fy = -d / 2 + 0.02
+
+    def door(P):
+        x, y, z = P[:, 0] - dx, P[:, 1] - fy, P[:, 2] - plinth
+        slab = np.maximum(np.maximum(np.abs(x) - 0.42, np.abs(z - 0.86) - 0.86), np.abs(y) - 0.025)
+        grooves = np.maximum(np.abs(((x + 0.42) % 0.14) - 0.07) - 0.006, y + 0.02)
+        slab = np.maximum(slab, -grooves)
+        ledges = np.maximum(np.maximum(np.abs(x) - 0.38, np.min(np.stack([np.abs(z - zz) for zz in (0.2, 0.86, 1.52)]), 0) - 0.055), np.abs(y + 0.04) - 0.02)
+        braces = []
+        for z0, z1 in ((0.2, 0.86), (0.86, 1.52)):
+            a, b = np.array([0.3, z0]), np.array([-0.3, z1])
+            e = b - a
+            q = np.stack([x, z], 1) - a
+            s = np.clip(q @ e / (e @ e), 0, 1)
+            braces.append(np.linalg.norm(q - np.outer(s, e), axis=1) - 0.045)
+        brace = np.maximum(np.minimum(*braces), np.abs(y + 0.04) - 0.018)
+        return np.minimum(slab, np.minimum(ledges, brace))
+    parts.append(sculpt('shed_door', door, (dx - 0.6, fy - 0.2, plinth - 0.1), (dx + 0.6, fy + 0.2, plinth + 1.9), 0.012, M('door_green'), 1400))
+    parts.append(lib.tube('latch', [(dx - 0.3, fy - 0.075, plinth + 0.95), (dx - 0.34, fy - 0.11, plinth + 0.9), (dx - 0.3, fy - 0.075, plinth + 0.82)],
+                          [0.014] * 3, M('iron'), sides=6, subsurf=0))
+    # the window: glass, a frame with a cross of glazing bars, a sill
+    win = [box('shed_glass', (0.54, 0.03, 0.48), (wx, -d / 2 + 0.08, plinth + 1.25), M('glass'), wobble=0)]
+
+    def frame(P):
+        x, y, z = P[:, 0] - wx, P[:, 1] + d / 2 - 0.02, P[:, 2] - plinth - 1.25
+        outer = np.maximum(np.abs(x) - 0.33, np.abs(z) - 0.3)
+        inner = np.maximum(np.abs(x) - 0.27, np.abs(z) - 0.24)
+        cross = np.maximum(np.minimum(np.abs(x), np.abs(z)) - 0.018, inner)
+        return np.maximum(np.minimum(np.maximum(outer, -inner), cross), np.abs(y) - 0.04) - 0.006
+    win.append(sculpt('shed_wframe', frame, (wx - 0.5, -d / 2 - 0.2, plinth + 0.8), (wx + 0.5, -d / 2 + 0.2, plinth + 1.7), 0.01, M('timber'), 500))
+    win.append(box('shed_sill', (0.78, 0.18, 0.06), (wx, -d / 2 - 0.07, plinth + 0.94), M('wood_dark')))
+    parts += nocol(win)
+    # a water butt at the corner and a rake leaning by the door
+    butt = barrel()
+    transform(butt, (w / 2 + 0.42, -d / 2 + 0.45, 0.0), rnd.uniform(0, 3), 0.95)
+    parts += butt
+    rake = union(tube([(dx + 0.62, fy - 0.12, 0.05), (dx + 0.78, fy - 0.05, 1.62)], [0.022, 0.02]),
+                 tube([(dx + 0.5, fy - 0.13, 0.08), (dx + 0.76, fy - 0.13, 0.04)], [0.024, 0.024]), k=0.01)
+    for k in range(6):
+        x0 = dx + 0.52 + k * 0.045
+        rake = union(rake, tube([(x0, fy - 0.13, 0.07 - k * 0.006), (x0, fy - 0.2, -0.02 - k * 0.006)], [0.008, 0.006]), k=0.005)
+    parts.append(nocol([sculpt('rake', rake, (dx + 0.3, fy - 0.4, -0.1), (dx + 1.0, fy + 0.1, 1.75), 0.008, M('wood'), 400)])[0])
     return parts
 
 
 def great_tree(seed=11):
-    """The tree on the hilltop: a vast trunk with a hollow heart, five branches and their crowns.
-    Returns (tree parts, [branch groups to be traced])."""
+    """The tree on the hilltop: a vast, furrowed trunk on buttress roots, bracket
+    fungi, a hollow (its rim swollen where the bark grew round it) facing the approach, six limbs
+    that leave the trunk at broken-off collars and fork into their crowns. Returns (tree parts,
+    [limb groups to be traced])."""
     rnd = random.Random(seed)
     parts = []
-    trunk = [Vector((0, 0, -0.6)), Vector((0.2, 0, 3.0)), Vector((-0.2, 0.3, 6.0)), Vector((0.1, 0.1, 9.0))]
-    parts.append(lib.tube('gt_trunk', trunk, [2.0, 1.55, 1.2, 0.95], M('bark'), sides=14, subsurf=1))
+    spine = [Vector(p) for p in ((0, 0, -0.9), (0.12, 0.0, 1.4), (0.2, 0.0, 3.0), (0.0, 0.2, 4.6), (-0.2, 0.3, 6.0), (-0.05, 0.2, 7.6), (0.1, 0.1, 9.0), (0.15, 0.05, 10.4))]
+    trunk = tube(spine, [2.3, 1.85, 1.55, 1.4, 1.26, 1.1, 0.92, 0.55])
     for k in range(7):
-        a = k / 7 * math.tau + rnd.uniform(-0.2, 0.2)
-        d = Vector((math.cos(a), math.sin(a), 0))
-        parts.append(lib.tube('gt_root', [d * 1.0 + Vector((0, 0, 1.8)), d * 2.4 + Vector((0, 0, 0.4)), d * 3.6 + Vector((0, 0, -0.3))],
-                              [0.75, 0.45, 0.15], M('bark'), sides=8, subsurf=1))
-    # the hollow where the pigment sleeps, facing the approach ramp (south-west)
-    hollow = lib.ellipsoid('gt_hollow', (0, 0, 3.4), (0.55, 0.3, 0.85), M('wood_dark'), segs=(16, 12))
-    hollow.data.transform(Matrix.Translation((-0.95, -0.95, 0)) @ Matrix.Rotation(-math.pi * 0.25, 4, 'Z'))
-    parts.append(hollow)
-    crowns, traced = [], []
-    leaves = ['leaf1', 'leaf2', 'leaf3', 'leaf4']
+        a = k / 7 * math.tau + rnd.uniform(-0.25, 0.25)
+        dv = V((math.cos(a), math.sin(a), 0))
+        L = rnd.uniform(3.4, 4.4)
+        root = tube([dv * 1.1 + V((0, 0, 2.6)), dv * 2.4 + V((0, 0, 0.6)), dv * L + V((0, 0, -0.3)), dv * (L + 1.3) + V((0, 0, -0.75))], [0.9, 0.62, 0.3, 0.1])
+        trunk = union(trunk, root, k=0.8)
+    # where the six limbs leave the trunk: thick collars, broken off short (the limbs are their own pieces)
+    limbs = []
     for k in range(6):
         a = k / 6 * math.tau + 0.4
-        d = Vector((math.cos(a), math.sin(a), 0))
-        base = trunk[2].lerp(trunk[3], 0.3 + 0.12 * (k % 3))
-        end = base + d * 6.2 + Vector((0, 0, 2.6 + (k % 2) * 1.2))
-        mid = base.lerp(end, 0.5) + Vector((0, 0, 1.0))
-        group = [lib.tube('gt_branch', [base, mid, end], [0.6, 0.4, 0.2], M('bark'), sides=8, subsurf=0),
-                 blob('gt_crown', end + Vector((0, 0, 1.0)), 3.2, M(leaves[k % 4]), seed * 10 + k, subdiv=3)]
+        dv = Vector((math.cos(a), math.sin(a), 0))
+        base = spine[4].lerp(spine[6], 0.25 + 0.12 * (k % 3)) + dv * 0.3
+        limbs.append((dv, base))
+        trunk = union(trunk, tube([base - dv * 0.5, base + dv * 1.25 + Vector((0, 0, 0.75))], [0.72, 0.5]), k=0.45)
+    # the hollow: a swollen rim, then the hole carved in behind it
+    dh = V((-1, -1, 0)) / math.sqrt(2)
+    hc = V((0.1, 0.04, 3.4)) + dh * 1.25
+    Rh = sdf.frame(dh, (0, 0, 1))
+    trunk = union(trunk, ellipsoid(hc - dh * 0.1, (1.25, 0.8, 0.6), Rh), k=0.35)
+    hole = ellipsoid(hc + dh * 0.15, (0.95, 0.6, 0.75), Rh)
+    trunk = subtract(trunk, hole, k=0.14)
+
+    def bark(P):
+        return (0.13 * np.abs(sdf.noise(P * V((3.0, 3.0, 0.25)), 1.0, seed) - 0.5) * 2
+                + 0.05 * (sdf.noise(P, 1.1, seed + 3) - 0.5) + 0.02 * (sdf.noise(P, 4.0, seed + 5) - 0.5))
+    trunk = sdf.displace(trunk, bark)
+    ob = sculpt('gt_trunk', trunk, (-6.5, -6.5, -1.2), (6.5, 6.5, 10.8), 0.05, M('bark'), 15000, sharp=40.0)
+    # the inside of the hollow in dark wood
+    ob.data.materials.append(M('wood_dark'))
+    me = ob.data
+    inside = hole(np.array([p.center[:] for p in me.polygons])) < 0.06
+    for p, i in zip(me.polygons, inside):
+        p.material_index = 1 if i else 0
+    parts.append(ob)
+    # bracket fungi stepping up the shady side
+    fungi = []
+    for k, (a, z) in enumerate(((1.2, 1.9), (1.45, 2.25), (1.0, 2.55))):
+        r = 1.62 + 0.1 * (2 - k)
+        c = V((math.cos(a) * r, math.sin(a) * r, z))
+        fungi.append(ellipsoid(c, (0.32 - k * 0.05, 0.32 - k * 0.05, 0.07), sdf.rot(0, 0, math.degrees(a))))
+    parts.append(sculpt('gt_fungus', union(*fungi, k=0.05), (-0.5, 0.0, 1.5), (1.6, 2.6, 3.0), 0.015, M('plaster2'), 500))
+    crowns, traced = [], []
+    leaves = ['leaf1', 'leaf2', 'leaf3', 'leaf4']
+    for k, (dv, base) in enumerate(limbs):
+        up = Vector((0, 0, 1))
+        side = dv.cross(up)
+        end = base + dv * 6.2 + up * (2.6 + (k % 2) * 1.2)
+        p1 = base + dv * 1.9 + up * 1.15 + side * rnd.uniform(-0.3, 0.3)
+        p2 = base + dv * 4.0 + up * 1.9 + side * rnd.uniform(-0.4, 0.4)
+        limb = tube([base, p1, p2, end], [0.62, 0.47, 0.33, 0.2])
+        for s in (-1, 1):
+            tip = p2 + (dv * 1.3 + side * s * 1.4 + up * 1.9)
+            limb = union(limb, tube([p2 + (end - p2) * 0.15, (p2 + tip) / 2 + up * 0.2, tip], [0.24, 0.17, 0.1]), k=0.15)
+        limb = sdf.displace(limb, lambda P, k=k: 0.04 * (sdf.noise(P * V((1.6, 1.6, 0.6)), 1.6, seed + k) - 0.5))
+        lo = V(tuple(min(a_, b_) for a_, b_ in zip(base, end))) - 3.0
+        hi = V(tuple(max(a_, b_) for a_, b_ in zip(base, end))) + 3.0
+        group = [sculpt('gt_branch', limb, lo, hi, 0.04, M('bark'), 1400, sharp=40.0),
+                 blob('gt_crown', end + up * 1.0, 3.2, M(leaves[k % 4]), seed * 10 + k, subdiv=3)]
         group[1]['col'] = 0
         (traced if k in (1, 3, 5) else crowns).append(group)
     for g in crowns:
         parts += g
-    top = blob('gt_crown', trunk[3] + Vector((0, 0, 3.2)), 4.4, M('leaf2'), seed * 10 + 9, subdiv=3)
+    top = blob('gt_crown', spine[6] + Vector((0, 0, 3.4)), 4.4, M('leaf2'), seed * 10 + 9, subdiv=3)
     top['col'] = 0
     parts.append(top)
     return parts, traced
 
 
 def bridge(length=9.0, width=1.8):
-    """A plank footbridge along Y with a shallow arch, posts and rails."""
+    """A plank footbridge along Y with a shallow arch: two log stringers, planks of uneven length
+    laid across them, chamfered posts with pyramid caps, a hand rail and a lower rail."""
     parts = []
-    n = int(length / 0.32)
+    rnd = random.Random(int(length * 10))
+
+    def z_at(t):
+        return 0.35 * math.sin(math.pi * t)
+    for s in (-1, 1):
+        pts = [(s * (width / 2 - 0.22), -length / 2 - 0.2 + (length + 0.4) * t, z_at(t) - 0.13) for t in np.linspace(0, 1, 9)]
+        parts.append(lib.tube('stringer', pts, [0.11] * len(pts), M('wood_dark'), sides=8, subsurf=0))
+    n = int(length / 0.3)
     for i in range(n):
         t = i / (n - 1)
         y = -length / 2 + length * t
-        z = 0.35 * math.sin(math.pi * t)
-        parts.append(box('plank', (width, 0.28, 0.09), (0, y, z), M('wood'), rot=Matrix.Rotation(math.cos(math.pi * t) * -0.12, 3, 'X')))
+        L = width + rnd.uniform(-0.08, 0.1)
+        parts.append(box('plank', (L, 0.27, 0.08), (rnd.uniform(-0.04, 0.04), y, z_at(t)), M('wood'),
+                         rot=Matrix.Rotation(math.cos(math.pi * t) * -0.12, 3, 'X') @ Matrix.Rotation(rnd.uniform(-0.02, 0.02), 3, 'Z')))
     for s in (-1, 1):
-        rail = [Vector((s * width / 2, -length / 2 + length * t, 0.95 + 0.35 * math.sin(math.pi * t))) for t in (0, 0.25, 0.5, 0.75, 1)]
-        parts.append(lib.tube('rail', rail, [0.05] * 5, M('wood_dark'), sides=6, subsurf=0))
+        x = s * width / 2
+        posts = []
         for t in (0, 0.25, 0.5, 0.75, 1):
             y = -length / 2 + length * t
-            z = 0.35 * math.sin(math.pi * t)
-            parts.append(box('bpost', (0.12, 0.12, 1.0), (s * width / 2, y, z + 0.45), M('wood_dark')))
+            z = z_at(t)
+            post = sdf.box((x, y, z + 0.42), (0.065, 0.065, 0.62), 0.015)
+            cap = intersect(cone((x, y, z + 1.04), (x, y, z + 1.16), 0.11, 0.0), lambda P, x=x, y=y: np.maximum(np.abs(P[:, 0] - x), np.abs(P[:, 1] - y)) - 0.075)
+            posts.append(union(post, cap, k=0.02))
+        f = union(*posts)
+        rail = [(x, -length / 2 + length * t, 0.98 + z_at(t)) for t in np.linspace(0, 1, 9)]
+        low = [(x, -length / 2 + length * t, 0.52 + z_at(t)) for t in np.linspace(0, 1, 9)]
+        f = union(f, tube(rail, [0.045] * 9), tube(low, [0.03] * 9), k=0.02)
+        parts.append(sculpt('brail', f, (x - 0.3, -length / 2 - 0.4, -0.3), (x + 0.3, length / 2 + 0.4, 1.7), 0.014, M('wood_dark'), 2400))
     return parts
 
 
