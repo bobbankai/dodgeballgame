@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import type { GLTF } from 'three/examples/jsm/loaders/GLTFLoader.js';
-import { inkify } from '../core/Assets';
+import { inkify, lineIdFor } from '../core/Assets';
 import { Animator } from './Animator';
 
 /**
@@ -18,7 +18,14 @@ export class Keeper {
 
   constructor(gltf: GLTF) {
     const model = gltf.scene;
-    inkify(model, () => ({ hatch: 0.4, soft: 0.06 }));
+    // white paper in pencil until the blue comes back; ink eyes with a glint, brass spectacles, a wool cap
+    inkify(model, (name) => {
+      if (name === 'crane_ink' || name === 'crane_eye_hi')
+        return { hatch: 0, soft: 0.2, alwaysColor: true, ...(name === 'crane_eye_hi' ? { emissive: 0.7, lineId: lineIdFor('crane_ink') } : {}) };
+      if (name === 'crane_brass') return { hatch: 0.2, soft: 0.06, gloss: 0.9, glossSize: 0.06, glossWhite: 1 };
+      if (name === 'crane_cap') return { hatch: 0.4, soft: 0.1, sheen: 0.3 };
+      return { hatch: 0.4, soft: 0.06 };
+    });
     model.traverse((o) => (o.frustumCulled = false));
     this.root.add(model);
     this.anim = new Animator(model, gltf.animations, ['bow']);

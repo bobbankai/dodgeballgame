@@ -189,6 +189,30 @@ def revolve(profile, c=(0, 0, 0), depth=1.0, rmod=None):
     return f
 
 
+def polygon2d(pts):
+    """Signed distance to a closed 2D polygon [(u, v)...], as a function of u and v arrays (cut
+    shapes out of a sheet: wings, flaps, tags)."""
+    pts = np.asarray(pts, dtype=np.float64)
+
+    def f(u, v):
+        P = np.stack([u, v], -1)
+        d = np.full(len(u), np.inf)
+        inside = np.zeros(len(u), dtype=bool)
+        for i in range(len(pts)):
+            a, b = pts[i], pts[(i + 1) % len(pts)]
+            e = b - a
+            w = P - a
+            t = np.clip((w @ e) / float(e @ e), 0.0, 1.0)
+            q = w - np.outer(t, e)
+            d = np.minimum(d, np.einsum('ij,ij->i', q, q))
+            crosses = ((a[1] <= v) & (v < b[1])) | ((b[1] <= v) & (v < a[1]))
+            x = a[0] + (v - a[1]) * e[0] / (e[1] if e[1] != 0 else 1e-12)
+            inside ^= crosses & (u < x)
+        d = np.sqrt(d)
+        return np.where(inside, -d, d)
+    return f
+
+
 def polyline_dist(pts):
     """Distance from points to a 3D polyline (for straps, piping, stitched seams...)."""
     pts = [V(p) for p in pts]
