@@ -91,7 +91,9 @@ export class Player {
     inkify(this.model, (name) => ({
       alwaysColor: true,
       hatch: eye.includes(name) ? 0 : name === 'ada_skin' ? 0.25 : 0.55,
-      soft: name === 'ada_skin' ? 0.16 : eye.includes(name) ? 0.3 : 0.1,
+      soft: name === 'ada_skin' ? 0.18 : eye.includes(name) ? 0.3 : 0.1,
+      skin: name === 'ada_skin',
+      ...(name === 'ada_scarf' || name === 'ada_leggings' ? { sheen: 0.3 } : {}),
       ...(name === 'ada_eye_hi' ? { lineId: lineIdFor('ada_iris'), emissive: 0.7 } : {}),
       ...(name === 'ada_eye_white' ? { emissive: 0.18 } : {}),
       ...(shine[name] ? { gloss: shine[name][0], glossSize: shine[name][1], glossWhite: shine[name][2] } : {}),

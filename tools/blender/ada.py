@@ -21,8 +21,10 @@ import numpy as np
 from mathutils import Vector
 
 sys.path.insert(0, os.path.dirname(__file__))
+import figure  # noqa: E402
 import lib  # noqa: E402
 import sdf  # noqa: E402
+from figure import normal, on, tri  # noqa: E402
 from lib import smooth01  # noqa: E402
 from sdf import V, box, cone, cylinder, ellipsoid, intersect, offset, shell, subtract, torus, tube, union  # noqa: E402
 
@@ -35,68 +37,11 @@ C = {
 }
 
 
-def M(name):
-    return lib.mat('ada_' + name, C[name], vcol=True)
-
-
-PARTS = []
-
-
-def part(name, f, lo, hi, step, mname, kind, tris):
-    ob = sdf.sculpt(name, f, lo, hi, step, M(mname), tris)
-    ob['kind'] = kind
-    PARTS.append(ob)
-    print(f'  {name}: {len(ob.data.polygons)} tris')
-    return ob
-
-
-def tag(objs, kind):
-    for o in objs:
-        o['kind'] = kind
-    PARTS.extend(objs)
-    return objs
-
-
-def tri(x):
-    """Triangle wave, period 1, 0 at integers and 1 at half-integers."""
-    return 1.0 - np.abs(2.0 * (x - np.floor(x)) - 1.0)
-
-
-def on(f, p, d, lift=0.0):
-    """March from p (outside) along d onto f's surface, then lift the point back off it by `lift`."""
-    p, d = V(p), V(d) / np.linalg.norm(d)
-    a, t = 0.0, 0.0
-    while t < 0.6:
-        v = f(np.array([p + d * t]))[0]
-        if v < 0:
-            break
-        a = t
-        t += max(v * 0.8, 0.0003)
-    else:
-        raise ValueError(f'no surface from {p} along {d}')
-    b = t
-    for _ in range(40):
-        m = (a + b) / 2
-        if f(np.array([p + d * m]))[0] < 0:
-            b = m
-        else:
-            a = m
-    return p + d * ((a + b) / 2 - lift)
-
-
-def normal(f, p, e=1e-4):
-    p = V(p)
-    g = np.array([f(np.array([p + np.eye(3)[i] * e]))[0] - f(np.array([p - np.eye(3)[i] * e]))[0] for i in range(3)])
-    return g / np.linalg.norm(g)
-
-
-def ellcyl(c, rx, rz, R):
-    """Elliptic cylinder along local Y (for discs printed onto curved surfaces: iris, pupil)."""
-    def f(P):
-        q = sdf._local(P, c, R)
-        k = np.sqrt((q[:, 0] / rx) ** 2 + (q[:, 2] / rz) ** 2)
-        return (k - 1.0) * min(rx, rz)
-    return f
+FIG = figure.Figure('ada', C)
+M = FIG.M
+part = FIG.part
+tag = FIG.tag
+PARTS = FIG.parts
 
 
 # --- head ---------------------------------------------------------------------------------------
@@ -107,61 +52,8 @@ EYE_SINK = 0.0025               # how far the dome's centre sits under the skin
 IRIS_C = {}
 
 
-def eye_frame(base, s):
-    """Each eye is a shallow dome on the face, facing along the face's own normal there."""
-    p = on(base, (s * EYE_AT[0], -0.3, EYE_AT[1]), (0, 1, 0))
-    n = normal(base, p)
-    t = np.cross(V((0, 0, 1)), n)
-    t /= np.linalg.norm(t)
-    b = np.cross(t, -n)
-    return p - n * EYE_SINK, np.stack([t, -n, b], axis=1)
-
-
 IRIS = (0.0178, 0.0236)        # iris half width, half height
 PUPIL = 0.54                    # pupil size, relative to the iris
-
-
-def iris_disc(name, E, R, ic, kind):
-    """The iris as a regular polar grid laid onto the eye just above the white: rings meet exactly
-    at the pupil's edge, so the painted pupil (see `tint`) is crisp, and there is no geometry edge
-    inside the eye for the ink lines to catch."""
-    rings = [0.0, 0.14, 0.28, 0.42, PUPIL - 0.006, PUPIL + 0.006, 0.64, 0.75, 0.85, 0.93, 1.0]
-    segs = 56
-    radii = EYE_R + 0.0009
-    Rt = R.T
-    verts, faces = [], []
-    for r in rings:
-        for k in range(1 if r == 0 else segs):
-            a = 2 * math.pi * k / segs
-            x, z = ic[0] + math.cos(a) * IRIS[0] * r, ic[2] + math.sin(a) * IRIS[1] * r
-            o = Rt @ (V((x, E[1] - 0.1, z)) - E)
-            dv = Rt @ V((0, 1, 0))
-            A = np.sum((dv / radii) ** 2)
-            B = 2 * np.sum(o * dv / radii ** 2)
-            Cq = np.sum((o / radii) ** 2) - 1
-            t = (-B - math.sqrt(max(B * B - 4 * A * Cq, 0.0))) / (2 * A)
-            verts.append(V((x, E[1] - 0.1 + t, z)))
-    for k in range(segs):
-        faces.append((0, 1 + (k + 1) % segs, 1 + k))
-    for i in range(1, len(rings) - 1):
-        a0, a1 = 1 + (i - 1) * segs, 1 + i * segs
-        for k in range(segs):
-            j = (k + 1) % segs
-            faces.append((a0 + k, a0 + j, a1 + j, a1 + k))
-    me = bpy.data.meshes.new(name)
-    me.from_pydata([tuple(v) for v in verts], [], faces)
-    me.update()
-    ob = bpy.data.objects.new(name, me)
-    bpy.context.scene.collection.objects.link(ob)
-    me.materials.append(M('iris'))
-    for poly in me.polygons:
-        poly.use_smooth = True
-    # faces must point out of the eye
-    if me.polygons[0].normal.y > 0:
-        me.flip_normals()
-    ob['kind'] = kind
-    PARTS.append(ob)
-    return ob
 
 
 def head_base():
@@ -200,15 +92,14 @@ def head():
          0.0006, 'mouth', 'mouth', 300)
     base = head_base()
     for s, side in ((1, 'L'), (-1, 'R')):
-        E, R = eye_frame(base, s)
+        E, R = figure.eye_frame(base, s * EYE_AT[0], EYE_AT[1], EYE_SINK)
         white = ellipsoid(E, EYE_R, R)
-        front = sdf.plane(E, (0, 1, 0))
         ic = E + V((-s * 0.0018, 0, -0.0012))
         lo, hi = E - 0.04, E + 0.04
         part(f'eye_{side}', white, lo, hi, 0.0006, 'eye_white', f'eye_{side}', 1400)
         # iris and pupil are one disc printed onto the eye (painted in `tint`): no edge for the ink to find
         IRIS_C[side] = ic
-        iris_disc(f'iris_{side}', E, R, ic, f'eye_{side}')
+        figure.iris_disc(FIG, f'iris_{side}', E, R, EYE_R, ic, IRIS, PUPIL, f'eye_{side}')
         hi1 = on(white, E + V((s * 0.0062, -0.04, 0.0105)), (0, 1, 0), lift=0.002)
         hi2 = on(white, E + V((-s * 0.0058, -0.04, -0.0105)), (0, 1, 0), lift=0.0016)
         part(f'eyehi_{side}', union(ellipsoid(hi1, (0.0045, 0.0022, 0.0058), R), ellipsoid(hi2, (0.0022, 0.0014, 0.0026), R)),
@@ -494,52 +385,9 @@ def satchel(body):
 
 # --- limbs ---------------------------------------------------------------------------------------
 
-def hand_frame(s):
-    d = WR[s] - EL[s]
-    d /= np.linalg.norm(d)
-    n = V((-s, 0, 0)) - d * np.dot(d, V((-s, 0, 0)))
-    n /= np.linalg.norm(n)
-    w = np.cross(d, n) * -s
-    if w[1] > 0:
-        w = -w
-    return d, n, w
-
-
-def rot_toward(v, to, ang):
-    """Rotate unit vector v towards `to` by ang degrees (in their common plane)."""
-    a = math.radians(ang)
-    t = to - v * np.dot(v, to)
-    t /= np.linalg.norm(t)
-    return v * math.cos(a) + t * math.sin(a)
-
-
-def hand(s, side):
-    d, n, w = hand_frame(s)
-    hc = WR[s] + d * 0.036
-    palm = box(hc, (0.0155, 0.026, 0.026), 0.0135, np.stack([n, w, d], axis=1))
-    wrist = cone(WR[s] - d * 0.025, hc - d * 0.012, 0.0185, 0.02)
-    fingers = []
-    for i, (L, sp) in enumerate(((1.0, 1.0), (1.08, 0.33), (1.02, -0.33), (0.86, -1.0))):
-        base = hc + d * 0.019 + w * (0.0158 * sp) + n * 0.0012
-        dirn = rot_toward(d, n, 6 + i * 4)
-        dirn = dirn + w * 0.14 * sp
-        dirn /= np.linalg.norm(dirn)
-        p1 = base + dirn * 0.025 * L
-        d2 = rot_toward(dirn, n, 20 + i * 3)
-        p2 = p1 + d2 * 0.017 * L
-        d3 = rot_toward(d2, n, 18 + i * 3)
-        p3 = p2 + d3 * 0.0135 * L
-        r = 0.0074 if i < 3 else 0.0066
-        fingers.append(tube([base, p1, p2, p3], [r, r * 0.95, r * 0.88, r * 0.84]))
-    t0 = hc + w * 0.017 + n * 0.008 - d * 0.014
-    t1 = t0 + sdf.V(rot_toward(w, d, 38) + n * 0.3) * 0.02
-    t2 = t1 + sdf.V(rot_toward(w, d, 60) + n * 0.5) * 0.016
-    thumb = tube([t0, t1, t2], [0.0104, 0.0088, 0.0078])
-    f = union(palm, wrist, k=0.01)
-    f = union(f, union(*fingers, k=0.0012), k=0.0075)
-    f = union(f, thumb, k=0.008)
-    c = hc + d * 0.02
-    part(f'hand_{side}', f, c - 0.075, c + 0.075, 0.0011, 'skin', f'hand_{side}', 2400)
+def hands():
+    for s, side in ((1, 'L'), (-1, 'R')):
+        figure.hand(FIG, s, side, EL[s], WR[s], figure.HandSpec(), 'skin', 2400)
 
 
 def legs():
@@ -594,14 +442,7 @@ def tint(p, kind, mname):
         b = math.exp(-(dn / 0.012) ** 2) * 0.5
         return (c[0], c[1] * (1 - 0.12 * b), c[2] * (1 - 0.14 * b))
     if mname == 'ada_iris':
-        c = IRIS_C['L' if p.x > 0 else 'R']
-        dx, dz = (p.x - c[0]) / IRIS[0], (p.z - c[2]) / IRIS[1]
-        r = math.hypot(dx, dz)
-        rp = r / PUPIL
-        # darker under the lid, lighter where light falls into the lower iris, a dark rim, a black pupil
-        k = (0.6 + 0.4 * smooth01(0.7, -0.6, dz)) * (1 - 0.4 * smooth01(0.78, 1.0, r))
-        k *= 0.16 if rp < 1.0 else 1.0
-        return (k, k * 0.97, k * 0.95)
+        return figure.iris_shade(p, IRIS_C['L' if p.x > 0 else 'R'], IRIS, PUPIL)
     if mname == 'ada_hair':
         # each lock its own shade, the partings between them painted darker
         q = p - Vector(tuple(HC))
@@ -624,29 +465,6 @@ def tint(p, kind, mname):
         k = 0.95 + 0.05 * math.sin(p.z * 180)
         return (k, k, k)
     return one
-
-
-def ao_col(a):
-    """Occlusion as a cool wash, never black."""
-    t = max(0.0, min(1.0, (a - 0.25) / 0.75)) ** 0.9
-    return (0.62 + 0.38 * t, 0.64 + 0.36 * t, 0.76 + 0.24 * t)
-
-
-def paint_all(parts, ao):
-    for ob in parts:
-        me = ob.data
-        attr = me.color_attributes.new('Col', 'FLOAT_COLOR', 'POINT')
-        mname = me.materials[0].name
-        a = None if mname in ('ada_eye_white', 'ada_iris', 'ada_eye_hi', 'ada_lash') else ao.get(ob.name)
-        kind = ob['kind']
-        cols = np.empty((len(me.vertices), 4))
-        for i, v in enumerate(me.vertices):
-            c = tint(ob.matrix_world @ v.co, kind, mname)
-            o = ao_col(a[i]) if a is not None else (1, 1, 1)
-            cols[i] = (c[0] * o[0], c[1] * o[1], c[2] * o[2], 1.0)
-        attr.data.foreach_set('color', cols.astype(np.float32).ravel())
-        me.color_attributes.active_color_name = 'Col'
-        me.color_attributes.render_color_index = me.color_attributes.active_color_index
 
 
 # --- rig -----------------------------------------------------------------------------------------
@@ -699,34 +517,6 @@ def coat_weights(p):
     return w
 
 
-def seg_dist(p, a, b):
-    ab = b - a
-    t = max(0.0, min(1.0, (p - a).dot(ab) / ab.length_squared))
-    return (p - (a + ab * t)).length, t
-
-
-def coat_sleeve_weights(segs):
-    """The coat body follows the torso and hips; the sleeves (blended into it) follow the arms."""
-    def fn(p):
-        side = 'L' if p.x > 0 else 'R'
-        sh, el = segs[f'upperarm_{side}']
-        wr = segs[f'forearm_{side}'][1]
-        d = min(seg_dist(p, sh, el)[0], seg_dist(p, el, wr)[0])
-        along = (p - sh).dot((el - sh).normalized())
-        m = smooth01(-0.025, 0.03, along) * smooth01(0.085, 0.058, d)
-        body = coat_weights(p)
-        if m <= 0.0:
-            return body
-        arm = lib.dist_weights(p, {b: segs[b] for b in ('chest', f'shoulder_{side}', f'upperarm_{side}', f'forearm_{side}', f'hand_{side}')},
-                               {'chest': 0.3, f'hand_{side}': 0.05}, 6.0)
-        s = sum(arm.values())
-        out = {b: v * (1 - m) for b, v in body.items()}
-        for b, v in arm.items():
-            out[b] = out.get(b, 0.0) + m * v / s
-        return out
-    return fn
-
-
 def head_weights(p):
     x, y, z = p
     r = math.hypot(x, y - 0.01)
@@ -748,7 +538,7 @@ def weight_fn(kind, segs):
     if kind == 'pencil_hand':
         return lambda p: {'hand_R': 1.0}
     if kind == 'coat':
-        return coat_sleeve_weights(segs)
+        return figure.sleeve_weights(coat_weights, segs)
     if kind == 'coatpart':
         return coat_weights
     if kind == 'scarf':
@@ -782,8 +572,7 @@ def build():
     body = coat()
     scarf()
     satchel(body)
-    for s, side in ((1, 'L'), (-1, 'R')):
-        hand(s, side)
+    hands()
     legs()
     pencil(Vector((-0.192, -0.075, 1.16)), Vector((-0.186, 0.075, 1.225)), 'pencil_ear')
     # the pencil she draws with: in her right fist, lead pointing forwards and down
@@ -793,7 +582,7 @@ def build():
     for ob in pencil(hc + pd * 0.085, hc - pd * 0.07, 'pencil_hand'):
         ob.hide_render = True  # it would shadow her hand in the AO bake
     ao = sdf.bake_ao([o for o in PARTS if not o['kind'].startswith('pencil')], distance=0.07, samples=64)
-    paint_all(PARTS, ao)
+    figure.paint(PARTS, tint, ao, no_ao=('ada_eye_white', 'ada_iris', 'ada_eye_hi', 'ada_lash'))
     arm = lib.armature('ada_rig', bones())
     segs = {b.name: (b.head_local.copy(), b.tail_local.copy()) for b in arm.data.bones}
     for ob in PARTS:
@@ -815,15 +604,6 @@ VIEW = {'front': (-25, 2.4, (0, 0, 0.72)), 'back': (150, 2.4, (0, 0, 0.72)), 'si
         'backc': (180, 1.3, (0, 0, 0.75))}
 
 
-def rest_pose(arm):
-    for pb in arm.pose.bones:
-        pb.rotation_mode = 'QUATERNION'
-        pb.rotation_quaternion = (1, 0, 0, 0)
-        pb.location = (0, 0, 0)
-        pb.scale = (1, 1, 1)
-    bpy.context.view_layer.update()
-
-
 if __name__ == '__main__':
     argv = sys.argv[sys.argv.index('--') + 1:] if '--' in sys.argv else []
     arm, meshes = build()
@@ -831,7 +611,7 @@ if __name__ == '__main__':
     ada_anims.author(arm)
     if '--preview' in argv:
         out = argv[argv.index('--preview') + 1]
-        rest_pose(arm)
+        figure.rest_pose(arm)
         meshes[2].hide_render = True
         for name in os.environ.get('VIEWS', 'front,back,side,face,face3q').split(','):
             yaw, dist, tgt = VIEW[name]
@@ -839,5 +619,5 @@ if __name__ == '__main__':
     if '--poses' in argv:
         ada_anims.contact_sheet(arm, meshes, argv[argv.index('--poses') + 1])
     if '--export' in argv:
-        rest_pose(arm)
+        figure.rest_pose(arm)
         lib.export_glb(os.path.join(lib.MODELS, 'ada.glb'), [arm] + meshes)

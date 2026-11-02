@@ -33,6 +33,10 @@ export interface InkOptions {
   glossSize?: number;
   /** 1: the highlight is bare white paper (rubber, enamel); towards 0 a lighter wash of the colour (hair). */
   glossWhite?: number;
+  /** Skin: light seems to glow through where it turns to shadow, and shadows stay warm. */
+  skin?: boolean;
+  /** Cloth: a soft sheen of the colour along edges turned from the light (wool, cotton, velvet). */
+  sheen?: number;
 }
 
 const VERT = /* glsl */ `
@@ -110,6 +114,9 @@ uniform float uSoft;
 uniform float uEmissive;
 uniform float uLineId;
 uniform float uTime;
+#ifdef SHEEN
+uniform float uSheen;
+#endif
 #ifdef GLOSS
 uniform float uGloss;
 uniform float uGlossSize;
@@ -248,6 +255,16 @@ void main() {
   float rim = pow(1.0 - clamp(dot(VN, V), 0.0, 1.0), 3.0);
   col += base * rim * 0.12 * (0.4 + 0.6 * lit);
   col += base * uEmissive;
+  #ifdef SKIN
+    // light scattering in skin: a warm, reddish band at the terminator, and shadows that keep their warmth
+    float term = clamp(lit * (1.0 - lit) * 4.0, 0.0, 1.0);
+    col += base * vec3(0.3, 0.07, 0.025) * term;
+    col = mix(col, col * vec3(1.1, 0.97, 0.93), 1.0 - lit);
+  #endif
+  #ifdef SHEEN
+    // fibres catching the sky along the silhouette, in the cloth's own colour
+    col += base * uSheen * pow(1.0 - clamp(dot(VN, normalize(-vViewPos)), 0.0, 1.0), 2.0) * (0.35 + 0.65 * lit);
+  #endif
   #ifdef GLOSS
     // the highlight is paper left unpainted: a brushy-edged shape where the sun's reflection falls
     vec3 Vw = normalize(cameraPosition - vWorldPos);
@@ -358,6 +375,11 @@ export function inkMaterial(o: InkOptions = {}): THREE.ShaderMaterial {
     mat.uniforms.uCut = o.reveal;
   }
   if (o.waves) mat.defines = { ...mat.defines, WAVES: '' };
+  if (o.skin) mat.defines = { ...mat.defines, SKIN: '' };
+  if (o.sheen) {
+    mat.defines = { ...mat.defines, SHEEN: '' };
+    mat.uniforms.uSheen = { value: o.sheen };
+  }
   if (o.gloss) {
     mat.defines = { ...mat.defines, GLOSS: '' };
     mat.uniforms.uGloss = { value: o.gloss };

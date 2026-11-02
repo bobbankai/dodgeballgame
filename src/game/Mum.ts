@@ -21,13 +21,23 @@ export class Mum {
 
   constructor(gltf: GLTF) {
     const model = gltf.scene;
-    // freckles and blush are part of her skin: no ink line round each one
+    // the eyes are drawn like Ada's: a line round the white and the iris, none round the glints, no hatching
+    const eye = ['mum_eye_white', 'mum_iris', 'mum_eye_hi'];
+    // what shines: gold, her leather shoes, a sheen on her hair, a little on her lips
+    const shine: Record<string, [number, number, number]> = {
+      mum_gold: [0.9, 0.06, 1], mum_shoe: [0.55, 0.05, 0.5], mum_sole: [0.3, 0.06, 0.4], mum_hair: [0.35, 0.08, 0.06],
+      mum_lips: [0.35, 0.05, 0.5], mum_skin: [0.12, 0.05, 0.25], mum_ribbon: [0.3, 0.06, 0.3], mum_dress: [0.15, 0.08, 0.2],
+    };
     inkify(model, (name) => ({
       alwaysColor: true,
-      hatch: name === 'mum_hair' ? 0.6 : 0.45,
-      soft: 0.05,
+      hatch: eye.includes(name) ? 0 : name === 'mum_skin' ? 0.22 : name === 'mum_hair' ? 0.6 : 0.45,
+      soft: eye.includes(name) ? 0.3 : name === 'mum_skin' ? 0.2 : name === 'mum_hair' ? 0.09 : 0.06,
+      skin: name === 'mum_skin',
+      ...(name === 'mum_dress' || name === 'mum_dress_dark' || name === 'mum_apron' ? { sheen: 0.22 } : {}),
       reveal: this.cut,
-      ...(name === 'mum_freckle' ? { lineId: lineIdFor('mum_skin') } : {}),
+      ...(name === 'mum_eye_hi' ? { lineId: lineIdFor('mum_iris'), emissive: 0.7 } : {}),
+      ...(name === 'mum_eye_white' ? { emissive: 0.18 } : {}),
+      ...(shine[name] ? { gloss: shine[name][0], glossSize: shine[name][1], glossWhite: shine[name][2] } : {}),
     }));
     model.traverse((o) => (o.frustumCulled = false));
     this.root.add(model);

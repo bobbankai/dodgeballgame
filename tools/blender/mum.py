@@ -1,10 +1,11 @@
 """
 Mum: Ada's mother, as she drew herself into the last page. An illustrator: tall and slender, long
-wavy copper hair falling down her back with a loose braid forward over one shoulder, freckles,
-hazel eyes; a deep indigo dress with its sleeves pushed up, a canvas painter's apron over it
-splashed with the three colours of the book (green, blue and gold), brushes in its pocket.
-Nothing like Ada to look at: a grown woman, drawn with a finer hand. Modelled, rigged and
-animated here; exported to src/assets/models/mum.glb.
+wavy copper hair falling down her back, a loose braid forward over her right shoulder, the hair
+tucked behind her left ear (a gold earring), freckles, hazel eyes; a deep indigo dress with its
+sleeves pushed up, a canvas painter's apron over it splashed with the three colours of the book
+(green, blue and gold), brushes in its pocket, a gold bangle, Mary Jane shoes. Nothing like Ada to
+look at: a grown woman, drawn with a finer hand. Sculpted (sdf.py, figure.py), rigged and animated
+here; exported to src/assets/models/mum.glb.
 
 Her skeleton uses Ada's bone names (so the game's scenes and a few of Ada's clips, like walking,
 drive her too, with offsets scaled to her longer legs); her standing, talking, kneeling hug and
@@ -13,454 +14,466 @@ goodbye are her own.
 Blender axes: Z up, she faces -Y, her left is +X. She is about 1.71 m tall.
 
 Run: blender -b -P tools/blender/mum.py [-- --preview out.png] [--poses out.png] [--export]
+(VIEWS=front,back,... picks preview angles; SHOTS=clip:frame,... and YAW for poses)
 """
 import math
 import os
 import random
 import sys
 
-import bmesh
 import bpy
-from mathutils import Matrix, Vector, noise
+import numpy as np
+from mathutils import Vector, noise
 
 sys.path.insert(0, os.path.dirname(__file__))
+import figure  # noqa: E402
 import lib  # noqa: E402
+import sdf  # noqa: E402
+from figure import on, tri  # noqa: E402
 from lib import smooth01  # noqa: E402
+from sdf import V, box, cone, cylinder, ellipsoid, intersect, offset, shell, subtract, torus, tube, union  # noqa: E402
 
 C = {
-    'skin': '#F1CDB0', 'freckle': '#C98763', 'lips': '#B4565A', 'eye_white': '#F6F1EA', 'iris': '#6E7A3E',
-    'pupil': '#1C1614', 'lash': '#2A1C18', 'hair': '#9A4E2C', 'hair_dark': '#7A3A22', 'dress': '#36457A',
-    'dress_dark': '#2A3662', 'apron': '#EEE5D0', 'apron_dark': '#D8CCB0', 'tights': '#3A3040', 'shoe': '#6A4632',
-    'sole': '#2E2420', 'gold': '#D9AE4A', 'wood': '#C79A62', 'brush_b': '#3D6B8C', 'brush_g': '#E2B33C',
-    'bristle': '#3A2E2A', 'ribbon': '#3F7F7A',
+    'skin': '#F1CDB0', 'lips': '#B4565A', 'mouth': '#6A2A2A', 'eye_white': '#F8F3EC',
+    'iris': '#7C8A44', 'eye_hi': '#FFFFFF', 'lash': '#2A1C18', 'hair': '#A0522E', 'hair_dark': '#7A3A22',
+    'dress': '#36457A', 'dress_dark': '#2A3662', 'apron': '#EEE5D0', 'apron_dark': '#D8CCB0', 'tights': '#3A3040',
+    'shoe': '#6A4632', 'sole': '#2E2420', 'gold': '#D9AE4A', 'wood': '#C79A62', 'brush_b': '#3D6B8C',
+    'brush_g': '#E2B33C', 'bristle': '#3A2E2A', 'ribbon': '#3F7F7A',
 }
 
 # Ada's legs are 0.6 m to the hip, Mum's 0.9: offsets in Ada's clips scale by this
 T_SCALE = 0.9 / 0.6
 
-
-def M(name):
-    return lib.mat('mum_' + name, C[name], vcol=True)
-
-
-def tag(objs, kind):
-    for o in objs if isinstance(objs, list) else [objs]:
-        o['kind'] = kind
-    return objs if isinstance(objs, list) else [objs]
+FIG = figure.Figure('mum', C)
+M = FIG.M
+part = FIG.part
+PARTS = FIG.parts
+ss = sdf.smooth01
 
 
-# --- head ------------------------------------------------------------------------------------
+# --- head ----------------------------------------------------------------------------------------
 
-HEAD_C = Vector((0, 0.004, 1.594))
-HEAD_R = Vector((0.088, 0.097, 0.108))
-
-
-def jaw(zu):
-    """Narrowing towards a delicate chin."""
-    return 1.0 - 0.27 * smooth01(0.0, -1.0, zu) ** 1.2
+def cranium():
+    return ellipsoid((0, 0.014, 1.608), (0.084, 0.096, 0.1))
 
 
-def cheek(zu):
-    return 1.0 + 0.045 * math.exp(-((zu + 0.08) / 0.24) ** 2)
+def head_base():
+    # the face narrows smoothly from the cheekbones to a small, soft chin
+    face = ellipsoid((0, -0.016, 1.567), (0.068, 0.068, 0.079))
+
+    def taper(P):
+        Q = P.copy()
+        Q[:, 0] = Q[:, 0] / (1.0 - 0.26 * ss(1.57, 1.49, P[:, 2]) ** 1.2)
+        return Q
+    h = union(cranium(), sdf.warp(face, taper), k=0.04)
+    # the angle of the jaw, standing clear of the neck, and a small chin
+    h = union(h, sdf.mirror_x(ellipsoid((0.039, -0.006, 1.52), (0.016, 0.03, 0.015))), k=0.03)
+    h = union(h, ellipsoid((0, -0.056, 1.497), (0.0175, 0.016, 0.0145)), k=0.02)
+    h = union(h, sdf.mirror_x(ellipsoid((0.05, -0.048, 1.585), (0.021, 0.019, 0.015))), k=0.018)
+    # a slim, straight nose with a soft tip
+    nose = union(cone((0, -0.074, 1.613), (0, -0.0915, 1.571), 0.0052, 0.0066),
+                 ellipsoid((0, -0.0952, 1.5655), (0.0084, 0.0076, 0.0076)), k=0.006)
+    nose = union(nose, sdf.mirror_x(ellipsoid((0.0068, -0.0872, 1.5615), (0.0047, 0.0046, 0.0042))), k=0.004)
+    h = union(h, nose, k=0.008)
+    # ears (only her left one shows: the right is under her hair)
+    ear = subtract(ellipsoid((0.079, 0.01, 1.586), (0.011, 0.019, 0.027), sdf.rot(0, 0, -12)),
+                   ellipsoid((0.086, 0.006, 1.588), (0.006, 0.012, 0.017)), k=0.003)
+    h = union(h, ear, k=0.008)
+    neck = cone((0, 0.018, 1.34), (0, 0.014, 1.505), 0.04, 0.033)
+    h = union(h, neck, k=0.03)
+    # the skin of her upper chest, showing at the dress's V neck
+    chest = ellipsoid((0, -0.008, 1.3), (0.105, 0.072, 0.055))
+    # a hint of collarbone where the V neck shows it
+    chest = union(chest, sdf.mirror_x(cone((0.018, -0.062, 1.334), (0.1, -0.034, 1.357), 0.0045, 0.0055)), k=0.012)
+    return union(h, chest, k=0.04)
 
 
-def chin(zu, yu):
-    return 0.007 * math.exp(-((zu + 0.88) / 0.14) ** 2) * max(0.0, -yu)
+EYE_AT = (0.0328, 1.5975)
+EYE_R = V((0.0168, 0.0042, 0.0084))
+EYE_SINK = 0.0016
+IRIS = (0.0074, 0.0084)
+PUPIL = 0.5
+IRIS_C = {}
+MOUTH_Z = 1.527
+FRECKLES = []
 
 
-def face_y(x, z, out=0.0):
-    """The front surface of the face at (x, z), pushed `out` metres further forwards."""
-    zu = (z - HEAD_C.z) / HEAD_R.z
-    k = jaw(zu) * cheek(zu)
-    xu = x / (HEAD_R.x * k)
-    yu = -math.sqrt(max(0.0, 1.0 - xu * xu - zu * zu))
-    return HEAD_C.y + yu * HEAD_R.y * jaw(zu) - chin(zu, yu) - out
-
-
-def on_face(x, z, out=0.0):
-    return Vector((x, face_y(x, z, out), z))
+def eye_lid(E, R, s, k, lift):
+    """Points along the top of eye s, inner corner to outer, `k` times the eye's size, `lift` above it."""
+    pts = []
+    for phi in np.radians([172, 150, 125, 100, 75, 50, 28, 10]):
+        pts.append(E + R @ V((s * math.cos(phi) * EYE_R[0] * k, -EYE_SINK * 1.1, math.sin(phi) * EYE_R[2] * k + lift)))
+    return pts
 
 
 def head():
-    bm = bmesh.new()
-    bmesh.ops.create_uvsphere(bm, u_segments=40, v_segments=28, radius=1.0)
-    for v in bm.verts:
-        xu, yu, zu = v.co
-        k = jaw(zu)
-        v.co = Vector((xu * HEAD_R.x * k * cheek(zu), yu * HEAD_R.y * k - chin(zu, yu), zu * HEAD_R.z)) + HEAD_C
-    parts = [lib.obj_from_bm('head', bm, M('skin'), subsurf=1)]
+    base = head_base()
+    h = base
+    mouth_c = on(base, (0, -0.3, MOUTH_Z), (0, 1, 0))
+    frames = {}
     for s in (1, -1):
-        parts.append(lib.ellipsoid('ear', (s * 0.083, 0.008, 1.585), (0.01, 0.019, 0.026), M('skin'), segs=(16, 12)))
-        parts.append(lib.ellipsoid('earring', (s * 0.087, 0.0, 1.558), (0.0045, 0.0045, 0.0045), M('gold'), segs=(10, 8)))
-    # a slim, straight nose with a soft tip
-    # a small, soft nose: a gentle bridge into a rounded tip, the wings tucked in
-    tilt = Matrix.Rotation(math.radians(-16), 3, 'X')
-    parts.append(lib.ellipsoid('nose', on_face(0, 1.575, 0.0008), (0.0066, 0.0072, 0.0168), M('skin'), segs=(20, 16), rot=tilt))
-    parts.append(lib.ellipsoid('nosetip', on_face(0, 1.5635, 0.0052), (0.0066, 0.0054, 0.0052), M('skin'), segs=(16, 12)))
+        E, R = figure.eye_frame(base, s * EYE_AT[0], EYE_AT[1], EYE_SINK)
+        frames[s] = (E, R)
+        # a soft fold of eyelid above each eye
+        h = union(h, tube(eye_lid(E, R, s, 1.08, 0.0042)[1:-1], [0.0011, 0.0013, 0.0014, 0.0013, 0.0012, 0.001]), k=0.0022)
+    # the corners of her mouth tuck in a little
     for s in (1, -1):
-        parts.append(lib.ellipsoid('nostril', on_face(s * 0.0062, 1.5615, 0.0012), (0.0034, 0.003, 0.0026), M('skin'), segs=(12, 8)))
-    neck = lib.tube('neck', [(0, 0.014, 1.32), (0, 0.012, 1.41), (0, 0.01, 1.5)], [0.05, 0.043, 0.04], M('skin'), sides=16, cap=False)
-    # the skin of her upper chest, showing at the dress's V neck
-    chest = lib.ellipsoid('decollete', (0, -0.035, 1.325), (0.085, 0.06, 0.07), M('skin'), segs=(24, 16))
-    return tag(parts, 'head') + tag([neck, chest], 'neck')
+        h = subtract(h, sdf.sphere(mouth_c + V((s * 0.0132, 0.0016, 0.0012)), 0.0018), k=0.003)
+    part('head', h, (-0.11, -0.13, 1.25), (0.11, 0.13, 1.72), 0.0011, 'skin', 'head', 15000)
 
-
-def eyes():
-    parts = []
-    ez = 1.596
     for s, side in ((1, 'L'), (-1, 'R')):
-        ex = s * 0.032
-        yaw = Matrix.Rotation(s * math.radians(14), 3, 'Z')
-        c = on_face(ex, ez, -0.002)
-        # an almond eye: the white set into the face, a hazel iris looking straight out, the pupil, a glint
-        eye = [lib.ellipsoid('eyewhite', c, (0.0165, 0.006, 0.0085), M('eye_white'), segs=(20, 12), rot=yaw)]
-        fwd = Vector((0, -1, 0))
-        ic = c + fwd * 0.0042 + Vector((-s * 0.0012, 0, 0.0004))
-        eye.append(lib.ellipsoid('iris', ic, (0.0073, 0.0028, 0.0078), M('iris'), segs=(16, 10), rot=yaw))
-        eye.append(lib.ellipsoid('pupil', ic + fwd * 0.0016, (0.0037, 0.0015, 0.004), M('pupil'), segs=(12, 8), rot=yaw))
-        eye.append(lib.ellipsoid('glint', ic + fwd * 0.0026 + Vector((s * 0.0028, 0, 0.003)), (0.0016, 0.001, 0.0018), M('eye_white'), segs=(8, 6)))
-        # the upper lid line and lashes, with a little flick at the outer corner
-        lid = [c + Vector((-s * 0.0165, -0.002, -0.0012)), c + Vector((-s * 0.008, -0.0045, 0.0068)), c + Vector((s * 0.002, -0.005, 0.0088)),
-               c + Vector((s * 0.0115, -0.0035, 0.0062)), c + Vector((s * 0.0175, -0.0012, 0.0018)), c + Vector((s * 0.0215, 0.0, 0.0048))]
-        eye.append(lib.tube('lid', lid, [0.0007, 0.0012, 0.0014, 0.0013, 0.001, 0.0005], M('lash'), sides=6, subsurf=0))
-        parts += tag(eye, 'eye_' + side)
+        E, R = frames[s]
+        white = ellipsoid(E, EYE_R, R)
+        lo, hi = E - 0.03, E + 0.03
+        part(f'eye_{side}', white, lo, hi, 0.0004, 'eye_white', f'eye_{side}', 900)
+        ic = E + V((-s * 0.0009, 0, 0.0014))
+        IRIS_C[side] = ic
+        figure.iris_disc(FIG, f'iris_{side}', E, R, EYE_R, ic, IRIS, PUPIL, f'eye_{side}', lift=0.0006)
+        g = on(white, E + V((s * 0.0028, -0.03, 0.0034)), (0, 1, 0), lift=0.0012)
+        part(f'eyehi_{side}', union(ellipsoid(g, (0.0018, 0.001, 0.0021), R),
+                                    ellipsoid(on(white, E + V((-s * 0.0025, -0.03, -0.0026)), (0, 1, 0), lift=0.001), (0.0008, 0.0006, 0.0009), R)),
+             lo, hi, 0.0003, 'eye_hi', f'eye_{side}', 120)
+        # the upper lash line, heavier at the outer corner and flicking out; a fine lower one
+        lash = eye_lid(E, R, s, 1.02, 0.0)
+        lash.append(E + R @ V((s * EYE_R[0] * 1.32, -EYE_SINK * 1.3, EYE_R[2] * 0.62)))
+        part(f'lash_{side}', tube(lash, [0.0006, 0.0009, 0.0012, 0.0014, 0.0016, 0.0017, 0.0016, 0.0012, 0.0004]),
+             lo, hi, 0.0003, 'lash', f'eye_{side}', 500)
+        low = [E + R @ V((s * math.cos(phi) * EYE_R[0] * 1.02, -EYE_SINK * 1.1, -math.sin(phi) * EYE_R[2] * 0.98))
+               for phi in np.radians([60, 40, 22, 8])]
+        part(f'lashlow_{side}', tube(low, [0.0003, 0.0005, 0.0006, 0.0003]), lo, hi, 0.0003, 'lash', f'eye_{side}', 160)
         # fine arched brows, a shade darker than her hair
-        brow = [on_face(s * x, z, 0.0015) for x, z in ((0.011, 1.619), (0.024, 1.6255), (0.038, 1.6265), (0.051, 1.621))]
-        parts += tag(lib.tube('brow', brow, [0.0012, 0.0016, 0.0014, 0.0007], M('hair_dark'), sides=8, subsurf=1), 'head')
-    # freckles across her nose and cheeks
+        brow = [on(base, (s * x, -0.3, z), (0, 1, 0), lift=0.0011) for x, z in ((0.011, 1.6205), (0.024, 1.627), (0.038, 1.628), (0.052, 1.6225))]
+        part(f'brow_{side}', tube(brow, [0.0009, 0.0013, 0.0011, 0.0005]), (s * 0.03 - 0.04, -0.11, 1.6), (s * 0.03 + 0.04, -0.05, 1.65),
+             0.0004, 'hair_dark', 'head', 300)
+    # lips: a full lower lip, a bowed upper one, a warm closed smile; a dark line between them that
+    # the mouth bone opens into her mouth when she talks
+    y0 = mouth_c[1] + 0.0016
+    upper = sdf.mirror_x(ellipsoid((0.0058, y0, MOUTH_Z + 0.0024), (0.0092, 0.0024, 0.0021), sdf.rot(0, 12, 0)))
+    lower = ellipsoid((0, y0 + 0.0002, MOUTH_Z - 0.003), (0.0105, 0.0026, 0.0027))
+    lips = union(upper, lower, k=0.0015)
+    part('lips', lips, mouth_c - 0.03, mouth_c + 0.03, 0.0003, 'lips', 'mouth', 900)
+    line = [V((x, 0, MOUTH_Z + dz)) for x, dz in ((-0.0128, 0.0016), (-0.0065, -0.0002), (0.0, 0.0), (0.0065, -0.0002), (0.0128, 0.0016))]
+    face_lips = union(base, lips)
+    line = [on(face_lips, p + V((0, -0.3, 0)), (0, 1, 0), lift=-0.0003) for p in line]
+    part('mouth', tube(line, [0.0003, 0.0006, 0.0007, 0.0006, 0.0003]), mouth_c - 0.03, mouth_c + 0.03, 0.0003, 'mouth', 'mouth', 300)
+    # freckles across her nose and cheeks: little dabs of colour painted into her skin (see tint)
     rnd = random.Random(31)
-    for k in range(22):
-        x = rnd.uniform(-0.048, 0.048)
-        z = 1.571 + rnd.uniform(-0.01, 0.012) - 0.25 * x * x
-        if abs(x) < 0.009:
+    FRECKLES.clear()
+    for _ in range(30):
+        x = rnd.uniform(-0.05, 0.05)
+        z = 1.572 + rnd.uniform(-0.011, 0.012) - 0.25 * x * x
+        if abs(x) < 0.012:
             continue
-        p = on_face(x, z, 0.0002)
-        r = rnd.uniform(0.0006, 0.001)
-        parts += tag(lib.ellipsoid('freckle', p, (r, 0.00025, r * 0.9), M('freckle'), segs=(6, 4)), 'head')
-    # lips: a warm, closed smile
-    mz = 1.522
-    upper = [on_face(x, mz + z, 0.002) for x, z in ((-0.019, 0.0035), (-0.011, 0.0006), (-0.004, 0.0012), (0.0, 0.0004), (0.004, 0.0012),
-                                                    (0.011, 0.0006), (0.019, 0.0035))]
-    lips = [lib.tube('upperlip', upper, [0.0018, 0.0028, 0.003, 0.0028, 0.003, 0.0028, 0.0018], M('lips'), sides=8, subsurf=0),
-            lib.ellipsoid('lowerlip', on_face(0, mz - 0.0052, 0.0012), (0.0098, 0.0034, 0.0036), M('lips'), segs=(16, 10))]
-    parts += tag(lips, 'mouth')
-    return parts
+        FRECKLES.append((Vector(tuple(on(base, (x, -0.3, z), (0, 1, 0)))), rnd.uniform(0.0014, 0.002), rnd.uniform(0.6, 1.0)))
+    # a gold drop on her left ear
+    ep = V((0.0905, 0.004, 1.557))
+    part('earring', union(sdf.sphere(ep + V((0, 0, -0.008)), 0.0036), torus(ep, 0.003, 0.0008, sdf.frame((1, 0, 0))), k=0.001),
+         ep - 0.02, ep + 0.02, 0.0003, 'gold', 'head', 300)
+    return base
 
 
-# --- hair ------------------------------------------------------------------------------------
+# --- hair ----------------------------------------------------------------------------------------
 
-HAIR_C = Vector((0, 0.012, 1.598))
-HAIR_R = Vector((0.095, 0.107, 0.124))
-
-
-def hairline(x, y):
-    """Lowest the hair cap comes at each point: a soft line over the forehead (parted on her left),
-    down past the ears at the sides, and on down the back."""
-    front = smooth01(0.0, -0.065, y)
-    fore = 1.662 - 6.5 * x * x + 0.008 * smooth01(-0.02, 0.05, x)
-    return 1.52 + (fore - 1.52) * front
+HAIR_C = V((0, 0.016, 1.606))
+HAIR_R = V((0.093, 0.105, 0.112))
+PARTING = V((0.026, -0.03, 1.712))
 
 
-def hair_cap():
-    bm = bmesh.new()
-    bmesh.ops.create_uvsphere(bm, u_segments=56, v_segments=32, radius=1.0)
-    for v in bm.verts:
-        x, y, z = v.co
-        puff = 1.0 + 0.05 * max(0.0, z) + 0.02 * max(0.0, y)
-        # fine grooves running down from the crown, so it reads as hair rather than a shell
-        th = math.atan2(y, x)
-        puff += 0.012 * math.sin(th * 38.0 + z * 3.0) * smooth01(0.95, 0.4, z)
-        v.co = Vector((HAIR_C.x + x * HAIR_R.x * puff, HAIR_C.y + y * HAIR_R.y * puff, HAIR_C.z + z * HAIR_R.z))
-    gone = [v for v in bm.verts if v.co.z < hairline(v.co.x, v.co.y)]
-    bmesh.ops.delete(bm, geom=gone, context='VERTS')
-    ob = lib.obj_from_bm('haircap', bm, M('hair'), subsurf=1)
-    so = ob.modifiers.new('thick', 'SOLIDIFY')
-    so.thickness = 0.012
-    so.offset = -1.0
-    return ob
+def hairline(P):
+    """Lowest the hair cap comes: a soft line over the forehead (parted on her left), down past her
+    right ear, and tucked up behind her left one."""
+    x, y = P[:, 0], P[:, 1]
+    front = ss(0.0, -0.065, y)
+    fore = 1.662 - 6.5 * x * x + 0.008 * ss(-0.02, 0.05, x)
+    line = 1.52 + (fore - 1.52) * front
+    tuck = 0.11 * np.exp(-((y - 0.006) / 0.024) ** 2) * ss(0.04, 0.07, x)
+    return line + tuck
 
 
-def curtain():
-    """Her long hair, falling down her back in loose waves, ragged at the ends."""
-    cols, rows = 44, 28
-    bm = bmesh.new()
-    grid = []
-    for i in range(cols + 1):
-        u = i / cols
-        col = []
-        for j in range(rows + 1):
-            v = j / rows
-            s = smooth01(0.0, 0.45, v)
-            span = math.radians(150 - 58 * s)
-            th = math.pi / 2 + (u - 0.5) * span
-            z_end = 1.15 + 0.035 * math.sin(th * 7.0 + 0.4) + 0.02 * math.sin(th * 13.0)
-            z = 1.56 + (z_end - 1.56) * v
-            wave = 0.007 * math.sin(th * 12.0 + v * 5.0) + 0.004 * math.sin(v * 17.0 + th * 3.0) + 0.0025 * math.sin(th * 41.0 + v * 2.0)
-            rx = 0.098 + 0.04 * s + wave
-            ry = 0.11 + 0.022 * s + wave
-            back = 0.04 * s
-            col.append(bm.verts.new((math.cos(th) * rx, math.sin(th) * ry + back, z)))
-        grid.append(col)
-    for i in range(cols):
-        for j in range(rows):
-            bm.faces.new([grid[i][j], grid[i + 1][j], grid[i + 1][j + 1], grid[i][j + 1]])
-    bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
-    ob = lib.obj_from_bm('hairback', bm, M('hair'), subsurf=1)
-    so = ob.modifiers.new('thick', 'SOLIDIFY')
-    so.thickness = 0.018
-    so.offset = -1.0
-    return ob
+def lock_grooves(th, spacing, depth, seed=0.0):
+    """Rounded locks with sharp partings between them, every `spacing` degrees round the head."""
+    u = np.degrees(th) / spacing + 0.35 * np.sin(th * 3.0 + seed)
+    v = 1.0 - tri(u + 0.5)
+    return depth * (1.0 - np.sqrt(np.maximum(0.0, 1.0 - v * v)))
 
 
-def fringe():
-    """A side-swept fringe from the parting, and soft waves framing her face."""
-    parts = []
-    out = lambda p: (p - HAIR_C).normalized()  # noqa: E731
-    def on_cap(x, y, z, lift=0.004):
-        p = Vector((x, y, z))
-        d = (p - HAIR_C)
-        k = 1.0 / math.sqrt((d.x / HAIR_R.x) ** 2 + (d.y / HAIR_R.y) ** 2 + (d.z / HAIR_R.z) ** 2)
-        return HAIR_C + d * k + d.normalized() * lift
-    # the sweep from her parting across the forehead, lying close to the head
-    sweeps = [
-        [(0.026, -0.04, 1.712), (0.0, -0.075, 1.69), (-0.035, -0.088, 1.668), (-0.064, -0.08, 1.64), (-0.083, -0.06, 1.61), (-0.09, -0.04, 1.58)],
-        [(0.028, -0.03, 1.716), (-0.005, -0.068, 1.7), (-0.04, -0.08, 1.678), (-0.07, -0.07, 1.648), (-0.088, -0.045, 1.615)],
-        [(0.03, -0.045, 1.71), (0.05, -0.07, 1.69), (0.068, -0.068, 1.66), (0.082, -0.05, 1.63)],
-    ]
-    radii = [[0.006, 0.01, 0.011, 0.01, 0.008, 0.005], [0.005, 0.008, 0.009, 0.008, 0.005], [0.005, 0.008, 0.008, 0.005]]
-    for pts, rr in zip(sweeps, radii):
-        pv = [on_cap(*p) for p in pts]
-        parts.append(lib.tube('fringe', pv, rr, M('hair'), sides=10, squash=0.38, normals=[out(p) for p in pv]))
-    return parts
+def cap_outer(P, grooves=True):
+    q = P - HAIR_C
+    puff = 1.0 + 0.025 * ss(-0.02, 0.06, q[:, 2]) + 0.02 * ss(0.0, 0.1, q[:, 1])
+    k = np.sqrt((q[:, 0] / (HAIR_R[0] * puff)) ** 2 + (q[:, 1] / (HAIR_R[1] * puff)) ** 2 + (q[:, 2] / HAIR_R[2]) ** 2)
+    d = (k - 1.0) * HAIR_R[0]
+    if grooves:
+        th = np.arctan2(q[:, 1], q[:, 0])
+        fade = ss(0.97, 0.8, q[:, 2] / np.maximum(np.linalg.norm(q, axis=1), 1e-6))
+        d = d + lock_grooves(th, 9.0, 0.0019) * fade
+    return d
 
 
-BRAID = [Vector(p) for p in ((-0.075, 0.035, 1.54), (-0.098, 0.0, 1.47), (-0.11, -0.04, 1.41), (-0.112, -0.09, 1.355), (-0.108, -0.118, 1.3),
-                             (-0.104, -0.128, 1.24), (-0.1, -0.13, 1.18), (-0.097, -0.128, 1.13))]
+def curtain(P):
+    """Her long hair falling down her back in loose waves, ragged at the ends."""
+    x, y, z = P[:, 0], P[:, 1], P[:, 2]
+    s = ss(1.56, 1.36, z)
+    rx = 0.09 + 0.057 * s
+    ry = 0.1 + 0.037 * s
+    back = 0.032 * s
+    th = np.arctan2((y - back) / ry, x / rx)
+    wave = (0.006 * np.sin(th * 10 + z * 22) + 0.003 * np.sin(th * 23 - z * 31)) * ss(1.54, 1.38, z)
+    rx, ry = rx + wave, ry + wave
+    e = np.sqrt((x / rx) ** 2 + ((y - back) / ry) ** 2)
+    d = (e - 1.0) * ry
+    t = 0.034 - 0.018 * ss(1.45, 1.15, z)
+    d = np.abs(d + t * 0.35) - t / 2
+    d = d + lock_grooves(th, 8.0, 0.004, 1.3) * ss(1.58, 1.45, z)
+    # round the back of her, from behind her left ear to past her right
+    a = np.degrees(th)
+    a = np.where(a < -90, a + 360, a)
+    side = np.maximum(16 + 10 * s - a, a - (174 - 24 * s)) * 0.0022
+    # ragged ends, a point to each lock
+    u = a / 8.0 + 0.35 * np.sin(th * 3.0 + 1.3)
+    hem = 1.15 + 0.035 * np.sin(th * 7.0 + 0.4) + 0.02 * np.sin(th * 13.0) - 0.04 * tri(u + 0.5) ** 1.5
+    return np.maximum(np.maximum(d, side), np.maximum(hem - z, z - 1.6))
 
 
-def braid():
-    """A loose braid brought forward over her right shoulder, tied with a teal ribbon."""
-    pts = BRAID
-    # resample along the curve
+def sweep(pts, radii, base_f):
+    """A lock lying on the head: a tube flattened onto the hair's surface."""
+    lock = tube([on(base_f, HAIR_C + (V(p) - HAIR_C) * 1.6, HAIR_C - V(p), lift=-r * 0.45) for p, r in zip(pts, radii)], radii)
+    # squashed onto the head: everything below the cap's surface is cut away, the top stays round
+    return intersect(lock, lambda P: -cap_outer(P, False) - 0.002, k=0.008)
+
+
+BRAID = [V(p) for p in ((-0.075, 0.035, 1.54), (-0.098, 0.0, 1.47), (-0.11, -0.04, 1.41), (-0.112, -0.09, 1.355), (-0.108, -0.118, 1.3),
+                        (-0.104, -0.128, 1.24), (-0.1, -0.13, 1.18), (-0.097, -0.128, 1.13))]
+
+
+def braid_field():
+    """A loose braid of three strands brought forward over her right shoulder."""
     seg = []
-    for a, b in zip(pts, pts[1:]):
+    for a, b in zip(BRAID, BRAID[1:]):
         for k in range(6):
-            seg.append(a.lerp(b, k / 6))
-    seg.append(pts[-1])
-    parts = []
+            seg.append(a + (b - a) * k / 6)
+    seg.append(BRAID[-1])
+    lobes = []
     n = len(seg)
     for i in range(1, n - 1, 2):
-        p, d = seg[i], (seg[i + 1] - seg[i - 1]).normalized()
-        side = d.cross(Vector((0, 0, 1))).normalized() if abs(d.z) < 0.95 else Vector((1, 0, 0))
-        s = 1 if (i // 2) % 2 else -1
-        w = 0.88 - 0.3 * (i / n)
-        q = Vector((0, 0, 1)).rotation_difference(d).to_matrix() @ Matrix.Rotation(s * 0.5, 3, 'Y')
-        parts.append(lib.ellipsoid('braidlobe', p + side * s * 0.006 * w, (0.016 * w, 0.013 * w, 0.024 * w), M('hair'), segs=(14, 10), rot=q))
-    end = pts[-1]
-    d = (pts[-1] - pts[-2]).normalized()
-    ring = [end + (Vector((math.cos(t), 0, 0)) * 0.012 + Vector((0, math.sin(t), 0)) * 0.012) for t in (2 * math.pi * k / 12 for k in range(13))]
-    parts.append(lib.tube('ribbon', ring, [0.0035] * 13, M('ribbon'), sides=6, cap=False, subsurf=0))
+        p, d = seg[i], seg[i + 1] - seg[i - 1]
+        d /= np.linalg.norm(d)
+        side = np.cross(d, V((0, 0, 1)))
+        side /= np.linalg.norm(side)
+        sg = 1 if (i // 2) % 2 else -1
+        w = 0.92 - 0.3 * (i / n)
+        R = sdf.frame(d, side) @ sdf.rot(0, sg * 28, 0)
+        lobes.append(ellipsoid(p + side * sg * 0.0055 * w, (0.0165 * w, 0.0135 * w, 0.026 * w), R))
+    return union(*lobes, k=0.004)
+
+
+def hair(base):
+    cap = intersect(cap_outer, lambda P: hairline(P) - P[:, 2], k=0.006)
+    cap = subtract(cap, lambda P: cap_outer(P, False) + 0.014, k=0.003)
+    # the parting
+    cap = subtract(cap, tube([on(cap_outer, PARTING + V((0, 0, 0.05)), (0, 0, -1)), on(cap_outer, V((0.02, 0.06, 1.77)), (0, 0, -1))], [0.0014, 0.0008]), k=0.002)
+    f = cap_outer
+    sweeps = [
+        sweep([(0.026, -0.04, 1.712), (0.0, -0.075, 1.69), (-0.035, -0.088, 1.668), (-0.064, -0.08, 1.64), (-0.083, -0.06, 1.61), (-0.092, -0.035, 1.575)],
+              [0.006, 0.012, 0.0145, 0.0135, 0.011, 0.008], f),
+        sweep([(0.028, -0.03, 1.716), (-0.005, -0.068, 1.7), (-0.04, -0.08, 1.678), (-0.07, -0.07, 1.648), (-0.088, -0.045, 1.612)],
+              [0.005, 0.009, 0.011, 0.009, 0.006], f),
+        sweep([(0.03, -0.045, 1.71), (0.05, -0.068, 1.69), (0.068, -0.066, 1.66), (0.08, -0.045, 1.632), (0.084, -0.015, 1.618)],
+              [0.005, 0.009, 0.0095, 0.008, 0.005], f),
+    ]
+    h = union(cap, *sweeps, k=0.004)
+    h = union(h, curtain, k=0.02)
+    h = union(h, braid_field(), k=0.012)
+    end, d = BRAID[-1], (BRAID[-1] - BRAID[-2]) / np.linalg.norm(BRAID[-1] - BRAID[-2])
+    tuft = union(cone(end + d * 0.004, end + d * 0.03 + V((0.004, -0.004, 0)), 0.011, 0.013),
+                 cone(end + d * 0.03 + V((0.004, -0.004, 0)), end + d * 0.058 + V((0.006, -0.002, 0)), 0.013, 0.003), k=0.004)
+    h = union(h, tuft, k=0.004)
+    part('hair', h, (-0.2, -0.17, 1.04), (0.2, 0.25, 1.77), 0.0016, 'hair', 'hair', 22000)
+    # a teal ribbon tied round the end of the braid
+    R = sdf.frame(d)
+    rib = torus(end + d * 0.004, 0.012, 0.0032, R)
     for s in (1, -1):
-        parts.append(lib.tube('ribbontail', [end + Vector((0, -0.012, 0)), end + Vector((s * 0.014, -0.016, -0.025)), end + Vector((s * 0.018, -0.014, -0.045))],
-                              [0.006, 0.006, 0.004], M('ribbon'), sides=6, squash=0.3, normals=Vector((0, -1, 0))))
-    parts.append(lib.tube('tuft', [end + d * 0.005, end + d * 0.03 + Vector((0.004, -0.004, 0)), end + d * 0.055 + Vector((0.006, -0.002, 0))],
-                          [0.012, 0.013, 0.004], M('hair'), sides=10))
-    return parts
+        a = end + V((0, -0.012, 0))
+        b = end + V((s * 0.016, -0.017, -0.026))
+        c = end + V((s * 0.02, -0.015, -0.048))
+        for p0, p1 in ((a, b), (b, c)):
+            al = p1 - p0
+            rib = union(rib, box((p0 + p1) / 2, (0.0055, 0.0012, np.linalg.norm(al) / 2 + 0.002), 0.001, sdf.frame(al, (1, 0, 0))), k=0.002)
+    part('ribbon', rib, end - 0.07, end + 0.07, 0.0005, 'ribbon', 'braid', 900)
 
 
-# --- dress and apron -------------------------------------------------------------------------
+# --- dress and apron -----------------------------------------------------------------------------
 
-DRESS = [(0.215, 0.36), (0.206, 0.45), (0.19, 0.6), (0.178, 0.75), (0.17, 0.86), (0.163, 0.93), (0.145, 1.0), (0.123, 1.062),
-         (0.127, 1.12), (0.141, 1.19), (0.15, 1.24), (0.149, 1.29), (0.14, 1.33), (0.125, 1.362), (0.1, 1.388), (0.066, 1.408)]
+DRESS = [(0.222, 0.3), (0.215, 0.36), (0.206, 0.45), (0.19, 0.6), (0.178, 0.75), (0.17, 0.86), (0.163, 0.93), (0.145, 1.0),
+         (0.123, 1.062), (0.127, 1.12), (0.141, 1.19), (0.15, 1.24), (0.149, 1.29), (0.14, 1.33), (0.125, 1.362), (0.1, 1.388),
+         (0.066, 1.408)]
 DEPTH = 0.74
-Z0, Z1 = DRESS[0][1], DRESS[-1][1]
+HEM = 0.362
 
 
-def dress_r(z):
-    if z <= Z0:
-        return DRESS[0][0]
-    for (r0, z0), (r1, z1) in zip(DRESS, DRESS[1:]):
-        if z <= z1:
-            t = (z - z0) / (z1 - z0)
-            t = t * t * (3 - 2 * t)
-            return r0 + (r1 - r0) * t
-    return DRESS[-1][0]
+def bust(th, z):
+    return 1.0 + 0.075 * np.exp(-((z - 1.236) / 0.05) ** 2) * np.maximum(0.0, -np.sin(th)) ** 2
 
 
-def dress_pt(th, z, off=0.0, folds=True):
-    r = dress_r(z)
-    # a little fullness at the bust, and soft folds falling from the waist to the hem
-    r += 0.011 * math.exp(-((z - 1.236) / 0.05) ** 2) * max(0.0, -math.sin(th)) ** 2
-    if folds:
-        amp = 0.055 * smooth01(1.02, 0.45, z) * (0.6 + 0.4 * (1 + math.sin(th)) / 2)
-        r *= 1 + amp * math.sin(7 * th + 0.5) + 0.25 * amp * math.sin(13 * th + 1.7)
-    return Vector(((r + off) * math.cos(th), (r * DEPTH + off) * math.sin(th), z))
+def folds(th, z):
+    amp = 0.055 * ss(1.02, 0.45, z) * (0.6 + 0.4 * (1 + np.sin(th)) / 2)
+    return bust(th, z) * (1 + amp * np.sin(7 * th + 0.5) + 0.25 * amp * np.sin(13 * th + 1.7))
 
 
-def dress_normal(th, z):
-    return Vector((math.cos(th), math.sin(th) / DEPTH, 0)).normalized()
+def dress_body(fold=True):
+    return sdf.revolve(DRESS, depth=DEPTH, rmod=folds if fold else bust)
 
 
-def neckline(th):
+def neckline(P):
     """A soft V at the front, plain round at the back."""
-    f = abs(math.degrees(math.atan2(math.sin(th + math.pi / 2), math.cos(th + math.pi / 2))))  # 0 at centre front
-    return 1.3 + 0.1 * smooth01(0, 52, f)
+    th = np.arctan2(P[:, 1] / DEPTH, P[:, 0])
+    f = np.abs(np.degrees(np.arctan2(np.sin(th + np.pi / 2), np.cos(th + np.pi / 2))))
+    return 1.315 + 0.085 * ss(0, 52, f)
+
+
+SH = {1: V((0.165, 0.0, 1.36))}
+_d = V((0.12, 0.0, -0.155))
+EL = {1: SH[1] + _d / np.linalg.norm(_d) * 0.29}
+_d = V((0.1, -0.01, -0.15))
+WR = {1: EL[1] + _d / np.linalg.norm(_d) * 0.25}
+for _x in (SH, EL, WR):
+    _x[-1] = _x[1] * V((-1, 1, 1))
+
+
+def sleeve(s):
+    """Sleeves pushed up just past the elbow."""
+    sh, el, wr = SH[s], EL[s], WR[s]
+    d0 = (el - sh) / np.linalg.norm(el - sh)
+    d = (wr - el) / np.linalg.norm(wr - el)
+    cuff = el + d * 0.06
+    sl = tube([sh - d0 * 0.04 + V((-s * 0.016, 0, -0.012)), sh, (sh + el) / 2, el, cuff], [0.042, 0.046, 0.041, 0.039, 0.044])
+    # pushed-up cloth bunching at the elbow
+    sl = union(sl, ellipsoid(el + d * 0.02 + V((0, -0.026, 0)), (0.028, 0.014, 0.018), sdf.frame(d)), k=0.01)
+    return subtract(sl, cylinder(cuff + d * 0.02, 0.031, 0.028, 0.0, sdf.frame(d)), k=0.004)
 
 
 def dress():
-    cols = 88
-    zs = [Z0 + (Z1 - Z0) * (j / 46) for j in range(47)]
-    bm = bmesh.new()
-    grid = [[bm.verts.new(dress_pt(2 * math.pi * i / cols, z)) for z in zs] for i in range(cols)]
-    for i in range(cols):
-        a, b = grid[i], grid[(i + 1) % cols]
-        for j in range(len(zs) - 1):
-            bm.faces.new([a[j], b[j], b[j + 1], a[j + 1]])
-    gone = [v for v in bm.verts if v.co.z > neckline(math.atan2(v.co.y / DEPTH, v.co.x)) + 0.004]
-    bmesh.ops.delete(bm, geom=gone, context='VERTS')
-    bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
-    ob = lib.obj_from_bm('dress', bm, M('dress'))
-    so = ob.modifiers.new('thick', 'SOLIDIFY')
-    so.thickness = 0.008
-    so.offset = -1.0
-    parts = [ob]
-    # a narrow binding round the neckline
-    edge = []
-    for k in range(57):
-        th = 2 * math.pi * k / 56
-        edge.append(dress_pt(th, neckline(th), 0.001))
-    parts.append(lib.tube('binding', edge, [0.0045] * 57, M('dress_dark'), sides=6, cap=False, subsurf=0))
-    return parts
+    body = dress_body()
+    hem = lambda P: (HEM - 0.008 * np.sin(7 * np.arctan2(P[:, 1], P[:, 0]) + 0.5)) - P[:, 2]  # noqa: E731
+    c = intersect(shell(offset(body, -0.004), 0.008), hem, lambda P: P[:, 2] - neckline(P), k=0.003)
+    c = union(c, sleeve(1), sleeve(-1), k=0.02)
+    part('dress', c, (-0.44, -0.21, 0.33), (0.44, 0.21, 1.44), 0.0026, 'dress', 'dress', 14000)
+    # binding round the neckline; gathered cuffs where the sleeves are pushed up
+    bind = intersect(shell(offset(body, 0.0012), 0.005), lambda P: np.abs(P[:, 2] - neckline(P) + 0.004) - 0.0055, k=0.0015)
+    part('binding', bind, (-0.16, -0.14, 1.27), (0.16, 0.14, 1.43), 0.0009, 'dress_dark', 'dress', 1200)
+    for s, side in ((1, 'L'), (-1, 'R')):
+        d = (WR[s] - EL[s]) / np.linalg.norm(WR[s] - EL[s])
+        cuff = EL[s] + d * 0.06
+        gather = sdf.displace(torus(cuff, 0.041, 0.0085, sdf.frame(d)),
+                              lambda P, c=cuff: 0.0018 * np.sin(np.arctan2(*(P - c)[:, :2].T[::-1]) * 9))
+        part(f'gather_{side}', gather, cuff - 0.07, cuff + 0.07, 0.0009, 'dress_dark', f'sleeve_{side}', 900)
+    return body
+
+
+def apron_surface():
+    """The canvas hangs off her skirt, a little away from it towards the hem."""
+    plain = dress_body(fold=False)
+    return lambda P: plain(P) - (0.009 + 0.012 * ss(1.0, 0.6, P[:, 2]))
+
+
+def apron_angle(P):
+    th = np.arctan2(P[:, 1] / DEPTH, P[:, 0])
+    return np.degrees(np.arctan2(np.sin(th + np.pi / 2), np.cos(th + np.pi / 2)))
 
 
 def apron():
     """A painter's canvas apron: bib and skirt, the neck strap and waist ties, a bow at the back, a
     pocket full of brushes. The paint on it is in tint()."""
-    cols, rows = 40, 60
-    za, zb = 0.56, 1.262
-    bm = bmesh.new()
-    grid = []
-    for i in range(cols + 1):
-        u = i / cols
-        col = []
-        for j in range(rows + 1):
-            z = za + (zb - za) * j / rows
-            span = math.radians(128 - 70 * smooth01(1.03, 1.1, z))
-            th = -math.pi / 2 + (u - 0.5) * span
-            off = 0.009 + 0.012 * smooth01(1.0, 0.6, z)
-            col.append(bm.verts.new(dress_pt(th, z, off, folds=False)))
-        grid.append(col)
-    for i in range(cols):
-        for j in range(rows):
-            bm.faces.new([grid[i][j], grid[i + 1][j], grid[i + 1][j + 1], grid[i][j + 1]])
-    bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
-    ob = lib.obj_from_bm('apron', bm, M('apron'))
-    so = ob.modifiers.new('thick', 'SOLIDIFY')
-    so.thickness = 0.004
-    so.offset = -1.0
-    parts = [ob]
-    # neck strap from the corners of the bib, round the back of her neck
-    half = math.radians(29)
-    ca, cb = dress_pt(-math.pi / 2 + half, zb, 0.01, False), dress_pt(-math.pi / 2 - half, zb, 0.01, False)
-    strap = [ca, Vector((0.064, -0.035, 1.37)), Vector((0.05, 0.03, 1.405)), Vector((0.0, 0.052, 1.412)), Vector((-0.05, 0.03, 1.405)),
-             Vector((-0.064, -0.035, 1.37)), cb]
-    parts.append(lib.tube('strap', strap, [0.007] * len(strap), M('apron'), sides=8, squash=0.35, cap=False, subsurf=0))
-    # waist ties and the bow
-    ring = [dress_pt(2 * math.pi * k / 48, 1.064, 0.013, False) for k in range(49)]
-    parts.append(lib.tube('tie', ring, [0.0075] * 49, M('apron'), sides=8, squash=0.4, cap=False, subsurf=0,
-                          normals=[dress_normal(2 * math.pi * k / 48, 1.064) for k in range(49)]))
-    bow = Vector((0, dress_r(1.064) * DEPTH + 0.02, 1.064))
+    surf = apron_surface()
+
+    def region(P):
+        z = P[:, 2]
+        half = 64 - 35 * ss(1.03, 1.1, z)
+        side = (np.abs(apron_angle(P)) - half) * 0.0028
+        bottom = (0.56 + 0.004 * np.sin(apron_angle(P) * 0.15)) - z
+        return np.maximum(side, np.maximum(bottom, z - 1.262))
+    ap = intersect(shell(surf, 0.004), region, k=0.004)
+    part('apron', ap, (-0.25, -0.22, 0.54), (0.25, 0.0, 1.28), 0.0016, 'apron', 'dress', 9000)
+    plain = dress_body(fold=False)
+    # waist ties all the way round, and the bow at the back
+    # (over the apron at the front, snug on the dress behind)
+    tie = intersect(lambda P: np.abs(plain(P) - 0.004 - 0.008 * ss(52, 42, np.abs(apron_angle(P)))) - 0.002,
+                    lambda P: np.abs(P[:, 2] - 1.064) - 0.0075, k=0.002)
+    B = V((0, 0.123 * DEPTH + 0.021, 1.064))
+    bow = [ellipsoid(B, (0.011, 0.008, 0.012))]
     for s in (1, -1):
-        loop = [bow + Vector((s * 0.035 * math.sin(t), 0.008 * math.sin(t), 0.018 * math.sin(2 * t))) for t in (math.pi * k / 10 for k in range(11))]
-        parts.append(lib.tube('bow', loop, [0.006] * 11, M('apron'), sides=8, squash=0.45, normals=Vector((0, 1, 0))))
-        parts.append(lib.tube('bowtail', [bow, bow + Vector((s * 0.02, 0.012, -0.06)), bow + Vector((s * 0.03, 0.016, -0.12))],
-                              [0.007, 0.007, 0.006], M('apron'), sides=8, squash=0.4, normals=Vector((0, 1, 0))))
-    parts.append(lib.ellipsoid('knot', bow + Vector((0, 0.004, 0)), (0.012, 0.008, 0.012), M('apron'), segs=(12, 8)))
-    # the pocket, and brushes and a pencil standing in it
-    pc = dress_pt(-math.pi / 2 + 0.25, 0.86, 0.026, False)
-    parts.append(lib.ellipsoid('pocket', pc, (0.075, 0.006, 0.05), M('apron_dark'), segs=(20, 10)))
+        loop = torus(B + V((s * 0.024, 0.003, 0.002)), 0.017, 0.0052, sdf.frame((0, 1, 0)))
+        bow.append(intersect(loop, lambda P: np.abs(P[:, 1] - B[1] - 0.003) - 0.0045, k=0.002))
+        for p0, p1 in ((B, B + V((s * 0.02, 0.012, -0.06))), (B + V((s * 0.02, 0.012, -0.06)), B + V((s * 0.03, 0.016, -0.12)))):
+            al = p1 - p0
+            bow.append(box((p0 + p1) / 2, (0.0075, 0.0018, np.linalg.norm(al) / 2 + 0.004), 0.0014, sdf.frame(al, (1, 0, 0))))
+    tie = union(tie, union(*bow, k=0.003), k=0.004)
+    part('ties', tie, (-0.2, -0.2, 0.92), (0.2, 0.2, 1.09), 0.0012, 'apron', 'dress', 2600)
+    # neck strap from the corners of the bib, round the back of her neck
+    pts = [V(p) for p in ((0.062, -0.1, 1.262), (0.064, -0.05, 1.36), (0.05, 0.03, 1.405), (0.0, 0.054, 1.413), (-0.05, 0.03, 1.405),
+                          (-0.064, -0.05, 1.36), (-0.062, -0.1, 1.262))]
+    segs = []
+    for p0, p1 in zip(pts, pts[1:]):
+        al = p1 - p0
+        mid = (p0 + p1) / 2
+        radial = mid * V((1, 1, 0))
+        segs.append(box(mid, (0.0016, 0.0072, np.linalg.norm(al) / 2 + 0.004), 0.0012, sdf.frame(al, radial)))
+    part('strap', union(*segs, k=0.004), (-0.1, -0.13, 1.24), (0.1, 0.08, 1.43), 0.0009, 'apron', 'neck', 1200)
+    # the pocket, stuffed with brushes
+    p = on(surf, (math.cos(math.radians(-76)) * 0.4, math.sin(math.radians(-76)) * 0.4, 0.86), (-math.cos(math.radians(-76)), -math.sin(math.radians(-76)), 0))
+    R = figure.frame_on(surf, p)
+    pocket = intersect(offset(surf, 0.009), box(p, (0.075, 0.03, 0.05), 0.011, R), k=0.004)
+    part('pocket', pocket, p - 0.1, p + 0.1, 0.0012, 'apron_dark', 'dress', 1600)
+    n = -R[:, 1]
     for k, (dx, h, tipcol) in enumerate(((-0.03, 0.15, 'brush_b'), (0.0, 0.17, 'brush_g'), (0.028, 0.12, 'bristle'))):
-        b0 = pc + Vector((dx, -0.002, 0.01))
-        b1 = b0 + Vector((dx * 0.3, -0.004, h))
-        parts.append(lib.tube('brush', [b0, b1], [0.0045, 0.0035], M('wood'), sides=6, subsurf=0))
-        parts.append(lib.tube('ferrule', [b1, b1 + Vector((0, 0, 0.012))], [0.0042, 0.004], M('gold'), sides=6, subsurf=0))
-        parts.append(lib.tube('bristles', [b1 + Vector((0, 0, 0.012)), b1 + Vector((0, 0, 0.03))], [0.0042, 0.0012], M(tipcol), sides=6, subsurf=0))
-    return parts
+        b0 = p + R[:, 0] * dx + n * 0.004 + V((0, 0, 0.02))
+        b1 = b0 + V((dx * 0.3, 0, h)) - n * 0.004
+        f1 = b1 + V((0, 0, 0.012))
+        lo, hi = np.minimum(b0, f1) - 0.04, np.maximum(b0, f1) + 0.04
+        part(f'brush{k}', cone(b0, b1, 0.0046, 0.0033), lo, hi, 0.0006, 'wood', 'dress', 300)
+        part(f'ferrule{k}', cylinder((b1 + f1) / 2, 0.0041, 0.006, 0.0008, sdf.frame(f1 - b1)), lo, hi, 0.0005, 'gold', 'dress', 200)
+        part(f'bristles{k}', cone(f1, f1 + V((0, 0, 0.02)), 0.0042, 0.0007), lo, hi, 0.0005, tipcol, 'dress', 200)
 
 
-# --- limbs -----------------------------------------------------------------------------------
+# --- limbs ---------------------------------------------------------------------------------------
 
-# arms in Ada's layout (the same angles, so shared clips pose them the same way), adult lengths
-SH = {1: Vector((0.165, 0.0, 1.36))}
-EL = {1: SH[1] + Vector((0.12, 0.0, -0.155)).normalized() * 0.29}
-WR = {1: EL[1] + Vector((0.1, -0.01, -0.15)).normalized() * 0.25}
-for _d in (SH, EL, WR):
-    _d[-1] = Vector((-_d[1].x, _d[1].y, _d[1].z))
-
-
-def hand(s, side):
-    """A slender hand with fingers, relaxed and slightly curled, palm to her side."""
-    d = (WR[s] - EL[s]).normalized()
-    normal = Vector((-s, 0, 0))
-    normal = (normal - d * normal.dot(d)).normalized()  # palm faces in, towards her body
-    across = d.cross(normal).normalized()
-    if across.y > 0:
-        across = -across  # 'across' points to the thumb side (forwards)
-    hc = WR[s] + d * 0.044
-    q = Matrix((across, normal, d)).transposed()
-    parts = [lib.ellipsoid('palm', hc, (0.033, 0.016, 0.042), M('skin'), segs=(24, 16), rot=q)]
-    for k, (off, length) in enumerate(((0.019, 0.068), (0.0065, 0.078), (-0.0065, 0.074), (-0.018, 0.06))):
-        base = hc + d * 0.036 + across * off
-        mid = base + d * length * 0.5 + normal * 0.006
-        tip = base + d * length * 0.86 + normal * 0.02 + across * off * 0.15
-        r = 0.0068 - k * 0.0003
-        parts.append(lib.tube('finger', [base, mid, tip], [r, r * 0.9, r * 0.72], M('skin'), sides=10))
-    tb = hc - d * 0.012 + across * 0.026 + normal * 0.004
-    tm = tb + d * 0.022 + across * 0.016 + normal * 0.006
-    tt = tm + d * 0.026 + across * 0.004 + normal * 0.012
-    parts.append(lib.tube('thumb', [tb, tm, tt], [0.0095, 0.0078, 0.0062], M('skin'), sides=10))
-    return tag(parts, 'hand_' + side)
+HAND = figure.HandSpec(at=0.04, palm=(0.0115, 0.0235, 0.029), palm_round=0.0105, wrist=(0.0195, 0.0205), base=0.024,
+                       spread=0.0132, lengths=(0.03, 0.021, 0.017), finger_r=(0.0057, 0.0051), curl=(4, 14, 12),
+                       thumb=(0.024, 0.02), thumb_r=(0.0084, 0.0071, 0.0061), blend=(0.001, 0.006, 0.007))
 
 
 def arms():
-    parts = []
     for s, side in ((1, 'L'), (-1, 'R')):
-        sh, el, wr = SH[s], EL[s], WR[s]
-        d0 = (el - sh).normalized()
-        d = (wr - el).normalized()
-        # sleeves pushed up just past the elbow, gathered there
-        cuff = el + d * 0.06
-        pts = [sh - d0 * 0.055, sh, sh.lerp(el, 0.5), el, cuff]
-        parts += tag(lib.tube('sleeve', pts, [0.04, 0.046, 0.041, 0.039, 0.044], M('dress'), sides=16), 'sleeve_' + side)
-        a = d.cross(Vector((0, 1, 0))).normalized()
-        b = d.cross(a)
-        gather = [cuff + (a * math.cos(t) + b * math.sin(t)) * (0.041 + 0.003 * math.sin(t * 7)) for t in (2 * math.pi * k / 20 for k in range(21))]
-        parts += tag(lib.tube('gather', gather, [0.009] * 21, M('dress_dark'), sides=8, cap=False), 'sleeve_' + side)
-        parts += tag(lib.tube('forearm', [cuff - d * 0.02, el.lerp(wr, 0.55), wr + d * 0.012], [0.03, 0.026, 0.021], M('skin'), sides=14, cap=False),
-                     'forearm_' + side)
-        parts += hand(s, side)
+        el, wr = EL[s], WR[s]
+        d = (wr - el) / np.linalg.norm(wr - el)
+        forearm = tube([el + d * 0.035, el + (wr - el) * 0.5, wr], [0.03, 0.026, 0.021])
+        figure.hand(FIG, s, side, el, wr, HAND, 'skin', 3600, step=0.0009, extra=forearm, back=0.22, kind=f'arm_{side}')
         if s == 1:
-            # a thin gold bangle
-            ring = [wr - d * 0.004 + (a * math.cos(t) + b * math.sin(t)) * 0.025 for t in (2 * math.pi * k / 16 for k in range(17))]
-            parts += tag(lib.tube('bangle', ring, [0.0028] * 17, M('gold'), sides=6, cap=False, subsurf=0), 'forearm_' + side)
-    return parts
+            c = wr - d * 0.006
+            part('bangle', torus(c, 0.0245, 0.0028, sdf.frame(d)), c - 0.04, c + 0.04, 0.0005, 'gold', 'arm_L', 600)
 
 
 def legs():
-    parts = []
     for s, side in ((1, 'L'), (-1, 'R')):
         x = s * 0.088
-        parts += tag(lib.tube('leg', [(s * 0.082, 0, 0.92), (s * 0.086, -0.004, 0.7), (x, -0.006, 0.49), (x, 0.004, 0.3), (x, 0.0, 0.13)],
-                              [0.072, 0.058, 0.044, 0.042, 0.03], M('tights'), sides=16, cap=False), 'leg_' + side)
-        shoe = [(0.034, 0.02), (0.036, 0.06), (0.035, 0.1), (0.037, 0.115), (0.033, 0.118)]
-        parts += tag([lib.lathe('shoe', shoe, M('shoe'), segs=20, center=(x, 0.008, 0), depth=1.0),
-                      lib.ellipsoid('toe', (x, -0.07, 0.03), (0.036, 0.09, 0.03), M('shoe'), segs=(20, 12)),
-                      lib.ellipsoid('sole', (x, -0.04, 0.009), (0.04, 0.12, 0.01), M('sole'), segs=(20, 8)),
-                      lib.ellipsoid('heel', (x, 0.03, 0.018), (0.028, 0.028, 0.018), M('sole'), segs=(12, 8))], 'shoe_' + side)
-    return parts
+        leg = tube([(s * 0.082, 0, 0.92), (s * 0.086, -0.004, 0.7), (x, -0.006, 0.49), (x, 0.006, 0.36), (x, 0.004, 0.13), (x, -0.004, 0.06)],
+                   [0.072, 0.058, 0.044, 0.047, 0.028, 0.029])
+        leg = union(leg, ellipsoid((x, -0.045, 0.04), (0.03, 0.075, 0.024)), k=0.02)
+        part(f'leg_{side}', leg, (x - 0.09, -0.14, 0.0), (x + 0.09, 0.09, 0.96), 0.0024, 'tights', f'leg_{side}', 2200)
+        # Mary Jane shoes: a rounded toe, a low heel, a strap over the instep
+        foot = union(ellipsoid((x, -0.066, 0.03), (0.036, 0.088, 0.03)), ellipsoid((x, 0.016, 0.034), (0.032, 0.04, 0.034)), k=0.025)
+        shoe = subtract(foot, ellipsoid((x, -0.008, 0.074), (0.03, 0.068, 0.038)), k=0.004)
+        shoe = intersect(shoe, lambda P: 0.012 - P[:, 2], k=0.002)
+        strap = intersect(shell(offset(foot, 0.0012), 0.0035), lambda P: np.abs(P[:, 1] + 0.03) - 0.0055, lambda P: 0.03 - P[:, 2], k=0.001)
+        shoe = union(shoe, strap, k=0.002)
+        shoe = union(shoe, sdf.sphere((x + s * 0.034, -0.03, 0.045), 0.0035), k=0.001)
+        part(f'shoe_{side}', shoe, (x - 0.06, -0.17, 0.0), (x + 0.06, 0.07, 0.09), 0.0011, 'shoe', f'shoe_{side}', 2600)
+        prof = union(ellipsoid((x, -0.068, 0.0), (0.039, 0.092, 1.0)), ellipsoid((x, 0.016, 0.0), (0.035, 0.043, 1.0)), k=0.02)
+        sole = union(intersect(prof, lambda P: np.abs(P[:, 2] - 0.007) - 0.007, k=0.002),
+                     intersect(prof, box((x, 0.03, 0.012), (0.04, 0.03, 0.012), 0.003), k=0.002), k=0.002)
+        part(f'sole_{side}', sole, (x - 0.06, -0.17, -0.01), (x + 0.06, 0.07, 0.04), 0.001, 'sole', f'shoe_{side}', 900)
 
 
-# --- paint -----------------------------------------------------------------------------------
+# --- paint ---------------------------------------------------------------------------------------
 
 PAINT = [((0.052, 0.98), 0.03, (0.48, 0.7, 0.38)), ((-0.072, 0.72), 0.022, (0.48, 0.7, 0.38)), ((-0.04, 1.18), 0.018, (0.3, 0.48, 0.66)),
          ((0.082, 0.66), 0.026, (0.3, 0.48, 0.66)), ((0.0, 0.79), 0.022, (1.0, 0.8, 0.36)), ((-0.088, 0.95), 0.016, (1.0, 0.8, 0.36)),
@@ -472,15 +485,28 @@ def tint(p, kind, mname):
     if mname == 'mum_skin':
         c = one
         for s in (1, -1):
-            d = (p - Vector((s * 0.05, -0.075, 1.556))).length
-            b = math.exp(-(d / 0.022) ** 2) * 0.6
+            d = (p - Vector((s * 0.046, -0.07, 1.558))).length
+            b = math.exp(-(d / 0.02) ** 2) * 0.6
             c = (c[0], c[1] * (1 - 0.14 * b), c[2] * (1 - 0.17 * b))
-        k = 0.9 + 0.1 * smooth01(1.36, 1.44, p.z) if kind == 'neck' else 1.0
-        return (c[0] * k, c[1] * k, c[2] * k)
+        k = 0.92 + 0.08 * smooth01(1.36, 1.44, p.z)
+        c = (c[0] * k, c[1] * k, c[2] * k)
+        if 1.54 < p.z < 1.6 and p.y < -0.04:
+            f = 0.0
+            for q, r, a in FRECKLES:
+                f = max(f, a * math.exp(-((p - q).length / r) ** 2))
+            c = (c[0] * (1 - 0.28 * f), c[1] * (1 - 0.5 * f), c[2] * (1 - 0.62 * f))
+        return c
+    if mname == 'mum_iris':
+        return figure.iris_shade(p, IRIS_C['L' if p.x > 0 else 'R'], IRIS, PUPIL)
     if mname == 'mum_hair':
-        # darker at the roots and underneath, catching the light on the waves
-        k = 0.8 + 0.2 * smooth01(1.2, 1.66, p.z) + 0.06 * noise.noise(Vector((p.x * 60, p.y * 60, p.z * 12)))
-        return (k, k * 0.98, k * 0.95)
+        # darker at the roots and underneath, each lock its own shade, light catching on the waves
+        q = p - Vector(tuple(HAIR_C))
+        th = np.array([math.atan2(q.y, q.x)])
+        grooves = float(lock_grooves(th, 8.0, 1.0, 1.3)[0])
+        k = (0.8 + 0.2 * smooth01(1.2, 1.66, p.z)) * (1 - 0.25 * grooves)
+        k *= 1.0 + 0.06 * noise.noise(Vector((p.x * 60, p.y * 60, p.z * 12)))
+        sheen = math.exp(-((p.z - 1.69) / 0.02) ** 2) * (1 - grooves)
+        return (k + 0.2 * sheen, k * 0.98 + 0.18 * sheen, k * 0.95 + 0.15 * sheen)
     if mname == 'mum_dress':
         k = 0.9 + 0.1 * smooth01(0.38, 0.8, p.z)
         return (k, k, k)
@@ -491,14 +517,14 @@ def tint(p, kind, mname):
             if q < r:
                 return col
         n = noise.noise(Vector((p.x * 140, p.y * 140, p.z * 140)))
-        if n > 0.62:
+        if n > 0.62 and p.y < 0:
             return (0.48, 0.7, 0.38) if p.x > 0.02 else (0.3, 0.48, 0.66) if p.x < -0.02 else (1.0, 0.8, 0.36)
         k = 0.95 + 0.05 * smooth01(0.56, 0.9, p.z)
         return (k, k, k * 0.98)
     return one
 
 
-# --- rig -------------------------------------------------------------------------------------
+# --- rig -----------------------------------------------------------------------------------------
 
 def bones():
     B = [('hips', (0, 0, 0.9), (0, 0, 1.02), None),
@@ -506,18 +532,19 @@ def bones():
          ('chest', (0, 0, 1.18), (0, 0, 1.37), 'spine'),
          ('neck', (0, 0, 1.37), (0, 0, 1.47), 'chest'),
          ('head', (0, 0, 1.47), (0, 0, 1.72), 'neck'),
-         ('mouth', (0, -0.09, 1.517), (0, -0.09, 1.535), 'head'),
+         # opens her lips from the line between them
+         ('mouth', (0, -0.09, MOUTH_Z), (0, -0.09, MOUTH_Z + 0.018), 'head'),
          # the braid swings on what are Ada's scarf bones
          ('scarf1', tuple(BRAID[2]), tuple(BRAID[5]), 'chest'),
-         ('scarf2', tuple(BRAID[5]), tuple(BRAID[7] + Vector((0, 0, -0.05))), 'scarf1'),
+         ('scarf2', tuple(BRAID[5]), tuple(BRAID[7] + V((0, 0, -0.05))), 'scarf1'),
          ('bag', (-0.17, 0, 0.98), (-0.19, 0, 0.9), 'hips')]
     for s, side in ((1, 'L'), (-1, 'R')):
-        d = (WR[s] - EL[s]).normalized()
-        B += [(f'eye_{side}', (s * 0.032, -0.08, 1.588), (s * 0.032, -0.08, 1.612), 'head'),
-              (f'shoulder_{side}', (s * 0.04, 0, 1.335), SH[s], 'chest'),
-              (f'upperarm_{side}', SH[s], EL[s], f'shoulder_{side}'),
-              (f'forearm_{side}', EL[s], WR[s], f'upperarm_{side}'),
-              (f'hand_{side}', WR[s], WR[s] + d * 0.11, f'forearm_{side}'),
+        d = (WR[s] - EL[s]) / np.linalg.norm(WR[s] - EL[s])
+        B += [(f'eye_{side}', (s * 0.033, -0.08, 1.5905), (s * 0.033, -0.08, 1.612), 'head'),
+              (f'shoulder_{side}', (s * 0.04, 0, 1.335), tuple(SH[s]), 'chest'),
+              (f'upperarm_{side}', tuple(SH[s]), tuple(EL[s]), f'shoulder_{side}'),
+              (f'forearm_{side}', tuple(EL[s]), tuple(WR[s]), f'upperarm_{side}'),
+              (f'hand_{side}', tuple(WR[s]), tuple(WR[s] + d * 0.11), f'forearm_{side}'),
               (f'thigh_{side}', (s * 0.085, 0, 0.9), (s * 0.088, -0.006, 0.49), 'hips'),
               (f'shin_{side}', (s * 0.088, -0.006, 0.49), (s * 0.088, 0.005, 0.085), f'thigh_{side}'),
               (f'foot_{side}', (s * 0.088, 0.005, 0.085), (s * 0.088, -0.13, 0.03), f'shin_{side}')]
@@ -550,41 +577,60 @@ def dress_weights(p):
     return w
 
 
+def head_weights(p):
+    x, y, z = p
+    r = math.hypot(x, y - 0.012)
+    hw = max(smooth01(1.47, 1.53, z), smooth01(0.05, 0.068, r) * smooth01(1.45, 1.5, z))
+    cw = smooth01(1.42, 1.35, z) * (1 - hw)
+    return {'head': hw, 'chest': cw, 'neck': max(0.0, 1 - hw - cw)}
+
+
+def hair_weights(p):
+    # the long hair hangs from her head but lies on her back: blend down from head to chest
+    t = smooth01(1.52, 1.34, p.z) * smooth01(-0.02, 0.04, p.y)
+    return {'head': 1 - t, 'chest': t}
+
+
 def weight_fn(kind, segs):
     def seg(*names, mult=None, power=5.0):
         sub = {n: segs[n] for n in names}
         return lambda p: lib.dist_weights(p, sub, mult, power)
     if kind == 'head':
-        return lambda p: {'head': 1.0}
+        return head_weights
     if kind in ('eye_L', 'eye_R', 'mouth'):
         return lambda p: {kind: 1.0}
-    if kind == 'hairback':
-        # the long hair hangs from her head but lies on her back: blend down from head to chest
+    if kind == 'hair':
+        braid = seg('neck', 'scarf1', 'scarf2', mult={'neck': 0.6}, power=4)
+
         def w(p):
-            t = smooth01(1.5, 1.3, p.z)
-            return {'head': 1 - t, 'neck': 0.35 * t * (1 - t) * 4 * 0.25, 'chest': t}
+            # the braid (forward of her right shoulder) swings on its own bones
+            b = smooth01(-0.05, -0.08, p.x) * smooth01(-0.0, -0.04, p.y) * smooth01(1.52, 1.46, p.z)
+            out = {k: v * (1 - b) for k, v in hair_weights(p).items()}
+            bw = braid(p)
+            sb = sum(bw.values())
+            for k2, v in bw.items():
+                out[k2] = out.get(k2, 0.0) + b * v / sb
+            return out
         return w
     if kind == 'braid':
         return seg('neck', 'scarf1', 'scarf2', mult={'neck': 0.6}, power=4)
     if kind == 'neck':
-        return seg('chest', 'neck', 'head', mult={'head': 0.6})
+        return seg('chest', 'neck', mult={'neck': 0.7})
     if kind == 'dress':
-        return dress_weights
+        return figure.sleeve_weights(dress_weights, segs, near=0.05, far=0.075)
     side = kind[-1]
     if kind.startswith('sleeve'):
-        return seg('chest', f'shoulder_{side}', f'upperarm_{side}', f'forearm_{side}', mult={'chest': 0.4}, power=6)
-    if kind.startswith('forearm'):
-        return seg(f'forearm_{side}', f'hand_{side}', mult={f'hand_{side}': 0.3}, power=6)
-    if kind.startswith('hand'):
-        return lambda p: {f'hand_{side}': 1.0}
+        return seg(f'upperarm_{side}', f'forearm_{side}', power=6)
+    if kind.startswith('arm'):
+        return seg(f'forearm_{side}', f'hand_{side}', mult={f'hand_{side}': 1.4}, power=8)
     if kind.startswith('leg'):
-        return seg('hips', f'thigh_{side}', f'shin_{side}', mult={'hips': 0.5}, power=6)
+        return seg('hips', f'thigh_{side}', f'shin_{side}', f'foot_{side}', mult={'hips': 0.5, f'foot_{side}': 0.6}, power=6)
     if kind.startswith('shoe'):
         return seg(f'shin_{side}', f'foot_{side}', power=6)
     raise ValueError(kind)
 
 
-# --- her own clips ---------------------------------------------------------------------------
+# --- her own clips -------------------------------------------------------------------------------
 
 def arms_down(lean=0.0):
     return {'upperarm_L': {'rx': 2.0 + lean, 'ry': 12.0}, 'forearm_L': {'rx': -16.0, 'ry': 4.0}, 'hand_L': {'rx': -6.0}}
@@ -660,31 +706,31 @@ def author_own(arm):
 
 def build():
     lib.reset()
+    PARTS.clear()
     bpy.context.scene.render.fps = 30
-    parts = head() + eyes()
-    parts += tag([hair_cap()] + fringe(), 'head')
-    parts += tag([curtain()], 'hairback')
-    parts += tag(braid(), 'braid')
-    parts += tag(dress() + apron(), 'dress')
-    parts += arms() + legs()
-    for ob in parts:
-        lib.apply_modifiers(ob)
+    base = head()
+    hair(base)
+    dress()
+    apron()
+    arms()
+    legs()
+    eyes = ('mum_eye_white', 'mum_iris', 'mum_eye_hi', 'mum_lash')
+    ao = sdf.bake_ao([o for o in PARTS if o.data.materials[0].name not in eyes], distance=0.06, samples=64)
+    figure.paint(PARTS, tint, ao, no_ao=eyes)
     arm = lib.armature('mum_rig', bones())
     segs = {b.name: (b.head_local.copy(), b.tail_local.copy()) for b in arm.data.bones}
-    for ob in parts:
-        kind = ob['kind']
-        lib.paint(ob, lambda p, k=kind, m=ob.data.materials[0].name: tint(p, k, m))
-        lib.set_weights(ob, weight_fn(kind, segs))
-    body = lib.join(parts, 'mum')
+    for ob in PARTS:
+        lib.set_weights(ob, weight_fn(ob['kind'], segs))
+    body = lib.join(PARTS, 'mum')
     lib.bind(body, arm)
+    print('mum:', sum(len(p.vertices) - 2 for p in body.data.polygons), 'tris')
     return arm, [body]
 
 
-def rest(arm):
-    for pb in arm.pose.bones:
-        pb.rotation_quaternion = (1, 0, 0, 0)
-        pb.location = (0, 0, 0)
-        pb.scale = (1, 1, 1)
+VIEW = {'front': (-20, 3.1, (0, 0, 0.86)), 'back': (160, 3.1, (0, 0, 0.86)), 'side': (-90, 3.1, (0, 0, 0.86)),
+        'face': (0, 0.5, (0, 0, 1.58)), 'face3q': (-35, 0.5, (0, 0, 1.58)), 'faceside': (-80, 0.55, (0, 0, 1.58)),
+        'bust': (-25, 1.2, (0, 0, 1.3)), 'hands': (-60, 0.8, (0.2, 0, 1.0)), 'feet': (-30, 0.8, (0, 0, 0.15)),
+        'backc': (165, 1.4, (0, 0, 1.25))}
 
 
 if __name__ == '__main__':
@@ -696,11 +742,9 @@ if __name__ == '__main__':
     author_own(arm)
     if '--preview' in argv:
         out = argv[argv.index('--preview') + 1]
-        rest(arm)
-        views = os.environ.get('VIEWS', 'front,back,side,face,face3q').split(',')
-        for name in views:
-            yaw = {'front': -20, 'back': 160, 'side': -90, 'face': 0, 'face3q': -35}[name]
-            dist, tgt = (0.5, (0, 0, 1.58)) if name.startswith('face') else (3.1, (0, 0, 0.86))
+        figure.rest_pose(arm)
+        for name in os.environ.get('VIEWS', 'front,back,side,face,face3q').split(','):
+            yaw, dist, tgt = VIEW[name]
             lib.preview(out.replace('.png', f'_{name}.png'), target=tgt, dist=dist, yaw=yaw, pitch=4, size=(700, 900), lens=55)
     if '--poses' in argv:
         shots = [(n, int(f)) for n, f in (s.split(':') for s in os.environ.get('SHOTS', 'idle:0,idle:48,talk:12,walk:7,kneel_hug:10,kneel_hold:10').split(','))]
@@ -717,6 +761,7 @@ if __name__ == '__main__':
             lib.preview(os.path.join(d, f'{i:02d}_{name}_{f}.png'), target=(0, 0, 0.82), dist=3.2, yaw=yaw, pitch=8, size=(360, 480), lens=50, samples=10)
         ad.action = None
     if '--export' in argv:
+        figure.rest_pose(arm)
         # she only ever stands, talks, walks a little and kneels: leave Ada's other clips out
         keep = {'idle', 'talk', 'walk', 'kneel_hug', 'kneel_hold', 'blink', 'speak'}
         ad = arm.animation_data
