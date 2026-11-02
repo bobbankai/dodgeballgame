@@ -55,12 +55,18 @@ interface Bottle {
 /** A corked glass bottle, small enough to fish out of the water with one hand. */
 function bottleMesh() {
   const g = new THREE.Group();
-  const profile = [[0, 0], [0.085, 0], [0.1, 0.025], [0.1, 0.2], [0.086, 0.245], [0.042, 0.29], [0.036, 0.36], [0.043, 0.375], [0, 0.375]];
-  const glass = new THREE.Mesh(new THREE.LatheGeometry(profile.map(([x, y]) => new THREE.Vector2(x, y)), 14),
-    inkMaterial({ color: 0x8fc8b6, alwaysColor: true, emissive: 0.18, hatch: 0.25, soft: 0.2 }));
-  const cork = new THREE.Mesh(new THREE.CylinderGeometry(0.034, 0.03, 0.07, 8), inkMaterial({ color: 0xa47a4c, alwaysColor: true, hatch: 0.4 }));
+  // a punted base, the body, a rounded shoulder easing into the neck, a rolled lip
+  const profile: [number, number][] = [[0, 0.012], [0.05, 0.004], [0.084, 0], [0.097, 0.012], [0.1, 0.03], [0.1, 0.2], [0.097, 0.226],
+    [0.086, 0.248], [0.066, 0.268], [0.046, 0.286], [0.037, 0.305], [0.035, 0.345], [0.04, 0.352], [0.044, 0.362], [0.04, 0.373], [0.03, 0.376], [0, 0.376]];
+  const glass = new THREE.Mesh(new THREE.LatheGeometry(profile.map(([x, y]) => new THREE.Vector2(x, y)), 36),
+    inkMaterial({ color: 0x8fc8b6, alwaysColor: true, emissive: 0.18, hatch: 0.25, soft: 0.2, gloss: 0.9, glossSize: 0.12, glossWhite: 1 }));
+  // the cork: tapered, its top a little domed, pushed in not quite straight
+  const corkProfile: [number, number][] = [[0, -0.035], [0.029, -0.035], [0.035, 0.025], [0.033, 0.034], [0.022, 0.039], [0, 0.04]];
+  const cork = new THREE.Mesh(new THREE.LatheGeometry(corkProfile.map(([x, y]) => new THREE.Vector2(x, y)), 18),
+    inkMaterial({ color: 0xa47a4c, alwaysColor: true, hatch: 0.4 }));
   cork.position.y = 0.39;
-  const scroll = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.15, 10, 1, true), inkMaterial({ color: 0xf6eed6, alwaysColor: true, emissive: 0.35, hatch: 0, side: THREE.DoubleSide }));
+  cork.rotation.z = 0.06;
+  const scroll = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.15, 20, 1, true), inkMaterial({ color: 0xf6eed6, alwaysColor: true, emissive: 0.35, hatch: 0, side: THREE.DoubleSide }));
   scroll.position.y = 0.42;
   scroll.scale.set(0.6, 0.6, 0.6);
   g.add(glass, cork, scroll);

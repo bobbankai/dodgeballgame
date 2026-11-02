@@ -14,12 +14,12 @@ import kit
 import lib
 import sdf
 from kit import box, nocol, sculpt
-from sdf import V
+from sdf import V, box as sbox, tube
 
 PAL = {
     'lh_white': '#EEE8DA', 'lh_red': '#B5423A', 'copper': '#3E6E66', 'glass': '#35507A', 'brass': '#C9A04A',
     'lens': '#E8D9A8', 'hull': '#2F6488', 'hull_top': '#EEE8DA', 'hull_in': '#E2D6BC', 'sail': '#F4EEDC', 'wood': '#9A7550', 'wood_dark': '#5E4632',
-    'rope': '#B59A6A', 'rock': '#8E8A80', 'rock_dark': '#6E6A62', 'chalk': '#E4DDCB', 'ink': '#1F3C66', 'label': '#F0E6CC',
+    'rope': '#B59A6A', 'drift': '#B9AE9A', 'rock': '#8E8A80', 'rock_dark': '#6E6A62', 'chalk': '#E4DDCB', 'ink': '#1F3C66', 'label': '#F0E6CC',
     'cork': '#B88A58', 'buoy_red': '#C24A3A', 'buoy_white': '#F2EEE6', 'tar': '#3A3A40', 'net': '#7A6A55', 'kelp': '#4F7E43',
 }
 
@@ -429,12 +429,22 @@ def pier(length=18.0, width=2.4):
     for i in range(n):
         y = i * 0.35
         parts.append(box('pplank', (width, 0.32, 0.08), (0, y, 1.25 + rnd.uniform(-0.01, 0.01)), M('wood'), rot=Matrix.Rotation(rnd.uniform(-0.02, 0.02), 3, 'Z')))
-    for i in range(int(length / 2.4) + 1):
-        y = i * 2.4
+    ys = [i * 2.4 for i in range(int(length / 2.4) + 1)]
+    for y in ys:
         for s in (-1, 1):
-            parts.append(lib.tube('ppile', [(s * (width / 2 - 0.1), y, -3.0), (s * (width / 2 - 0.1), y, 1.9)], [0.13, 0.12], M('wood_dark'), sides=7, subsurf=0))
+            x = s * (width / 2 - 0.1)
+            lean = Vector((rnd.uniform(-0.03, 0.03), rnd.uniform(-0.03, 0.03), 0))
+            parts.append(lib.tube('ppile', [(x, y, -3.0), Vector((x, y, 0.0)) + lean * 0.5, Vector((x, y, 1.95)) + lean],
+                                  [0.15, 0.135, 0.12], M('wood_dark'), sides=12, subsurf=0))
+            parts.append(ring_tube('prope_turn', (x + lean.x, y + lean.y, 0), 0.14, 0.028, 'rope', z=1.8))
     for s in (-1, 1):
-        parts.append(lib.tube('prail', [(s * (width / 2 - 0.1), 0, 1.85), (s * (width / 2 - 0.1), length - 0.3, 1.85)], [0.04, 0.04], M('rope'), sides=5, subsurf=0))
+        x = s * (width / 2 - 0.1)
+        pts = []
+        for a, b in zip(ys, ys[1:]):
+            for t in np.linspace(0.0, 1.0, 7)[:-1]:
+                pts.append((x, a + (b - a) * t, 1.8 - 0.16 * math.sin(math.pi * t)))
+        pts.append((x, ys[-1], 1.8))
+        parts.append(lib.tube('prail', pts, [0.026] * len(pts), M('rope'), sides=8, subsurf=0))
     return parts
 
 
@@ -513,25 +523,49 @@ def bottle():
 
 
 def buoy(color='buoy_red'):
-    return [lib.lathe('buoy', [(0.0, -0.3), (0.35, -0.1), (0.4, 0.2), (0.25, 0.5), (0.0, 0.55)], M(color), segs=12, subsurf=0),
-            lib.tube('buoy_pole', [(0, 0, 0.5), (0, 0, 1.2)], [0.04, 0.03], M('tar'), sides=5, subsurf=0)]
+    """A mooring buoy: a fat round float with a band of the other colour, a pole and a ball topmark."""
+    other = 'buoy_white' if color == 'buoy_red' else 'buoy_red'
+    return [lib.lathe('buoy', [(0.0, -0.32), (0.22, -0.28), (0.36, -0.14), (0.42, 0.04), (0.42, 0.2), (0.34, 0.4), (0.18, 0.52), (0.0, 0.56)],
+                      M(color), segs=32, subsurf=1),
+            ring_tube('buoy_band', (0, 0, 0), 0.425, 0.045, other, z=0.12, n=40),
+            lib.tube('buoy_pole', [(0, 0, 0.45), (0, 0, 1.25)], [0.04, 0.032], M('tar'), sides=10, subsurf=0),
+            lib.ellipsoid('buoy_mark', (0, 0, 1.33), (0.1, 0.1, 0.1), M(other), segs=(16, 10))]
 
 
 def driftwood(seed):
+    """A sea-bleached branch: bent, forked, its ends worn to points, the grain standing out."""
     rnd = random.Random(seed)
     a = rnd.uniform(0, math.pi)
-    d = Vector((math.cos(a), math.sin(a), 0))
+    d = V((math.cos(a), math.sin(a), 0))
+    n = V((-d[1], d[0], 0))
     L = rnd.uniform(1.5, 3.2)
-    return [lib.tube('drift', [-d * L / 2 + Vector((0, 0, 0.12)), d * 0.2 + Vector((0, 0, 0.16)), d * L / 2 + Vector((0, 0, 0.1))], [0.14, 0.12, 0.07],
-                     kit.M('bark'), sides=6, subsurf=0)]
+    pts = [d * (-L / 2 + L * t) + n * 0.12 * math.sin(t * 5 + seed) + V((0, 0, 0.12 + 0.04 * t)) for t in np.linspace(0, 1, 6)]
+    f = tube(pts, [0.03, 0.13, 0.14, 0.12, 0.08, 0.02])
+    fork = pts[2] + d * L * 0.25 + n * rnd.choice((-1, 1)) * L * 0.18 + V((0, 0, 0.05))
+    f = sdf.union(f, tube([pts[2], (pts[2] + fork) / 2, fork], [0.08, 0.06, 0.015]), k=0.05)
+    f = sdf.displace(f, lambda P: 0.012 * (sdf.noise(P - np.outer(P @ d, d) * 0.8, 9.0, seed) - 0.5) + 0.008 * (sdf.noise(P, 4.0, seed + 1) - 0.5))
+    f = sdf.intersect(f, lambda P: -0.02 - P[:, 2])     # resting on the sand
+    return [sculpt('drift', f, (-L / 2 - 0.6, -L / 2 - 0.6, -0.1), (L / 2 + 0.6, L / 2 + 0.6, 0.5), 0.012, M('drift'), 1600, sharp=40.0)]
 
 
 def lobster_pot():
-    parts = [lib.lathe('pot', [(0.0, 0.0), (0.35, 0.0), (0.35, 0.3), (0.0, 0.32)], M('net'), segs=10, subsurf=0)]
-    for k in range(5):
-        a = math.pi * k / 4
-        parts.append(lib.tube('pot_hoop', [(math.cos(a) * 0.36, math.sin(a) * 0.36 * 0, 0.0), (0, 0, 0.42), (-math.cos(a) * 0.36, 0, 0.0)],
-                              [0.015] * 3, M('wood_dark'), sides=4, subsurf=0))
+    """A creel: a wooden base, three bent hoops over it, netting stretched across them."""
+    base = sbox((0, 0, 0.03), (0.38, 0.27, 0.03), 0.012)
+    hoops = sdf.union(*[sdf.intersect(sdf.torus((x, 0, 0.05), 0.25, 0.016, sdf.rot(0, 90, 0)), lambda P: 0.04 - P[:, 2]) for x in (-0.3, 0.0, 0.3)])
+    parts = [sculpt('pot_frame', sdf.union(base, hoops, k=0.01), (-0.5, -0.4, -0.05), (0.5, 0.4, 0.4), 0.008, M('wood_dark'), 1600)]
+
+    def net(P):
+        x, y, z = P[:, 0], P[:, 1], P[:, 2] - 0.05
+        r = np.hypot(y, z)
+        skin = np.maximum(np.abs(r - 0.245) - 0.006, np.maximum(-z, np.abs(x) - 0.3))
+        ends = np.maximum(np.abs(np.abs(x) - 0.3) - 0.006, np.maximum(r - 0.245, -z))
+        th = np.arctan2(z, y)
+        u, v = th * 0.245 / 0.06, x / 0.06
+        mesh = np.minimum(np.abs(u - np.round(u)), np.abs(v - np.round(v))) * 0.06 - 0.006
+        cu, cv = y / 0.06, z / 0.06
+        mesh_end = np.minimum(np.abs(cu - np.round(cu)), np.abs(cv - np.round(cv))) * 0.06 - 0.006
+        return np.minimum(np.maximum(skin, mesh), np.maximum(ends, mesh_end))
+    parts.append(sculpt('pot_net', net, (-0.45, -0.4, 0.0), (0.45, 0.4, 0.4), 0.005, M('net'), 3500))
     return parts
 
 
