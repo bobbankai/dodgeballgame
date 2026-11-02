@@ -32,7 +32,7 @@ def M(name):
 def hand_made(bm, size, seed, amount=1.0):
     """Nothing in a drawn village is quite true: nudge every vertex a little (more on bigger pieces),
     smoothly, so faces stay faces but edges lean and sag."""
-    k = min(0.022, 0.006 * max(size)) * amount
+    k = min(0.012, 0.004 * max(size)) * amount
     off = Vector((seed * 1.37, seed * 2.11, seed * 0.73))
     for v in bm.verts:
         q = v.co * (1.3 / max(0.3, max(size))) + off

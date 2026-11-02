@@ -18,6 +18,9 @@ from mathutils import Matrix, Vector
 sys.path.insert(0, os.path.dirname(__file__))
 import kit  # noqa: E402
 import lib  # noqa: E402
+import numpy as np  # noqa: E402
+import sdf  # noqa: E402
+from sdf import V, cone, cylinder, ellipsoid, intersect, subtract, tube, union  # noqa: E402
 
 PAL = {
     'floor': '#A8774E', 'floor2': '#9B6C45', 'plaster': '#E9DCC4', 'beam': '#6B4A33', 'rug': '#B9583F', 'rug2': '#E2B65A',
@@ -33,8 +36,20 @@ def M(name):
     return lib.mat('attic_' + name, PAL[name])
 
 
-def B(name, size, loc, mat, rot=None, bevel=None):
-    return kit.box(name, size, loc, M(mat), rot=rot, bevel=bevel)
+def B(name, size, loc, mat, rot=None, bevel=None, wobble=1.0):
+    return kit.box(name, size, loc, M(mat), rot=rot, bevel=bevel, wobble=wobble)
+
+
+def S(name, f, lo, hi, step, mat, tris, sharp=50.0):
+    return kit.sculpt(name, f, lo, hi, step, M(mat), tris, sharp)
+
+
+def turned_leg(x, y, z0, z1, r):
+    """A turned wooden leg: a bead and collar under the top, a long taper, a little foot."""
+    h = z1 - z0
+    prof = [(r * 0.75, z0), (r * 0.95, z0 + h * 0.04), (r * 0.62, z0 + h * 0.1), (r * 0.8, z0 + h * 0.62), (r * 1.05, z0 + h * 0.74),
+            (r * 0.8, z0 + h * 0.8), (r * 1.0, z0 + h * 0.86), (r * 1.0, z1)]
+    return sdf.intersect(sdf.revolve(prof, c=(x, y, 0)), lambda P: np.maximum(z0 - P[:, 2], P[:, 2] - z1), k=r * 0.3)
 
 
 def roof_z(x):
@@ -49,14 +64,14 @@ def shell():
     n = 20
     for i in range(n):
         x = -W + (i + 0.5) * (2 * W / n)
-        parts.append(B('board', (2 * W / n - 0.012, 2 * L, 0.06 + rnd.uniform(0, 0.01)), (x, 0, -0.03), 'floor' if i % 3 else 'floor2'))
+        parts.append(B('board', (2 * W / n - 0.012, 2 * L, 0.06 + rnd.uniform(0, 0.01)), (x, 0, -0.03), 'floor' if i % 3 else 'floor2', wobble=0))
     # knee walls and the two sloping ceilings
     for s in (-1, 1):
-        parts.append(B('knee', (0.1, 2 * L, KNEE), (s * (W + 0.05), 0, KNEE / 2), 'plaster'))
+        parts.append(B('knee', (0.1, 2 * L, KNEE), (s * (W + 0.05), 0, KNEE / 2), 'plaster', wobble=0))
         slope = math.atan2(RIDGE - KNEE, W)
         ln = math.hypot(W, RIDGE - KNEE)
         parts.append(B('ceiling', (ln + 0.1, 2 * L, 0.08), (s * W / 2, 0, (KNEE + RIDGE) / 2 + 0.05), 'plaster',
-                       rot=Matrix.Rotation(s * slope, 3, 'Y')))
+                       rot=Matrix.Rotation(s * slope, 3, 'Y'), wobble=0))
     # gable ends: the north one has the round window, the south one a doorless wall
     for y in (-L, L):
         bm = bmesh.new()
@@ -112,17 +127,23 @@ def desk_area():
     parts = []
     dx, dy = 0.0, L - 0.75
     parts.append(B('desktop', (1.6, 0.8, 0.06), (dx, dy, 0.76), 'desk', bevel=0.01))
-    for sx in (-0.72, 0.72):
-        for sy in (-0.34, 0.34):
-            parts.append(B('deskleg', (0.06, 0.06, 0.74), (dx + sx, dy + sy, 0.37), 'desk'))
+    legs = [turned_leg(dx + sx, dy + sy, 0.0, 0.74, 0.034) for sx in (-0.72, 0.72) for sy in (-0.34, 0.34)]
+    parts.append(S('deskleg', union(*legs), (dx - 0.9, dy - 0.5, -0.05), (dx + 0.9, dy + 0.5, 0.8), 0.006, 'desk', 2000))
+    parts.append(B('apron', (1.5, 0.04, 0.1), (dx, dy - 0.36, 0.68), 'desk'))
+    parts.append(B('apron', (1.5, 0.04, 0.1), (dx, dy + 0.36, 0.68), 'desk'))
     parts.append(B('drawer', (0.5, 0.7, 0.14), (dx + 0.48, dy, 0.64), 'desk', bevel=0.01))
     parts.append(B('knob', (0.04, 0.04, 0.04), (dx + 0.48, dy - 0.37, 0.64), 'brass'))
     # the lamp: base, arm and shade
     lx, ly = dx - 0.55, dy + 0.15
-    parts.append(lib.lathe('lampbase', [(0.0, 0.0), (0.11, 0.0), (0.1, 0.03), (0.03, 0.05)], M('brass'), segs=16, center=(lx, ly, 0.79), subsurf=0))
-    parts.append(lib.tube('lamparm', [(lx, ly, 0.82), (lx + 0.02, ly - 0.02, 1.15), (lx + 0.16, ly - 0.08, 1.28)], [0.015] * 3, M('brass'), sides=8, subsurf=0))
-    shade = lib.lathe('lampshade', [(0.05, 0.0), (0.16, -0.16), (0.17, -0.17)], M('shade'), segs=20, center=(lx + 0.2, ly - 0.1, 1.33), subsurf=0,
-                      close_top=False, close_bottom=False)
+    # the lamp: a domed brass foot, a jointed arm, a fluted shade
+    base = intersect(ellipsoid((lx, ly, 0.79), (0.11, 0.11, 0.045)), lambda P: 0.79 - P[:, 2], k=0.005)
+    arm = union(base, tube([(lx, ly, 0.82), (lx + 0.02, ly - 0.02, 1.15), (lx + 0.16, ly - 0.08, 1.28)], [0.014, 0.012, 0.011]),
+                sdf.sphere((lx + 0.02, ly - 0.02, 1.15), 0.022), k=0.008)
+    parts.append(S('lamparm', arm, (lx - 0.2, ly - 0.3, 0.75), (lx + 0.35, ly + 0.2, 1.4), 0.005, 'brass', 1200))
+    sc = V((lx + 0.2, ly - 0.1, 1.33))
+    shade = subtract(cone(sc, sc + V((0, 0, -0.17)), 0.05, 0.17), cone(sc + V((0, 0, -0.012)), sc + V((0, 0, -0.19)), 0.04, 0.16), k=0.004)
+    shade = sdf.displace(shade, lambda P: 0.004 * np.abs(np.sin(np.arctan2(P[:, 1] - sc[1], P[:, 0] - sc[0]) * 9)))
+    shade = S('lampshade', shade, sc - 0.3, sc + 0.1, 0.005, 'shade', 1200)
     shade['emissive'] = 1
     parts.append(shade)
     # pencil jar, papers, and the sketchbook (separate: it is the thing to use)
@@ -138,11 +159,17 @@ def desk_area():
                        rot=Matrix.Rotation(rnd.uniform(-0.4, 0.4), 3, 'Z')))
     # chair, pushed back from the desk
     cx, cy = dx + 0.1, dy - 0.85
-    parts.append(B('seat', (0.46, 0.44, 0.05), (cx, cy, 0.46), 'chair', bevel=0.01))
+    seat = sdf.box((cx, cy, 0.46), (0.23, 0.22, 0.025), 0.018)
+    seat = sdf.displace(seat, lambda P: -0.008 * np.exp(-(((P[:, 0] - cx) / 0.14) ** 2 + ((P[:, 1] - cy) / 0.13) ** 2)))
+    chair = [seat] + [turned_leg(cx + sx, cy + sy, 0.0, 0.45, 0.022) for sx in (-0.19, 0.19) for sy in (-0.18, 0.18)]
+    # a back of spindles between two posts and a curved top rail
     for sx in (-0.19, 0.19):
-        for sy in (-0.18, 0.18):
-            parts.append(B('cleg', (0.04, 0.04, 0.45), (cx + sx, cy + sy, 0.22), 'chair'))
-    parts.append(B('cback', (0.46, 0.04, 0.5), (cx, cy - 0.2, 0.74), 'chair', rot=Matrix.Rotation(0.12, 3, 'X')))
+        chair.append(tube([(cx + sx, cy - 0.18, 0.46), (cx + sx, cy - 0.21, 0.72), (cx + sx * 0.97, cy - 0.24, 0.98)], [0.02, 0.018, 0.016]))
+    rail = [(cx + x, cy - 0.24 - 0.03 * (1 - (x / 0.2) ** 2), 0.95 + 0.02 * (1 - (x / 0.2) ** 2)) for x in np.linspace(-0.2, 0.2, 7)]
+    chair.append(tube(rail, [0.022] * 7))
+    for x in (-0.1, -0.033, 0.033, 0.1):
+        chair.append(tube([(cx + x, cy - 0.185, 0.47), (cx + x, cy - 0.215, 0.72), (cx + x, cy - 0.255, 0.95)], [0.01, 0.012, 0.01]))
+    parts.append(S('chair', union(*chair, k=0.01), (cx - 0.35, cy - 0.4, -0.05), (cx + 0.35, cy + 0.35, 1.05), 0.006, 'chair', 3500))
     return parts
 
 
@@ -177,10 +204,22 @@ def boxes():
             z += sz
     # the trunk with brass corners
     tx, ty = -2.1, -1.0
-    parts.append(B('trunk', (0.9, 0.55, 0.5), (tx, ty, 0.25), 'trunk', rot=Matrix.Rotation(math.pi / 2, 3, 'Z'), bevel=0.02))
-    parts.append(lib.tube('trunklid', [(tx, ty - 0.45, 0.5), (tx, ty + 0.45, 0.5)], [0.28, 0.28], M('trunk'), sides=16, squash=0.35, subsurf=0))
-    for sy in (-0.42, 0.42):
-        parts.append(B('trunkband', (0.6, 0.04, 0.5), (tx, ty + sy * 0.6, 0.27), 'brass', rot=Matrix.Rotation(0, 3, 'Z')))
+    body = sdf.box((tx, ty, 0.25), (0.275, 0.45, 0.25), 0.03)
+    # a domed lid: a half cylinder along the trunk, squashed low
+    dome = sdf.warp(cylinder((tx, ty, 0.5), 0.29, 0.455, 0.03, sdf.rot(90, 0, 0)), lambda P: np.column_stack([P[:, 0], P[:, 1], 0.5 + (P[:, 2] - 0.5) / 0.55]))
+    lid = intersect(dome, lambda P: 0.5 - P[:, 2], k=0.01)
+    trunk = union(body, lid, k=0.01)
+    trunk = subtract(trunk, lambda P: np.maximum(np.abs(P[:, 2] - 0.5) - 0.006, -(np.abs(P[:, 0] - tx) - 0.26)), k=0.003)
+    parts.append(S('trunk', trunk, (tx - 0.4, ty - 0.6, -0.05), (tx + 0.4, ty + 0.6, 0.72), 0.008, 'trunk', 2200))
+    # leather straps, brass corners and a hasp
+    straps = []
+    for sy in (-0.27, 0.27):
+        straps.append(intersect(sdf.shell(sdf.offset(trunk, 0.004), 0.008), lambda P, sy=sy: np.abs(P[:, 1] - (ty + sy)) - 0.035, k=0.003))
+    parts.append(S('trunkstrap', union(*straps), (tx - 0.4, ty - 0.6, -0.05), (tx + 0.4, ty + 0.6, 0.72), 0.006, 'frame', 1600))
+    corners = [sdf.sphere((tx + cx2 * 0.27, ty + cy2 * 0.445, cz), 0.04) for cx2 in (-1, 1) for cy2 in (-1, 1) for cz in (0.02, 0.48)]
+    corners = intersect(union(*corners), sdf.offset(trunk, 0.006), k=0.003)
+    hasp = sdf.box((tx - 0.285, ty, 0.47), (0.008, 0.035, 0.05), 0.006)
+    parts.append(S('trunkbrass', union(corners, hasp), (tx - 0.4, ty - 0.6, -0.05), (tx + 0.4, ty + 0.6, 0.72), 0.006, 'brass', 1600))
     return parts
 
 
@@ -209,9 +248,10 @@ def shelf_and_frames():
     parts.append(B('drawing', (0.62, 0.05, 0.8), Vector((fx, fy, 0.48)) + r @ Vector((0, -0.006, 0)), 'paper', rot=r))
     # the easel with a sheet over a canvas
     ex, ey = -1.6, 1.4
-    for a in (-0.25, 0.25):
-        parts.append(lib.tube('easelleg', [(ex + a * 1.2, ey - 0.15, 0.0), (ex + a * 0.2, ey, 1.7)], [0.025, 0.02], M('desk'), sides=6, subsurf=0))
-    parts.append(lib.tube('easelleg', [(ex, ey + 0.55, 0.0), (ex, ey + 0.02, 1.6)], [0.025, 0.02], M('desk'), sides=6, subsurf=0))
+    easel = [tube([(ex + a * 1.2, ey - 0.15, 0.0), (ex + a * 0.2, ey, 1.7)], [0.026, 0.02]) for a in (-0.25, 0.25)]
+    easel.append(tube([(ex, ey + 0.55, 0.0), (ex, ey + 0.02, 1.6)], [0.024, 0.019]))
+    easel.append(sdf.box((ex, ey - 0.005, 1.66), (0.08, 0.03, 0.05), 0.015))
+    parts.append(S('easelleg', union(*easel, k=0.01), (ex - 0.5, ey - 0.4, -0.05), (ex + 0.5, ey + 0.7, 1.8), 0.008, 'desk', 1400))
     parts.append(B('easelbar', (0.8, 0.05, 0.04), (ex, ey - 0.12, 0.62), 'desk'))
     # (the canvas and its sheet are their own objects: in the epilogue Ada lifts the sheet off)
     canvas = B('canvas', (1.0, 0.06, 0.74), (ex, ey - 0.1, 1.06), 'cloth', rot=Matrix.Rotation(0.12, 3, 'X'))
@@ -226,13 +266,24 @@ def shelf_and_frames():
     rr = Matrix.Rotation(-0.6, 3, 'Z')
     def at(v):
         return rr @ Vector(v) + Vector((rx, ry, 0))
-    for s in (-1, 1):
-        parts.append(lib.tube('rocker', [at((s * 0.25, -0.4, 0.06)), at((s * 0.25, 0.0, 0.0)), at((s * 0.25, 0.4, 0.06))], [0.025] * 3,
-                              M('chair'), sides=6, subsurf=0))
-        parts.append(lib.tube('rpost', [at((s * 0.25, 0.25, 0.03)), at((s * 0.25, 0.32, 1.0))], [0.025, 0.02], M('chair'), sides=6, subsurf=0))
-    parts.append(B('rseat', (0.55, 0.5, 0.05), at((0, 0, 0.42)), 'chair', rot=rr))
-    parts.append(B('rback', (0.55, 0.05, 0.5), at((0, 0.3, 0.75)), 'chair', rot=rr @ Matrix.Rotation(-0.2, 3, 'X')))
-    parts.append(B('cushion', (0.48, 0.44, 0.08), at((0, 0, 0.48)), 'rug2', rot=rr, bevel=0.03))
+    # a rocking chair: curved rockers, turned legs, arms, a spindle back with a carved top rail
+    rc = []
+    for s2 in (-1, 1):
+        rock = [at((s2 * 0.25, y, 0.06 * (y / 0.42) ** 2 + 0.02)) for y in np.linspace(-0.46, 0.46, 9)]
+        rc.append(tube(rock, [0.022] * 9))
+        rc.append(tube([at((s2 * 0.25, -0.2, 0.03)), at((s2 * 0.25, -0.2, 0.42))], [0.02, 0.022]))
+        rc.append(tube([at((s2 * 0.25, 0.22, 0.03)), at((s2 * 0.25, 0.27, 0.42)), at((s2 * 0.25, 0.36, 1.02))], [0.02, 0.022, 0.018]))
+        rc.append(tube([at((s2 * 0.25, -0.24, 0.42)), at((s2 * 0.27, -0.22, 0.64)), at((s2 * 0.27, 0.0, 0.66)), at((s2 * 0.25, 0.3, 0.68))], [0.018, 0.02, 0.022, 0.018]))
+    rc.append(tube([at((x, 0.36 + 0.02 * (1 - (x / 0.25) ** 2), 1.02 + 0.04 * (1 - (x / 0.25) ** 2))) for x in np.linspace(-0.27, 0.27, 7)], [0.026] * 7))
+    for x in (-0.15, -0.05, 0.05, 0.15):
+        rc.append(tube([at((x, 0.26, 0.45)), at((x, 0.3, 0.72)), at((x, 0.35, 1.0))], [0.011, 0.013, 0.011]))
+    seat = sdf.box(at((0, 0.02, 0.43)), (0.275, 0.25, 0.022), 0.015, np.array(rr))
+    rc.append(seat)
+    c = V(tuple(at((0, 0.0, 0.43))))
+    parts.append(S('rocker', union(*rc, k=0.012), c - V((0.8, 0.8, 0.5)), c + V((0.8, 0.8, 0.75)), 0.008, 'chair', 4000))
+    cush = sdf.box(at((0, 0.0, 0.49)), (0.24, 0.22, 0.04), 0.035, np.array(rr))
+    cush = sdf.displace(cush, lambda P: 0.02 * np.exp(-(((P[:, 0] - c[0]) ** 2 + (P[:, 1] - c[1]) ** 2) / 0.02)) - 0.004 * np.abs(np.sin((P[:, 0] - c[0]) * 25)))
+    parts.append(S('cushion', cush, c - V((0.5, 0.5, 0.2)), c + V((0.5, 0.5, 0.3)), 0.008, 'rug2', 900))
     # the rug, with a border
     parts.append(B('rug', (2.0, 2.8, 0.012), (0.1, 0.3, 0.006), 'rug'))
     parts.append(B('rugin', (1.6, 2.4, 0.013), (0.1, 0.3, 0.008), 'rug2'))
