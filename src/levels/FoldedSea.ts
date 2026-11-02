@@ -14,7 +14,7 @@ import { Smudge } from '../game/Smudge';
 import { Storm } from '../game/Storm';
 import { TraceTarget } from '../game/Trace';
 import { Beam } from '../render/Beam';
-import { G } from '../render/Globals';
+import { G, setFill } from '../render/Globals';
 import { inkMaterial } from '../render/InkMaterial';
 import { P } from '../render/Particles';
 
@@ -253,6 +253,7 @@ export class FoldedSea implements Level {
     G.uStorm.value = 0;
     G.uFog.value.set(45, 175, 0.9);
     G.uShadowTint.value.setRGB(0.58, 0.58, 0.76);
+    setFill([0.95, 1.0, 1.1], [0.92, 1.0, 1.12]);
     game.pipe.uniforms.uBloom.value = 1.0;
     game.rig.interior(false);
 

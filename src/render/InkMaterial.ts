@@ -138,6 +138,9 @@ uniform vec3 uGraphite;
 uniform vec3 uShadowTint;
 uniform vec3 uAmbient;
 uniform vec3 uFog;
+uniform vec3 uSkyTop;
+uniform vec3 uSkyFill;
+uniform vec3 uBounce;
 varying vec3 vWorldPos;
 varying vec3 vWorldNormal;
 varying vec3 vViewNormal;
@@ -230,9 +233,11 @@ void main() {
   float ndl = dot(N, L);
   float wob = (ibFbm(vWorldPos * 2.6) - 0.5) * 0.5;
   float lit = smoothstep(-uSoft, uSoft, ndl + wob * 0.35 - 0.02) * smoothstep(0.25, 0.75, shadow + wob * 0.25);
-  vec3 litCol = base * (uAmbient * 0.42 + sunCol * mix(0.8, 1.0, smoothstep(0.1, 0.8, ndl)));
+  // light from the open sky fills shadows from above, light bounced off the ground from below
+  vec3 fill = mix(uBounce, uSkyFill, N.y * 0.5 + 0.5);
+  vec3 litCol = base * (uAmbient * 0.42 * fill + sunCol * mix(0.8, 1.0, smoothstep(0.1, 0.8, ndl)));
   // shadow is a second, cooler wash of the same pigment rather than a darkening
-  vec3 shadCol = base * uShadowTint;
+  vec3 shadCol = base * uShadowTint * fill;
   vec3 col = mix(shadCol, litCol, lit);
   #ifdef FLAT
     // folded paper: facets tipped toward the sun lift a tone, those tipped away drop one
@@ -250,10 +255,13 @@ void main() {
       lit = max(lit, clamp(pl * 1.5, 0.0, 1.0));
     }
   #endif
-  // soft rim from the sky on edges facing away from the camera
+  // Fresnel: surfaces turning away from the eye pick up the sky
   vec3 V = normalize(-vViewPos);
   float rim = pow(1.0 - clamp(dot(VN, V), 0.0, 1.0), 3.0);
-  col += base * rim * 0.12 * (0.4 + 0.6 * lit);
+  col += mix(base, uSkyTop, 0.4) * rim * 0.13 * (0.4 + 0.6 * lit);
+  // no wash is perfectly even: pigment density and temperature drift across the page
+  col *= 0.93 + 0.14 * ibFbm(vWorldPos * 0.21 + 3.7);
+  col *= mix(vec3(1.03, 1.0, 0.96), vec3(0.97, 1.0, 1.035), ibFbm(vWorldPos * 0.07 + 11.3));
   col += base * uEmissive;
   #ifdef SKIN
     // light scattering in skin: a warm, reddish band at the terminator, and shadows that keep their warmth
@@ -310,8 +318,11 @@ void main() {
   float ring = smoothstep(0.05, 0.5, m) * smoothstep(0.98, 0.5, m);
   fin *= 1.0 - ring * 0.22;
 
-  // distance fades into the page
+  // air: far things lose contrast and cool toward the sky, then fade into the page
   float d = length(vViewPos);
+  float aer = smoothstep(uFog.x * 0.35, uFog.y, d) * 0.5 * uFog.z * max(m, 0.25);
+  float fl = dot(fin, vec3(0.299, 0.587, 0.114));
+  fin = mix(fin, mix(vec3(fl), fin, 0.55) * 0.62 + uSkyTop * (0.3 + 0.12 * fl), aer);
   fin = mix(fin, uPaper, smoothstep(uFog.x, uFog.y, d) * uFog.z);
 
   // rubbed out: bare paper with a few eraser crumbs of graphite left behind
@@ -332,11 +343,20 @@ void main() {
     fin = mix(fin, uGraphite, smoothstep(cutAt - 0.1, cutAt - 0.05, vWorldPos.y) * (1.0 - edgeBand) * 0.7);
     fin = mix(fin, vec3(1.0, 0.82, 0.38) * 1.4, edgeBand);
   #endif
-  outColor = vec4(fin, uOpacity);
+  // opaque surfaces hand on how sunlit they are (the composite only adds contact shadows there)
+  #ifdef OPAQUE
+    outColor = vec4(fin, lit * shadow);
+  #else
+    outColor = vec4(fin, uOpacity);
+  #endif
   // baked scenery carries its ink line id in the vertex colour's alpha
   float lid = uLineId / 255.0;
   #ifdef USE_COLOR_ALPHA
     if (vColor.a < 0.999) lid = vColor.a;
+  #endif
+  #ifdef WATER
+    // water has its own id: the composite reflects the world in it
+    lid = 3.0 / 255.0;
   #endif
   outNormal = vec4(outN * 0.5 + 0.5, er > 0.5 ? 0.0 : lid);
 }
@@ -387,6 +407,7 @@ export function inkMaterial(o: InkOptions = {}): THREE.ShaderMaterial {
     mat.uniforms.uGlossWhite = { value: o.glossWhite ?? 1 };
   }
   if (o.flat || o.waves) mat.defines = { ...mat.defines, FLAT: '' };
+  if (!(o.transparent ?? false)) mat.defines = { ...mat.defines, OPAQUE: '' };
   if (o.map) (mat as unknown as { map: THREE.Texture }).map = o.map;
   return mat;
 }

@@ -137,10 +137,24 @@ export class Flow {
     this.busy = true;
     g.paused = true;
     g.input.releaseLock();
-    const c = await g.ui.menu('', 'Paused', [
-      { id: 'resume', label: 'Resume' },
-      { id: 'title', label: 'Quit to title' },
-    ]);
+    const names = { high: 'High', medium: 'Medium', low: 'Low' } as const;
+    let c = '';
+    // the graphics item cycles the quality in place and the menu comes back
+    for (;;) {
+      c = await g.ui.menu('', 'Paused', [
+        { id: 'resume', label: 'Resume' },
+        { id: 'gfx', label: `Graphics: ${names[g.pipe.quality]}` },
+        { id: 'title', label: 'Quit to title' },
+      ]);
+      if (c !== 'gfx') break;
+      const next = g.pipe.quality === 'high' ? 'medium' : g.pipe.quality === 'medium' ? 'low' : 'high';
+      g.pipe.setQuality(next);
+      try {
+        localStorage.setItem('inkbound.quality', next);
+      } catch {
+        // private browsing: the choice just isn't remembered
+      }
+    }
     g.paused = false;
     this.busy = false;
     if (c === 'title') {

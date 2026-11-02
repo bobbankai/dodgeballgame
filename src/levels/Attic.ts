@@ -5,7 +5,7 @@ import { audio } from '../audio/Audio';
 import { inkify, loadGLTF } from '../core/Assets';
 import { pipLook } from '../game/Companion';
 import type { Game, Level } from '../game/Game';
-import { G } from '../render/Globals';
+import { G, setFill } from '../render/Globals';
 import { inkMaterial } from '../render/InkMaterial';
 import { Portrait } from '../render/Portrait';
 import { SketchLines, type Segments } from '../render/Sketch';
@@ -100,6 +100,7 @@ export class Attic implements Level {
     G.uPigment.value.set(1, 1, 1);
     G.uAmbient.value.setRGB(0.16, 0.18, 0.3);
     G.uShadowTint.value.setRGB(0.3, 0.32, 0.52);
+    setFill([0.9, 0.96, 1.16], [1.12, 1.0, 0.86]);
     G.uFog.value.set(60, 200, 0);
     game.pipe.uniforms.uSkyTop.value.setRGB(0.2, 0.24, 0.36);
 
@@ -156,6 +157,7 @@ export class Attic implements Level {
     G.uPigment.value.set(1, 1, 1);
     G.uAmbient.value.setRGB(0.58, 0.54, 0.5);
     G.uShadowTint.value.setRGB(0.62, 0.58, 0.72);
+    setFill([1.0, 1.0, 1.05], [1.1, 1.02, 0.88]);
     G.uFog.value.set(60, 200, 0);
     game.pipe.uniforms.uSkyTop.value.setRGB(0.72, 0.84, 0.96);
 

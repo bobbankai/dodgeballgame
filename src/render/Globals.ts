@@ -25,6 +25,12 @@ export const G = {
   uShadowTint: { value: new THREE.Color(0.6, 0.56, 0.74) },
   uAmbient: { value: new THREE.Color(0.55, 0.55, 0.58) },
   uFog: { value: new THREE.Vector3(30, 140, 0.85) },
+  /** The painted sky's colour at the top of the page (also what distance cools toward). */
+  uSkyTop: { value: new THREE.Color(0.62, 0.75, 0.86) },
+  /** Light from the open sky filling shadows from above, and light bounced off the ground filling
+   * them from below (a multiplier on the shadow wash: (1, 1, 1) is neutral). */
+  uSkyFill: { value: new THREE.Color(1, 1, 1) },
+  uBounce: { value: new THREE.Color(1, 1, 1) },
   /** 0 calm .. 1 full storm (the sea's swell, rain, darkness). */
   uStorm: { value: 0 },
   /** Erased patches (the Smudge's trail): xyz centre, w radius. Erased ground shows bare paper. */
@@ -35,6 +41,12 @@ export const G = {
   uRes: { value: new THREE.Vector2(1, 1) },
   uSunDir: { value: new THREE.Vector3(0.55, 0.8, 0.35).normalize() },
 };
+
+/** Shadow fill: the open sky's tint from above and the ground's bounce from below. */
+export function setFill(sky: [number, number, number], bounce: [number, number, number]) {
+  G.uSkyFill.value.setRGB(...sky);
+  G.uBounce.value.setRGB(...bounce);
+}
 
 export function setBoil(time: number) {
   G.uTime.value = time;

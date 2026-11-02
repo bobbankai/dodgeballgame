@@ -4,6 +4,7 @@ import '@fontsource/caveat/700.css';
 import * as THREE from 'three';
 import { Flow } from './game/Flow';
 import { Game } from './game/Game';
+import { G } from './render/Globals';
 import { Attic } from './levels/Attic';
 import { FoldedSea } from './levels/FoldedSea';
 import { MarginVillage } from './levels/MarginVillage';
@@ -14,6 +15,7 @@ const params = new URLSearchParams(location.search);
 const game = new Game(document.getElementById('app')!);
 const w = window as unknown as Record<string, unknown>;
 w.__game = game;
+w.__G = G;
 
 await game.init();
 const flow = new Flow(game);

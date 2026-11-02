@@ -8,7 +8,7 @@ import type { Game, Level } from '../game/Game';
 import { scatter } from '../game/Scatter';
 import { Smudge } from '../game/Smudge';
 import { TraceTarget } from '../game/Trace';
-import { G } from '../render/Globals';
+import { G, setFill } from '../render/Globals';
 import { inkMaterial } from '../render/InkMaterial';
 import { P } from '../render/Particles';
 
@@ -155,6 +155,7 @@ export class MarginVillage implements Level {
     game.pipe.uniforms.uBloom.value = 0.9;
     game.pipe.uniforms.uTint.value.setRGB(1.0, 1.0, 1.0);
     G.uShadowTint.value.setRGB(0.6, 0.56, 0.74);
+    setFill([0.95, 1.0, 1.1], [1.0, 1.1, 0.86]);
     game.pipe.uniforms.uSkyTop.value.setRGB(0.84, 0.82, 0.78);
 
     const cps: Record<string, string> = { arrival: 'spawn_arrival', stream: 'cp_bridge_south', bridge: 'cp_bridge_north', village: 'cp_village',

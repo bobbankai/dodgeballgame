@@ -9,7 +9,7 @@ import { DrawnPath, type PathKind } from '../game/DrawnPath';
 import type { Game, Level } from '../game/Game';
 import { Mum } from '../game/Mum';
 import { Smudge } from '../game/Smudge';
-import { G } from '../render/Globals';
+import { G, setFill } from '../render/Globals';
 import { inkMaterial } from '../render/InkMaterial';
 import { P } from '../render/Particles';
 import { Portrait } from '../render/Portrait';
@@ -176,6 +176,7 @@ export class UnfinishedPage implements Level {
     G.uStorm.value = 0;
     G.uFog.value.set(40, 150, 0.95);
     G.uShadowTint.value.setRGB(0.6, 0.6, 0.74);
+    setFill([0.97, 1.0, 1.06], [1.06, 1.03, 0.9]);
     G.uAmbient.value.setRGB(0.6, 0.6, 0.62);
     game.pipe.uniforms.uBloom.value = 1.0;
     game.rig.interior(false);
