@@ -76,6 +76,8 @@ export class Keeper {
 
   update(dt: number) {
     const a = this.anim;
+    // (in flight or mid-bow the neck is busy)
+    this.life.lookWeight = this.flight || this.bowing > 0 ? 0 : 1;
     if (this.flight) {
       const f = this.flight;
       f.t += dt / f.dur;

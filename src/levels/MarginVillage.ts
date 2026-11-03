@@ -405,14 +405,16 @@ export class MarginVillage implements Level {
     const base = tree.y - 3.4;
     d.begin();
     d.cinematic(true);
-    // a slow rising orbit: the trunk, then the bare places where branches should be
+    // a slow rising orbit, pulling back: up the trunk from its roots, then the whole tree against the
+    // sky with the bare places where branches should be (the crowns reach ~12 m out and ~17 m up)
     const a0 = Math.atan2(g.player.position.z - tree.z, g.player.position.x - tree.x);
     const orbit = [0, 0.25, 0.5, 0.75, 1].map((k) => {
-      const a = a0 + k * 1.5, r = 15 - k * 3;
-      return v3(tree.x + Math.cos(a) * r, base + 1.5 + k * 7.5, tree.z + Math.sin(a) * r);
+      const a = a0 + k * 1.1, r = 15 + k * 11;
+      return v3(tree.x + Math.cos(a) * r, base + 1.2 + k * 7, tree.z + Math.sin(a) * r);
     });
     d.focus(tree, 0.3);
-    const move = d.rail({ path: orbit, look: [tree.clone().add(v3(0, -1, 0)), tree.clone().add(v3(0, 6, 0))], duration: 9, fov: [50, 44] });
+    // (aimed low, so the tree stands in the top of the frame, clear of the dialogue)
+    const move = d.rail({ path: orbit, look: [v3(tree.x, base + 6, tree.z), v3(tree.x, base + 5, tree.z), v3(tree.x, base + 3.2, tree.z)], duration: 9, fov: [58, 58] });
     await d.wait(2.5);
     await d.say('Pip', 'The Great Tree. Or half of it.');
     await move;
@@ -446,7 +448,16 @@ export class MarginVillage implements Level {
     const ada = g.player.position.clone();
     const to = ada.clone().add(v3(Math.sin(g.player.yaw) * 0.6, 1.0, Math.cos(g.player.yaw) * 0.6));
     const from = drop.position.clone();
-    d.overShoulder(heart, 44);
+    // side on to Ada and the tree, from whichever side the roots leave clear: the drop coming down to her
+    const toH = v3().subVectors(heart, ada).setY(0).normalize();
+    const across = v3(-toH.z, 0, toH.x);
+    const mid = ada.clone().lerp(heart, 0.35).setY(ada.y + 1.3);
+    const cams = [1, -1].map((sd) => mid.clone().addScaledVector(across, 4.6 * sd).addScaledVector(toH, -1.6).add(v3(0, 0.5, 0)));
+    // (the side the crane-up below leaves from first, so it doesn't cross the tree)
+    const out = v3(-1, 0, 1);
+    cams.sort((a, b) => b.clone().sub(heart).dot(out) - a.clone().sub(heart).dot(out));
+    d.shot(d.clearest(mid, cams), mid, 46, true);
+    d.focus(() => drop.position, 0.3);
     for (let t = 0; t < 1; t += 1 / 75) {
       drop.position.lerpVectors(from, to, t * t * (3 - 2 * t));
       drop.position.y += Math.sin(t * Math.PI) * 0.8;

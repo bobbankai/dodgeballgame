@@ -85,7 +85,9 @@ python, system PIL is broken) tiles screenshots into one sheet, sorted by file n
 ## Game (src/game, src/levels)
 
 Game loop, Player (floating capsule + ground ray, step-up, `ride()` a seat), Animator (weighted clip
-blending), Face (`expression` on Ada, Mum: twelve emotions as brow/eye/mouth poses, its own blinks,
+blending; `layers` run around the mixer), Procedural (look-at over chest/neck/head and spring-driven
+loose bones: Ada's scarf and satchel, Mum's braid; it restores the mixer's value before the mixer runs,
+since the mixer only writes changed values; `Game.looks()` decides who looks at whom), Face (`expression` on Ada, Mum: twelve emotions as brow/eye/mouth poses, its own blinks,
 lip flaps on vowels; FoxFace for Pip: ears, tail, head tilt; it sets bones from rest each frame
 because the mixer only writes values that change), dialogue lines `[who, text, emotion?]` (else
 `inferEmotion`), listeners echo, `director.feel()`, CameraRig (orbit, five-ray collision that looks past railings, shots,
@@ -93,7 +95,15 @@ because the mixer only writes values that change), dialogue lines `[who, text, e
 game time, `rail()` camera moves, `focus()` depth of field, `cinematic()`), Trace (ink-in
 mechanic), DrawnPath (paths Ada draws herself in Chapter Three), Companion (Pip), Keeper (crane),
 Mum, Boat, Sea, Storm, Smudge, Flow (title, prologue to epilogue in order, credits, saves in
-localStorage, pause). A level only reaches the frame loop once `load()` finishes.
+localStorage, pause). A level only reaches the frame loop once `load()` finishes. `loadLevel` resets
+Ada (`Player.reset()`), the UI (`UI.reset()`: a pending line or note is dropped, so the old level's
+script stops), the camera, and frees the old level's GPU resources; `loadGLTF` returns a fresh copy
+of the scene every call (levels repaint and move what they load).
+Full-story regression bot: `node tools/drive.cjs '<url>/?test' tools/storybot.js` plays from the
+title to the credits, teleporting between beats and calling `finish()` on traces (~25 min headless);
+run it against a separate `vite build --outDir` served statically, since editing sources reloads the
+dev server. In drive scripts never return a story promise from `ev()` (it waits on game time that only
+passes when the script steps it): wrap calls as `ev(() => { void level.method(); })`.
 
 Voices (src/audio/Speech.ts): every line is recorded with a neural voice (Kokoro-82M via
 kokoro-onnx, run locally): `node tools/voices/lines.mjs > lines.json` collects the lines (tuples,

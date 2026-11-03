@@ -53,6 +53,7 @@ export class UI {
   private closeNote: (() => void) | void = undefined;
   private speaker: Speaker = '';
   private tapped = false;
+  private cardToken = 0;
 
   /** Whether a tap on the dialogue box moves it on (not while the player is walking about under it). */
   set tapToAdvance(on: boolean) {
@@ -108,6 +109,7 @@ export class UI {
     this.dlg.classList.remove('show');
     this.noteWrap.classList.remove('show');
     this.noteWrap.style.pointerEvents = '';
+    this.cardToken++;
     this.card.classList.remove('show');
     this.promptEl.classList.remove('show');
     this.toastEl.classList.remove('show');
@@ -173,10 +175,15 @@ export class UI {
 
   title(small: string, big: string, hold = 3.2): Promise<void> {
     this.card.innerHTML = `<div class="small">${small}</div><div class="big">${big}</div><div class="rule"></div>`;
-    requestAnimationFrame(() => this.card.classList.add('show'));
+    // (shown on the next frame so it fades in; never after it has already been taken down)
+    const token = ++this.cardToken;
+    requestAnimationFrame(() => token === this.cardToken && this.card.classList.add('show'));
     return new Promise((done) => {
       this.later(hold, () => {
-        this.card.classList.remove('show');
+        if (token === this.cardToken) {
+          this.cardToken++;
+          this.card.classList.remove('show');
+        }
         this.later(1.2, done);
       });
     });
@@ -190,14 +197,15 @@ export class UI {
       .map(([a, b]) => `<div class="row">${a ? `<div class="role">${a}</div>` : ''}${b ? `<div class="name">${b}</div>` : ''}</div>`)
       .join('');
     roll.style.transition = `transform ${seconds}s linear`;
+    let over = false;
     requestAnimationFrame(() =>
       requestAnimationFrame(() => {
+        if (over) return;
         wrap.classList.add('show');
         roll.style.transform = 'translateY(calc(-100% - 100vh))';
       }),
     );
     return new Promise((done) => {
-      let over = false;
       const finish = () => {
         if (over) return;
         over = true;

@@ -176,7 +176,7 @@ export class Game {
    * Who looks at what: in a conversation everyone looks at whoever is talking (and the one talking
    * at whoever they answer); walking about, Ada glances at what she can use and at Pip nearby.
    */
-  private looks() {
+  private looks(dt: number) {
     const d = this.director, p = this.player;
     const others: Speaker[] = ['Pip', 'Mum', 'Keeper'];
     const talking = this.ui.inDialogue ? d.speaker : '';
@@ -187,8 +187,9 @@ export class Game {
     else if (talking === 'Ada') ada = (d.lastOther && d.headOf(d.lastOther, _lookA)) || this.nearestHead(others, adaHead!, 6, _lookA);
     else if (!d.cutscene) {
       if (this.active?.focus && p.mode !== 'trace') ada = _lookA.copy(this.active.focus(p.position));
-      else if (p.velocity.lengthSq() < 0.1) ada = this.nearestHead(['Pip'], adaHead!, 2.6, _lookA);
+      else if (p.velocity.lengthSq() < 0.1) ada = this.nearestHead(['Pip'], adaHead!, 2.6, _lookA) ?? this.glance(adaHead!, dt);
     }
+    if (ada || p.velocity.lengthSq() >= 0.1 || d.cutscene) this.glanceIn = Math.max(this.glanceIn, 3);
     p.life.look = ada ? _lookAdaT.copy(ada) : null;
     // the others: at the speaker, or at Ada when she is close
     for (const who of others) {
@@ -201,6 +202,24 @@ export class Game {
       else if (me && adaHead && me.distanceTo(adaHead) < 7) t = adaHead;
       life.look = t ? (life.look ?? new THREE.Vector3()).copy(t) : null;
     }
+  }
+
+  /** Standing about with nothing to look at, Ada glances round now and then. */
+  private glanceIn = 4;
+  private glanceHold = 0;
+  private glanceAt = new THREE.Vector3();
+  private glance(head: THREE.Vector3, dt: number): THREE.Vector3 | null {
+    if (this.glanceHold > 0) {
+      this.glanceHold -= dt;
+      return this.glanceAt;
+    }
+    this.glanceIn -= dt;
+    if (this.glanceIn > 0) return null;
+    this.glanceIn = 4 + Math.random() * 5;
+    this.glanceHold = 1.2 + Math.random() * 1.6;
+    const a = this.player.yaw + (Math.random() - 0.5) * 2.2;
+    this.glanceAt.set(head.x + Math.sin(a) * 4, head.y + (Math.random() - 0.4) * 1.6, head.z + Math.cos(a) * 4);
+    return this.glanceAt;
   }
 
   private nearestHead(who: Speaker[], from: THREE.Vector3, within: number, out: THREE.Vector3) {
@@ -327,7 +346,7 @@ export class Game {
       this.level?.update(dt, this.time);
       for (const f of this.onUpdate) f(dt, this.time);
       this.director.update(dt);
-      this.looks();
+      this.looks(dt);
       speech.resume();
       speech.update();
       if (speech.speaking && this.director.speaker === speech.speaker) this.director.faceOf(this.director.speaker)?.level(speech.level());

@@ -212,6 +212,28 @@ export class Director {
     this.shot(cam, at.clone().lerp(p, 0.35).add(new THREE.Vector3(0, 0.7, 0)), fov);
   }
 
+  /**
+   * Of some camera positions for a shot of `look` (in order of preference), the first with nothing in
+   * the way, or failing that the one that sees furthest.
+   */
+  clearest(look: THREE.Vector3, candidates: THREE.Vector3[]) {
+    let best = candidates[0], bd = -1;
+    const dir = new THREE.Vector3();
+    for (const c of candidates) {
+      dir.subVectors(c, look);
+      const len = dir.length();
+      dir.normalize();
+      const hit = this.game.collision.raycast(look, dir, len);
+      if (hit === null) return c;
+      const free = hit;
+      if (free > bd) {
+        bd = free;
+        best = c;
+      }
+    }
+    return best;
+  }
+
   /** Walk Ada to a point (cutscenes). */
   async walk(to: THREE.Vector3, speed = 1.35) {
     const pl = this.game.player;

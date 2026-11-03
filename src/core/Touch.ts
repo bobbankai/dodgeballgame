@@ -53,6 +53,7 @@ export class TouchControls {
     this.root.appendChild(hint);
     setTimeout(() => hint.remove(), 9000);
     document.body.appendChild(this.root);
+    document.body.classList.add('touch');
     // landscape works best: ask for it where the browser allows
     // (older iPhone Safari has no screen.orientation at all, and none can lock it: never let this throw)
     try {

@@ -237,7 +237,9 @@ def author(arm):
         'head': {'rx': [(0, 26.0), (30, 24.0)], 'rz': [(0, 6.0), (30, -6.0)], 'ry': [(0, 0.0), (36, 8.0), (52, 0.0)]},
         'legF_L': {'ax': [(0, 2.0), (30, 3.0)]}, 'shinF_L': {'ax': 0.0},
         'legB_L': {'ax': -70.0, 'ry': -10.0}, 'shinB_L': {'ax': 95.0},
-        'tail1': {'rx': 40.0, 'rz': 30.0}, 'tail2': {'rz': [(0, 30.0), (30, 36.0)]}, 'tail3': {'rz': [(0, 30.0), (30, 40.0)]},
+        # the brush down on the ground behind, curling round towards the front paws
+        'tail1': {'rx': -22.0, 'rz': 34.0}, 'tail2': {'rx': -8.0, 'rz': [(0, 36.0), (30, 42.0)]},
+        'tail3': {'rx': -4.0, 'rz': [(0, 36.0), (30, 46.0)]},
         'ear_L': {'rx': [(0, 0.0), (40, 0.0), (42, -16.0), (46, 0.0)]},
     }, sym=0)
     # talk: lively nods and ear wiggles while speaking
@@ -298,13 +300,16 @@ if __name__ == '__main__':
         d = os.path.splitext(out)[0]
         os.makedirs(d, exist_ok=True)
         ad = arm.animation_data
-        for i, (name, f) in enumerate((('idle', 30), ('trot', 0), ('trot', 4), ('run', 0), ('run', 6), ('sit', 0), ('talk', 6), ('hop', 4))):
+        shots = [(n, int(f)) for n, f in (s.split(':') for s in os.environ.get('SHOTS', '').split(',') if s)] or [
+            ('idle', 30), ('trot', 0), ('trot', 4), ('run', 0), ('run', 6), ('sit', 0), ('talk', 6), ('hop', 4)]
+        yaw = float(os.environ.get('YAW', -70))
+        for i, (name, f) in enumerate(shots):
             act = bpy.data.actions[name]
             ad.action = act
             if hasattr(ad, 'action_slot') and act.slots:
                 ad.action_slot = act.slots[0]
             bpy.context.scene.frame_set(f)
-            lib.preview(os.path.join(d, f'{i:02d}_{name}_{f}.png'), target=(0, 0.05, 0.2), dist=1.35, yaw=-70, pitch=10,
+            lib.preview(os.path.join(d, f'{i:02d}_{name}_{f}.png'), target=(0, 0.05, 0.2), dist=1.35, yaw=yaw, pitch=10,
                         size=(400, 320), lens=50, samples=12)
         ad.action = None
     if '--export' in argv:
