@@ -119,7 +119,9 @@ export class Attic implements Level {
       const p = this.m.get(key)!;
       game.interactables.add({
         label: 'Look',
-        reach: key === 'look_window' ? 2.2 : 1.6,
+        // (the fox sits back on the shelf, past the easel: it needs a longer arm)
+        reach: key === 'look_window' ? 2.2 : key === 'look_fox' ? 2.1 : 1.6,
+        at: p,
         where: (q) => Math.hypot(q.x - p.x, q.z - p.z),
         enabled: () => !this.done,
         onPress: () => this.look(key, lines),
@@ -129,6 +131,7 @@ export class Attic implements Level {
     game.interactables.add({
       label: "Open Mum's sketchbook",
       reach: 1.5,
+      at: bp,
       where: (q) => Math.hypot(q.x - bp.x, q.z - bp.z),
       enabled: () => !this.done,
       onPress: () => this.openBook(),
@@ -177,6 +180,7 @@ export class Attic implements Level {
     game.interactables.add({
       label: 'Lift the sheet',
       reach: 1.6,
+      at: easel,
       where: (q) => Math.hypot(q.x - easel.x, q.z - easel.z),
       enabled: () => !this.epilogueSeen.has('easel') && !this.done,
       onPress: () => this.liftSheet(),
@@ -185,6 +189,7 @@ export class Attic implements Level {
     game.interactables.add({
       label: "Open Mum's sketchbook",
       reach: 1.5,
+      at: bp,
       where: (q) => Math.hypot(q.x - bp.x, q.z - bp.z),
       enabled: () => !this.epilogueSeen.has('book') && !this.done,
       onPress: () => this.lastPage(),

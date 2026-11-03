@@ -32,7 +32,7 @@ const params = new URLSearchParams(location.search);
 const game = new Game(document.getElementById('app')!);
 if (isTouchDevice()) {
   try {
-    new TouchControls(game.input);
+    new TouchControls(game.input, game.ui);
   } catch (e) {
     console.error('touch controls', e);
   }

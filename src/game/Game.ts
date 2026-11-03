@@ -35,6 +35,11 @@ export interface Interactable {
   progress?: () => number;
   /** Point Ada turns to face while using it. */
   focus?: (p: THREE.Vector3) => THREE.Vector3;
+  /**
+   * Where the thing itself is (something to look at or read): when two are in reach, the one Ada is
+   * facing wins, so neighbours (a fox on a shelf beside an easel) can each be chosen.
+   */
+  at?: THREE.Vector3;
 }
 
 const _fwd = new THREE.Vector3();
@@ -187,6 +192,7 @@ export class Game {
     else if (talking === 'Ada') ada = (d.lastOther && d.headOf(d.lastOther, _lookA)) || this.nearestHead(others, adaHead!, 6, _lookA);
     else if (!d.cutscene) {
       if (this.active?.focus && p.mode !== 'trace') ada = _lookA.copy(this.active.focus(p.position));
+      else if (this.active?.at) ada = _lookA.copy(this.active.at);
       else if (p.velocity.lengthSq() < 0.1) ada = this.nearestHead(['Pip'], adaHead!, 2.6, _lookA) ?? this.glance(adaHead!, dt);
     }
     if (ada || p.velocity.lengthSq() >= 0.1 || d.cutscene) this.glanceIn = Math.max(this.glanceIn, 3);
@@ -297,12 +303,20 @@ export class Game {
     let bestD = Infinity;
     const free = p.inputEnabled && !this.director.cutscene && !this.ui.inDialogue && p.grounded && !p.busy;
     if (free) {
+      const fx = Math.sin(p.yaw), fz = Math.cos(p.yaw);
       for (const it of this.interactables) {
         if (it.enabled && !it.enabled()) continue;
         const d = it.where(p.position);
-        if (d < it.reach && d < bestD) {
+        if (d >= it.reach) continue;
+        let score = d;
+        if (it.at) {
+          // turned away from it counts as further off
+          const dx = it.at.x - p.position.x, dz = it.at.z - p.position.z, l = Math.hypot(dx, dz);
+          if (l > 0.05) score += 0.9 * (1 - (dx * fx + dz * fz) / l);
+        }
+        if (score < bestD) {
           best = it;
-          bestD = d;
+          bestD = score;
         }
       }
     }

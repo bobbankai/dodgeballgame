@@ -1,4 +1,5 @@
 import { audio } from '../audio/Audio';
+import type { UI } from '../ui/UI';
 import type { Input } from './Input';
 
 /** True on phones and tablets (a touch screen as the main pointer). */
@@ -17,7 +18,11 @@ export class TouchControls {
   private look: { id: number; x: number; y: number } | null = null;
   private static readonly R = 56;
 
-  constructor(private input: Input) {
+  private act: HTMLElement | null = null;
+
+  constructor(private input: Input, ui?: UI) {
+    // (prompts read 'Tap' and 'Hold' from the start; a key press switches them back to keys)
+    input.device = 'touch';
     const css = document.createElement('style');
     css.textContent = `
       .tc { position: fixed; inset: 0; z-index: 5; touch-action: none; user-select: none; -webkit-user-select: none; pointer-events: none; }
@@ -31,6 +36,7 @@ export class TouchControls {
         border: 2px solid rgba(42,36,40,.55); background: rgba(240,230,210,.55); color: #2a2428;
         font: 700 20px 'Patrick Hand', sans-serif; display: flex; align-items: center; justify-content: center; }
       .tc .btn.on { background: rgba(240,200,120,.9); }
+      .tc .btn.idle { opacity: .45; } .tc .act { font-size: 18px; }
       .tc .pause { right: 14px; top: 14px; width: 44px; height: 44px; font-size: 16px; }
       .tc .jump { right: 22px; bottom: 120px; } .tc .act { right: 110px; bottom: 36px; }
       .tc .hint { position: absolute; left: 0; right: 0; bottom: 8px; text-align: center; pointer-events: none;
@@ -45,15 +51,28 @@ export class TouchControls {
     left.appendChild(this.base);
     this.root.append(left, right);
     this.button('jump', 'Jump', 'Space');
-    this.button('act', 'Ink', 'KeyE');
+    this.act = this.button('act', 'Use', 'KeyE');
     this.button('pause', 'II', 'Escape');
     const hint = document.createElement('div');
     hint.className = 'hint';
-    hint.textContent = 'left: move · right: look · Ink: hold near glowing lines';
+    hint.textContent = 'left: move · right: look · tap the prompt (or the round button) to use things';
     this.root.appendChild(hint);
     setTimeout(() => hint.remove(), 9000);
     document.body.appendChild(this.root);
     document.body.classList.add('touch');
+    // the action button says what it will do: Look, Read, Ink, Draw, Next, Close...
+    if (ui) {
+      let shown = '';
+      const tick = () => {
+        requestAnimationFrame(tick);
+        const l = ui.actionLabel;
+        if (l === shown || !this.act) return;
+        shown = l;
+        this.act.textContent = l || 'Use';
+        this.act.classList.toggle('idle', !l);
+      };
+      tick();
+    }
     // landscape works best: ask for it where the browser allows
     // (older iPhone Safari has no screen.orientation at all, and none can lock it: never let this throw)
     try {
@@ -66,6 +85,7 @@ export class TouchControls {
     left.addEventListener('pointerdown', (e) => {
       if (this.stick) return;
       left.setPointerCapture(e.pointerId);
+      input.device = 'touch';
       this.stick = { id: e.pointerId, x: e.clientX, y: e.clientY };
       this.base.style.display = 'block';
       this.base.style.left = `${e.clientX}px`;
@@ -150,5 +170,6 @@ export class TouchControls {
     b.addEventListener('pointerup', up);
     b.addEventListener('pointercancel', up);
     this.root.appendChild(b);
+    return b;
   }
 }

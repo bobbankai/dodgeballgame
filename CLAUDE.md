@@ -104,6 +104,13 @@ title to the credits, teleporting between beats and calling `finish()` on traces
 run it against a separate `vite build --outDir` served statically, since editing sources reloads the
 dev server. In drive scripts never return a story promise from `ev()` (it waits on game time that only
 passes when the script steps it): wrap calls as `ev(() => { void level.method(); })`.
+Interactable check: `R=<radius> STEP=<grid> node tools/drive.cjs '<url>' tools/interact_check.js` finds,
+for every enabled interactable, a spot Ada can walk to (flood fill over the floors, jumps only if
+needed) where it becomes the prompt, then uses it the way the phone's button does and reports
+OK / FAIL / UNREACHABLE (later beats are unreachable until earlier ones are done, by design).
+Interactables with `at` (things to look at or read) are chosen by distance plus facing, so neighbours
+can each be picked; Ada glances at the one offered. On phones the prompt itself is a button (Tap /
+Hold) and the round action button is labelled with what it will do (`UI.actionLabel`).
 
 Voices (src/audio/Speech.ts): every line is recorded with a neural voice (Kokoro-82M via
 kokoro-onnx, run locally): `node tools/voices/lines.mjs > lines.json` collects the lines (tuples,

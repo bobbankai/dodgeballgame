@@ -158,6 +158,7 @@ export class MarginVillage implements Level {
       game.interactables.add({
         label: 'Read',
         reach: 2.2,
+        at: pos,
         where: (p) => Math.hypot(p.x - pos.x, p.z - pos.z) + Math.max(0, Math.abs(p.y + 1 - pos.y) - 1.5),
         enabled: () => note.shown,
         onPress: () => this.readNote(note),

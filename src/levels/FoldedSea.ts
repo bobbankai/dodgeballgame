@@ -221,6 +221,7 @@ export class FoldedSea implements Level {
       game.interactables.add({
         label: 'Fish out the bottle',
         reach: 5,
+        at: b.mesh.position,
         where: (p) => Math.hypot(p.x - b.mesh.position.x, p.z - b.mesh.position.z),
         enabled: () => !b.read && this.sailing,
         onPress: () => this.readBottle(b),

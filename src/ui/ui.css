@@ -481,3 +481,8 @@ body.touch .toast {
 body.touch .dialogue {
   left: 44%;
 }
+/* phones: the prompt is a button too */
+body.touch .prompt.show {
+  pointer-events: auto;
+  cursor: pointer;
+}

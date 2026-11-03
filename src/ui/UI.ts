@@ -54,6 +54,8 @@ export class UI {
   private speaker: Speaker = '';
   private tapped = false;
   private cardToken = 0;
+  /** A line began this frame: the press that started it (talking to someone) mustn't skip it. */
+  private fresh = false;
 
   /** Whether a tap on the dialogue box moves it on (not while the player is walking about under it). */
   set tapToAdvance(on: boolean) {
@@ -90,6 +92,18 @@ export class UI {
     };
     this.dlg.addEventListener('pointerdown', tap);
     this.noteWrap.addEventListener('pointerdown', tap);
+    const ids = new Set<number>();
+    this.promptEl.addEventListener('pointerdown', (e) => {
+      e.stopPropagation();
+      this.promptEl.setPointerCapture(e.pointerId);
+      ids.add(e.pointerId);
+      this.input.touchKey('KeyE', true);
+    });
+    const up = (e: PointerEvent) => {
+      if (ids.delete(e.pointerId) && !ids.size) this.input.touchKey('KeyE', false);
+    };
+    this.promptEl.addEventListener('pointerup', up);
+    this.promptEl.addEventListener('pointercancel', up);
     this.menuLayer = el('div', 'ui-layer', this.root);
     this.fadeEl = el('div', 'fade', this.root);
     // the credits roll over the faded-out page
@@ -118,16 +132,34 @@ export class UI {
     this.letterbox(false);
   }
 
+  /** What the on-screen action button does right now (phones): '' when nothing. */
+  get actionLabel(): string {
+    if (this.menuTick) return 'OK';
+    if (this.waitingNote || this.noteWrap.classList.contains('show')) return 'Close';
+    if (this.typing) return 'Next';
+    const t = this.promptLabel;
+    if (!t) return '';
+    const hold = /^Hold to (\w+)/.exec(t);
+    const verb = hold ? hold[1] : t.split(' ')[0];
+    return verb.charAt(0).toUpperCase() + verb.slice(1);
+  }
+
+  private promptLabel: string | null = null;
+
   /** Show a button prompt (or hide it with null). `hold` (0..1) draws a progress ring. */
   prompt(text: string | null, key = 'E', hold = -1) {
+    this.promptLabel = text;
     if (!text) {
       this.promptEl.classList.remove('show');
       return;
     }
-    const k = this.input.device === 'gamepad' ? (key === 'E' ? 'X' : key === 'Space' ? 'A' : key) : this.input.device === 'touch' ? (key === 'E' ? 'Ink' : key === 'Space' ? 'Jump' : key) : key;
+    // on a phone the prompt itself is the button: tap it (or hold it) as well as the action button
+    const touch = this.input.device === 'touch';
+    const k = this.input.device === 'gamepad' ? (key === 'E' ? 'X' : key === 'Space' ? 'A' : key) : touch ? (key === 'E' ? (hold >= 0 ? 'Hold' : 'Tap') : key === 'Space' ? 'Jump' : key) : key;
     if (this.promptKey.firstChild?.nodeValue !== k) {
       this.promptKey.firstChild?.nodeType === 3 ? (this.promptKey.firstChild.nodeValue = k) : this.promptKey.prepend(k);
     }
+    if (touch && /^Hold to /.test(text)) text = text.charAt(8).toUpperCase() + text.slice(9);
     this.promptText.textContent = text;
     this.ring.style.background = hold >= 0 ? `conic-gradient(rgba(42,36,40,.55) ${hold * 360}deg, transparent 0)` : 'none';
     this.ring.style.mask = 'radial-gradient(circle, transparent 58%, #000 60%)';
@@ -146,6 +178,7 @@ export class UI {
     this.text.textContent = '';
     this.dlg.classList.add('show');
     this.dlg.classList.remove('done');
+    this.fresh = true;
     return new Promise((done) => (this.typing = { full: text, shown: 0, done, speed, pause: 0, voice }));
   }
 
@@ -357,10 +390,12 @@ export class UI {
       if (this.held >= this.autoAdvance) skip = true;
     } else this.held = 0;
     if (skip) this.held = 0;
+    const skipLine = skip && !this.fresh;
+    this.fresh = false;
     if (ty) {
       if (ty.shown < ty.full.length) {
         const v = ty.voice?.() ?? null;
-        if (skip) ty.shown = ty.full.length;
+        if (skipLine) ty.shown = ty.full.length;
         else if (v !== null) {
           const before = Math.floor(ty.shown);
           ty.shown = Math.max(ty.shown, Math.min(ty.full.length, v * ty.full.length));
@@ -380,7 +415,7 @@ export class UI {
         }
         this.text.textContent = ty.full.slice(0, Math.floor(ty.shown));
         if (ty.shown >= ty.full.length) this.dlg.classList.add('done');
-      } else if (skip) {
+      } else if (skipLine) {
         this.typing = null;
         ty.done();
       }
