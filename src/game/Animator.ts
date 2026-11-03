@@ -16,6 +16,8 @@ export class Animator {
   private targets = new Map<string, number>();
   private rates = new Map<string, number>();
   private overlayOn = new Map<string, number>();
+  /** Procedural layers that turn bones on top of the clips (see Procedural). */
+  readonly layers: { before(): void; after(dt: number): void }[] = [];
 
   constructor(root: THREE.Object3D, clips: THREE.AnimationClip[], once: string[] = []) {
     this.mixer = new THREE.AnimationMixer(root);
@@ -69,6 +71,9 @@ export class Animator {
 
   /** Desired body weights this frame; clips not mentioned fade out. `rate` is how fast (1/s). */
   target(want: Record<string, number>, rate = 10) {
+    // asking only for clips this model doesn't have would blend everything out to the bind pose
+    const known = Object.keys(want).some((k) => this.weights.has(k) && want[k] > 0);
+    if (!known && this.weights.has('idle')) want = { idle: 1 };
     for (const k of this.weights.keys()) {
       this.targets.set(k, want[k] ?? 0);
       this.rates.set(k, rate);
@@ -107,6 +112,8 @@ export class Animator {
       const w = a.getEffectiveWeight();
       a.setEffectiveWeight(w + (on - w) * (1 - Math.exp(-dt * 12)));
     }
+    for (const l of this.layers) l.before();
     this.mixer.update(dt);
+    for (const l of this.layers) l.after(dt);
   }
 }

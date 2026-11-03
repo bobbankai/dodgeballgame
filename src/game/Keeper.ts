@@ -3,6 +3,7 @@ import type { GLTF } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { inkify, lineIdFor } from '../core/Assets';
 import { Animator } from './Animator';
 import type { Expressive } from './Face';
+import { Procedural } from './Procedural';
 
 const _q = new THREE.Quaternion();
 const _x = new THREE.Vector3(1, 0, 0);
@@ -49,11 +50,18 @@ export class Keeper {
     this.anim = new Animator(model, gltf.animations, ['bow']);
     this.head = model.getObjectByName('head') ?? null;
     if (this.head) this.mixed.copy(this.head.quaternion);
+    // the long neck turns to whoever is talking (the beak's nod is on the head, above)
+    this.life = new Procedural(model, { look: [['neck1', 0.35, 0.3], ['neck2', 0.65, 0.7]], maxYaw: 1.0, maxPitch: 0.5 });
+    this.anim.layers.push(this.life);
   }
+
+  /** Turning the neck to look at things. */
+  readonly life: Procedural;
 
   place(p: THREE.Vector3, yaw = this.yaw) {
     this.root.position.copy(p);
     this.yaw = yaw;
+    this.life.reset();
   }
 
   bow() {

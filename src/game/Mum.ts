@@ -3,6 +3,7 @@ import type { GLTF } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { inkify, lineIdFor } from '../core/Assets';
 import { Animator } from './Animator';
 import { Face } from './Face';
+import { Procedural } from './Procedural';
 
 /**
  * Mum, as she drew herself into the last page (tools/blender/mum.py): long copper hair and a braid,
@@ -13,6 +14,8 @@ export class Mum {
   readonly root = new THREE.Group();
   readonly anim: Animator;
   readonly expression: Face;
+  /** Turning her head to Ada; the braid swinging. */
+  readonly life: Procedural;
   /** World height she is drawn up to (see InkOptions.reveal). */
   readonly cut = { value: -1e3 };
   speaking = false;
@@ -46,6 +49,14 @@ export class Mum {
     this.anim = new Animator(model, gltf.animations);
     // a grown-up's features are finer than Ada's: the same expressions, smaller movements
     this.expression = new Face(model, gltf.animations, 0.62);
+    this.life = new Procedural(model, {
+      look: [['chest', 0.12, 0.1], ['neck', 0.3, 0.35], ['head', 0.58, 0.55]],
+      loose: [
+        { bone: 'scarf1', gain: 0.7, stiff: 50, damp: 5, max: 18 },
+        { bone: 'scarf2', gain: 0.9, stiff: 40, damp: 4.5, max: 22 },
+      ],
+    });
+    this.anim.layers.push(this.life);
     this.root.visible = false;
   }
 
@@ -64,6 +75,7 @@ export class Mum {
   place(p: THREE.Vector3, yaw = this.yaw) {
     this.root.position.copy(p);
     this.yaw = yaw;
+    this.life.reset();
   }
 
   /** How far up she is drawn, 0 (not at all) .. 1 (all of her). */
@@ -74,6 +86,8 @@ export class Mum {
 
   update(dt: number) {
     const a = this.anim;
+    // (her cheek is on Ada's head in the hug: no turning then)
+    this.life.lookWeight = this.pose === 'kneel_hug' ? 0 : 1;
     a.target({ [this.speaking && this.pose === 'idle' ? 'talk' : this.pose]: 1 }, 4);
     if (this.lookAt) {
       const dir = Math.atan2(this.lookAt.x - this.root.position.x, this.lookAt.z - this.root.position.z);

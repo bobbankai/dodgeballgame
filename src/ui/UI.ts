@@ -52,6 +52,13 @@ export class UI {
   onNote?: (body: string, sign: string) => (() => void) | void;
   private closeNote: (() => void) | void = undefined;
   private speaker: Speaker = '';
+  private tapped = false;
+
+  /** Whether a tap on the dialogue box moves it on (not while the player is walking about under it). */
+  set tapToAdvance(on: boolean) {
+    const v = on ? 'auto' : '';
+    if (this.dlg.style.pointerEvents !== v) this.dlg.style.pointerEvents = v;
+  }
 
   constructor(private input: Input) {
     document.body.insertAdjacentHTML(
@@ -75,10 +82,38 @@ export class UI {
     this.noteWrap = el('div', 'note-wrap', layer);
     this.noteEl = el('div', 'note paper', this.noteWrap);
     this.card = el('div', 'title-card', layer);
+    // a tap on the dialogue (in cutscenes) or on a note moves it on, as the button does
+    const tap = (e: Event) => {
+      e.stopPropagation();
+      this.tapped = true;
+    };
+    this.dlg.addEventListener('pointerdown', tap);
+    this.noteWrap.addEventListener('pointerdown', tap);
     this.menuLayer = el('div', 'ui-layer', this.root);
     this.fadeEl = el('div', 'fade', this.root);
     // the credits roll over the faded-out page
     this.creditsLayer = el('div', 'ui-layer', this.root);
+  }
+
+  /**
+   * A new level: drop whatever the last one left open. A line or note it was waiting on is simply
+   * never answered, so its story script stops there instead of carrying on into the new level.
+   */
+  reset() {
+    this.typing = null;
+    this.waitingNote = null;
+    this.closeNote?.();
+    this.closeNote = undefined;
+    this.skipCredits = null;
+    this.dlg.classList.remove('show');
+    this.noteWrap.classList.remove('show');
+    this.noteWrap.style.pointerEvents = '';
+    this.card.classList.remove('show');
+    this.promptEl.classList.remove('show');
+    this.toastEl.classList.remove('show');
+    this.toastTime = 0;
+    this.counter(null);
+    this.letterbox(false);
   }
 
   /** Show a button prompt (or hide it with null). `hold` (0..1) draws a progress ring. */
@@ -126,8 +161,9 @@ export class UI {
 
   /** One of Mum's notes; resolves when dismissed. */
   note(title: string, body: string, sign = '— Mum'): Promise<void> {
-    this.noteEl.innerHTML = `<div class="title">${title}</div><div>${body}</div><div class="sign">${sign}</div><div class="close">press E</div>`;
+    this.noteEl.innerHTML = `<div class="title">${title}</div><div>${body}</div><div class="sign">${sign}</div><div class="close">${this.input.device === 'touch' ? 'tap to close' : this.input.device === 'gamepad' ? 'press X' : 'press E'}</div>`;
     this.noteWrap.classList.add('show');
+    this.noteWrap.style.pointerEvents = 'auto';
     this.closeNote = this.onNote?.(body, sign);
     return new Promise((done) => {
       // ignore the press that opened it
@@ -305,7 +341,8 @@ export class UI {
       this.tickTimers(dt);
       return;
     }
-    let skip = this.input.justPressed('skip') || this.input.justPressed('interact');
+    let skip = this.input.justPressed('skip') || this.input.justPressed('interact') || this.tapped;
+    this.tapped = false;
     const ty = this.typing;
     if (this.autoAdvance > 0 && ((ty && ty.shown >= ty.full.length) || this.waitingNote)) {
       this.held += dt;
@@ -345,6 +382,7 @@ export class UI {
       const d = this.waitingNote;
       this.waitingNote = null;
       this.noteWrap.classList.remove('show');
+      this.noteWrap.style.pointerEvents = '';
       this.closeNote?.();
       this.closeNote = undefined;
       this.later(0.3, d);

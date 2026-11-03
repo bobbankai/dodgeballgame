@@ -4,12 +4,12 @@ import adaUrl from '../assets/models/ada.glb?url';
 import { audio } from '../audio/Audio';
 import { noteText } from '../audio/lineKey';
 import { speech } from '../audio/Speech';
-import { loadGLTF } from '../core/Assets';
+import { disposeTree, loadGLTF } from '../core/Assets';
 import { Input } from '../core/Input';
 import { G, setBoil } from '../render/Globals';
 import { Particles } from '../render/Particles';
 import { Pipeline } from '../render/Pipeline';
-import { UI } from '../ui/UI';
+import { UI, type Speaker } from '../ui/UI';
 import { CameraRig } from './CameraRig';
 import { Collision } from './Collision';
 import { Director } from './Director';
@@ -39,6 +39,11 @@ export interface Interactable {
 
 const _fwd = new THREE.Vector3();
 const _upv = new THREE.Vector3();
+const _lookAda = new THREE.Vector3();
+const _lookAdaT = new THREE.Vector3();
+const _lookA = new THREE.Vector3();
+const _lookB = new THREE.Vector3();
+const _lookC = new THREE.Vector3();
 
 /** Owns the renderer, the world, Ada and the frame loop. Levels plug into it. */
 export class Game {
@@ -126,25 +131,92 @@ export class Game {
 
   async loadLevel(level: Level) {
     audio.stopEmitters();
-    if (this.level) {
-      this.level.dispose?.();
-      for (const o of [...this.scene.children]) if (o !== this.sun && o !== this.player.root) this.scene.remove(o);
-      for (const o of [...this.pipe.overlay.children]) if (o !== this.particles.mesh) this.pipe.overlay.remove(o);
+    audio.scratchOn(false);
+    audio.smudgeLevel(0);
+    // (the title's attic counts too: whatever the last level was, nothing of it carries over)
+    const old = this.level ?? this.loaded;
+    if (old) {
+      old.dispose?.();
+      for (const o of [...this.scene.children]) {
+        if (o === this.sun || o === this.player.root) continue;
+        this.scene.remove(o);
+        disposeTree(o);
+      }
+      for (const o of [...this.pipe.overlay.children]) {
+        if (o === this.particles.mesh) continue;
+        this.pipe.overlay.remove(o);
+        disposeTree(o);
+      }
       this.collision.clear();
       this.interactables.clear();
       this.onUpdate.clear();
-      this.director.reset();
-      this.rig.guide = null;
       G.uBloomCount.value = 0;
       for (const t of G.uBloomTint.value) t.set(1, 1, 1);
       G.uEraseCount.value = 0;
+      G.uStorm.value = 0;
     }
+    this.director.reset();
+    this.rig.guide = null;
+    this.rig.setShot(null, true);
+    this.rig.sailing(false);
+    this.pipe.uniforms.uVignette.value = 0;
+    this.pipe.uniforms.uAperture.value = 0;
+    this.player.reset();
+    this.ui.reset();
+    this.active = null;
     // the frame loop keeps running while a level loads: it only gets the level once it is ready
     this.level = null;
+    this.loaded = level;
     await level.load(this);
     this.collision.build();
     this.level = level;
   }
+
+  /**
+   * Who looks at what: in a conversation everyone looks at whoever is talking (and the one talking
+   * at whoever they answer); walking about, Ada glances at what she can use and at Pip nearby.
+   */
+  private looks() {
+    const d = this.director, p = this.player;
+    const others: Speaker[] = ['Pip', 'Mum', 'Keeper'];
+    const talking = this.ui.inDialogue ? d.speaker : '';
+    const adaHead = d.headOf('Ada', _lookAda);
+    // Ada
+    let ada: THREE.Vector3 | null = null;
+    if (talking && talking !== 'Ada') ada = d.headOf(talking, _lookA);
+    else if (talking === 'Ada') ada = (d.lastOther && d.headOf(d.lastOther, _lookA)) || this.nearestHead(others, adaHead!, 6, _lookA);
+    else if (!d.cutscene) {
+      if (this.active?.focus && p.mode !== 'trace') ada = _lookA.copy(this.active.focus(p.position));
+      else if (p.velocity.lengthSq() < 0.1) ada = this.nearestHead(['Pip'], adaHead!, 2.6, _lookA);
+    }
+    p.life.look = ada ? _lookAdaT.copy(ada) : null;
+    // the others: at the speaker, or at Ada when she is close
+    for (const who of others) {
+      const life = who === 'Pip' ? d.pip?.life : d.actors.get(who)?.life;
+      if (!life) continue;
+      const me = d.headOf(who, _lookB);
+      let t: THREE.Vector3 | null = null;
+      if (talking && talking !== who) t = d.headOf(talking, _lookC);
+      else if (talking === who) t = adaHead;
+      else if (me && adaHead && me.distanceTo(adaHead) < 7) t = adaHead;
+      life.look = t ? (life.look ?? new THREE.Vector3()).copy(t) : null;
+    }
+  }
+
+  private nearestHead(who: Speaker[], from: THREE.Vector3, within: number, out: THREE.Vector3) {
+    let best: THREE.Vector3 | null = null, bd = within;
+    for (const w of who) {
+      const h = this.director.headOf(w, _lookB);
+      if (h && h.distanceTo(from) < bd) {
+        bd = h.distanceTo(from);
+        best = out.copy(h);
+      }
+    }
+    return best;
+  }
+
+  /** The level being loaded or played (level is only set once it is ready). */
+  private loaded: Level | null = null;
 
   overlayRemove(o: THREE.Object3D) {
     o.parent?.remove(o);
@@ -255,6 +327,7 @@ export class Game {
       this.level?.update(dt, this.time);
       for (const f of this.onUpdate) f(dt, this.time);
       this.director.update(dt);
+      this.looks();
       speech.resume();
       speech.update();
       if (speech.speaking && this.director.speaker === speech.speaker) this.director.faceOf(this.director.speaker)?.level(speech.level());
@@ -266,6 +339,7 @@ export class Game {
     _fwd.set(0, 0, -1).applyQuaternion(c.quaternion);
     _upv.set(0, 1, 0).applyQuaternion(c.quaternion);
     audio.listen(c.position.x, c.position.y, c.position.z, _fwd.x, _fwd.y, _fwd.z, _upv.x, _upv.y, _upv.z);
+    this.ui.tapToAdvance = this.director.cutscene || !this.player.inputEnabled;
     this.ui.update(dt);
     if (render) this.pipe.render(this.scene, this.camera);
     this.input.endFrame();

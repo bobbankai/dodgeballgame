@@ -2,17 +2,36 @@ import * as THREE from 'three';
 import { GLTFLoader, type GLTF } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { inkMaterial, type InkOptions } from '../render/InkMaterial';
 import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
+import { clone as cloneSkinned } from 'three/examples/jsm/utils/SkeletonUtils.js';
 
 const loader = new GLTFLoader().setMeshoptDecoder(MeshoptDecoder);
 const cache = new Map<string, Promise<GLTF>>();
 
-export function loadGLTF(url: string): Promise<GLTF> {
+/**
+ * Load a glTF once; every call gets its own copy of the scene (sharing geometry and the clips), since
+ * levels repaint, move and rescale what they load and a model is used again in later chapters.
+ */
+export async function loadGLTF(url: string): Promise<GLTF> {
   let p = cache.get(url);
   if (!p) {
     p = loader.loadAsync(url);
     cache.set(url, p);
+    p.catch(() => cache.delete(url));
   }
-  return p;
+  const g = await p;
+  const scene = cloneSkinned(g.scene) as THREE.Group;
+  return { ...g, scene, scenes: [scene] };
+}
+
+/** Free what a level put on the GPU (geometry and materials; shared ones re-upload if used again). */
+export function disposeTree(root: THREE.Object3D) {
+  root.traverse((o) => {
+    const m = o as THREE.Mesh;
+    if (m.geometry) m.geometry.dispose();
+    const mat = m.material as THREE.Material | THREE.Material[] | undefined;
+    if (Array.isArray(mat)) mat.forEach((x) => x.dispose());
+    else mat?.dispose();
+  });
 }
 
 const ids = new Map<string, number>();

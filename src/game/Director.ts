@@ -4,6 +4,7 @@ import { speech } from '../audio/Speech';
 import type { Speaker } from '../ui/UI';
 import { inferEmotion, type Emotion, type Expressive } from './Face';
 import type { Companion } from './Companion';
+import type { Procedural } from './Procedural';
 import type { Game } from './Game';
 
 export interface RailOptions {
@@ -36,7 +37,9 @@ export class Director {
   /** Pip, if the level has it, so its mouth (head bob) can follow the dialogue. */
   pip: Companion | null = null;
   /** Other characters who talk (they animate while their lines type out). */
-  readonly actors = new Map<Speaker, { speaking: boolean; expression?: Expressive }>();
+  readonly actors = new Map<Speaker, { speaking: boolean; expression?: Expressive; life?: Procedural; root?: THREE.Object3D }>();
+  /** Who spoke last apart from Ada (she looks at them while she answers). */
+  lastOther: Speaker = '';
   private waits: { t: number; done: () => void }[] = [];
   private rails: Rail[] = [];
   private focusOn: THREE.Vector3 | (() => THREE.Vector3) | null = null;
@@ -46,6 +49,7 @@ export class Director {
 
   reset() {
     speech.stop();
+    this.lastOther = '';
     this.rails = [];
     this.focusOn = null;
     this.waits = [];
@@ -71,6 +75,15 @@ export class Director {
     return this.actors.get(who)?.expression;
   }
 
+  /** Where someone's head is (for others to look at), if they are here. */
+  headOf(who: Speaker, out: THREE.Vector3): THREE.Vector3 | null {
+    if (who === 'Ada') return this.game.player.life.headPosition(out);
+    if (who === 'Pip') return this.pip?.root.visible ? this.pip.life.headPosition(out) : null;
+    const a = this.actors.get(who);
+    if (!a?.life || (a.root && !a.root.visible)) return null;
+    return a.life.headPosition(out);
+  }
+
   private faces(): [Speaker, Expressive][] {
     const out: [Speaker, Expressive][] = [];
     for (const w of ['Ada', 'Pip', 'Mum', 'Keeper'] as Speaker[]) {
@@ -83,6 +96,7 @@ export class Director {
   /** Say a line with a feeling (given, or read from the words); the others react a little. */
   async say(who: Speaker, text: string, feeling?: Emotion) {
     this.speaker = who;
+    if (who !== 'Ada') this.lastOther = who;
     if (this.pip) this.pip.speaking = who === 'Pip';
     const actor = this.actors.get(who);
     if (actor) actor.speaking = true;

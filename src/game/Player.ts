@@ -4,6 +4,7 @@ import { inkify, lineIdFor } from '../core/Assets';
 import type { Input } from '../core/Input';
 import { Animator } from './Animator';
 import { Face } from './Face';
+import { Procedural } from './Procedural';
 import type { Collision } from './Collision';
 
 const RADIUS = 0.21;
@@ -49,6 +50,8 @@ export class Player {
   readonly anim: Animator;
   /** Her expressions and the mouth moving as she talks. */
   readonly expression: Face;
+  /** Looking at things, the scarf and satchel swinging. */
+  readonly life: Procedural;
   readonly position = this.root.position;
   readonly velocity = new THREE.Vector3();
   yaw = 0;
@@ -72,6 +75,12 @@ export class Player {
   private lastMode = '';
   private turnRate = 0;
   private lean = 0;
+  /** Leaning forward to speed up, back to stop. */
+  private pitchLean = 0;
+  private lastFwd = 0;
+  /** The way her body is drawn facing: follows `yaw` closely, but never snaps round in one frame. */
+  private shownYaw = 0;
+  private turnShuffle = 0;
   private pencilEar: THREE.Object3D | null = null;
   private pencilHand: THREE.Object3D | null = null;
   private oneShot: { name: string; t: number } | null = null;
@@ -111,13 +120,45 @@ export class Player {
     this.root.add(this.model);
     this.anim = new Animator(this.model, gltf.animations, ['jump', 'land', 'pickup', 'point', 'surprise']);
     this.expression = new Face(this.model, gltf.animations, 1);
+    this.life = new Procedural(this.model, {
+      look: [['chest', 0.15, 0.1], ['neck', 0.3, 0.35], ['head', 0.55, 0.55]],
+      loose: [
+        { bone: 'scarf1', gain: 1.0, stiff: 80, damp: 8, max: 28 },
+        { bone: 'scarf2', gain: 1.3, stiff: 55, damp: 5.5, max: 32 },
+        { bone: 'bag', gain: 0.8, stiff: 60, damp: 6, max: 22 },
+      ],
+    });
+    this.anim.layers.push(this.life);
   }
 
   teleport(p: THREE.Vector3, yaw = this.yaw) {
     this.position.copy(p);
     this.velocity.set(0, 0, 0);
-    this.yaw = yaw;
+    this.yaw = this.shownYaw = yaw;
     this.root.rotation.y = yaw;
+    this.life.reset();
+  }
+
+  /** A fresh start for a new level: on her feet, visible, in control, nothing held over. */
+  reset() {
+    this.ride(null);
+    this.setPose(null);
+    this.oneShot = null;
+    this.goal = null;
+    this.mode = 'free';
+    this.inputEnabled = true;
+    this.speaking = false;
+    this.root.visible = true;
+    this.velocity.set(0, 0, 0);
+    this.landTimer = 0;
+    this.airTime = 0;
+    this.jumping = false;
+    this.expression.setBase('neutral');
+    this.expression.set('neutral');
+    this.life.look = null;
+    this.life.reset();
+    this.pitchLean = this.lean = 0;
+    this.model.rotation.set(0, 0, 0);
   }
 
   /** Play a one-shot body clip (pickup...), holding the player still while it runs. */
@@ -143,6 +184,7 @@ export class Player {
     if (!seat) {
       this.root.quaternion.identity();
       this.root.rotation.set(0, this.yaw, 0);
+      this.shownYaw = this.yaw;
       this.velocity.set(0, 0, 0);
     }
   }
@@ -165,7 +207,7 @@ export class Player {
     if (this.riding) {
       this.syncRide();
       this.grounded = true;
-      this.model.rotation.z = 0;
+      this.model.rotation.set(0, 0, 0);
       this.animate(dt, 0);
       return;
     }
@@ -278,21 +320,39 @@ export class Player {
       this.turnRate = turn / Math.max(dt, 1e-4);
     } else this.turnRate *= Math.exp(-dt * 8);
     this.lean += (THREE.MathUtils.clamp(-this.turnRate * hs * 0.025, -0.22, 0.22) - this.lean) * (1 - Math.exp(-dt * 8));
-    this.root.rotation.set(0, this.yaw, 0);
+    // speeding up tips her forward a little, pulling up tips her back (on the ground only)
+    const fwd = this.velocity.x * Math.sin(this.yaw) + this.velocity.z * Math.cos(this.yaw);
+    const fa = (fwd - this.lastFwd) / Math.max(dt, 1e-4);
+    this.lastFwd = fwd;
+    const pl = this.grounded ? THREE.MathUtils.clamp(fa * 0.006, -0.09, 0.11) : 0;
+    this.pitchLean += (pl - this.pitchLean) * (1 - Math.exp(-dt * 7));
     this.model.rotation.z = this.lean;
+    this.model.rotation.x = this.pitchLean;
 
     this.animate(dt, hs);
   }
 
-  /** Face a point (for conversations and cutscenes). */
+  /** Face a point (for conversations and cutscenes). Her body turns round to it over a moment. */
   face(p: THREE.Vector3, dt: number) {
     const target = Math.atan2(p.x - this.position.x, p.z - this.position.z);
     this.yaw += angleTo(this.yaw, target) * (1 - Math.exp(-dt * 8));
-    this.root.rotation.y = this.yaw;
   }
 
   private animate(dt: number, speed: number) {
     const a = this.anim;
+    if (!this.riding) {
+      // the body follows the facing quickly but never pops round; a big turn on the spot takes a few steps
+      const turn = angleTo(this.shownYaw, this.yaw);
+      const step = turn * (1 - Math.exp(-dt * 16));
+      this.shownYaw += Math.abs(turn) < 1e-4 ? turn : step;
+      const spin = Math.abs(step) / Math.max(dt, 1e-4);
+      this.turnShuffle += ((this.grounded && speed < 0.4 && spin > 1.2 ? 1 : 0) - this.turnShuffle) * (1 - Math.exp(-dt * 10));
+      if (this.turnShuffle > 0.01) speed = Math.max(speed, 0.5 * this.turnShuffle);
+      this.root.rotation.set(0, this.shownYaw, 0);
+    } else this.shownYaw = this.yaw;
+    // where she looks: less while running or acting; not at all while busy with her hands or a hug
+    const busy = this.oneShot || this.mode === 'trace' || this.poseName === 'hug' || this.poseName === 'kneel_draw';
+    this.life.lookWeight = busy ? 0 : !this.grounded ? 0.3 : this.poseName ? 0.7 : 1 - 0.5 * THREE.MathUtils.smoothstep(speed, 1.5, 3.4);
     if (this.pencilEar && this.pencilHand) {
       this.pencilHand.visible = this.mode === 'trace';
       this.pencilEar.visible = this.mode !== 'trace';

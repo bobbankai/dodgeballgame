@@ -4,6 +4,7 @@ import { inkify, lineIdFor } from '../core/Assets';
 import type { InkOptions } from '../render/InkMaterial';
 import { Animator } from './Animator';
 import { FoxFace } from './Face';
+import { Procedural } from './Procedural';
 import type { Collision } from './Collision';
 import type { Player } from './Player';
 
@@ -36,6 +37,8 @@ export class Companion {
   readonly root = new THREE.Group();
   readonly anim: Animator;
   readonly expression: FoxFace;
+  /** Neck turning to whoever it is listening to. */
+  readonly life: Procedural;
   readonly position = this.root.position;
   yaw = 0;
   /** Scripted destination; while set, Pip ignores Ada. */
@@ -58,12 +61,16 @@ export class Companion {
     this.root.add(model);
     this.anim = new Animator(model, gltf.animations, ['hop']);
     this.expression = new FoxFace(model, gltf.animations);
+    // (the head itself is the fox face's: ears, tilt)
+    this.life = new Procedural(model, { look: [['chest', 0.25, 0.2], ['neck', 0.75, 0.8]], maxYaw: 1.1, maxPitch: 0.6 });
+    this.anim.layers.push(this.life);
   }
 
   place(p: THREE.Vector3, yaw = 0) {
     this.position.copy(p);
     this.yaw = yaw;
     this.hop = null;
+    this.life.reset();
   }
 
   private ground(col: Collision, x: number, z: number, nearY: number) {
@@ -161,6 +168,7 @@ export class Companion {
       if (gal) gal.timeScale = Math.max(0.7, s / 4.4);
     }
     this.root.quaternion.setFromAxisAngle(_up, this.yaw);
+    this.life.lookWeight = this.hop ? 0 : 1 - THREE.MathUtils.smoothstep(this.speed, 1.5, 3.5);
     this.expression.restore();
     a.update(dt);
     this.expression.update(dt);
