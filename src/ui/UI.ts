@@ -84,7 +84,7 @@ export class UI {
       this.promptEl.classList.remove('show');
       return;
     }
-    const k = this.input.device === 'gamepad' ? (key === 'E' ? 'X' : key === 'Space' ? 'A' : key) : key;
+    const k = this.input.device === 'gamepad' ? (key === 'E' ? 'X' : key === 'Space' ? 'A' : key) : this.input.device === 'touch' ? (key === 'E' ? 'Ink' : key === 'Space' ? 'Jump' : key) : key;
     if (this.promptKey.firstChild?.nodeValue !== k) {
       this.promptKey.firstChild?.nodeType === 3 ? (this.promptKey.firstChild.nodeValue = k) : this.promptKey.prepend(k);
     }

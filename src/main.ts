@@ -2,6 +2,7 @@ import '@fontsource/patrick-hand/400.css';
 import '@fontsource/caveat/400.css';
 import '@fontsource/caveat/700.css';
 import * as THREE from 'three';
+import { isTouchDevice, TouchControls } from './core/Touch';
 import { Flow } from './game/Flow';
 import { Game } from './game/Game';
 import { audio } from './audio/Audio';
@@ -14,6 +15,7 @@ import { UnfinishedPage } from './levels/UnfinishedPage';
 
 const params = new URLSearchParams(location.search);
 const game = new Game(document.getElementById('app')!);
+if (isTouchDevice()) new TouchControls(game.input);
 const w = window as unknown as Record<string, unknown>;
 w.__game = game;
 w.__G = G;

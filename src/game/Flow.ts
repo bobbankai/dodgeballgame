@@ -68,7 +68,7 @@ export class Flow {
     const save = readSave();
     const items = [{ id: 'begin', label: save ? 'Begin again' : 'Begin' }];
     if (save) items.unshift({ id: 'continue', label: 'Continue' });
-    const choice = await g.ui.menu('Inkbound', 'a story drawn in pencil', items, 'Best with sound. Click the page to look around with the mouse.');
+    const choice = await g.ui.menu('Inkbound', 'a story drawn in pencil', items, 'Best with sound. Keyboard: WASD, Space, E. Phone: use the on-screen stick and buttons.');
     audio.unlock();
     if (choice === 'continue' && save) {
       await g.ui.fade(1, 0.8);

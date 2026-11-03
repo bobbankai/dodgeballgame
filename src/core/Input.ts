@@ -22,7 +22,10 @@ export class Input {
   private wheel = 0;
   locked = false;
   /** Last device used, for showing the right button prompts. */
-  device: 'keyboard' | 'gamepad' = 'keyboard';
+  device: 'keyboard' | 'gamepad' | 'touch' = 'keyboard';
+  /** Fed by the on-screen controls (see Touch.ts). */
+  readonly touchMove = new THREE.Vector2();
+  readonly touchLook = new THREE.Vector2();
 
   constructor(private canvas: HTMLElement) {
     window.addEventListener('keydown', (e) => {
@@ -38,6 +41,15 @@ export class Input {
     });
     window.addEventListener('wheel', (e) => (this.wheel += Math.sign(e.deltaY)), { passive: true });
     document.addEventListener('pointerlockchange', () => (this.locked = document.pointerLockElement === canvas));
+  }
+
+  /** An on-screen button went down or up: act as if that key did. */
+  touchKey(code: string, down: boolean) {
+    this.device = 'touch';
+    if (down) {
+      this.pressed.add(code);
+      this.keys.add(code);
+    } else this.keys.delete(code);
   }
 
   requestLock() {
@@ -73,6 +85,7 @@ export class Input {
   endFrame() {
     this.pressed.clear();
     this.look.set(0, 0);
+    this.touchLook.set(0, 0);
     this.wheel = 0;
   }
 
@@ -96,6 +109,7 @@ export class Input {
     if (this.keys.has('KeyS') || this.keys.has('ArrowDown')) out.y -= 1;
     if (this.keys.has('KeyD') || this.keys.has('ArrowRight')) out.x += 1;
     if (this.keys.has('KeyA') || this.keys.has('ArrowLeft')) out.x -= 1;
+    if (this.touchMove.lengthSq() > 0.02) out.add(this.touchMove);
     if (out.lengthSq() > 1) out.normalize();
     const p = this.pad();
     if (p) {
@@ -111,7 +125,7 @@ export class Input {
 
   /** Camera look delta in radians-ish units (mouse pixels scaled, stick per second). */
   lookDelta(dt: number, out = new THREE.Vector2()) {
-    out.copy(this.look).multiplyScalar(0.0024);
+    out.copy(this.look).multiplyScalar(0.0024).addScaledVector(this.touchLook, 0.0032);
     const p = this.pad();
     if (p) {
       const x = p.axes[2] ?? 0, y = p.axes[3] ?? 0;
