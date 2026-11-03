@@ -144,7 +144,8 @@ export class Game {
   private scaleCool = 0;
 
   resize() {
-    const dpr = Math.min(window.devicePixelRatio, 2);
+    // phones have very dense screens: 1.5x is plenty and keeps them cool
+    const dpr = Math.min(window.devicePixelRatio, matchMedia('(pointer: coarse)').matches ? 1.5 : 2);
     this.pipe.setSize(window.innerWidth, window.innerHeight, Math.max(0.6, dpr * this.renderScale));
     this.camera.aspect = window.innerWidth / window.innerHeight;
     this.camera.updateProjectionMatrix();

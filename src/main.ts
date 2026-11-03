@@ -13,9 +13,29 @@ import { MarginVillage } from './levels/MarginVillage';
 import { Playground } from './levels/Playground';
 import { UnfinishedPage } from './levels/UnfinishedPage';
 
+// if anything stops the game starting, say so on the page (a blank screen tells nobody anything)
+function showError(msg: string) {
+  let el = document.getElementById('boot-error');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'boot-error';
+    el.style.cssText = 'position:fixed;left:12px;right:12px;bottom:12px;z-index:99;padding:10px 12px;background:#2a2428;color:#f4eedc;font:13px/1.4 sans-serif;border-radius:8px;white-space:pre-wrap';
+    document.body.appendChild(el);
+  }
+  el.textContent = `Something went wrong starting the game:\n${msg}`;
+}
+window.addEventListener('error', (e) => showError(String(e.message || e.error)));
+window.addEventListener('unhandledrejection', (e) => showError(String((e.reason as Error)?.message ?? e.reason)));
+
 const params = new URLSearchParams(location.search);
 const game = new Game(document.getElementById('app')!);
-if (isTouchDevice()) new TouchControls(game.input);
+if (isTouchDevice()) {
+  try {
+    new TouchControls(game.input);
+  } catch (e) {
+    console.error('touch controls', e);
+  }
+}
 const w = window as unknown as Record<string, unknown>;
 w.__game = game;
 w.__G = G;

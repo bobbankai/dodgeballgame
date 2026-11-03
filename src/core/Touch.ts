@@ -54,7 +54,13 @@ export class TouchControls {
     setTimeout(() => hint.remove(), 9000);
     document.body.appendChild(this.root);
     // landscape works best: ask for it where the browser allows
-    (screen.orientation as unknown as { lock?: (o: string) => Promise<void> }).lock?.('landscape').catch(() => {});
+    // (older iPhone Safari has no screen.orientation at all, and none can lock it: never let this throw)
+    try {
+      const o = (screen as unknown as { orientation?: { lock?: (o: string) => Promise<void> } }).orientation;
+      o?.lock?.('landscape')?.catch?.(() => {});
+    } catch {
+      // not supported: portrait still works
+    }
 
     left.addEventListener('pointerdown', (e) => {
       if (this.stick) return;

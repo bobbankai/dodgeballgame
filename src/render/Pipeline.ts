@@ -405,7 +405,7 @@ function pass(fragmentShader: string, uniforms: Record<string, THREE.IUniform>) 
   return { scene: s, mat: m.material as THREE.ShaderMaterial };
 }
 
-function rt(w: number, h: number, type: THREE.TextureDataType = THREE.HalfFloatType) {
+function rt(w: number, h: number, type: THREE.TextureDataType = THREE.UnsignedByteType) {
   return new THREE.WebGLRenderTarget(w, h, { type, depthBuffer: false, minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter });
 }
 
@@ -512,7 +512,8 @@ export class Pipeline {
     } catch {
       // storage blocked: fall back to the default
     }
-    this.setQuality(q === 'low' || q === 'medium' || q === 'high' ? q : 'high');
+    const touch = matchMedia('(pointer: coarse)').matches;
+    this.setQuality(q === 'low' || q === 'medium' || q === 'high' ? q : touch ? 'medium' : 'high');
   }
 
   /** Swap the scene target (multisampling on or off) and switch the screen-space effects. */
@@ -520,8 +521,12 @@ export class Pipeline {
     this.quality = q;
     this.target?.dispose();
     const samples = q === 'high' ? 4 : 0;
+    // some phones can't draw into half-float targets: fall back to plain 8-bit colour there
+    const gl = this.renderer.getContext();
+    const floatOk = !!(gl.getExtension('EXT_color_buffer_float') || gl.getExtension('EXT_color_buffer_half_float'));
     this.target = new THREE.WebGLRenderTarget(this.size.x, this.size.y, {
-      count: 2, type: THREE.HalfFloatType, samples, depthTexture: new THREE.DepthTexture(this.size.x, this.size.y),
+      count: 2, type: floatOk ? THREE.HalfFloatType : THREE.UnsignedByteType, samples: floatOk ? samples : 0,
+      depthTexture: new THREE.DepthTexture(this.size.x, this.size.y),
     });
     this.target.textures[1].type = THREE.UnsignedByteType;
     this.uniforms.tColor.value = this.target.textures[0];
