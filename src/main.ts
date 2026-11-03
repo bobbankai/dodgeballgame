@@ -6,6 +6,7 @@ import { isTouchDevice, TouchControls } from './core/Touch';
 import { Flow } from './game/Flow';
 import { Game } from './game/Game';
 import { audio } from './audio/Audio';
+import { speech } from './audio/Speech';
 import { G } from './render/Globals';
 import { Attic } from './levels/Attic';
 import { FoldedSea } from './levels/FoldedSea';
@@ -40,6 +41,7 @@ const w = window as unknown as Record<string, unknown>;
 w.__game = game;
 w.__G = G;
 w.__audio = audio;
+w.__speech = speech;
 
 await game.init();
 const flow = new Flow(game);
@@ -59,6 +61,8 @@ else flow.title();
 // ?test: no frame loop; tools/play.mjs steps the game itself at a fixed rate
 if (params.has('test')) {
   w.THREE = THREE;
+  // recorded voices pace the words in real time; tests step game time, so they babble unless asked
+  speech.enabled = false;
   w.__advance = async (seconds: number, fps = 30) => {
     const n = Math.round(seconds * fps);
     for (let i = 0; i < n; i++) {

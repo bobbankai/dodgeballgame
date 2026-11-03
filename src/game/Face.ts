@@ -59,6 +59,8 @@ export interface Expressive {
   set(e: Emotion, strength?: number, seconds?: number): void;
   setBase(e: Emotion): void;
   letter(c: string): void;
+  /** How loud a recorded voice is right now (0..1): the mouth follows it. */
+  level(v: number): void;
   quiet(): void;
   update(dt: number): void;
 }
@@ -152,6 +154,12 @@ export class Face implements Expressive {
     if (/[aeiouyàáâäéèêëíìîïóòôöúùûü]/i.test(c)) this.talkTarget = 0.55 + Math.random() * 0.45;
     else if (/[a-z]/i.test(c)) this.talkTarget = Math.min(this.talkTarget, 0.25);
     else this.talkTarget = 0;
+  }
+
+  level(v: number) {
+    // quiet consonants and breaths barely part the lips; open vowels drop the jaw
+    const k = Math.max(0, (v - 0.12) / 0.88);
+    this.talkTarget = Math.min(1, k * k * (3 - 2 * k) * 1.05);
   }
 
   /** The line is over: close the mouth. */
@@ -310,6 +318,14 @@ export class FoxFace implements Expressive {
   letter() {
     // Pip's lines already bob its head; an ear twitch now and then while it chatters
     if (Math.random() < 0.04) this.flick = 1;
+  }
+
+  private loud = 0;
+
+  level(v: number) {
+    // an ear flicks on the stressed syllables
+    if (v > 0.85 && this.loud <= 0.85 && Math.random() < 0.25) this.flick = 1;
+    this.loud = v;
   }
 
   quiet() {}

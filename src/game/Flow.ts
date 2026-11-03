@@ -1,4 +1,5 @@
 import { audio } from '../audio/Audio';
+import { speech } from '../audio/Speech';
 import { Attic } from '../levels/Attic';
 import { FoldedSea } from '../levels/FoldedSea';
 import { MarginVillage } from '../levels/MarginVillage';
@@ -144,8 +145,18 @@ export class Flow {
       c = await g.ui.menu('', 'Paused', [
         { id: 'resume', label: 'Resume' },
         { id: 'gfx', label: `Graphics: ${names[g.pipe.quality]}` },
+        { id: 'voices', label: `Voices: ${speech.enabled ? 'On' : 'Off'}` },
         { id: 'title', label: 'Quit to title' },
       ]);
+      if (c === 'voices') {
+        speech.enabled = !speech.enabled;
+        try {
+          localStorage.setItem('inkbound.voices', speech.enabled ? '1' : '0');
+        } catch {
+          // not remembered
+        }
+        continue;
+      }
       if (c !== 'gfx') break;
       const next = g.pipe.quality === 'high' ? 'medium' : g.pipe.quality === 'medium' ? 'low' : 'high';
       g.pipe.setQuality(next);

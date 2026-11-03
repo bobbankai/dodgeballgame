@@ -2,6 +2,8 @@ import * as THREE from 'three';
 import { SunLight } from 'three/examples/jsm/lights/SunLight.js';
 import adaUrl from '../assets/models/ada.glb?url';
 import { audio } from '../audio/Audio';
+import { noteText } from '../audio/lineKey';
+import { speech } from '../audio/Speech';
 import { loadGLTF } from '../core/Assets';
 import { Input } from '../core/Input';
 import { G, setBoil } from '../render/Globals';
@@ -73,8 +75,18 @@ export class Game {
       this.director.feel('Pip', 'joy', 3.5);
     };
     this.ui.onType = (s, c) => {
+      // a recorded line moves the mouth itself; the rest babble along as they type
+      if (speech.speaking) return;
       this.director.faceOf(s)?.letter(c);
       audio.voice(s, c);
+    };
+    // Mum reads her notes aloud
+    this.ui.onNote = (body, sign) => {
+      if (sign && !sign.includes('Mum')) return;
+      const text = noteText(body);
+      if (!text) return;
+      void speech.start('Mum', text);
+      return () => speech.stop();
     };
     this.director = new Director(this);
     this.sun.castShadow = true;
@@ -233,7 +245,8 @@ export class Game {
   step(dt: number, render = true) {
     this.input.poll();
     if (this.input.justPressed('pause')) this.onPause?.();
-    if (!this.paused) {
+    if (this.paused) speech.pause();
+    else {
       this.time += dt;
       setBoil(this.time);
       this.player.speaking = this.ui.talking && this.director.speaker === 'Ada';
@@ -242,6 +255,9 @@ export class Game {
       this.level?.update(dt, this.time);
       for (const f of this.onUpdate) f(dt, this.time);
       this.director.update(dt);
+      speech.resume();
+      speech.update();
+      if (speech.speaking && this.director.speaker === speech.speaker) this.director.faceOf(this.director.speaker)?.level(speech.level());
       this.rig.update(dt, this.director.cutscene ? null : this.input, this.player.position, this.player.velocity, this.collision, this.time);
       this.particles.update(dt);
     }

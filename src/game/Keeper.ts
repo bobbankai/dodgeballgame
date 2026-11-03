@@ -2,6 +2,10 @@ import * as THREE from 'three';
 import type { GLTF } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { inkify, lineIdFor } from '../core/Assets';
 import { Animator } from './Animator';
+import type { Expressive } from './Face';
+
+const _q = new THREE.Quaternion();
+const _x = new THREE.Vector3(1, 0, 0);
 
 /**
  * The lighthouse keeper: an old paper crane. Stands, talks, bows, and flies short hops (up to the
@@ -15,6 +19,20 @@ export class Keeper {
   yaw = 0;
   private flight: { from: THREE.Vector3; to: THREE.Vector3; t: number; dur: number; done: () => void } | null = null;
   private bowing = 0;
+  /** How loud the Keeper's voice is: the beak dips on each stressed syllable. */
+  private voice = 0;
+  private dip = 0;
+  private head: THREE.Object3D | null;
+  private mixed = new THREE.Quaternion();
+  /** A crane's face is all beak: it nods along with the words, and that is all. */
+  readonly expression: Expressive = {
+    set: () => {},
+    setBase: () => {},
+    letter: () => {},
+    level: (v) => (this.voice = v),
+    quiet: () => (this.voice = 0),
+    update: () => {},
+  };
 
   constructor(gltf: GLTF) {
     const model = gltf.scene;
@@ -29,6 +47,8 @@ export class Keeper {
     model.traverse((o) => (o.frustumCulled = false));
     this.root.add(model);
     this.anim = new Animator(model, gltf.animations, ['bow']);
+    this.head = model.getObjectByName('head') ?? null;
+    if (this.head) this.mixed.copy(this.head.quaternion);
   }
 
   place(p: THREE.Vector3, yaw = this.yaw) {
@@ -75,6 +95,15 @@ export class Keeper {
       }
     }
     this.root.rotation.y = this.yaw;
+    // the mixer only writes what changed: put back its last pose before it runs, then nod on top
+    const h = this.head;
+    if (h) h.quaternion.copy(this.mixed);
     a.update(dt);
+    if (h) {
+      this.mixed.copy(h.quaternion);
+      this.dip += (this.voice * 0.11 - this.dip) * (1 - Math.exp(-dt * (this.voice * 0.11 > this.dip ? 22 : 10)));
+      this.voice *= Math.exp(-dt * 8);
+      h.quaternion.multiply(_q.setFromAxisAngle(_x, this.dip));
+    }
   }
 }

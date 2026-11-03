@@ -95,7 +95,16 @@ mechanic), DrawnPath (paths Ada draws herself in Chapter Three), Companion (Pip)
 Mum, Boat, Sea, Storm, Smudge, Flow (title, prologue to epilogue in order, credits, saves in
 localStorage, pause). A level only reaches the frame loop once `load()` finishes.
 
-Audio (src/audio, all synthesised): the score (felt piano panned by pitch, string section, flute,
+Voices (src/audio/Speech.ts): every line is recorded with a neural voice (Kokoro-82M via
+kokoro-onnx, run locally): `node tools/voices/lines.mjs > lines.json` collects the lines (tuples,
+`say()` calls, the attic's looks, Mum's notes, which she reads aloud), `tools/voices/record.py
+lines.json <kokoro dir>` writes `src/assets/voices/<lineKey>.mp3` + `manifest.json` (duration and a
+loudness envelope that moves the mouths and paces the text). Each character is a blend of Kokoro
+voices with its own rate and pitch/formant shift. Change a line and it babbles until re-recorded
+(the script skips lines it already has; `FIX` holds respellings for words the model misreads).
+Pause menu: Voices On/Off. `?test` turns them off (they run in real time); `__speech.enabled = true`.
+
+Audio (src/audio, the rest synthesised): the score (felt piano panned by pitch, string section, flute,
 harp, bells; generative around Mum's lullaby), voices (formant syllables per speaker, bent by the
 line's emotion, music ducks under them), footsteps by surface (Collision classifies the ground's
 painted colour: grass, wood, stone, sand, paper, water), ambiences (gusting wind, birds placed in the

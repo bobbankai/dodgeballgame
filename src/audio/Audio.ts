@@ -604,6 +604,60 @@ export class Sound {
     dg.setTargetAtTime(1, t + 0.45, 0.4);
   }
 
+  /**
+   * A recorded line, from `offset` seconds in. It goes through the voice bus with a little of the
+   * room (Mum, a memory, with more), and the score steps back until it ends or is stopped.
+   */
+  playVoice(buf: AudioBuffer, offset: number, speaker: string): { src: AudioBufferSourceNode; stop: (fade?: number) => void } {
+    const ctx = this.ctx!;
+    const t = this.now;
+    const src = ctx.createBufferSource();
+    src.buffer = buf;
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0, t);
+    g.gain.linearRampToValueAtTime(speaker === 'Keeper' ? 1.05 : 0.95, t + 0.015);
+    // a touch of presence and no rumble, as if close to the microphone
+    const hp = ctx.createBiquadFilter();
+    hp.type = 'highpass';
+    hp.frequency.value = speaker === 'Keeper' ? 60 : 90;
+    const air = ctx.createBiquadFilter();
+    air.type = 'highshelf';
+    air.frequency.value = 4500;
+    air.gain.value = 2;
+    src.connect(hp).connect(air).connect(g).connect(this.voiceBus);
+    const room = ctx.createGain();
+    room.gain.value = speaker === 'Mum' ? 0.32 : 0.1;
+    g.connect(room).connect(this.verbSend);
+    src.start(t, Math.min(offset, buf.duration));
+    const dg = this.duckGain.gain;
+    dg.cancelScheduledValues(t);
+    dg.setTargetAtTime(0.48, t, 0.08);
+    const end = t + Math.max(0, buf.duration - offset);
+    dg.setTargetAtTime(1, end + 0.2, 0.5);
+    let stopped = false;
+    const stop = (fade = 0.06) => {
+      if (stopped) return;
+      stopped = true;
+      const n = this.now;
+      g.gain.cancelScheduledValues(n);
+      g.gain.setValueAtTime(g.gain.value, n);
+      g.gain.linearRampToValueAtTime(0, n + fade);
+      try {
+        src.stop(n + fade + 0.02);
+      } catch {
+        // already ended
+      }
+      dg.cancelScheduledValues(n);
+      dg.setTargetAtTime(1, n + 0.1, 0.45);
+    };
+    src.onended = () => {
+      stopped = true;
+      src.disconnect();
+      room.disconnect();
+    };
+    return { src, stop };
+  }
+
   // --- sound in the world ----------------------------------------------------------------------
 
   /** Where the ears are (the camera): sounds placed in the world pan and fade around it. */

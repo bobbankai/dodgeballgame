@@ -35,7 +35,7 @@ export class UI {
   private counterEl: HTMLElement;
   readonly menuLayer: HTMLElement;
 
-  private typing: { full: string; shown: number; done: () => void; speed: number; pause: number } | null = null;
+  private typing: { full: string; shown: number; done: () => void; speed: number; pause: number; voice?: () => number | null } | null = null;
   private waitingNote: (() => void) | null = null;
   private creditsLayer: HTMLElement;
   private skipCredits: (() => void) | null = null;
@@ -48,6 +48,9 @@ export class UI {
   private timers: { t: number; fn: () => void }[] = [];
   /** Called for each typed character (for the scratchy pencil voice). */
   onType?: (speaker: Speaker, letter: string) => void;
+  /** Called when a note opens (Mum reads hers aloud); what it returns is called when it closes. */
+  onNote?: (body: string, sign: string) => (() => void) | void;
+  private closeNote: (() => void) | void = undefined;
   private speaker: Speaker = '';
 
   constructor(private input: Input) {
@@ -94,8 +97,11 @@ export class UI {
     this.promptEl.classList.add('show');
   }
 
-  /** Speak a line; resolves when the player moves on. */
-  say(speaker: Speaker, text: string, speed = 42): Promise<void> {
+  /**
+   * Speak a line; resolves when the player moves on. With `voice` (how far a recording of the line
+   * has got, 0..1, or null once it's clear there is none) the words appear as they are spoken.
+   */
+  say(speaker: Speaker, text: string, speed = 42, voice?: () => number | null): Promise<void> {
     this.speaker = speaker;
     this.who.textContent = speaker === 'Keeper' ? 'The Keeper' : speaker;
     this.who.style.color = COLORS[speaker] ?? 'var(--ink)';
@@ -103,7 +109,7 @@ export class UI {
     this.text.textContent = '';
     this.dlg.classList.add('show');
     this.dlg.classList.remove('done');
-    return new Promise((done) => (this.typing = { full: text, shown: 0, done, speed, pause: 0 }));
+    return new Promise((done) => (this.typing = { full: text, shown: 0, done, speed, pause: 0, voice }));
   }
 
   get talking() {
@@ -122,6 +128,7 @@ export class UI {
   note(title: string, body: string, sign = '— Mum'): Promise<void> {
     this.noteEl.innerHTML = `<div class="title">${title}</div><div>${body}</div><div class="sign">${sign}</div><div class="close">press E</div>`;
     this.noteWrap.classList.add('show');
+    this.closeNote = this.onNote?.(body, sign);
     return new Promise((done) => {
       // ignore the press that opened it
       this.later(0.3, () => (this.waitingNote = done));
@@ -307,8 +314,13 @@ export class UI {
     if (skip) this.held = 0;
     if (ty) {
       if (ty.shown < ty.full.length) {
+        const v = ty.voice?.() ?? null;
         if (skip) ty.shown = ty.full.length;
-        else if (ty.pause > 0) ty.pause -= dt;
+        else if (v !== null) {
+          const before = Math.floor(ty.shown);
+          ty.shown = Math.max(ty.shown, Math.min(ty.full.length, v * ty.full.length));
+          for (let i = before; i < Math.floor(ty.shown); i++) this.onType?.(this.speaker, ty.full[i]);
+        } else if (ty.pause > 0) ty.pause -= dt;
         else {
           const before = Math.floor(ty.shown);
           ty.shown = Math.min(ty.full.length, ty.shown + dt * ty.speed);
@@ -333,6 +345,8 @@ export class UI {
       const d = this.waitingNote;
       this.waitingNote = null;
       this.noteWrap.classList.remove('show');
+      this.closeNote?.();
+      this.closeNote = undefined;
       this.later(0.3, d);
     }
     const f = this.fadeAnim;

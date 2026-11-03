@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { audio } from '../audio/Audio';
+import { speech } from '../audio/Speech';
 import type { Speaker } from '../ui/UI';
 import { inferEmotion, type Emotion, type Expressive } from './Face';
 import type { Companion } from './Companion';
@@ -44,6 +45,7 @@ export class Director {
   constructor(private game: Game) {}
 
   reset() {
+    speech.stop();
     this.rails = [];
     this.focusOn = null;
     this.waits = [];
@@ -95,7 +97,11 @@ export class Director {
       if (w === who) f.set(e, 1);
       else if (echo[e]) f.set(echo[e][0], echo[e][1]);
     }
-    await this.game.ui.say(who, text);
+    // the recording, if there is one: the words keep pace with it; without one they type out
+    let voiced: boolean | null = null;
+    void speech.start(who, text).then((r) => (voiced = !!r));
+    await this.game.ui.say(who, text, 42, () => (voiced === null ? 0 : voiced ? speech.progress() : null));
+    speech.stop();
     this.faceOf(who)?.quiet();
     if (this.pip) this.pip.speaking = false;
     if (actor) actor.speaking = false;
@@ -104,6 +110,7 @@ export class Director {
 
   /** A run of lines, then the dialogue box closes and faces settle back. */
   async talk(lines: Line[]) {
+    speech.prefetch(lines.map(([w, t]) => [w, t]));
     for (const [w, t, e] of lines) await this.say(w, t, e);
     this.game.ui.hideDialogue();
     for (const [, f] of this.faces()) f.set('neutral', 1, 0.01);
