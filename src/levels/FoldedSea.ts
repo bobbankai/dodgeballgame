@@ -401,7 +401,8 @@ export class FoldedSea implements Level {
     if (perp.dot(v3().subVectors(mid, ink).setY(0)) < 0) perp.negate();
     g.player.face(pip, 1);
     this.pip.lookAt = ada;
-    d.shot(mid.clone().addScaledVector(perp, 3.4).add(v3(0, 0.9, 0)), mid.clone().add(v3(0, 0.75, 0)), 38);
+    // (aimed low so Pip, who is small, stays above the dialogue)
+    d.shot(mid.clone().addScaledVector(perp, 3.4).add(v3(0, 0.95, 0)), mid.clone().add(v3(0, 0.5, 0)), 40);
     d.focus(() => this.game.player.position.clone().lerp(this.pip.position, 0.5).add(v3(0, 0.6, 0)), 0.5);
   }
 
@@ -578,7 +579,12 @@ export class FoldedSea implements Level {
     ]);
     // inside the glass: the lamp, and nothing round it to throw its light
     const lamp = this.at('lamp');
-    d.shot(this.besideLamp(0.75, 3.3, 0.6), lamp.clone().add(v3(0, -0.2, 0)), 36);
+    // from the gallery, looking in between two of the lantern's mullions (they stand every 45°) at
+    // the brass base and the empty space round the lamp where the lens rings should be
+    const step = Math.PI / 4;
+    const pa = Math.atan2(g.player.position.z - lamp.z, g.player.position.x - lamp.x) + 0.6;
+    const a = Math.round((pa - step / 2) / step) * step + step / 2;
+    d.shot(v3(lamp.x + Math.cos(a) * 2.05, lamp.y + 0.35, lamp.z + Math.sin(a) * 2.05), lamp.clone().add(v3(0, -0.6, 0)), 50, true);
     d.focus(lamp, 0.6);
     await d.talk([
       ['Keeper', 'There is the lamp. And there is where the lens should be: seven rings of glass to throw the light across the sea.'],

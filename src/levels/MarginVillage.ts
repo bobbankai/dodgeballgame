@@ -199,7 +199,7 @@ export class MarginVillage implements Level {
       this.flags.add('stairsDone');
     }
     if (si >= 6) this.flags.add('chase').add('chaseDone');
-    const sp = this.at(cps[this.start]);
+    const sp = this.at(cps[order[si]]);
     this.checkpoint.copy(sp);
     // face up the page, towards the Great Tree
     game.player.teleport(sp, Math.PI);
