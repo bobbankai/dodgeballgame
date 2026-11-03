@@ -513,16 +513,25 @@ export class MarginVillage implements Level {
     d.cinematic(true);
     await g.ui.fade(1, 1.2);
     // later: the two of them on the edge of the hilltop, looking out over the green
-    const tree = this.at('pigment_green');
-    const edge = v3(tree.x + 1.5, tree.y + 4, tree.z + 10.5);
-    const gy = g.collision.groundAt(edge, 10) ?? tree.y - 3.4;
-    edge.y = gy;
+    // (as far out towards the view as the hilltop stays level, so nobody slides off it)
+    const cp = this.at('cp_plateau');
+    const edge = cp.clone();
+    for (let out = 5; out >= 0; out -= 0.5) {
+      const q = cp.clone().add(v3(0.8, 0, out));
+      const gy = g.collision.groundAt(q.clone().add(v3(0, 3, 0)), 6);
+      const g2 = g.collision.groundAt(q.clone().add(v3(1.0, 3, 0)), 6);
+      if (gy !== null && g2 !== null && Math.abs(gy - cp.y) < 0.6 && Math.abs(g2 - gy) < 0.3) {
+        edge.copy(q).setY(gy);
+        break;
+      }
+    }
     g.player.teleport(edge, 0);
     g.player.setPose('sit');
     this.pip.place(edge.clone().add(v3(1.0, 0, 0.15)), 0);
     this.pip.follow = false;
     this.pip.pose = 'sit';
-    const look = edge.clone().add(v3(-2, -6, 40));
+    // (aimed a touch low, so the two of them sit above the dialogue)
+    const look = edge.clone().add(v3(-2, -8.5, 40));
     d.focus(() => g.player.position.clone().add(v3(0, 0.6, 0)), 0.5);
     const push = d.rail({
       path: [edge.clone().add(v3(1.4, 1.5, -3.6)), edge.clone().add(v3(1.1, 1.3, -2.6))],

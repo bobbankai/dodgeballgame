@@ -455,3 +455,29 @@ body.touch .counter {
 body.touch .toast {
   max-width: calc(100% - 100px);
 }
+/* short screens (phones on their side): a compact dialogue that leaves the picture visible */
+@media (max-height: 560px) {
+  .dialogue {
+    bottom: 2.5vh;
+    width: min(620px, 62vw);
+    padding: 8px 18px 10px;
+  }
+  .dialogue .who {
+    font-size: 21px;
+    margin-bottom: 2px;
+  }
+  .dialogue .text {
+    font-size: 17px;
+    line-height: 1.3;
+    min-height: 2.6em;
+  }
+  .dialogue .more {
+    right: 14px;
+    bottom: 6px;
+    font-size: 15px;
+  }
+}
+/* phones: keep it clear of the buttons on the right */
+body.touch .dialogue {
+  left: 44%;
+}

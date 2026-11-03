@@ -203,13 +203,22 @@ export class Director {
     }
   }
 
-  /** A shot over Ada's shoulder towards a point, nice for conversations. */
+  /**
+   * A shot over Ada's shoulder towards a point, nice for conversations. If scenery stands behind her
+   * (a doorway, a wall), it swings round her to the first angle with a clear view instead of being
+   * pushed up against the back of her head.
+   */
   overShoulder(at: THREE.Vector3, fov = 40) {
     const p = this.game.player.position;
     const dir = new THREE.Vector3().subVectors(at, p).setY(0).normalize();
     const side = new THREE.Vector3(-dir.z, 0, dir.x);
-    const cam = p.clone().addScaledVector(dir, -2.2).addScaledVector(side, 0.9).add(new THREE.Vector3(0, 1.6, 0));
-    this.shot(cam, at.clone().lerp(p, 0.35).add(new THREE.Vector3(0, 0.7, 0)), fov);
+    // lower for someone small (Pip), and aimed low so whoever she talks to sits above the dialogue
+    const h = THREE.MathUtils.clamp(at.y - p.y + 1.0, 1.15, 1.6);
+    const look = at.clone().lerp(p, 0.35);
+    look.y = THREE.MathUtils.lerp(at.y, p.y + 1.2, 0.3) - 0.1;
+    const cams = ([[2.2, 0.9], [2.2, -0.9], [1.5, 1.9], [1.5, -1.9], [0.7, 2.5], [0.7, -2.5]] as const).map(([back, sd]) =>
+      p.clone().addScaledVector(dir, -back).addScaledVector(side, sd).add(new THREE.Vector3(0, h, 0)));
+    this.shot(this.clearest(look, cams), look, fov);
   }
 
   /**
