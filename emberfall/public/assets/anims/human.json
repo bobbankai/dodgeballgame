@@ -1,0 +1,846 @@
+{
+ "idle": {
+  "dur": 3.2,
+  "loop": true,
+  "events": {},
+  "root": [
+   0.0,
+   -0.0
+  ]
+ },
+ "attack_1": {
+  "dur": 0.78,
+  "loop": false,
+  "events": {
+   "hit": [
+    0.2,
+    0.31
+   ],
+   "cancel": 0.42,
+   "swing": 0.17,
+   "step": 0.24
+  },
+  "root": [
+   0.0,
+   0.3799999952316284
+  ]
+ },
+ "attack_2": {
+  "dur": 0.72,
+  "loop": false,
+  "events": {
+   "hit": [
+    0.18,
+    0.29
+   ],
+   "cancel": 0.4,
+   "swing": 0.15,
+   "step": 0.2
+  },
+  "root": [
+   0.0,
+   0.3400000333786011
+  ]
+ },
+ "attack_3": {
+  "dur": 0.78,
+  "loop": false,
+  "events": {
+   "hit": [
+    0.21,
+    0.32
+   ],
+   "cancel": 0.46,
+   "swing": 0.19,
+   "step": 0.24
+  },
+  "root": [
+   0.0,
+   0.3399999141693115
+  ]
+ },
+ "attack_4": {
+  "dur": 1.15,
+  "loop": false,
+  "events": {
+   "hit": [
+    0.4,
+    0.5
+   ],
+   "cancel": 0.82,
+   "swing": 0.36,
+   "step": 0.42,
+   "heavy": 1
+  },
+  "root": [
+   0.0,
+   0.6000000238418579
+  ]
+ },
+ "heavy_start": {
+  "dur": 0.3,
+  "loop": false,
+  "events": {},
+  "root": [
+   0.0,
+   -0.0
+  ]
+ },
+ "heavy_hold": {
+  "dur": 0.6,
+  "loop": true,
+  "events": {},
+  "root": [
+   0.0,
+   -0.0
+  ]
+ },
+ "heavy_release": {
+  "dur": 1.0,
+  "loop": false,
+  "events": {
+   "hit": [
+    0.08,
+    0.2
+   ],
+   "cancel": 0.6,
+   "swing": 0.06,
+   "heavy": 1
+  },
+  "root": [
+   0.0,
+   1.0
+  ]
+ },
+ "dodge_back": {
+  "dur": 0.55,
+  "loop": false,
+  "events": {
+   "iframes": [
+    0.02,
+    0.3
+   ],
+   "cancel": 0.36,
+   "whoosh": 0.02
+  },
+  "root": [
+   0.0,
+   -2.200000047683716
+  ]
+ },
+ "dodge_left": {
+  "dur": 0.55,
+  "loop": false,
+  "events": {
+   "iframes": [
+    0.02,
+    0.3
+   ],
+   "cancel": 0.36,
+   "whoosh": 0.02
+  },
+  "root": [
+   2.200000047683716,
+   -0.0
+  ]
+ },
+ "dodge_right": {
+  "dur": 0.55,
+  "loop": false,
+  "events": {
+   "iframes": [
+    0.02,
+    0.3
+   ],
+   "cancel": 0.36,
+   "whoosh": 0.02
+  },
+  "root": [
+   -2.200000047683716,
+   -0.0
+  ]
+ },
+ "dodge_fwd": {
+  "dur": 0.55,
+  "loop": false,
+  "events": {
+   "iframes": [
+    0.02,
+    0.3
+   ],
+   "cancel": 0.36,
+   "whoosh": 0.02
+  },
+  "root": [
+   0.0,
+   2.5999999046325684
+  ]
+ },
+ "block_start": {
+  "dur": 0.12,
+  "loop": false,
+  "events": {},
+  "root": [
+   0.0,
+   -0.0
+  ]
+ },
+ "block_hold": {
+  "dur": 1.6,
+  "loop": true,
+  "events": {},
+  "root": [
+   0.0,
+   -0.0
+  ]
+ },
+ "block_hit": {
+  "dur": 0.4,
+  "loop": false,
+  "events": {
+   "cancel": 0.2
+  },
+  "root": [
+   0.0,
+   -0.20000000298023224
+  ]
+ },
+ "parry": {
+  "dur": 0.5,
+  "loop": false,
+  "events": {
+   "parry": [
+    0.0,
+    0.16
+   ],
+   "cancel": 0.24,
+   "clang": 0.04
+  },
+  "root": [
+   0.0,
+   -0.0
+  ]
+ },
+ "guard_break": {
+  "dur": 1.1,
+  "loop": false,
+  "events": {
+   "cancel": 0.9
+  },
+  "root": [
+   0.0,
+   -0.4000000059604645
+  ]
+ },
+ "hit_front": {
+  "dur": 0.5,
+  "loop": false,
+  "events": {
+   "cancel": 0.35
+  },
+  "root": [
+   0.0,
+   -0.20000000298023224
+  ]
+ },
+ "hit_back": {
+  "dur": 0.5,
+  "loop": false,
+  "events": {
+   "cancel": 0.35
+  },
+  "root": [
+   0.0,
+   0.20000000298023224
+  ]
+ },
+ "knockdown": {
+  "dur": 1.0,
+  "loop": false,
+  "events": {
+   "thud": 0.5
+  },
+  "root": [
+   0.0,
+   -0.949999988079071
+  ]
+ },
+ "down_hold": {
+  "dur": 1.0,
+  "loop": true,
+  "events": {},
+  "root": [
+   0.0,
+   -0.0
+  ]
+ },
+ "death": {
+  "dur": 2.0,
+  "loop": false,
+  "events": {
+   "thud": 1.5,
+   "drop": 0.45
+  },
+  "root": [
+   0.0,
+   -0.0
+  ]
+ },
+ "draw": {
+  "dur": 0.75,
+  "loop": false,
+  "events": {
+   "draw": 0.2,
+   "shing": 0.3
+  },
+  "root": [
+   0.0,
+   -0.0
+  ]
+ },
+ "sheathe": {
+  "dur": 0.9,
+  "loop": false,
+  "events": {
+   "sheathe": 0.65
+  },
+  "root": [
+   0.0,
+   -0.0
+  ]
+ },
+ "art_whirl": {
+  "dur": 1.35,
+  "loop": false,
+  "events": {
+   "hit": [
+    0.3,
+    0.86
+   ],
+   "multi": 4,
+   "cancel": 1.0,
+   "fire": 0.28
+  },
+  "root": [
+   0.0,
+   0.800000011920929
+  ]
+ },
+ "art_rising": {
+  "dur": 1.1,
+  "loop": false,
+  "events": {
+   "hit": [
+    0.27,
+    0.4
+   ],
+   "launch": 1,
+   "cancel": 0.8,
+   "fire": 0.26
+  },
+  "root": [
+   0.0,
+   0.5
+  ]
+ },
+ "art_burst": {
+  "dur": 1.4,
+  "loop": false,
+  "events": {
+   "hit": [
+    0.5,
+    0.6
+   ],
+   "burst": 0.52,
+   "cancel": 1.05,
+   "fire": 0.3
+  },
+  "root": [
+   0.0,
+   0.6000000238418579
+  ]
+ },
+ "finisher": {
+  "dur": 1.6,
+  "loop": false,
+  "events": {
+   "hit": [
+    0.36,
+    0.42
+   ],
+   "pull": 1.1,
+   "cancel": 1.3
+  },
+  "root": [
+   0.0,
+   0.44999998807907104
+  ]
+ },
+ "heal": {
+  "dur": 1.3,
+  "loop": false,
+  "events": {
+   "heal": 0.55,
+   "cancel": 1.1
+  },
+  "root": [
+   0.0,
+   -0.0
+  ]
+ },
+ "interact": {
+  "dur": 1.0,
+  "loop": false,
+  "events": {
+   "use": 0.45
+  },
+  "root": [
+   0.0,
+   -0.0
+  ]
+ },
+ "kneel": {
+  "dur": 2.4,
+  "loop": true,
+  "events": {},
+  "root": [
+   0.0,
+   -0.0
+  ]
+ },
+ "kneel_hold": {
+  "dur": 2.4,
+  "loop": true,
+  "events": {},
+  "root": [
+   0.0,
+   -0.0
+  ]
+ },
+ "kneel_down": {
+  "dur": 1.2,
+  "loop": false,
+  "events": {},
+  "root": [
+   0.0,
+   -0.0
+  ]
+ },
+ "sit_wounded": {
+  "dur": 3.0,
+  "loop": true,
+  "events": {},
+  "root": [
+   0.0,
+   -0.0
+  ]
+ },
+ "cower": {
+  "dur": 0.96,
+  "loop": true,
+  "events": {},
+  "root": [
+   0.0,
+   -0.0
+  ]
+ },
+ "point": {
+  "dur": 2.0,
+  "loop": false,
+  "events": {},
+  "root": [
+   0.0,
+   -0.0
+  ]
+ },
+ "gesture": {
+  "dur": 3.2,
+  "loop": true,
+  "events": {},
+  "root": [
+   0.0,
+   -0.0
+  ]
+ },
+ "carried": {
+  "dur": 2.4,
+  "loop": true,
+  "events": {},
+  "root": [
+   0.0,
+   -0.0
+  ]
+ },
+ "stand_relaxed": {
+  "dur": 3.2,
+  "loop": true,
+  "events": {},
+  "root": [
+   0.0,
+   -0.0
+  ]
+ },
+ "e_idle": {
+  "dur": 3.2,
+  "loop": true,
+  "events": {},
+  "root": [
+   0.0,
+   -0.0
+  ]
+ },
+ "e_slash": {
+  "dur": 1.05,
+  "loop": false,
+  "events": {
+   "hit": [
+    0.44,
+    0.55
+   ],
+   "cancel": 0.72,
+   "swing": 0.4
+  },
+  "root": [
+   0.0,
+   0.4399999976158142
+  ]
+ },
+ "e_slash_b": {
+  "dur": 0.95,
+  "loop": false,
+  "events": {
+   "hit": [
+    0.28,
+    0.38
+   ],
+   "cancel": 0.6,
+   "swing": 0.26
+  },
+  "root": [
+   0.0,
+   0.2800000309944153
+  ]
+ },
+ "e_thrust": {
+  "dur": 1.15,
+  "loop": false,
+  "events": {
+   "hit": [
+    0.46,
+    0.56
+   ],
+   "cancel": 0.85,
+   "swing": 0.44
+  },
+  "root": [
+   0.0,
+   0.949999988079071
+  ]
+ },
+ "e_sweep": {
+  "dur": 1.1,
+  "loop": false,
+  "events": {
+   "hit": [
+    0.42,
+    0.54
+   ],
+   "cancel": 0.8,
+   "swing": 0.4
+  },
+  "root": [
+   0.0,
+   0.3199999928474426
+  ]
+ },
+ "e_lunge": {
+  "dur": 1.5,
+  "loop": false,
+  "events": {
+   "hit": [
+    0.62,
+    0.78
+   ],
+   "cancel": 1.15,
+   "swing": 0.6
+  },
+  "root": [
+   0.0,
+   3.299999952316284
+  ]
+ },
+ "b_idle": {
+  "dur": 3.6,
+  "loop": true,
+  "events": {},
+  "root": [
+   0.0,
+   -0.0
+  ]
+ },
+ "b_slam": {
+  "dur": 1.7,
+  "loop": false,
+  "events": {
+   "hit": [
+    0.66,
+    0.76
+   ],
+   "slam": 0.72,
+   "cancel": 1.3,
+   "swing": 0.62
+  },
+  "root": [
+   0.0,
+   0.5
+  ]
+ },
+ "b_sweep": {
+  "dur": 1.6,
+  "loop": false,
+  "events": {
+   "hit": [
+    0.66,
+    0.8
+   ],
+   "cancel": 1.2,
+   "swing": 0.62
+  },
+  "root": [
+   0.0,
+   0.41999998688697815
+  ]
+ },
+ "b_charge": {
+  "dur": 2.2,
+  "loop": false,
+  "events": {
+   "hit": [
+    0.7,
+    1.6
+   ],
+   "slam": 1.55,
+   "cancel": 1.9,
+   "swing": 1.4,
+   "step": 0.7
+  },
+  "root": [
+   0.0,
+   6.0
+  ]
+ },
+ "b_roar": {
+  "dur": 2.0,
+  "loop": false,
+  "events": {
+   "roar": 0.35
+  },
+  "root": [
+   0.0,
+   -0.0
+  ]
+ },
+ "w_idle": {
+  "dur": 2.4,
+  "loop": true,
+  "events": {},
+  "root": [
+   0.0,
+   -0.0
+  ]
+ },
+ "w_dash": {
+  "dur": 1.0,
+  "loop": false,
+  "events": {
+   "hit": [
+    0.28,
+    0.44
+   ],
+   "cancel": 0.75,
+   "whoosh": 0.24,
+   "iframes": [
+    0.22,
+    0.38
+   ]
+  },
+  "root": [
+   0.0,
+   4.400000095367432
+  ]
+ },
+ "w_flurry": {
+  "dur": 1.3,
+  "loop": false,
+  "events": {
+   "hit": [
+    0.18,
+    0.86
+   ],
+   "multi": 3,
+   "cancel": 1.0,
+   "swing": 0.15
+  },
+  "root": [
+   0.0,
+   0.550000011920929
+  ]
+ },
+ "walk": {
+  "dur": 1.1333333333333333,
+  "loop": true,
+  "events": {},
+  "root": [
+   0.0,
+   -0.0
+  ],
+  "speed": 1.1086540753821907
+ },
+ "run": {
+  "dur": 0.8833333333333333,
+  "loop": true,
+  "events": {},
+  "root": [
+   0.0,
+   -0.0
+  ],
+  "speed": 2.0848407875032953
+ },
+ "sprint": {
+  "dur": 0.7,
+  "loop": true,
+  "events": {},
+  "root": [
+   0.0,
+   -0.0
+  ],
+  "speed": 2.0986355895597386
+ },
+ "walk_relaxed": {
+  "dur": 1.1166666666666667,
+  "loop": true,
+  "events": {},
+  "root": [
+   0.0,
+   -0.0
+  ],
+  "speed": 1.2288666550918106
+ },
+ "run_relaxed": {
+  "dur": 0.7666666666666667,
+  "loop": true,
+  "events": {},
+  "root": [
+   0.0,
+   -0.0
+  ],
+  "speed": 2.3843792045566885
+ },
+ "idle_relaxed": {
+  "dur": 6.0,
+  "loop": true,
+  "events": {},
+  "root": [
+   0.0,
+   -0.0
+  ],
+  "speed": 0.008116574190760341
+ },
+ "getup": {
+  "dur": 3.7,
+  "loop": false,
+  "events": {},
+  "root": [
+   0.21413570642471313,
+   -0.09156618267297745
+  ]
+ },
+ "getup_front": {
+  "dur": 3.9,
+  "loop": false,
+  "events": {},
+  "root": [
+   -0.3112364411354065,
+   0.0059755295515060425
+  ]
+ },
+ "bow": {
+  "dur": 3.4833333333333334,
+  "loop": false,
+  "events": {},
+  "root": [
+   -0.023272905498743057,
+   -0.006719797849655151
+  ]
+ },
+ "walk_old": {
+  "dur": 1.1833333333333333,
+  "loop": true,
+  "events": {},
+  "root": [
+   0.0,
+   -0.0
+  ],
+  "speed": 0.363800379176397
+ },
+ "walk_sad": {
+  "dur": 1.5666666666666667,
+  "loop": true,
+  "events": {},
+  "root": [
+   0.0,
+   -0.0
+  ],
+  "speed": 0.5754633042563043
+ },
+ "march": {
+  "dur": 0.7166666666666667,
+  "loop": true,
+  "events": {},
+  "root": [
+   0.0,
+   -0.0
+  ],
+  "speed": 0.9253280288696152
+ },
+ "walk_zombie": {
+  "dur": 0.6666666666666666,
+  "loop": true,
+  "events": {},
+  "root": [
+   0.0,
+   -0.0
+  ],
+  "speed": 0.5596925741713269
+ },
+ "sneak": {
+  "dur": 1.0,
+  "loop": true,
+  "events": {},
+  "root": [
+   0.0,
+   -0.0
+  ],
+  "speed": 0.6494183131487564
+ },
+ "look_around": {
+  "dur": 5.5,
+  "loop": true,
+  "events": {},
+  "root": [
+   0.0,
+   -0.0
+  ],
+  "speed": 0.011731001673573367
+ },
+ "wait": {
+  "dur": 5.5,
+  "loop": true,
+  "events": {},
+  "root": [
+   0.0,
+   -0.0
+  ],
+  "speed": 0.05519347394384371
+ }
+}

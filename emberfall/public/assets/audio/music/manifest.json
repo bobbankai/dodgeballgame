@@ -1,0 +1,74 @@
+{
+ "title": {
+  "loop": true,
+  "length": 101.81816326530613
+ },
+ "sorrow": {
+  "loop": false,
+  "length": 94.88888888888889
+ },
+ "ending": {
+  "loop": false,
+  "length": 115.71428571428571
+ },
+ "c1_explore": {
+  "loop": true,
+  "length": 101.05263038548753
+ },
+ "c1_combat": {
+  "loop": true,
+  "length": 29.09090702947846
+ },
+ "c1_boss": {
+  "loop": true,
+  "length": 27.826077097505667
+ },
+ "c2_explore": {
+  "loop": true,
+  "length": 112.94115646258503
+ },
+ "c2_combat": {
+  "loop": true,
+  "length": 30.0
+ },
+ "c2_boss": {
+  "loop": true,
+  "length": 28.235283446712018
+ },
+ "c3_explore": {
+  "loop": true,
+  "length": 128.0
+ },
+ "c3_combat": {
+  "loop": true,
+  "length": 30.476190476190474
+ },
+ "c3_boss": {
+  "loop": true,
+  "length": 28.65671201814059
+ },
+ "c4_explore": {
+  "loop": true,
+  "length": 106.66666666666667
+ },
+ "c4_combat": {
+  "loop": true,
+  "length": 27.428571428571427
+ },
+ "c4_boss": {
+  "loop": true,
+  "length": 26.666666666666668
+ },
+ "c5_explore": {
+  "loop": true,
+  "length": 120.0
+ },
+ "c5_combat": {
+  "loop": true,
+  "length": 28.235283446712018
+ },
+ "c5_boss": {
+  "loop": true,
+  "length": 25.9459410430839
+ }
+}
