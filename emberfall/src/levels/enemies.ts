@@ -80,6 +80,33 @@ export const FROST_WARDEN: EnemyDef = {
   ],
 };
 
+/** Chapter Four boss: the Forgemother, armoured smith of the Heart Forge. Slow, enormous hammer blows that
+ * leave the ground burning; at half health she pours the black fire into her armour and the forge's
+ * smiths come to her (phase 2: charges, a double slam and a wider shockwave). */
+export const FORGEMOTHER: EnemyDef = {
+  id: 'forgemother', name: 'The Forgemother', model: M('forgemother'), weapon: 'warhammer', scale: 1.3, hp: 900, poise: 230, damage: 1.4,
+  walk: 1.25, run: 3.3, idle: 'b_idle', move: ['walk', 'run'], aggression: 0.6, skill: 0.5, flank: 0, caution: 0, spacing: 3.4,
+  boss: true, superArmor: 0.9, radius: 0.6, glow: [3.6, 1.1, 0.22], roar: 'b_roar',
+  hurt: ['hit_front'], stagger: 'guard_break', death: 'death',
+  attacks: [
+    { clip: 'b_slam', range: [0, 3.6], damage: 32, poise: 60, heavy: true, knock: 1, cooldown: 3.2, track: 2.4, guardBreak: 2.2, aoe: 3.4 },
+    { clip: 'b_sweep', range: [0, 3.8], damage: 26, poise: 48, heavy: true, cooldown: 3.6, track: 3, guardBreak: 1.8, chain: 'b_slam' },
+    { clip: 'e_thrust', range: [2.0, 4.6], damage: 22, poise: 35, cooldown: 4.2, track: 3, weight: 0.6 },
+    { clip: 'b_charge', range: [5, 12], damage: 34, poise: 60, heavy: true, knock: 1, unblockable: true, cooldown: 6.5, track: 1.5, weight: 0.8, phase: 0.55 },
+    { clip: 'b_slam', range: [0, 4.4], damage: 38, poise: 70, heavy: true, knock: 1, cooldown: 4.2, track: 2.6, guardBreak: 2.6, chain: 'b_sweep', phase: 0.5, aoe: 5.0 },
+  ],
+};
+
+/** a Hollow smith: a footman with a forging hammer, found working at the anvils */
+export const SMITH: EnemyDef = {
+  ...FOOTMAN, id: 'smith', name: 'Hollow Smith', weapon: 'warhammer', hp: 80, poise: 40, damage: 1.1, walk: 1.3, run: 3.0, aggression: 0.5, block: 0.1, glow: [2.8, 0.8, 0.2],
+  attacks: [
+    { clip: 'b_slam', range: [0, 2.6], damage: 20, poise: 30, heavy: true, cooldown: 3.4, track: 2.5, guardBreak: 1.6 },
+    { clip: 'e_slash', range: [0, 2.3], damage: 13, poise: 16, cooldown: 2.4, track: 5, chain: 'e_slash_b' },
+    { clip: 'e_slash_b', range: [0, 2.2], damage: 13, poise: 16, cooldown: 3.5, weight: 0, track: 4 },
+  ],
+};
+
 export const WRAITH: EnemyDef = {
   id: 'wraith', name: 'Hollow Wraith', model: M('hollow_wraith'), weapon: 'dagger', offhand: 'dagger', hp: 45, poise: 20, walk: 2.2, run: 5.0,
   idle: 'w_idle', move: ['walk', 'sprint'], aggression: 0.75, skill: 0.75, flank: 0.9, caution: 0.6, spacing: 3.4, glow: [0.6, 1.4, 3.2],

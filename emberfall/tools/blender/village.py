@@ -47,6 +47,8 @@ MATSPEC = {
     'ash_thatch': ('roof_thatch', (0.12, 0.1, 0.08), 2.5, {}),
     'iron': ('metal_rust', (0.6, 0.55, 0.5), 1.0, {'metal': 0.8}),
     'bamboo': ('bamboo_wall', (0.85, 0.9, 0.7), 1.5, {}),
+    'steel': ('steel_gray', (0.36, 0.35, 0.34), 1.0, {'metal': 0.95}),
+    'leather': ('leather_brown', (0.62, 0.46, 0.34), 1.0, {}),
 }
 _mats = {}
 
@@ -994,7 +996,165 @@ def bell_tower(name='bell_tower', seed=16):
     return k.finish()
 
 
+def _loft_rings(k, key, rings, flip=True, thick=0.0, tint=None):
+    """loft closed cross-section rings [(points), ...] (each ring CCW about the loft direction)"""
+    grid, uvs = [], []
+    for ring in rings:
+        grid.append([Vector(p) for p in ring])
+        acc, row = 0.0, []
+        for j, p in enumerate(ring):
+            if j:
+                acc += (Vector(p) - Vector(ring[j - 1])).length
+            row.append((acc, Vector(p).x + Vector(p).z))
+        uvs.append(row)
+    k.surface(key, grid, uvs, close=True, flip=flip, thick=thick, tint=tint)
+
+
+def _rrect(cx, cy, z, w, d, r, n=3):
+    """rounded rectangle ring (CCW seen from +Z) at height z"""
+    pts = []
+    r = min(r, w / 2 - 1e-3, d / 2 - 1e-3)
+    for qx, qy, a0 in ((1, 1, 0), (-1, 1, 90), (-1, -1, 180), (1, -1, 270)):
+        ccx, ccy = cx + qx * (w / 2 - r), cy + qy * (d / 2 - r)
+        for i in range(n + 1):
+            a = math.radians(a0 + 90 * i / n)
+            pts.append((ccx + math.cos(a) * r, ccy + math.sin(a) * r, z))
+    return pts
+
+
+def anvil(name='anvil', seed=21):
+    """a London-pattern smith's anvil on an elm stump, a hammer resting on the face, tongs against the stump"""
+    k = Kit(name, seed)
+    # the stump: a short log with bark rings and a sawn top
+    k.cyl('post', (0, 0, 0), (0, 0, 0.5), 0.34, 0.31, sides=16)
+    for z in (0.12, 0.31):
+        k.cyl('iron', (0, 0, z), (0, 0, z + 0.035), 0.345 - z * 0.06, sides=16)
+    z0 = 0.5
+    # body: feet -> waist -> face, lofted from rounded rectangles
+    prof = [(0.44, 0.3, 0.0), (0.42, 0.28, 0.045), (0.3, 0.2, 0.08), (0.2, 0.12, 0.15), (0.21, 0.13, 0.2), (0.38, 0.15, 0.25), (0.46, 0.16, 0.3)]
+    _loft_rings(k, 'steel', [_rrect(0, 0, z0 + z, w, d, 0.025) for (w, d, z) in prof])
+    k.box('steel', (0, 0, z0 + 0.315), (0.47, 0.165, 0.035), bevel=0.008)  # the hardened face
+    k.box('steel', (-0.29, 0, z0 + 0.29), (0.13, 0.13, 0.06), bevel=0.012)  # heel
+    # the horn: a tapering cone out of the front, its top flush with the face
+    rings = []
+    for i in range(9):
+        t = i / 8
+        x = 0.2 + t * 0.32
+        r = 0.075 * (1 - t) ** 0.85 + 0.004
+        zc = z0 + 0.33 - r - 0.004 - t * t * 0.03
+        rings.append([(x, math.cos(2 * math.pi * j / 12) * r, zc + math.sin(2 * math.pi * j / 12) * r) for j in range(12)])
+    _loft_rings(k, 'steel', rings)
+    # hammer on the face, tongs leaning on the stump
+    k.cyl('post', (-0.12, -0.02, z0 + 0.36), (0.18, -0.24, z0 + 0.36), 0.016, sides=8)
+    k.box('steel', (-0.14, 0.0, z0 + 0.37), (0.05, 0.13, 0.05), rz=-0.64, bevel=0.008)
+    for s in (-1, 1):
+        k.cyl('iron', (0.3, -0.25 + s * 0.012, 0.0), (0.34, -0.28 + s * 0.02, 0.55), 0.008, sides=6)
+    return k.finish()
+
+
+def forge_hearth(name='forge_hearth', seed=22):
+    """a smith's forge: stone hearth with a glowing coal bed, a clay hood and chimney, leather bellows"""
+    k = Kit(name, seed)
+    R = k.rnd
+    k.box('stone_wall', (0, 0, 0.42), (2.2, 1.5, 0.84), bevel=0.03)
+    for y in (-0.62, 0.62):
+        k.box('stone', (0, y, 0.9), (2.3, 0.32, 0.13), bevel=0.03)
+    for x in (-0.98, 0.98):
+        k.box('stone', (x, 0, 0.9), (0.36, 0.95, 0.13), bevel=0.03)
+    k.box('charred', (0, 0, 0.86), (1.62, 0.95, 0.06), bevel=0.02)
+    for _ in range(22):
+        a = R.uniform(0, 6.28)
+        k.box('charred', (R.uniform(-0.7, 0.7), R.uniform(-0.38, 0.38), 0.93), (R.uniform(0.08, 0.16), R.uniform(0.07, 0.13), 0.08), rz=a, bevel=0.025)
+    # back wall the hood leans on
+    k.box('stone_wall', (0, 0.62, 1.75), (2.2, 0.3, 1.8), bevel=0.03)
+    # hood: a clay frustum from the hearth up to the flue
+    hood = [_rrect(0, 0.08, z, w, d, 0.08) for (w, d, z) in ((2.1, 1.45, 1.75), (1.9, 1.25, 1.95), (1.0, 0.75, 2.8), (0.72, 0.6, 3.1))]
+    _loft_rings(k, 'clay', hood, thick=0.05, tint=0.42)  # soot-blackened clay
+    k.box('stone_wall', (0, 0.12, 4.0), (0.74, 0.62, 1.8), bevel=0.03)
+    k.box('stone', (0, 0.12, 4.95), (0.86, 0.74, 0.12), bevel=0.03)
+    for x in (-1.0, 1.0):
+        k.cyl('iron', (x, -0.66, 0.96), (x * 1.02, -0.62, 1.76), 0.025, sides=8)
+    k.beam('iron', (-1.06, -0.62, 1.76), (1.06, -0.62, 1.76), 0.05, 0.05)
+    # bellows on the right: two boards with a leather bag between, the nozzle into the hearth
+    bx = 1.75
+    for zz in (0.62, 1.02):
+        k.box('plank', (bx, 0, zz), (0.55, 0.85, 0.04), bevel=0.01, grain=(0, 1, 0))
+    bag = []
+    for i in range(7):
+        t = i / 6
+        z = 0.64 + t * 0.36
+        bulge = 0.2 + 0.07 * math.sin(math.pi * t)
+        ring = []
+        for j in range(14):
+            a = 2 * math.pi * j / 14
+            ring.append((bx + math.cos(a) * bulge * 1.1, -0.05 + math.sin(a) * bulge * 1.6, z))
+        bag.append(ring)
+    _loft_rings(k, 'leather', bag)
+    k.cyl('iron', (bx - 0.25, 0.2, 0.82), (1.05, 0.2, 0.82), 0.04, 0.03, sides=8)
+    k.cyl('post', (bx, 0.4, 1.04), (bx, 1.0, 1.4), 0.025, sides=8)
+    # tools on the hearth edge
+    k.cyl('iron', (-1.1, -0.7, 0.98), (-0.5, -0.45, 0.98), 0.012, sides=6)
+    k.cyl('iron', (-1.1, -0.6, 0.98), (-0.45, -0.38, 0.99), 0.012, sides=6)
+    return k.finish()
+
+
+def barrel(name='barrel', seed=23):
+    """a smith's quench tub: staves bound with iron hoops, dark water"""
+    k = Kit(name, seed)
+    n = 18
+    for i in range(n):
+        a = 2 * math.pi * i / n
+        rows = []
+        for t in (0.0, 0.5, 1.0):
+            r = 0.36 + 0.05 * math.sin(math.pi * t)
+            rows.append((math.cos(a) * r, math.sin(a) * r, t * 0.8))
+        for j in range(2):
+            k.beam('plank', rows[j], rows[j + 1], 0.125, 0.03, up=Vector((math.cos(a), math.sin(a), 0)), bevel=0.004)
+    for z, r in ((0.12, 0.385), (0.68, 0.385)):
+        k.cyl('iron', (0, 0, z), (0, 0, z + 0.04), r, sides=n)
+    k.cyl('lacquer_black', (0, 0, 0.0), (0, 0, 0.7), 0.35, sides=n)
+    return k.finish()
+
+
+def chain_hang(name='chain_hang', L=3.0, seed=24):
+    """a hanging iron chain with a hook (forge rigging, Ren's fetters)"""
+    k = Kit(name, seed)
+    pitch, lw, ll, rr = 0.075, 0.05, 0.1, 0.011
+    n = int(L / pitch)
+    for i in range(n):
+        zc = -i * pitch
+        rot = (i % 2) * math.pi / 2
+        path = []
+        for j in range(12):
+            a = 2 * math.pi * j / 12
+            path.append(Vector((math.cos(a) * (lw / 2 - rr), 0, zc + math.sin(a) * (ll / 2 - rr))))
+        rings = []
+        for j in range(13):
+            c = path[j % 12]
+            tng = (path[(j + 1) % 12] - path[(j - 1) % 12]).normalized()
+            out = Vector((c.x, 0, c.z - zc)).normalized()
+            side = tng.cross(out).normalized()
+            ring = []
+            for m in range(6):
+                b = 2 * math.pi * m / 6
+                p = c + (out * math.cos(b) + side * math.sin(b)) * rr
+                p = Vector((p.x * math.cos(rot), p.x * math.sin(rot), p.z))
+                ring.append(p)
+            rings.append(ring)
+        _loft_rings(k, 'iron', rings)
+    # hook
+    zc = -n * pitch - 0.04
+    pts = [(0, 0, zc), (0, 0, zc - 0.12)] + [(0.06 * math.sin(a), 0, zc - 0.18 - 0.06 * math.cos(a) + 0.06) for a in (0.6, 1.4, 2.2, 3.0, 3.8)]
+    for a, b in zip(pts, pts[1:]):
+        k.cyl('iron', a, b, 0.016, sides=8)
+    return k.finish()
+
+
 PIECES = {
+    'anvil': anvil,
+    'forge_hearth': forge_hearth,
+    'barrel': barrel,
+    'chain_hang': chain_hang,
     'bell_tower': bell_tower,
     'minka_thatch': lambda: minka('minka_thatch', 8.0, 6.0, 'thatch', seed=1),
     'minka_thatch_small': lambda: minka('minka_thatch_small', 6.4, 5.2, 'thatch', seed=2),

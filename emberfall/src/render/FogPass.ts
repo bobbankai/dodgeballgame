@@ -35,7 +35,8 @@ uniform sampler2D tHistory;
 uniform sampler3D tNoise;
 uniform samplerCube uAtmos;
 uniform mat4 uProjInv, uCamWorld, uPrevViewProj;
-uniform vec3 uCamPos, uSunDir, uSunColor, uAmbientTop, uAmbientLow, uFogTint, uWind;
+uniform vec3 uCamPos, uSunDir, uSunColor, uAmbientTop, uAmbientLow, uFogTint, uWind, uGlow;
+uniform vec2 uGlowH; // glowing haze: base height, falloff per metre above it
 uniform float uDensity, uFalloff, uBaseHeight, uMaxDist, uAniso, uNoiseAmt, uNoiseScale, uTime, uFrame, uSunScatter, uHistoryBlend, uFarDensity, uSkyFog;
 uniform vec2 uResolution;
 ${shadowDecl}
@@ -94,6 +95,8 @@ void main() {
       if (od > 1e-5) {
         float vis = sunVisibility(p, t * viewZScale);
         vec3 S = (sunL * vis + ambient) * uFogTint;
+        // light from below (lava): the low haze glows, fading with height
+        S += uGlow * exp(-max(0.0, p.y - uGlowH.x) * uGlowH.y);
         float a = 1.0 - exp(-od);
         L += T * S * a;
         T *= 1.0 - a;
@@ -109,7 +112,7 @@ void main() {
     if (sky) od *= uSkyFog;
     vec3 dir = normalize(vec3(rd.x, max(rd.y, 0.02), rd.z));
     vec3 atmos = textureLod(uAtmos, dir, 3.0).rgb;
-    vec3 S = (atmos * 0.9 + sunL * 0.6 + ambient) * uFogTint;
+    vec3 S = (atmos * 0.9 + sunL * 0.6 + ambient) * uFogTint + uGlow * 0.35;
     float a = 1.0 - exp(-od);
     L += T * S * a;
     T *= 1.0 - a;
@@ -174,12 +177,17 @@ export interface FogSettings {
   /** how much fog veils the sky at the horizon */
   skyFog: number;
   maxDist: number;
+  /** self-lit haze (light from lava below), strongest at glowBase and fading glowFalloff per metre above */
+  glow: THREE.Color;
+  glowBase: number;
+  glowFalloff: number;
 }
 
 export function defaultFog(): FogSettings {
   return {
     density: 0.012, falloff: 0.09, baseHeight: 0, farDensity: 0.004, anisotropy: 0.65, noise: 0.6, noiseScale: 0.035,
     wind: new THREE.Vector3(0.004, 0.0005, 0.002), tint: new THREE.Color(1, 1, 1), sunScatter: 1, skyFog: 0.35, maxDist: 90,
+    glow: new THREE.Color(0, 0, 0), glowBase: 0, glowFalloff: 0.15,
   };
 }
 
@@ -281,6 +289,7 @@ export class FogPass extends Pass {
       uProjInv: { value: new THREE.Matrix4() }, uCamWorld: { value: new THREE.Matrix4() }, uPrevViewProj: { value: new THREE.Matrix4() },
       uCamPos: { value: new THREE.Vector3() }, uSunDir: { value: new THREE.Vector3() }, uSunColor: { value: new THREE.Color() },
       uAmbientTop: { value: new THREE.Color() }, uAmbientLow: { value: new THREE.Color() }, uFogTint: { value: new THREE.Color() },
+      uGlow: { value: new THREE.Color(0, 0, 0) }, uGlowH: { value: new THREE.Vector2(0, 0.15) },
       uWind: { value: new THREE.Vector3() }, uDensity: { value: 0 }, uFalloff: { value: 0 }, uBaseHeight: { value: 0 },
       uMaxDist: { value: 0 }, uAniso: { value: 0 }, uNoiseAmt: { value: 0 }, uNoiseScale: { value: 0 }, uTime: { value: 0 },
       uFrame: { value: 0 }, uSunScatter: { value: 1 }, uHistoryBlend: { value: 0 }, uFarDensity: { value: 0 }, uSkyFog: { value: 0 },
@@ -341,6 +350,8 @@ export class FogPass extends Pass {
     u.uAmbientTop.value.copy(this.ambientTop);
     u.uAmbientLow.value.copy(this.ambientLow);
     u.uFogTint.value.copy(s.tint);
+    u.uGlow.value.copy(s.glow);
+    u.uGlowH.value.set(s.glowBase, s.glowFalloff);
     u.uWind.value.copy(s.wind);
     u.uDensity.value = s.density;
     u.uFarDensity.value = s.farDensity;

@@ -111,6 +111,11 @@ PIECES = {
     'cliff_a': lambda: rock('cliff_a', (6.5, 2.4, 6.0), 5, lumps=0.22, ridges=0.12, strata=0.12, strata_freq=4.0, budget=7000, flat=0.08, lean=-0.08, tile=4, box=0.45),
     'cliff_b': lambda: rock('cliff_b', (5.0, 2.0, 7.5), 6, lumps=0.24, ridges=0.14, strata=0.1, strata_freq=5.0, budget=7000, flat=0.08, lean=0.06, tile=4, box=0.5),
     'cliff_c': lambda: rock('cliff_c', (8.0, 3.0, 4.0), 7, lumps=0.25, ridges=0.12, strata=0.15, strata_freq=3.0, budget=7000, flat=0.1, tile=4, box=0.45),
+    # volcanic basalt (the Heart Forge): cracked dark rock, no lichen
+    'basalt_a': lambda: rock('basalt_a', (1.3, 1.05, 0.95), 21, tex='rock_cracked', tint=(0.32, 0.3, 0.29)),
+    'basalt_c': lambda: rock('basalt_c', (2.0, 1.6, 1.5), 23, ridges=0.14, budget=3400, box=0.7, tex='rock_cracked', tint=(0.3, 0.28, 0.27)),
+    'basalt_cliff_a': lambda: rock('basalt_cliff_a', (6.5, 2.4, 6.0), 25, lumps=0.22, ridges=0.14, strata=0.18, strata_freq=6.0, budget=7000, flat=0.08, lean=-0.06, tile=4, box=0.45, tex='rock_cracked', tint=(0.3, 0.28, 0.27)),
+    'basalt_cliff_b': lambda: rock('basalt_cliff_b', (5.0, 2.0, 7.5), 26, lumps=0.24, ridges=0.16, strata=0.15, strata_freq=7.0, budget=7000, flat=0.08, lean=0.05, tile=4, box=0.5, tex='rock_cracked', tint=(0.28, 0.26, 0.25)),
     'stones': lambda: cluster('stones', 8),
     'stones_b': lambda: cluster('stones_b', 9, n=9, spread=1.6),
 }

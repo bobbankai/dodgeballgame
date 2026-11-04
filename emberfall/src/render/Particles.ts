@@ -4,7 +4,7 @@
 import * as THREE from 'three';
 import { G } from './MaterialFX';
 
-export type Kind = 'spark' | 'ember' | 'fire' | 'blaze' | 'smoke' | 'dust' | 'ash' | 'flash' | 'blood' | 'magic' | 'ice' | 'heal';
+export type Kind = 'spark' | 'ember' | 'fire' | 'blaze' | 'blackfire' | 'hexfire' | 'smoke' | 'dust' | 'ash' | 'flash' | 'blood' | 'magic' | 'ice' | 'heal';
 
 interface Spec {
   life: [number, number];
@@ -25,6 +25,10 @@ const SPECS: Record<Kind, Spec> = {
   ember: { life: [1.2, 3.2], speed: [0.2, 1.0], size: [0.02, 0.05], grav: -0.6, drag: 0.6, color: [C(6, 2.2, 0.5), C(1.5, 0.2, 0.02)], additive: true, grow: -0.3, spread: 1, up: 0.8 },
   fire: { life: [0.35, 0.8], speed: [0.4, 1.6], size: [0.18, 0.4], grav: -2.8, drag: 1.4, color: [C(3.0, 1.15, 0.28), C(0.7, 0.1, 0.01)], additive: true, grow: 0.8, spread: 0.6, up: 1 },
   blaze: { life: [0.5, 1.1], speed: [0.6, 2.0], size: [0.55, 1.25], grav: -3.2, drag: 1.2, color: [C(1.9, 0.62, 0.12), C(0.45, 0.05, 0.0)], additive: true, grow: 0.5, spread: 0.5, up: 1 },
+  // the black flame: dark tongues that swallow light (alpha-blended, so they read against the glow behind)
+  blackfire: { life: [0.5, 1.15], speed: [0.8, 2.4], size: [0.45, 1.0], grav: -3.4, drag: 1.2, color: [C(0.012, 0.008, 0.016), C(0.09, 0.03, 0.07)], additive: false, grow: 0.8, spread: 0.5, up: 1 },
+  // its halo: crimson-violet tongues licking round the dark core
+  hexfire: { life: [0.4, 0.9], speed: [0.7, 2.0], size: [0.35, 0.8], grav: -3.0, drag: 1.3, color: [C(0.8, 0.035, 0.2), C(0.22, 0.0, 0.08)], additive: true, grow: 0.6, spread: 0.65, up: 1 },
   smoke: { life: [2.5, 5.0], speed: [0.3, 0.9], size: [0.6, 1.2], grav: -0.45, drag: 0.7, color: [C(0.06, 0.055, 0.05), C(0.14, 0.135, 0.13)], additive: false, grow: 2.2, spread: 0.6, up: 1 },
   dust: { life: [0.6, 1.4], speed: [0.6, 2.2], size: [0.2, 0.45], grav: 0.4, drag: 2.5, color: [C(0.35, 0.3, 0.24), C(0.3, 0.27, 0.22)], additive: false, grow: 1.6, spread: 1, up: 0.25 },
   ash: { life: [0.8, 2.0], speed: [0.6, 2.5], size: [0.03, 0.08], grav: 1.5, drag: 1.2, color: [C(0.05, 0.05, 0.06), C(0.12, 0.12, 0.13)], additive: false, grow: 0, spread: 1, up: 0.6 },
@@ -258,11 +262,14 @@ void main() {
 
 const SNOW_VERT = /* glsl */ `
 attribute vec3 aSeed;
-uniform float uTime, uBox, uSpeed, uSize;
+uniform float uTime, uBox, uSpeed, uSize, uEmber;
 uniform vec3 uCam, uWind;
 varying float vFade;
+varying float vEmber;
 void main() {
   vec3 p = aSeed * uBox;
+  // a few flakes are live embers: they glow and flicker as they fall
+  vEmber = step(1.0 - uEmber, fract(aSeed.x * 7.13 + aSeed.z * 3.7)) * (0.55 + 0.45 * sin(uTime * (3.0 + aSeed.y * 5.0) + aSeed.z * 40.0));
   float t = uTime * uSpeed * (0.6 + aSeed.x * 0.8);
   p.y = mod(aSeed.y * uBox - t, uBox) - uBox * 0.4;
   p.x += sin(t * 0.7 + aSeed.z * 30.0) * 0.6 + uWind.x * t * 0.3;
@@ -275,14 +282,16 @@ void main() {
   gl_Position = projectionMatrix * mv;
 }`;
 const SNOW_FRAG = /* glsl */ `
-uniform vec3 uColor;
+uniform vec3 uColor, uEmberColor;
 varying float vFade;
+varying float vEmber;
 void main() {
   vec2 c = gl_PointCoord * 2.0 - 1.0;
   float r = dot(c, c);
   if (r > 1.0) discard;
   float a = (1.0 - r) * vFade;
-  gl_FragColor = vec4(uColor * a, a);
+  vec3 col = mix(uColor, uEmberColor, step(0.001, vEmber)) * mix(1.0, vEmber, step(0.001, vEmber));
+  gl_FragColor = vec4(col * a, a);
 }`;
 
 export class Weather {
@@ -315,7 +324,8 @@ export class Weather {
     this.group.add(this.rain);
   }
 
-  setSnow(count: number): void {
+  /** falling flakes: snow by default, or ash (grey, slower, smaller) with a tint */
+  setSnow(count: number, o: { color?: THREE.Color; speed?: number; size?: number; ember?: number; emberColor?: THREE.Color } = {}): void {
     if (this.snow) { this.group.remove(this.snow); this.snow.geometry.dispose(); this.snow = null; }
     if (count <= 0) return;
     const seed = new Float32Array(count * 3);
@@ -325,8 +335,9 @@ export class Weather {
     g.setAttribute('aSeed', new THREE.BufferAttribute(seed, 3));
     const m = new THREE.ShaderMaterial({
       vertexShader: SNOW_VERT, fragmentShader: SNOW_FRAG, transparent: true, depthWrite: false,
-      uniforms: { uTime: { value: 0 }, uBox: { value: 26 }, uSpeed: { value: 1.2 }, uSize: { value: 60 }, uCam: { value: new THREE.Vector3() },
-        uWind: { value: new THREE.Vector3(1.2, 0, 0.3) }, uColor: { value: new THREE.Color(1.6, 1.7, 1.9) } },
+      uniforms: { uTime: { value: 0 }, uBox: { value: 26 }, uSpeed: { value: o.speed ?? 1.2 }, uSize: { value: o.size ?? 60 }, uCam: { value: new THREE.Vector3() },
+        uWind: { value: new THREE.Vector3(1.2, 0, 0.3) }, uColor: { value: o.color ?? new THREE.Color(1.6, 1.7, 1.9) },
+        uEmber: { value: o.ember ?? 0 }, uEmberColor: { value: o.emberColor ?? new THREE.Color(4.0, 1.1, 0.2) } },
     });
     this.snow = new THREE.Points(g, m);
     this.snow.frustumCulled = false;

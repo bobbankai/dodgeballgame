@@ -41,14 +41,21 @@ async function startLevel(id: string, checkpoint: string | null): Promise<void> 
 
 const menu = new Menu({
   newGame: () => void startLevel(CHAPTER_ORDER[0], null),
-  continueGame: () => { const s = Game.loadSave(); if (s) { game.player.artsUnlocked = s.arts; void startLevel(s.level, s.checkpoint); } },
+  continueGame: () => { const s = Game.loadSave(); if (s) { game.player.artsUnlocked = s.arts; game.player.maxHp = s.maxHp ?? 100; game.player.maxHeals = s.heals ?? 3; void startLevel(s.level, s.checkpoint); } },
   hasSave: () => !!Game.loadSave(),
   chapters: () => {
     const s = Game.loadSave();
     const reached = s ? CHAPTER_ORDER.indexOf(s.level) : 0;
     return CHAPTER_ORDER.map((id, i) => ({ id, title: LEVELS[id]().title, unlocked: TEST || i <= Math.max(0, reached) }));
   },
-  startChapter: (id) => { game.player.artsUnlocked = Math.max(1, CHAPTER_ORDER.indexOf(id) + 1 > 3 ? 3 : CHAPTER_ORDER.indexOf(id) + 1); void startLevel(id, null); },
+  startChapter: (id) => {
+    const i = CHAPTER_ORDER.indexOf(id);
+    game.player.artsUnlocked = Math.min(3, Math.max(1, i + 1));
+    // the Heart Forge's reward carries into the last chapter
+    game.player.maxHp = i >= 4 ? 125 : 100;
+    game.player.maxHeals = i >= 4 ? 4 : 3;
+    void startLevel(id, null);
+  },
   resume: () => { menu.hide(); game.paused = false; canvas.requestPointerLock?.(); },
   restartCheckpoint: () => { menu.hide(); game.paused = false; if (game.level) void game.loadLevel(game.level, game.checkpoint); },
   quitToTitle: () => { game.paused = false; game.unloadLevel(); game.level = null; void game.audio.playMusic('title', 2); menu.title(); },

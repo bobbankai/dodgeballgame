@@ -222,9 +222,11 @@ export interface Atmosphere {
   cloudDensity?: number;
   cloudTint?: THREE.Color;
   stars?: number;
+  /** light from below (lava): IBL lower hemisphere, cloud bellies, horizon */
+  groundGlow?: THREE.Color;
   skyGain?: number;
   env?: number;
-  fog: Partial<{ density: number; falloff: number; baseHeight: number; farDensity: number; anisotropy: number; noise: number; tint: THREE.Color; sunScatter: number; skyFog: number; maxDist: number }>;
+  fog: Partial<{ density: number; falloff: number; baseHeight: number; farDensity: number; anisotropy: number; noise: number; tint: THREE.Color; sunScatter: number; skyFog: number; maxDist: number; glow: THREE.Color; glowBase: number; glowFalloff: number }>;
   grade: Partial<GradeSettings>;
   bloom?: number;
 }
@@ -245,11 +247,17 @@ export function applyAtmosphere(game: Game, a: Atmosphere): void {
   s.cloudTint.copy(a.cloudTint ?? new THREE.Color(1, 1, 1));
   s.stars = a.stars ?? 0;
   s.skyGain = a.skyGain ?? 1;
+  s.groundGlow.copy(a.groundGlow ?? new THREE.Color(0, 0, 0));
   p.sky.invalidate();
   p.setSun(a.sun, a.lightIntensity);
   p.scene.environmentIntensity = a.env ?? 1;
+  // levels without a glowing haze reset it (settings persist between levels)
+  p.fog.settings.glow = new THREE.Color(0, 0, 0);
+  p.fog.settings.glowBase = 0;
+  p.fog.settings.glowFalloff = 0.15;
   Object.assign(p.fog.settings, a.fog);
   if (a.fog.tint) p.fog.settings.tint = a.fog.tint.clone();
+  if (a.fog.glow) p.fog.settings.glow = a.fog.glow.clone();
   const g = p.grade.settings;
   Object.assign(g, a.grade);
   p.bloom.intensity = a.bloom ?? 0.55;

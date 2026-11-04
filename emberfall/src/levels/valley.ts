@@ -130,10 +130,11 @@ export class Valley {
   }
 
   /** rocks among the trees and grass on the verges */
-  async groundCover(game: Game, o: { extent: [number, number, number, number]; rocks?: number; tufts?: number; tint?: THREE.Color; blocked?: (x: number, z: number) => boolean; laneW?: (x: number, z: number, p: { d: number; w: number }) => boolean }): Promise<void> {
+  async groundCover(game: Game, o: { extent: [number, number, number, number]; rocks?: number; tufts?: number; tint?: THREE.Color; blocked?: (x: number, z: number) => boolean; laneW?: (x: number, z: number, p: { d: number; w: number }) => boolean; rockKinds?: [string, string, string] }): Promise<void> {
     const r = rand((this.s.seed ?? 3) + 50);
     const [x0, x1, z0, z1] = o.extent;
-    const woods: Record<string, Xform[]> = { boulder_a: [], boulder_b: [], boulder_c: [] };
+    const [ka, kb, kc] = o.rockKinds ?? ['boulder_a', 'boulder_b', 'boulder_c'];
+    const woods: Record<string, Xform[]> = { [ka]: [], [kb]: [], [kc]: [] };
     let n = 0;
     for (let i = 0; i < (o.rocks ?? 140) * 20 && n < (o.rocks ?? 140); i++) {
       const x = x0 + r() * (x1 - x0), z = z0 + r() * (z1 - z0);
@@ -141,7 +142,7 @@ export class Valley {
       const off = p.d - p.w;
       if (off < 1.5 || off > 45 || o.blocked?.(x, z)) continue;
       const k = r();
-      woods[k < 0.45 ? 'boulder_b' : k < 0.8 ? 'boulder_a' : 'boulder_c'].push({ x, z, rot: r() * 6.28, scale: 0.6 + r() * 0.9, y: this.height(x, z) - 0.25 });
+      woods[k < 0.45 ? kb : k < 0.8 ? ka : kc].push({ x, z, rot: r() * 6.28, scale: 0.6 + r() * 0.9, y: this.height(x, z) - 0.25 });
       n++;
     }
     await Promise.all(Object.entries(woods).map(([k, list]) => scatter(game, `assets/env/rocks/${k}.glb`, list, { collide: true })));

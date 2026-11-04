@@ -19,6 +19,8 @@ export interface SkySettings extends AtmosphereParams {
   zenithTint: THREE.Color;
   /** star brightness (night) */
   stars: number;
+  /** light from the ground (lava, fires): lights the lower hemisphere of the IBL, cloud bellies, the horizon */
+  groundGlow: THREE.Color;
 }
 
 export function defaultSky(): SkySettings {
@@ -39,6 +41,7 @@ export function defaultSky(): SkySettings {
     skyGain: 1,
     zenithTint: new THREE.Color(1, 1, 1),
     stars: 0,
+    groundGlow: new THREE.Color(0, 0, 0),
   };
 }
 
@@ -76,7 +79,7 @@ varying vec3 vDir;
 uniform samplerCube uAtmos;
 uniform vec3 uLightDir, uLightColor;
 uniform float uTime, uNight, uStars, uCloudCover, uCloudDensity, uCloudScale, uCloudSpeed, uFlash, uGain;
-uniform vec3 uCloudTint, uAmbientTop, uAmbientHorizon;
+uniform vec3 uCloudTint, uAmbientTop, uAmbientHorizon, uGroundGlow;
 uniform float uSunSize, uForBake;
 
 float hash12(vec2 p) { vec3 p3 = fract(vec3(p.xyx) * 0.1031); p3 += dot(p3, p3.yzx + 33.33); return fract((p3.x + p3.y) * p3.z); }
@@ -152,6 +155,8 @@ void main() {
       vec3 amb = mix(uAmbientHorizon, uAmbientTop, 0.6) * 0.9;
       vec3 lit = uLightColor * (shadow * (0.55 + hg * 3.5)) * (uNight > 0.5 ? 0.35 : 1.0);
       vec3 cc = (amb + lit) * uCloudTint;
+      // cloud bellies lit from below by the ground's glow
+      cc += uGroundGlow * 0.55 * (0.4 + 0.6 * shadow);
       // silver lining at thin edges facing the light
       cc += uLightColor * pow(max(cosA, 0.0), 8.0) * (1.0 - c) * 1.5 * shadow;
       float alpha = c * smoothstep(0.0, 0.18, d.y) * uCloudDensity;
@@ -161,6 +166,8 @@ void main() {
     }
   }
   col += vec3(0.75, 0.8, 1.0) * uFlash * (0.4 + 0.6 * up);
+  // the glow of the ground: a warm horizon in the visible sky, the whole lower hemisphere in the IBL
+  col += uGroundGlow * mix(0.3 * smoothstep(0.3, 0.0, d.y), smoothstep(0.2, -0.3, d.y), uForBake);
   gl_FragColor = vec4(col * uGain, 1.0);
 }`;
 
@@ -213,7 +220,7 @@ export class Sky {
         uTime: { value: 0 }, uNight: { value: 0 }, uStars: { value: 0 }, uCloudCover: { value: 0.4 }, uCloudDensity: { value: 0.8 },
         uCloudScale: { value: 1 }, uCloudSpeed: { value: 1 }, uCloudTint: { value: new THREE.Color(1, 1, 1) }, uFlash: { value: 0 },
         uAmbientTop: { value: this.ambientTop }, uAmbientHorizon: { value: this.ambientHorizon }, uSunSize: { value: 0.0095 },
-        uForBake: { value: 0 }, uGain: { value: 1 },
+        uForBake: { value: 0 }, uGain: { value: 1 }, uGroundGlow: { value: new THREE.Color(0, 0, 0) },
       },
     });
     this.mesh = new THREE.Mesh(new THREE.SphereGeometry(1, 48, 24), this.domeMat);
@@ -259,6 +266,7 @@ export class Sky {
     u.uCloudScale.value = s.cloudScale;
     u.uCloudSpeed.value = s.cloudSpeed;
     u.uCloudTint.value.copy(s.cloudTint);
+    u.uGroundGlow.value.copy(s.groundGlow);
     u.uSunSize.value = s.night ? 0.016 : 0.0095;
     this.bakeCam.update(this.renderer, this.bakeScene);
     // environment: the full sky (clouds, no disc: a 60x disc would make fireflies in the IBL)

@@ -37,7 +37,7 @@ export interface FXOptions {
   /** Kajiya-Kay strand shading for hair cards (tangent from the strand UV direction) */
   hair?: { shift?: number; tint?: THREE.Color };
   /** glowing fissures (object space, follows skinning): colour + density */
-  cracks?: { color: THREE.Color; scale: number; width?: number; /** world space (static props) instead of bind-pose object space */ world?: boolean };
+  cracks?: { color: THREE.Color; scale: number; width?: number; /** world space (static props) instead of bind-pose object space */ world?: boolean; /** world space: the cracks fade out above this height (lava-lit ground) */ below?: number };
   /** break up tiling: a second, rotated lookup blended in by world noise (albedo, normal, roughness) plus
    * large-scale tonal variation; value = strength of the macro variation */
   antiTile?: number;
@@ -166,6 +166,7 @@ export function applyFX(mat: THREE.Material, o: FXOptions, csmHook?: Hook): FXUn
     shader.uniforms.uHairShift = { value: o.hair?.shift ?? 0.1 };
     shader.uniforms.uHairTint = { value: o.hair?.tint ?? new THREE.Color(1, 0.85, 0.7) };
     shader.uniforms.uCrack = { value: new THREE.Vector2(o.cracks?.scale ?? 8, o.cracks?.width ?? 0.06) };
+    shader.uniforms.uCrackBelow = { value: o.cracks?.below ?? 1e5 };
     shader.uniforms.uFolTrans = { value: o.foliage?.trans ?? 1 };
     shader.uniforms.uMacro = { value: o.antiTile ?? 0 };
     shader.uniforms.uFolTint = { value: o.foliage?.tint ?? new THREE.Color(1.0, 0.95, 0.55) };
@@ -186,7 +187,7 @@ varying vec3 vFxWorldPos;
 varying vec3 vFxWorldNormal;
 #endif
 #ifdef FX_CRACKS
-uniform vec3 uCrackColor; uniform vec2 uCrack;
+uniform vec3 uCrackColor; uniform vec2 uCrack; uniform float uCrackBelow;
 varying vec3 vFxObjPos;
 #endif
 #ifdef FX_HAIR
@@ -418,6 +419,7 @@ totalEmissiveRadiance += uHitColor * uHit * 2.5;
   #ifdef FX_CRACKS_WORLD
   // smouldering char: embers breathe slowly and only in patches
   flick *= smoothstep(0.55, 0.85, fxNoise(crP * 0.55 + vec3(0.0, uTime * 0.05, 0.0))) * (0.6 + 0.4 * sin(uTime * 0.8 + crP.x));
+  flick *= smoothstep(uCrackBelow + 5.0, uCrackBelow, crP.y);
   #endif
   totalEmissiveRadiance += uCrackColor * crack * flick;
   diffuseColor.rgb *= 1.0 - crack * 0.6;

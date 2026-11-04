@@ -469,7 +469,37 @@ def hollow_king():
     return assemble(spec, clothes, make, M)
 
 
-CAST = {'kaede': kaede, 'oren': oren, 'ren': ren, 'mika': mika, 'hisame': lambda: _hisame('hisame', False),
+def forgemother():
+    """the Forgemother: a giant Hollow smith in a long scorched leather apron, iron pauldrons, a smith's
+    mask; molten light in her cracks"""
+    spec = {'name': 'forgemother', 'ash': True, 'eye_glow': (1.0, 0.55, 0.12, 10.0),
+            'phenotype': {'gender': 0.0, 'age': 0.6, 'muscle': 1.0, 'weight': 0.8, 'height': 1.0, 'proportions': 0.5},
+            'skin': 'middleage_asian_female', 'hair': None, 'eyebrows': 'eyebrow010', 'eyelashes': 'eyelashes02', 'eye_texture': 'brown'}
+
+    def M():
+        m = hollow_mats()
+        m['apron'] = mat('leather_forge_apron', 'leather_brown', (0.22, 0.13, 0.08), scale=0.8)
+        m['robe'] = mat('cloth_forge', 'cloth_weave', (0.08, 0.05, 0.04), sheen=0.3, scale=2.0)
+        return m
+    clothes = [('rehmanpolanski_viking_tunic', 'robe'), ('toigo_wool_pants', 'pants'), ('punkduck_medieval_boots', 'leather'),
+               ('culturalibre_hero-heroine_gloves_4', 'leather')]
+
+    def make(b, M, ctx):
+        pcs = []
+        ap = P.cuirass(b, 'apron', M['apron'], top=ctx['neck_z'] - 0.14, bottom=ctx['hip_z'] - 0.12, off=0.04, thick=0.012, front_only=True)
+        pcs.append(ap)
+        b.add_layer(ap)
+        for sd in ('l', 'r'):
+            pcs.append(P.join(P.lamellar_pauldron(b, f'pauldron_{sd}', M['iron'], sd, rows=4, off=0.05), f'pauldron_{sd}'))
+        mk = P.mask(b, 'mask', _mask_crack(M['mask']), eyes_of(ctx['rig']))
+        pcs.append(mk)
+        belt = P.band(b, 'belt', M['leather'], ctx['waist_z'] - 0.08, ctx['waist_z'] + 0.02, off=0.05, thick=0.012)
+        pcs.append(belt)
+        return pcs, {'pauldron_l': 'upperarm_l', 'pauldron_r': 'upperarm_r', 'mask': 'head'}, ('apron', 'belt')
+    return assemble(spec, clothes, make, M)
+
+
+CAST = {'kaede': kaede, 'forgemother': forgemother, 'oren': oren, 'ren': ren, 'mika': mika, 'hisame': lambda: _hisame('hisame', False),
         'hisame_hollow': lambda: _hisame('hisame_hollow', True), 'hollow_king': hollow_king, 'hollow_footman': hollow_footman, 'hollow_spearman': hollow_spearman, 'hollow_brute': hollow_brute,
         'hollow_wraith': hollow_wraith}
 
