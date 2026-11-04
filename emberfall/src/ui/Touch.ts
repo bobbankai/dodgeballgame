@@ -15,6 +15,9 @@ const CSS = `
 #touch .btn.mid { width: 64px; height: 64px; }
 #touch .btn.sm { width: 48px; height: 48px; font-size: 10px; }
 #touch .btn.hidden { display: none; }
+#touch .btn.art { border-color: rgba(255,140,60,.45); color: rgba(239,228,207,.6); }
+#touch .btn.art.ready { border-color: #ffb45a; color: #fff1d8; box-shadow: 0 0 14px rgba(255,140,50,.55); }
+#touch .knob.sprint { background: radial-gradient(circle at 40% 35%, rgba(255,190,120,.85), rgba(220,110,40,.6)); }
 `;
 
 interface BtnDef { b: Button; label: string; size: 'big' | 'mid' | 'sm'; right: number; bottom: number }
@@ -24,8 +27,10 @@ const BTNS: BtnDef[] = [
   { b: 'heavy', label: 'Heavy', size: 'mid', right: 146, bottom: 34 },
   { b: 'dodge', label: 'Dodge', size: 'mid', right: 40, bottom: 148 },
   { b: 'block', label: 'Guard', size: 'mid', right: 136, bottom: 122 },
-  { b: 'art', label: 'Art', size: 'mid', right: 226, bottom: 60 },
-  { b: 'heal', label: 'Heal', size: 'sm', right: 214, bottom: 150 },
+  { b: 'art1', label: 'Whirl', size: 'sm', right: 232, bottom: 30 },
+  { b: 'art2', label: 'Rise', size: 'sm', right: 236, bottom: 92 },
+  { b: 'art3', label: 'Burst', size: 'sm', right: 214, bottom: 150 },
+  { b: 'heal', label: 'Heal', size: 'sm', right: 196, bottom: 206 },
   { b: 'lock', label: 'Lock', size: 'sm', right: 30, bottom: 236 },
   { b: 'interact', label: 'Use', size: 'mid', right: 110, bottom: 212 },
   { b: 'pause', label: 'II', size: 'sm', right: 20, bottom: -1 },
@@ -67,7 +72,7 @@ export class Touch {
     window.addEventListener('touchcancel', (e) => this.end(e), { passive: false });
     for (const d of BTNS) {
       const b = document.createElement('div');
-      b.className = `btn ${d.size}`;
+      b.className = `btn ${d.size}${d.b.startsWith('art') ? ' art hidden' : ''}`;
       b.textContent = d.label;
       b.style.right = `calc(${d.right}px + env(safe-area-inset-right))`;
       if (d.bottom < 0) { b.style.top = 'calc(14px + env(safe-area-inset-top))'; } else b.style.bottom = `calc(${d.bottom}px + env(safe-area-inset-bottom))`;
@@ -92,7 +97,15 @@ export class Touch {
     b.textContent = label;
   }
 
-  setArtLabel(label: string): void { const b = this.btnEls.get('art'); if (b) b.textContent = label; }
+  /** show the arts learned so far; light the ones the ember gauge can pay for */
+  setArts(unlocked: number, ember: number, costs: number[]): void {
+    for (let i = 0; i < 3; i++) {
+      const b = this.btnEls.get(`art${i + 1}` as Button);
+      if (!b) continue;
+      b.classList.toggle('hidden', i >= unlocked);
+      b.classList.toggle('ready', ember >= costs[i]);
+    }
+  }
 
   private stickStart(e: TouchEvent): void {
     e.preventDefault();
@@ -121,6 +134,10 @@ export class Touch {
         let dx = t.clientX - this.stickOrigin.x, dy = t.clientY - this.stickOrigin.y;
         const r = 56;
         const d = Math.hypot(dx, dy);
+        // pushing well past the ring breaks into a sprint
+        const sprint = d > r * 1.45;
+        if (sprint) this.input.touchHeld.add('sprint'); else this.input.touchHeld.delete('sprint');
+        this.knob.classList.toggle('sprint', sprint);
         if (d > r) { dx *= r / d; dy *= r / d; }
         this.knob.style.transform = `translate(${dx}px, ${dy}px)`;
         const m = Math.min(1, d / r);
@@ -141,6 +158,8 @@ export class Touch {
         this.stickId = -1;
         this.stick.style.display = 'none';
         this.input.touchMove.set(0, 0);
+        this.input.touchHeld.delete('sprint');
+        this.knob.classList.remove('sprint');
       } else if (t.identifier === this.lookId) this.lookId = -1;
     }
   }

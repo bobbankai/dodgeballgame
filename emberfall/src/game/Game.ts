@@ -5,7 +5,7 @@ import type { Pipeline } from '../render/Pipeline';
 import { Input } from '../core/Input';
 import { CameraRig, type Shot } from './CameraRig';
 import { World, separate } from './World';
-import { Player } from './Player';
+import { Player, ARTS } from './Player';
 import { Enemy, type EnemyDef } from './Enemy';
 import { Character, inferEmotion } from './Character';
 import { TimeFX, type Combatant, type Hit, type HitResult } from './Combat';
@@ -346,6 +346,12 @@ export class Game {
     }
   }
 
+  /** a tutorial hint worded for the device being used */
+  hint(kbm: string, pad: string, touch: string, dur = 5): void {
+    const d = this.touch.enabled ? 'touch' : this.input.lastDevice;
+    this.hud.toast(d === 'touch' ? touch : d === 'pad' ? pad : kbm, dur);
+  }
+
   // ------------------------------------------------------------------ story helpers
   /** wait in game time (pauses with the game) */
   wait(t: number): Promise<void> {
@@ -429,6 +435,7 @@ export class Game {
     }
     this.hud.setPrompt(near ? near.label : null, this.touch.enabled ? 'Use' : input.lastDevice === 'pad' ? 'B' : 'E');
     this.touch.showInteract(!!near, 'Use');
+    if (p && this.touch.enabled) this.touch.setArts(p.artsUnlocked, p.ember, ARTS.map((a) => a.cost));
     if (near && input.pressed('interact')) { near.enabled = false; near.on(); }
     // finisher
     if (p && p.canFinish && !this.cinematic && input.peek('attack', 0.1)) {

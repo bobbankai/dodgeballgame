@@ -1,11 +1,11 @@
 // HUD: DOM overlay. Health / ember / guard, heal charges, current art, boss bar, enemy bars, lock-on
 // reticle, interaction prompt, subtitles, toasts, objective, chapter title cards, fades, death screen.
 import * as THREE from 'three';
-import '@fontsource/cinzel/500.css';
-import '@fontsource/cinzel/700.css';
-import '@fontsource/cormorant-garamond/400.css';
-import '@fontsource/cormorant-garamond/500-italic.css';
-import '@fontsource/cormorant-garamond/600.css';
+import '@fontsource/cinzel/latin-500.css';
+import '@fontsource/cinzel/latin-700.css';
+import '@fontsource/cormorant-garamond/latin-400.css';
+import '@fontsource/cormorant-garamond/latin-500-italic.css';
+import '@fontsource/cormorant-garamond/latin-600.css';
 
 const CSS = `
 :root { --ember: #ff8a3a; --ember2: #ffcf7a; --blood: #b3242a; --ink: #0b0a0c; --paper: #efe4cf; --gold: #d9b26a; }

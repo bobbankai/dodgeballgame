@@ -11,11 +11,17 @@ gltfLoader.setMeshoptDecoder(MeshoptDecoder);
 
 const cache = new Map<string, Promise<GLTF>>();
 
+/** hosted builds ship models as JSON glTF (binary embedded) where .glb isn't served; the page says so */
+const MODELS_AS_JSON = typeof document !== 'undefined' && document.querySelector('meta[name="emberfall:models"]')?.getAttribute('content') === 'json';
+function modelUrl(url: string): string {
+  return MODELS_AS_JSON ? url.replace(/\.glb$/, '.gltf.json') : url;
+}
+
 /** load once, return a fresh deep copy each call (skinned meshes cloned with their skeletons) */
 export async function loadGLTF(url: string): Promise<{ scene: THREE.Group; animations: THREE.AnimationClip[] }> {
   let p = cache.get(url);
   if (!p) {
-    p = gltfLoader.loadAsync(url);
+    p = gltfLoader.loadAsync(modelUrl(url));
     cache.set(url, p);
   }
   const g = await p;
@@ -26,7 +32,7 @@ export async function loadGLTF(url: string): Promise<{ scene: THREE.Group; anima
 export async function loadGLTFShared(url: string): Promise<GLTF> {
   let p = cache.get(url);
   if (!p) {
-    p = gltfLoader.loadAsync(url);
+    p = gltfLoader.loadAsync(modelUrl(url));
     cache.set(url, p);
   }
   return p;

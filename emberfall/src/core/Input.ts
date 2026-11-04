@@ -131,7 +131,8 @@ export class Input {
       if (Math.abs(lx) + Math.abs(ly) > 0) { mx = lx; my = -ly; this.lastDevice = 'pad'; }
       this.look.x += rx * dt * 2.8;
       this.look.y += ry * dt * 2.0 * (this.invertY ? -1 : 1);
-      const map: [number, Button][] = [[2, 'attack'], [3, 'heavy'], [0, 'dodge'], [5, 'block'], [7, 'art'], [11, 'lock'], [1, 'interact'], [4, 'heal'], [10, 'sprint'], [9, 'pause'], [8, 'skip'], [6, 'block']];
+      const map: [number, Button][] = [[2, 'attack'], [3, 'heavy'], [0, 'dodge'], [5, 'block'], [7, 'art'], [11, 'lock'], [1, 'interact'], [4, 'heal'], [10, 'sprint'], [9, 'pause'], [8, 'skip'], [6, 'block'],
+        [12, 'art1'], [15, 'art2'], [13, 'art3']];
       for (const [i, b] of map) if (pad.buttons[i]?.pressed) padNow.add(b);
       if (padNow.size) this.lastDevice = 'pad';
     }

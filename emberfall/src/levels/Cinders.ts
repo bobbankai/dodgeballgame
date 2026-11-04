@@ -422,9 +422,9 @@ export class Cinders implements Level {
       await game.say('Kaede', 'Ren!', 1.4, P.char, 'fear');
       game.setCinematic(false);
       game.hud.objective('Get back to Hinoka');
-      game.hud.toast('Move: WASD / left stick · Camera: mouse / right stick', 5);
+      game.hint('Move: WASD · Camera: mouse (click to capture)', 'Move: left stick · Camera: right stick', 'Move: drag on the left · Camera: drag on the right');
       await game.waitUntil(() => P.body.pos.z > -138);
-      game.hud.toast('Sprint: hold Shift / L3', 3.5);
+      game.hint('Sprint: hold Shift', 'Sprint: click the left stick', 'Sprint: push the stick past its ring', 3.5);
     }
 
     // ---------------------------------------------------------------- terraces: first Hollow
@@ -441,11 +441,11 @@ export class Cinders implements Level {
       await game.say('Kaede', 'Hollow. Here...?', 1.8, P.char, 'surprised');
       a.release(); b.release(); a.alert(); b.alert();
       game.setCinematic(false);
-      game.hud.toast('Attack: Left mouse / J / ☐ · Heavy: hold Right mouse / K', 5);
+      game.hint('Strike: left mouse or J · Heavy: hold K', 'Strike: X / ☐ · Heavy: hold Y / △', 'Strike: tap STRIKE · Heavy: hold HEAVY');
       await game.wait(3);
-      game.hud.toast('Dodge: Space / ◯ (through an attack) · Lock on: Q / R3', 5);
+      game.hint('Dodge: Space (through an attack) · Lock on: Q or middle mouse', 'Dodge: A / ✕ · Lock on: click the right stick', 'Dodge: DODGE (through an attack) · Lock on: LOCK');
       await game.waitDefeated([a, b]);
-      game.hud.toast('Block: hold F / L1 — block just before a hit lands to parry', 5);
+      game.hint('Guard: hold right mouse or L. Guard just before a hit lands to parry', 'Guard: hold RB / R1 or LT. Guard just before a hit lands to parry', 'Guard: hold GUARD. Guard just before a hit lands to parry');
       await game.wait(1.0);
       await game.say('Kaede', 'They are coming from the north road. Hold on, Ren.', undefined, P.char, 'determined');
     }
@@ -485,7 +485,7 @@ export class Cinders implements Level {
       await game.waitDefeated(w1);
       await game.waitUntil(() => P.body.pos.z > -8);
       const w2 = [await spawnAt(SPEARMAN, -5, 6, Math.PI, true), await spawnAt(FOOTMAN, 6, 4, Math.PI, true), await spawnAt(BRUTE, 0, 10, Math.PI, true)];
-      game.hud.toast('Heal: R / △ (three gourds per checkpoint)', 4);
+      game.hint('Heal: F (three gourds per checkpoint)', 'Heal: LB / L1 (three gourds per checkpoint)', 'Heal: HEAL (three gourds per checkpoint)', 4);
       await game.waitDefeated(w2);
     }
 
@@ -694,7 +694,7 @@ export class Cinders implements Level {
     await game.wait(1.5);
     game.musicOverride = 'title';
     P.artsUnlocked = Math.max(P.artsUnlocked, 1);
-    game.hud.toast('Ember Art learned: Ember Whirl — press 1 / D-pad up when the ember gauge is full', 6);
+    game.hint('Ember Art learned: Ember Whirl. Press 1 when the ember gauge glows', 'Ember Art learned: Ember Whirl. D-pad up when the ember gauge glows', 'Ember Art learned: Ember Whirl. Tap WHIRL when it glows', 6);
     await game.say('Kaede', 'One Ember lit. Four to go. Hold on, Ren. I am coming.', undefined, P.char, 'determined');
     await game.hud.fade(1, 2.5);
     game.setCinematic(false);

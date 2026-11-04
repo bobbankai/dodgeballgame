@@ -230,7 +230,7 @@ export class Drowned implements Level {
       await game.say('Kaede', 'Three days, Ren. They are three days ahead of me.', undefined, P.char, 'worried');
       game.setCinematic(false);
       game.hud.objective('Follow the road to the Drowned Shrine');
-      game.hud.toast('Fighting fills your ember gauge. When it glows, press 1 / D-pad up: Ember Whirl', 6);
+      game.hint('Fighting fills your ember gauge. When it glows, press 1: Ember Whirl', 'Fighting fills your ember gauge. When it glows, D-pad up: Ember Whirl', 'Fighting fills your ember gauge. When WHIRL glows, tap it', 6);
     }
     // ambush under the cedars
     if (idx <= 1) {
@@ -387,7 +387,7 @@ export class Drowned implements Level {
     game.musicOverride = 'title';
     await game.wait(1.4);
     P.artsUnlocked = Math.max(P.artsUnlocked, 2);
-    game.hud.toast('Ember Art learned: Rising Flame — press 2 / D-pad right', 6);
+    game.hint('Ember Art learned: Rising Flame. Press 2', 'Ember Art learned: Rising Flame. D-pad right', 'Ember Art learned: Rising Flame. Tap RISE', 6);
     hisame.lookAt(P.char.root);
     game.shot({ pos: V(1.5, ISLAND_Y + 1.6, 77), look: hisame.head, fov: 34, blend: 1.5, focus: 6 });
     await game.say('Hisame', 'Two Embers burning. I will keep this one. Go, Kaede, and do not let the snow take you.', undefined, hisame.char, 'warm');

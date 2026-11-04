@@ -151,7 +151,7 @@ export class Frostwake implements Level {
       await game.say('Kaede', 'Ren hates the cold. Every winter he stole my blanket and swore he had not.', undefined, P.char, 'warm');
       game.setCinematic(false);
       game.hud.objective('Climb the pass to the monastery');
-      game.hud.toast('Rising Flame (2) launches enemies into the air — strike again before they land', 6);
+      game.hint('Rising Flame (2) launches enemies into the air: strike again before they land', 'Rising Flame (D-pad right) launches enemies: strike again before they land', 'RISE launches enemies into the air: strike again before they land', 6);
     }
     if (idx <= 1) {
       if (idx === 1) { P.teleport(at(6, -132), 0.3); game.cam.snapBehind(0.3); }
@@ -275,7 +275,7 @@ export class Frostwake implements Level {
     game.musicOverride = 'title';
     await game.wait(1.4);
     P.artsUnlocked = 3;
-    game.hud.toast('Ember Art learned: Cinder Burst — press 3 / D-pad down', 6);
+    game.hint('Ember Art learned: Cinder Burst. Press 3', 'Ember Art learned: Cinder Burst. D-pad down', 'Ember Art learned: Cinder Burst. Tap BURST', 6);
     // a vision in the flame
     game.shot({ pos: this.brazierPos.clone().add(V(0, 1.55, -1.6)), look: this.brazierPos.clone().add(V(0, 1.35, 0)), fov: 30, blend: 2.5, focus: 1.6 });
     game.pipe.grade.settings.saturation = 0.5;
