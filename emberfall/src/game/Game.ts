@@ -121,6 +121,7 @@ export class Game {
     this.squad.reset();
     this.levelRoot.clear();
     this.envFx = {};
+    this.pipe.haze.sources = [];
     for (const m of this.pipe.mirrors) m.dispose();
     this.pipe.mirrors = [];
     this.music = null;

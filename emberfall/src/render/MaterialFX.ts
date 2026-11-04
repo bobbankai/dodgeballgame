@@ -38,6 +38,9 @@ export interface FXOptions {
   hair?: { shift?: number; tint?: THREE.Color };
   /** glowing fissures (object space, follows skinning): colour + density */
   cracks?: { color: THREE.Color; scale: number; width?: number; /** world space (static props) instead of bind-pose object space */ world?: boolean };
+  /** break up tiling: a second, rotated lookup blended in by world noise (albedo, normal, roughness) plus
+   * large-scale tonal variation; value = strength of the macro variation */
+  antiTile?: number;
   /** thin translucent leaves (see header) */
   foliage?: { trans?: number; tint?: THREE.Color };
 }
@@ -113,7 +116,7 @@ const WIND_VS = /* glsl */ `
 export function featureKey(o: FXOptions): string {
   return [
     o.skin ? 's' : '', o.wind ? 'w' + o.wind.mode : '', o.wet ? 'r' : '', o.snow ? 'n' : '', o.dissolve ? 'd' : '',
-    o.hit ? 'h' : '', o.pulse ? 'p' : '', o.detail ? 'x' : '', o.rim ? 'm' : '', o.cracks ? (o.cracks.world ? 'K' : 'k') : '', o.hair ? 'y' : '', o.foliage ? 'f' : '',
+    o.hit ? 'h' : '', o.pulse ? 'p' : '', o.detail ? 'x' : '', o.rim ? 'm' : '', o.cracks ? (o.cracks.world ? 'K' : 'k') : '', o.hair ? 'y' : '', o.foliage ? 'f' : '', o.antiTile ? 't' : '',
   ].join('');
 }
 
@@ -141,7 +144,8 @@ export function applyFX(mat: THREE.Material, o: FXOptions, csmHook?: Hook): FXUn
   if (o.cracks?.world) m.defines.FX_CRACKS_WORLD = '';
   if (o.hair) m.defines.FX_HAIR = '';
   if (o.foliage) m.defines.FX_FOLIAGE = '';
-  const needsWorld = !!(o.wind || o.wet || o.snow || o.dissolve || o.pulse || o.rim || o.cracks?.world);
+  if (o.antiTile) m.defines.FX_ANTITILE = '';
+  const needsWorld = !!(o.wind || o.wet || o.snow || o.dissolve || o.pulse || o.rim || o.cracks?.world || o.antiTile);
   if (needsWorld) m.defines.FX_WORLD = '';
 
   m.onBeforeCompile = (shader) => {
@@ -163,6 +167,7 @@ export function applyFX(mat: THREE.Material, o: FXOptions, csmHook?: Hook): FXUn
     shader.uniforms.uHairTint = { value: o.hair?.tint ?? new THREE.Color(1, 0.85, 0.7) };
     shader.uniforms.uCrack = { value: new THREE.Vector2(o.cracks?.scale ?? 8, o.cracks?.width ?? 0.06) };
     shader.uniforms.uFolTrans = { value: o.foliage?.trans ?? 1 };
+    shader.uniforms.uMacro = { value: o.antiTile ?? 0 };
     shader.uniforms.uFolTint = { value: o.foliage?.tint ?? new THREE.Color(1.0, 0.95, 0.55) };
     if (o.detail) {
       shader.uniforms.uDetailMap = { value: o.detail.map };
@@ -196,6 +201,12 @@ float fxCurv = 0.0;
 #endif
 #ifdef FX_FOLIAGE
 uniform float uFolTrans; uniform vec3 uFolTint;
+#endif
+#ifdef FX_ANTITILE
+uniform float uMacro;
+float fxAT = 0.0;
+vec2 fxATuv = vec2(0.0);
+const mat2 fxATrot = mat2(0.4536, -0.8912, 0.8912, 0.4536); // ~63 degrees
 #endif
 ${NOISE}`;
 
@@ -237,7 +248,26 @@ float fxDis = fxFbm(vFxWorldPos * 3.5) * 0.85 + fxNoise(vFxWorldPos * 18.0) * 0.
 if (fxDis < uDissolve) discard;
 float fxEdge = 1.0 - smoothstep(0.0, 0.06, fxDis - uDissolve);
 #endif`);
-    fs = fs.replace('#include <map_fragment>', /* glsl */ `#include <map_fragment>
+    fs = fs.replace('#include <map_fragment>', /* glsl */ `
+#if defined(FX_ANTITILE) && defined(USE_MAP)
+{
+  // two lookups of the same set: the second rotated, scaled and offset; a world-space noise picks between
+  // them in soft patches, so no feature repeats on a grid. The blend keeps the texture's contrast by
+  // favouring whichever sample dominates (height-blend style) instead of a flat 50/50 average.
+  fxATuv = fxATrot * vMapUv * 0.87 + vec2(0.413, 0.271);
+  float nz = fxNoise(vFxWorldPos * 0.42) * 0.7 + fxNoise(vFxWorldPos * 1.3) * 0.3;
+  fxAT = smoothstep(0.38, 0.62, nz);
+  vec4 tA = texture2D(map, vMapUv);
+  vec4 tB = texture2D(map, fxATuv);
+  vec4 sampledDiffuseColor = mix(tA, tB, fxAT);
+  diffuseColor *= sampledDiffuseColor;
+  // large-scale tonal variation (weathering, damp, sun-bleach)
+  float macro = fxNoise(vFxWorldPos * 0.07) * 0.6 + fxNoise(vFxWorldPos * 0.21 + 5.0) * 0.4;
+  diffuseColor.rgb *= 1.0 + (macro - 0.5) * uMacro;
+}
+#else
+#include <map_fragment>
+#endif
 #if defined(FX_FOLIAGE) && defined(USE_MAP)
 {
   // mip levels average alpha towards transparent and distant crowns dissolve: scale it back up per mip
@@ -262,6 +292,9 @@ float fxWet = clamp(uWetness * (0.55 + 0.45 * fxUp), 0.0, 1.0);
 diffuseColor.rgb *= mix(1.0, 0.55, fxWet * 0.8) * mix(1.0, 0.7, fxPuddle);
 #endif`);
     fs = fs.replace('#include <roughnessmap_fragment>', /* glsl */ `#include <roughnessmap_fragment>
+#if defined(FX_ANTITILE) && defined(USE_ROUGHNESSMAP)
+roughnessFactor = mix(roughnessFactor, roughness * texture2D(roughnessMap, fxATuv).g, fxAT);
+#endif
 #ifdef FX_WET
 roughnessFactor = mix(roughnessFactor, roughnessFactor * 0.35, fxWet);
 roughnessFactor = mix(roughnessFactor, 0.035, fxPuddle);
@@ -270,6 +303,15 @@ roughnessFactor = mix(roughnessFactor, 0.035, fxPuddle);
 roughnessFactor = mix(roughnessFactor, 0.62, fxSnowMask);
 #endif`);
     fs = fs.replace('#include <normal_fragment_maps>', /* glsl */ `#include <normal_fragment_maps>
+#if defined(FX_ANTITILE) && defined(USE_NORMALMAP_TANGENTSPACE)
+{
+  // the second lookup's normal, rotated back into the surface's tangent frame
+  vec3 nB = texture2D(normalMap, fxATuv).xyz * 2.0 - 1.0;
+  nB.xy = transpose(fxATrot) * nB.xy * normalScale;
+  vec3 nWB = normalize(tbn * nB);
+  normal = normalize(mix(normal, nWB, fxAT));
+}
+#endif
 #if defined(FX_FOLIAGE) && defined(DOUBLE_SIDED)
 // canopy normals describe the crown, not the card: both faces of a leaf use them
 normal *= faceDirection;

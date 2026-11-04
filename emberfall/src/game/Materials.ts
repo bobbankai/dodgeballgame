@@ -160,6 +160,8 @@ export function setupEnvMaterial(m: THREE.Material, msaa: boolean, base: FXOptio
   } else {
     if (typeof ex.tex === 'string') bindTiling(std, ex);
     const fx: FXOptions = { ...base };
+    // tiled sets on large surfaces (rock, walls, roofs, paving) never show their repeat
+    if (typeof ex.tex === 'string') fx.antiTile = 0.32;
     if (ex.cracks) fx.cracks = { color: charGlow, scale: 1.9, width: 0.028, world: true };
     if (tree) fx.wind = { mode: 'tree', height: tree.height };
     r = { mat: std, fx, depth: tree ? windDepthMaterial(std, fx) : undefined };
@@ -179,6 +181,14 @@ export function setupCharacterMaterial(m: THREE.Material, msaa: boolean): { mat:
   const name = m.name;
   if (typeof ex.tex === 'string') {
     bindTiling(std, ex);
+    // lacquer / clearcoat: thin curved plates act like cylindrical mirrors under a bright sky and band
+    // into hard white stripes. Real lacquer has fine orange-peel and wear: a softer, weaker coat lobe.
+    const phys = std as THREE.MeshPhysicalMaterial;
+    if (phys.isMeshPhysicalMaterial && phys.clearcoat > 0) {
+      phys.clearcoat = Math.min(phys.clearcoat, 0.55);
+      phys.clearcoatRoughness = Math.max(phys.clearcoatRoughness, 0.3);
+      phys.envMapIntensity = 0.8;
+    }
     const fx: FXOptions = { hit: true, dissolve: true, rim: 0.25 };
     if (ex.cracks) fx.cracks = { color: new THREE.Color(2.4, 0.7, 0.2), scale: 4.2, width: 0.035 };
     return { mat: std, fx };

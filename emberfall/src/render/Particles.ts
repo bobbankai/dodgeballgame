@@ -23,8 +23,8 @@ const C = (r: number, g: number, b: number) => new THREE.Color(r, g, b);
 const SPECS: Record<Kind, Spec> = {
   spark: { life: [0.18, 0.45], speed: [4, 10], size: [0.025, 0.05], grav: 9, drag: 2.5, color: [C(9, 5, 1.6), C(3, 0.6, 0.1)], additive: true, grow: -0.5, spread: 0.9, up: 0.3 },
   ember: { life: [1.2, 3.2], speed: [0.2, 1.0], size: [0.02, 0.05], grav: -0.6, drag: 0.6, color: [C(6, 2.2, 0.5), C(1.5, 0.2, 0.02)], additive: true, grow: -0.3, spread: 1, up: 0.8 },
-  fire: { life: [0.35, 0.8], speed: [0.4, 1.6], size: [0.18, 0.4], grav: -2.8, drag: 1.4, color: [C(5, 2.4, 0.7), C(0.9, 0.15, 0.02)], additive: true, grow: 0.8, spread: 0.6, up: 1 },
-  blaze: { life: [0.5, 1.1], speed: [0.6, 2.0], size: [0.55, 1.25], grav: -3.2, drag: 1.2, color: [C(4.2, 1.9, 0.5), C(0.7, 0.1, 0.01)], additive: true, grow: 0.5, spread: 0.5, up: 1 },
+  fire: { life: [0.35, 0.8], speed: [0.4, 1.6], size: [0.18, 0.4], grav: -2.8, drag: 1.4, color: [C(3.0, 1.15, 0.28), C(0.7, 0.1, 0.01)], additive: true, grow: 0.8, spread: 0.6, up: 1 },
+  blaze: { life: [0.5, 1.1], speed: [0.6, 2.0], size: [0.55, 1.25], grav: -3.2, drag: 1.2, color: [C(1.9, 0.62, 0.12), C(0.45, 0.05, 0.0)], additive: true, grow: 0.5, spread: 0.5, up: 1 },
   smoke: { life: [2.5, 5.0], speed: [0.3, 0.9], size: [0.6, 1.2], grav: -0.45, drag: 0.7, color: [C(0.06, 0.055, 0.05), C(0.14, 0.135, 0.13)], additive: false, grow: 2.2, spread: 0.6, up: 1 },
   dust: { life: [0.6, 1.4], speed: [0.6, 2.2], size: [0.2, 0.45], grav: 0.4, drag: 2.5, color: [C(0.35, 0.3, 0.24), C(0.3, 0.27, 0.22)], additive: false, grow: 1.6, spread: 1, up: 0.25 },
   ash: { life: [0.8, 2.0], speed: [0.6, 2.5], size: [0.03, 0.08], grav: 1.5, drag: 1.2, color: [C(0.05, 0.05, 0.06), C(0.12, 0.12, 0.13)], additive: false, grow: 0, spread: 1, up: 0.6 },

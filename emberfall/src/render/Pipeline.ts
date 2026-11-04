@@ -11,7 +11,7 @@ import { QUALITY, Quality, QualityName } from './Quality';
 import { Sky } from './Sky';
 import { FogPass } from './FogPass';
 import { Lighting } from './Lighting';
-import { GradeEffect, MotionBlurEffect } from './Effects';
+import { GradeEffect, HeatHazeEffect, MotionBlurEffect } from './Effects';
 import { applyFX, FXOptions, G } from './MaterialFX';
 import { GpuTimer } from './GpuTimer';
 import { AdaptPass } from './AdaptPass';
@@ -27,6 +27,8 @@ export class Pipeline {
   readonly grade = new GradeEffect();
   bloom: BloomEffect;
   readonly motionBlur: MotionBlurEffect;
+  /** shimmering air above fires (levels register sources) */
+  readonly haze: HeatHazeEffect;
   readonly eye = new AdaptPass();
   dof!: DepthOfFieldEffect;
   private composer!: EffectComposer;
@@ -67,6 +69,7 @@ export class Pipeline {
     this.fog = new FogPass(this.camera, this.quality.volumetric ? this.quality.volSteps : 0, this.quality.volumetric ? this.quality.cascades : 0);
     this.bloom = new BloomEffect({ mipmapBlur: true, luminanceThreshold: 1.05, luminanceSmoothing: 0.35, intensity: 0.55, radius: 0.72, levels: 8 });
     this.motionBlur = new MotionBlurEffect(this.camera);
+    this.haze = new HeatHazeEffect(this.camera);
     this.buildComposer();
     this.resize();
   }
@@ -95,6 +98,8 @@ export class Pipeline {
     }
     this.fog.configure(q.volumetric ? q.volSteps : 0, q.volumetric ? q.cascades : 0);
     this.composer.addPass(this.fog);
+    // heat haze refracts the fogged scene (so fog behind a fire shimmers too); off on Performance
+    if (q.name !== 'performance') this.composer.addPass(new EffectPass(this.camera, this.haze));
     this.mbPass = null;
     if (q.motionBlur) {
       this.mbPass = new EffectPass(this.camera, this.motionBlur);

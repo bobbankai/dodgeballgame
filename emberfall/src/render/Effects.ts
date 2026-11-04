@@ -249,3 +249,79 @@ export class MotionBlurEffect extends Effect {
     this.first = false;
   }
 }
+
+// ---------------------------------------------------------------------------------------------
+// Heat haze: above every fire the air shimmers. Each source (projected to the screen each frame) is a
+// rising column of refraction: noise scrolling upward, widening and fading with height.
+// ---------------------------------------------------------------------------------------------
+const HAZE_FRAG = /* glsl */ `
+uniform vec4 uSrc[8];
+uniform float uCount;
+uniform float uTime;
+uniform float uAspect;
+float hzHash(vec2 p) { p = fract(p * vec2(234.34, 435.345)); p += dot(p, p + 34.23); return fract(p.x * p.y); }
+float hzNoise(vec2 p) {
+  vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
+  return mix(mix(hzHash(i), hzHash(i + vec2(1, 0)), f.x), mix(hzHash(i + vec2(0, 1)), hzHash(i + vec2(1, 1)), f.x), f.y);
+}
+void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor) {
+  vec2 off = vec2(0.0);
+  for (int i = 0; i < 8; i++) {
+    if (float(i) >= uCount) break;
+    vec4 s = uSrc[i];
+    vec2 d = (uv - s.xy) * vec2(uAspect, 1.0);
+    float up = d.y / s.z;
+    float side = abs(d.x) / (s.z * (0.4 + 0.35 * clamp(up, 0.0, 1.6)));
+    float m = smoothstep(1.0, 0.1, side) * smoothstep(-0.2, 0.15, up) * smoothstep(2.0, 0.5, up);
+    if (m <= 0.0) continue;
+    vec2 q = vec2(d.x * 26.0 / s.z, d.y * 11.0 / s.z - uTime * 3.0);
+    vec2 n = vec2(hzNoise(q), hzNoise(q * 1.7 + 7.3)) - 0.5;
+    n += (vec2(hzNoise(q * 2.9 + 3.1), hzNoise(q * 3.3 + 1.7)) - 0.5) * 0.5;
+    off += n * m * s.w;
+  }
+  if (dot(off, off) < 1e-10) { outputColor = inputColor; return; }
+  outputColor = vec4(texture2D(inputBuffer, uv + off).rgb, inputColor.a);
+}`;
+
+export interface HeatSource { pos: THREE.Vector3; radius: number; strength: number }
+
+export class HeatHazeEffect extends Effect {
+  sources: HeatSource[] = [];
+  private v = new THREE.Vector3();
+
+  constructor(private cam: THREE.PerspectiveCamera) {
+    super('HeatHazeEffect', HAZE_FRAG, {
+      attributes: EffectAttribute.CONVOLUTION,
+      blendFunction: BlendFunction.SET,
+      uniforms: new Map<string, THREE.Uniform>([
+        ['uSrc', new THREE.Uniform(Array.from({ length: 8 }, () => new THREE.Vector4()))], ['uCount', new THREE.Uniform(0)],
+        ['uTime', new THREE.Uniform(0)], ['uAspect', new THREE.Uniform(1)],
+      ]),
+    });
+  }
+
+  override update(_r: THREE.WebGLRenderer, _i: THREE.WebGLRenderTarget, dt?: number): void {
+    const u = this.uniforms;
+    const cam = this.cam;
+    u.get('uTime')!.value += dt ?? 0.016;
+    u.get('uAspect')!.value = cam.aspect;
+    const camPos = cam.getWorldPosition(new THREE.Vector3());
+    const tanH = Math.tan(THREE.MathUtils.degToRad(cam.fov) / 2);
+    const list = this.sources
+      .map((s) => ({ s, d: s.pos.distanceTo(camPos) }))
+      .filter((x) => x.d < 70)
+      .sort((a, b) => a.d - b.d);
+    const out = u.get('uSrc')!.value as THREE.Vector4[];
+    let n = 0;
+    for (const { s, d } of list) {
+      if (n >= 8) break;
+      this.v.copy(s.pos).project(cam);
+      if (this.v.z > 1 || Math.abs(this.v.x) > 1.4 || this.v.y > 1.4 || this.v.y < -2.0) continue;
+      const rUv = (s.radius / (d * tanH)) * 0.5;
+      const fade = 1 - THREE.MathUtils.smoothstep(d, 40, 70);
+      out[n].set(this.v.x * 0.5 + 0.5, this.v.y * 0.5 + 0.5, rUv, s.strength * 0.006 * fade * Math.min(1, rUv * 6));
+      n++;
+    }
+    u.get('uCount')!.value = n;
+  }
+}

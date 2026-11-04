@@ -267,6 +267,7 @@ export class Frostwake implements Level {
     await game.wait(0.5);
     if (this.brazierLight) this.brazierLight.intensity = 60;
     game.particles.emitter('fire', this.brazierPos.clone().setY(TOP + 1.3), 45, 0.55);
+    game.pipe.haze.sources.push({ pos: this.brazierPos.clone().setY(TOP + 1.4), radius: 1.2, strength: 0.8 });
     game.particles.emitter('ember', this.brazierPos.clone().setY(TOP + 1.6), 14, 0.6);
     game.particles.burst('flash', this.brazierPos.clone().setY(TOP + 1.5), 1, undefined, 3);
     game.particles.burst('ember', this.brazierPos.clone().setY(TOP + 1.5), 90, V(0, 1, 0), 1.4);

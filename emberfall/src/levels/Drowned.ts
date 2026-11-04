@@ -103,11 +103,18 @@ export class Drowned implements Level {
     for (let i = 0; i < 9; i++) {
       const z = -140 + i * 15;
       const p = valley.s.path.reduce((a, q) => (Math.abs(q[1] - z) < Math.abs(a[1] - z) ? q : a));
+      let lit = i % 2 === 0;
       for (const side of [-1, 1]) {
         if (r() < 0.25) continue;
-        jobs.push(place(game, K + 'lantern_stone.glb', p[0] + side * 4.6, z, { rot: r() * 6, scale: 0.85, tilt: new THREE.Euler((r() - 0.5) * 0.12, 0, (r() - 0.5) * 0.12) }));
+        const lx = p[0] + side * 4.6;
+        jobs.push(place(game, K + 'lantern_stone.glb', lx, z, { rot: r() * 6, scale: 0.85, tilt: new THREE.Euler((r() - 0.5) * 0.12, 0, (r() - 0.5) * 0.12) }));
+        if (lit) {
+          // every other pair has one lantern still burning
+          lit = false;
+          game.light({ position: V(lx, H(lx, z) + 1.5, z), color: new THREE.Color(1, 0.62, 0.3), intensity: 9, distance: 12, flicker: 0.25 });
+          game.particles.emitter('fire', V(lx, H(lx, z) + 1.25, z), 6, 0.04);
+        }
       }
-      if (i % 2 === 0) game.light({ position: V(p[0] + 4.6 * (i % 4 === 0 ? 1 : -1), H(p[0], z) + 1.6, z), color: new THREE.Color(1, 0.62, 0.3), intensity: 7, distance: 11, flicker: 0.25 });
     }
     jobs.push(place(game, K + 'torii.glb', -2, -100, { scale: 1.0, rot: 0.1, tilt: new THREE.Euler(0, 0, 0.08) }));
     jobs.push(place(game, K + 'minka_burnt_b.glb', 18, -60, { rot: -Math.PI / 2 + 0.3 }));
@@ -135,7 +142,10 @@ export class Drowned implements Level {
       for (const side of [-1, 1]) {
         const x = side * (4.2 + r() * 1.5);
         jobs.push(place(game, K + 'lantern_stone.glb', x, z, { y: H(x, z) - 0.2, scale: 0.85, rot: r() * 6 }));
-        if ((i + (side > 0 ? 1 : 0)) % 2 === 0) game.light({ position: V(x, 1.55, z), color: new THREE.Color(1, 0.6, 0.28), intensity: 9, distance: 13, flicker: 0.3 });
+        if ((i + (side > 0 ? 1 : 0)) % 2 === 0) {
+          game.light({ position: V(x, 1.55, z), color: new THREE.Color(1, 0.6, 0.28), intensity: 9, distance: 13, flicker: 0.3 });
+          game.particles.emitter('fire', V(x, H(x, z) - 0.2 + 1.45 * 0.85, z), 7, 0.04);
+        }
       }
     }
     // drowned houses and stones in the shallows
@@ -151,7 +161,8 @@ export class Drowned implements Level {
     jobs.push(place(game, K + 'brazier.glb', this.brazierPos.x, this.brazierPos.z, { y: ISLAND_Y }));
     for (const [x, z] of [[-6, 74], [6, 74], [-11, 86], [-9, 98], [12, 80]]) {
       jobs.push(place(game, K + 'lantern_stone.glb', x, z, { y: ISLAND_Y }));
-      game.light({ position: V(x, ISLAND_Y + 1.55, z), color: new THREE.Color(1, 0.6, 0.28), intensity: 8, distance: 12, flicker: 0.3 });
+      game.light({ position: V(x, ISLAND_Y + 1.55, z), color: new THREE.Color(1, 0.6, 0.28), intensity: 12, distance: 14, flicker: 0.3 });
+      game.particles.emitter('fire', V(x, ISLAND_Y + 1.45, z), 7, 0.04);
     }
     await Promise.all(jobs);
     paving(game, -12, 70, 12, 100, ISLAND_Y + 0.02, 'stone_tiles', 2.2, new THREE.Color(0.55, 0.57, 0.58));
@@ -366,6 +377,7 @@ export class Drowned implements Level {
     await game.wait(0.5);
     if (this.brazierLight) this.brazierLight.intensity = 60;
     game.particles.emitter('fire', this.brazierPos.clone().setY(ISLAND_Y + 1.3), 45, 0.55);
+    game.pipe.haze.sources.push({ pos: this.brazierPos.clone().setY(ISLAND_Y + 1.4), radius: 1.2, strength: 0.8 });
     game.particles.emitter('ember', this.brazierPos.clone().setY(ISLAND_Y + 1.6), 14, 0.6);
     game.particles.burst('flash', this.brazierPos.clone().setY(ISLAND_Y + 1.5), 1, undefined, 3);
     game.particles.burst('ember', this.brazierPos.clone().setY(ISLAND_Y + 1.5), 90, V(0, 1, 0), 1.4);

@@ -173,10 +173,10 @@ export class Cinders implements Level {
     game.particles.emitter('smoke', V(0, poolY + 0.4, -160.4), 4, 1.8, V(0, 0.35, 0.5));
     game.levelRoot.add(waterMesh(game.pipe, fall, { fall: true, speed: 4.5, foam: 0.75, scale: 0.6, strength: 0.6, alpha: [0.85, 0.98], shallow: new THREE.Color(0.5, 0.58, 0.58), deep: new THREE.Color(0.2, 0.28, 0.3) }));
     const pool = ribbon([V(-6, poolY, -158.0), V(6, poolY, -158.0)], 9.5, V(0, 1, 0), 8);
-    game.levelRoot.add(waterMesh(game.pipe, pool, { speed: 0.3, bankFoam: 0.05 }));
+    game.levelRoot.add(waterMesh(game.pipe, pool, { speed: 0.3, bankFoam: 0.05, strength: 0.1, scale: 1.7 }));
     const sPts = STREAM.map(([x, z]) => V(x, streamLevel(x, z), z));
     sPts[0].y = poolY - 0.02;
-    game.levelRoot.add(waterMesh(game.pipe, ribbon(sPts, 3.4, V(0, 1, 0), 6), { speed: 1.6, bankFoam: 0.07 }));
+    game.levelRoot.add(waterMesh(game.pipe, ribbon(sPts, 3.4, V(0, 1, 0), 6), { speed: 1.6, bankFoam: 0.07, strength: 0.2, scale: 1.3 }));
 
     // ---------------------------------------------------------------- terraces on the descent
     for (let i = 0; i < 6; i++) {
@@ -374,6 +374,7 @@ export class Cinders implements Level {
     g.particles.emitter('smoke', pos.clone().setY(pos.y + 1.8), 9 * k, 1.0 * k, V(0.2, 1, 0.05));
     g.particles.emitter('ember', pos.clone().setY(pos.y + 0.6), 6 * k, 0.8);
     const light = g.light({ position: pos.clone().setY(pos.y + 0.8), color: new THREE.Color(1, 0.48, 0.18), intensity: 22 * k, distance: 16, flicker: 0.45, priority: 1 });
+    g.pipe.haze.sources.push({ pos: pos.clone().setY(pos.y + 0.6), radius: 1.6 * k + 0.6, strength: 1.0 * k });
     this.fires.push({ light, pos });
   }
 
@@ -684,6 +685,7 @@ export class Cinders implements Level {
     // the Ember catches
     if (this.brazierLight) this.brazierLight.intensity = 60;
     game.particles.emitter('fire', this.brazierPos.clone().setY(SHRINE_Y + 1.3), 45, 0.55);
+    game.pipe.haze.sources.push({ pos: this.brazierPos.clone().setY(SHRINE_Y + 1.4), radius: 1.2, strength: 0.8 });
     game.particles.emitter('ember', this.brazierPos.clone().setY(SHRINE_Y + 1.6), 14, 0.6);
     game.particles.burst('flash', this.brazierPos.clone().setY(SHRINE_Y + 1.5), 1, undefined, 3);
     game.particles.burst('ember', this.brazierPos.clone().setY(SHRINE_Y + 1.5), 90, V(0, 1, 0), 1.4);
