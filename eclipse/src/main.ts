@@ -1,6 +1,11 @@
 import { Game } from './game/Game';
 import { log, recentErrors } from './core/Log';
 import './ui/styles.css';
+import './ui/theme.css';
+import '@fontsource/cinzel/400.css';
+import '@fontsource/cinzel/600.css';
+import '@fontsource/cormorant-garamond/400.css';
+import '@fontsource/cormorant-garamond/600.css';
 
 const params = new URLSearchParams(location.search);
 const canvas = document.getElementById('game') as HTMLCanvasElement;

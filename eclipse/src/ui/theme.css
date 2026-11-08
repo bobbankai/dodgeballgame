@@ -1,0 +1,111 @@
+/* Eclipse: Fallen Gods - interface theme. Gilded, restrained, readable over any scene. */
+:root {
+  --ec-gold: #d9b56a;
+  --ec-gold-dim: #8a6d36;
+  --ec-ink: #0b0910;
+  --ec-parchment: #efe3c8;
+  --ec-text: #ece4d2;
+  --ec-muted: #a69c8a;
+  --ec-health: #b3262a;
+  --ec-health-hi: #e0484a;
+  --ec-chip: #f2d7a1;
+  --ec-stamina: #d8cfa8;
+  --ec-aether: #7da7ff;
+  --ec-aether-hi: #c8dcff;
+  --ec-panel: rgba(10, 8, 14, 0.62);
+  --ec-shadow: 0 2px 10px rgba(0, 0, 0, 0.6);
+  --ec-serif: 'Cormorant Garamond', 'Palatino Linotype', Georgia, serif;
+  --ec-title: 'Cinzel', 'Trajan Pro', Georgia, serif;
+  --ec-safe-l: max(18px, env(safe-area-inset-left));
+  --ec-safe-r: max(18px, env(safe-area-inset-right));
+  --ec-safe-t: max(14px, env(safe-area-inset-top));
+  --ec-safe-b: max(14px, env(safe-area-inset-bottom));
+}
+
+#ui { font-family: var(--ec-serif); color: var(--ec-text); }
+.ec-hud { position: absolute; inset: 0; pointer-events: none; transition: opacity 0.4s; }
+.ec-hud.hidden { opacity: 0; }
+
+.ec-vitals { position: absolute; left: var(--ec-safe-l); top: var(--ec-safe-t); width: min(380px, 42vw); }
+.ec-bar { position: relative; height: 10px; margin-bottom: 6px; background: rgba(0,0,0,0.55); border: 1px solid rgba(217,181,106,0.45); box-shadow: var(--ec-shadow); }
+.ec-bar.thin { height: 6px; }
+.ec-bar > .chip, .ec-bar > .fill { position: absolute; left: 0; top: 0; bottom: 0; }
+.ec-bar > .chip { background: var(--ec-chip); opacity: 0.75; }
+.ec-bar.health > .fill { background: linear-gradient(180deg, var(--ec-health-hi), var(--ec-health)); }
+.ec-bar.stamina > .fill { background: linear-gradient(180deg, #f5efd6, var(--ec-stamina)); }
+.ec-bar.aether > .fill { background: linear-gradient(90deg, #3c62d8, var(--ec-aether), var(--ec-aether-hi)); box-shadow: 0 0 10px rgba(125,167,255,0.7); }
+.ec-bar.low > .fill { animation: ec-pulse 0.9s ease-in-out infinite; }
+@keyframes ec-pulse { 50% { filter: brightness(1.6); } }
+.ec-flasks { display: flex; gap: 5px; margin-top: 4px; }
+.ec-flask { width: 12px; height: 18px; border: 1px solid var(--ec-gold-dim); border-radius: 3px 3px 5px 5px; background: rgba(0,0,0,0.5); }
+.ec-flask.full { background: radial-gradient(circle at 50% 70%, #ffb36b, #c4471c 70%); border-color: var(--ec-gold); box-shadow: 0 0 6px rgba(255,140,60,0.6); }
+.ec-level { position: absolute; left: 0; top: -2px; transform: translateX(-130%); font-family: var(--ec-title); font-size: 13px; color: var(--ec-gold); }
+
+.ec-abilities { position: absolute; right: var(--ec-safe-r); bottom: calc(var(--ec-safe-b) + 6px); display: flex; gap: 8px; }
+.ec-slot { position: relative; width: 52px; height: 52px; border: 1px solid var(--ec-gold-dim); background: var(--ec-panel); transform: rotate(45deg); box-shadow: var(--ec-shadow); }
+.ec-slot > .ico { position: absolute; inset: 8px; transform: rotate(-45deg); display: flex; align-items: center; justify-content: center; font-family: var(--ec-title); font-size: 11px; color: var(--ec-parchment); text-align: center; line-height: 1; }
+.ec-slot > .cd { position: absolute; inset: 0; background: rgba(0,0,0,0.65); transform-origin: bottom; }
+.ec-slot > .key { position: absolute; right: -6px; bottom: -6px; transform: rotate(-45deg); font-size: 11px; color: var(--ec-gold); }
+.ec-slot.empty { opacity: 0.35; }
+.ec-slot.ready { border-color: var(--ec-gold); box-shadow: 0 0 10px rgba(217,181,106,0.5); }
+
+.ec-boss { position: absolute; left: 50%; bottom: calc(var(--ec-safe-b) + 34px); width: min(760px, 70vw); transform: translateX(-50%); opacity: 0; transition: opacity 0.6s; }
+.ec-boss.on { opacity: 1; }
+.ec-boss .name { font-family: var(--ec-title); font-size: 18px; letter-spacing: 0.12em; color: var(--ec-parchment); text-shadow: var(--ec-shadow); margin-bottom: 4px; }
+.ec-boss .name small { font-family: var(--ec-serif); letter-spacing: 0.04em; color: var(--ec-muted); font-size: 14px; margin-left: 8px; }
+.ec-boss .ec-bar { height: 12px; }
+.ec-boss .marks { position: absolute; inset: 0; }
+.ec-boss .marks i { position: absolute; top: -3px; bottom: -3px; width: 2px; background: var(--ec-gold); opacity: 0.8; }
+.ec-boss .poise { margin-top: 3px; }
+
+.ec-reticle { position: absolute; width: 26px; height: 26px; margin: -13px 0 0 -13px; border: 2px solid var(--ec-gold); border-radius: 50%; transform: rotate(45deg); opacity: 0; transition: opacity 0.15s; box-shadow: 0 0 8px rgba(217,181,106,0.7); }
+.ec-reticle.on { opacity: 0.9; }
+.ec-reticle::after { content: ''; position: absolute; inset: 7px; background: var(--ec-gold); border-radius: 50%; }
+.ec-reticle.exec { border-color: #ff6a3a; box-shadow: 0 0 14px rgba(255,100,40,0.9); }
+
+.ec-prompt { position: absolute; left: 50%; bottom: 22%; transform: translateX(-50%); padding: 6px 16px; background: var(--ec-panel); border: 1px solid var(--ec-gold-dim); font-size: 17px; opacity: 0; transition: opacity 0.25s; white-space: nowrap; }
+.ec-prompt.on { opacity: 1; }
+.ec-prompt kbd { font-family: var(--ec-title); color: var(--ec-gold); font-size: 13px; border: 1px solid var(--ec-gold-dim); padding: 1px 6px; margin-right: 6px; }
+
+.ec-hint { position: absolute; left: var(--ec-safe-l); top: 30%; max-width: 300px; padding: 10px 14px; background: var(--ec-panel); border-left: 2px solid var(--ec-gold); font-size: 16px; line-height: 1.35; opacity: 0; transform: translateX(-12px); transition: opacity 0.3s, transform 0.3s; }
+.ec-hint.on { opacity: 1; transform: none; }
+.ec-hint b { font-family: var(--ec-title); color: var(--ec-gold); font-weight: 400; display: block; font-size: 13px; letter-spacing: 0.1em; margin-bottom: 3px; }
+
+.ec-subtitle { position: absolute; left: 50%; bottom: 13%; transform: translateX(-50%); max-width: min(900px, 86vw); text-align: center; font-size: 22px; line-height: 1.35; text-shadow: 0 2px 6px #000, 0 0 2px #000; opacity: 0; transition: opacity 0.2s; }
+.ec-subtitle.on { opacity: 1; }
+.ec-subtitle .who { font-family: var(--ec-title); color: var(--ec-gold); font-size: 15px; letter-spacing: 0.1em; margin-right: 8px; }
+.ec-subtitle.small { font-size: 18px; }
+.ec-subtitle.large { font-size: 28px; }
+
+.ec-toast { position: absolute; right: var(--ec-safe-r); top: 18%; display: flex; flex-direction: column; gap: 6px; align-items: flex-end; }
+.ec-toast > div { padding: 6px 14px; background: var(--ec-panel); border-right: 2px solid var(--ec-gold); font-size: 16px; animation: ec-toast 4s forwards; }
+@keyframes ec-toast { 0% { opacity: 0; transform: translateX(20px); } 8%, 85% { opacity: 1; transform: none; } 100% { opacity: 0; } }
+
+.ec-banner { position: absolute; left: 0; right: 0; top: 34%; text-align: center; opacity: 0; transition: opacity 1.2s; }
+.ec-banner.on { opacity: 1; }
+.ec-banner .t { font-family: var(--ec-title); font-size: clamp(28px, 5vw, 58px); letter-spacing: 0.14em; color: var(--ec-parchment); text-shadow: 0 0 24px rgba(217,181,106,0.45), var(--ec-shadow); }
+.ec-banner .s { font-size: clamp(16px, 2vw, 22px); color: var(--ec-gold); letter-spacing: 0.2em; margin-top: 6px; text-transform: uppercase; }
+.ec-banner .rule { width: min(420px, 60vw); height: 1px; margin: 10px auto; background: linear-gradient(90deg, transparent, var(--ec-gold), transparent); }
+
+.ec-dmg { position: absolute; font-family: var(--ec-title); font-size: 16px; color: #fff; text-shadow: 0 1px 3px #000; pointer-events: none; animation: ec-dmg 0.9s forwards; }
+.ec-dmg.crit { color: #ffcf7a; font-size: 22px; }
+@keyframes ec-dmg { 0% { opacity: 0; transform: translateY(0) scale(0.8); } 15% { opacity: 1; transform: translateY(-10px) scale(1.1); } 100% { opacity: 0; transform: translateY(-46px) scale(1); } }
+
+.ec-letterbox::before, .ec-letterbox::after { content: ''; position: absolute; left: 0; right: 0; height: 0; background: #000; transition: height 0.6s; z-index: 5; }
+.ec-letterbox::before { top: 0; }
+.ec-letterbox::after { bottom: 0; }
+.ec-letterbox.on::before, .ec-letterbox.on::after { height: 11vh; }
+
+.ec-fade { position: absolute; inset: 0; background: #000; opacity: 0; transition: opacity 0.6s; pointer-events: none; z-index: 20; }
+.ec-fade.on { opacity: 1; }
+.ec-vignette-hurt { position: absolute; inset: 0; pointer-events: none; background: radial-gradient(ellipse at center, transparent 55%, rgba(140,0,0,0.55) 100%); opacity: 0; transition: opacity 0.25s; }
+
+.hc .ec-bar { border-color: #fff; }
+.hc .ec-subtitle { background: rgba(0,0,0,0.75); padding: 4px 12px; }
+
+@media (max-width: 720px) {
+  .ec-vitals { width: 46vw; }
+  .ec-abilities { bottom: 150px; right: 14px; transform: scale(0.85); transform-origin: right bottom; }
+  .ec-boss { bottom: auto; top: calc(var(--ec-safe-t) + 52px); width: 86vw; }
+  .ec-subtitle { font-size: 17px; bottom: 34%; }
+}

@@ -15,7 +15,7 @@
     "eclipse": "vite --config eclipse/vite.config.ts",
     "eclipse:build": "tsc -p eclipse --noEmit && vite build --config eclipse/vite.config.ts",
     "eclipse:typecheck": "tsc -p eclipse --noEmit",
-    "eclipse:test": "vitest run --config eclipse/vitest.config.ts --root eclipse"
+    "eclipse:test": "vitest run --root eclipse"
   },
   "dependencies": {
     "@babylonjs/core": "^9.35.0",

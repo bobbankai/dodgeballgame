@@ -1,4 +1,4 @@
-import { Color4, Scene, UniversalCamera, Vector3, type Camera } from '@babylonjs/core';
+import { Color3, Color4, Scene, UniversalCamera, Vector3, type Camera } from '@babylonjs/core';
 import { EngineHost, type Backend } from '../core/EngineHost';
 import { Clock } from '../core/Clock';
 import { Settings } from '../core/Settings';
@@ -9,13 +9,25 @@ import { Pipeline } from '../render/Pipeline';
 import { MaterialLibrary } from '../render/Materials';
 import { Physics } from '../physics/Physics';
 import { buildSandbox } from '../dev/Sandbox';
+import { buildViewer } from '../dev/Viewer';
+import { AssetManager } from '../assets/AssetManager';
 import { applyEnginePatches } from '../render/EnginePatches';
 import { MatEnv } from '../render/materials/EcPlugin';
-import { Color3 } from '@babylonjs/core';
+import { Input } from '../input/Input';
+import { CameraRig } from '../camera/CameraRig';
+import { CombatWorld } from '../combat/CombatWorld';
+import { Player } from '../player/Player';
+import { Character } from '../character/Character';
+import { CharacterMaterials } from '../character/CharacterMaterials';
+import { AnimLibrary } from '../anim/AnimLibrary';
+import { attachWeapon } from '../character/Weapons';
+import type { Level, Atmos } from '../world/Level';
+import { createLevel } from '../levels/registry';
+import { HUD } from '../ui/HUD';
 
 /**
  * Top-level owner of every system. One scene for the whole game: levels stream their content into
- * it and dispose it again, while the engine, physics world, UI and audio persist.
+ * it and dispose it again, while the engine, physics world, player, UI and audio persist.
  */
 export class Game {
   readonly host: EngineHost;
@@ -28,12 +40,24 @@ export class Game {
   readonly pipe: Pipeline;
   readonly mats: MaterialLibrary;
   readonly physics: Physics;
+  readonly assets: AssetManager;
   readonly params: URLSearchParams;
+  readonly input: Input;
+  readonly rig: CameraRig;
+  readonly combat = new CombatWorld();
+  readonly charMats: CharacterMaterials;
+  readonly hud: HUD;
+  humanAnims!: AnimLibrary;
+  player: Player | null = null;
+  level: Level | null = null;
   /** In test mode the harness advances time explicitly (deterministic). */
   readonly manualTime: boolean;
   private lastTime = performance.now();
   private running = false;
   fps = 0;
+  /** Per-step updates registered by levels and systems (fixed timestep). */
+  readonly updaters: ((dt: number) => void)[] = [];
+  paused = false;
 
   private constructor(host: EngineHost, scene: Scene, physics: Physics, settings: Settings, params: URLSearchParams) {
     this.host = host;
@@ -47,11 +71,18 @@ export class Game {
     this.camera.maxZ = 2500;
     this.camera.fov = 0.9;
     this.camera.setTarget(new Vector3(0, 1.5, 0));
+    this.camera.inputs.clear();
     scene.activeCamera = this.camera;
     this.lighting = new Lighting(scene);
     this.sky = new Sky(scene);
     this.pipe = new Pipeline(scene, this.camera);
     this.mats = new MaterialLibrary(scene);
+    this.assets = new AssetManager(scene);
+    this.charMats = new CharacterMaterials(scene);
+    this.input = new Input(host.canvas, settings);
+    this.rig = new CameraRig(this.camera, physics);
+    this.rig.shakeScale = settings.data.access.cameraShake;
+    this.hud = new HUD(scene, document.getElementById('ui')!);
   }
 
   static async create(canvas: HTMLCanvasElement, params: URLSearchParams): Promise<Game> {
@@ -76,30 +107,75 @@ export class Game {
 
   private async init(): Promise<void> {
     const g = this.settings.data.graphics;
-    this.lighting.apply({
-      sunColor: new Color3(1.0, 0.86, 0.7),
-      sunIntensity: 4.2,
-      sunElevation: 0.42,
-      sunAzimuth: 2.5,
-      skyFill: new Color3(0.55, 0.62, 0.75),
-      groundFill: new Color3(0.25, 0.2, 0.17),
-      fillIntensity: 0.12,
-      environmentIntensity: 0.9,
-      exposure: 1,
-      contrast: 1.1,
-      shadowDarkness: 0,
-    }, this.sky);
     this.lighting.setShadowQuality(g.shadows, this.camera, this.pipe.caps.varyings);
     this.sky.cloudSteps = { low: 0, medium: 14, high: 24, ultra: 40 }[g.preset];
-    await this.lighting.captureEnvironment(this.sky);
     this.pipe.build(g);
-    const level = this.params.get('level') ?? 'sandbox';
-    if (level === 'sandbox') await buildSandbox(this.scene, this.mats, this.lighting, this.physics);
-    this.camera.setTarget(new Vector3(0, 1.5, 0));
+    this.humanAnims = await AnimLibrary.load(this.assets, 'human');
+    const level = this.params.get('level') ?? 'playground';
+    if (level === 'sandbox' || level === 'viewer') {
+      await this.applyAtmos(DEV_ATMOS);
+      if (level === 'sandbox') await buildSandbox(this.scene, this.mats, this.lighting, this.physics);
+      else {
+        const c = await buildViewer(this.scene, this.assets, this.mats, this.lighting, this.camera, this.params.get('char') ?? 'kael', this.params.get('anim'));
+        this.updaters.push((dt) => c.update(dt));
+        (window as unknown as { __char: unknown }).__char = c;
+      }
+      if (level === 'sandbox') this.camera.setTarget(new Vector3(0, 1.5, 0));
+    } else {
+      await this.loadLevel(level, this.params.get('at') ?? undefined);
+    }
     await this.scene.whenReadyAsync();
     log.info(`ready (${this.host.backend})`);
     if (!this.manualTime) this.start();
+    this.host.canvas.addEventListener('click', () => this.input.requestPointerLock());
     (window as unknown as { __ready: boolean }).__ready = true;
+  }
+
+  /** Applies a level's lighting, sky, fog, grade and weather, and re-captures the environment. */
+  async applyAtmos(a: Atmos): Promise<void> {
+    this.sky.set(a.sky);
+    this.lighting.apply(a.lighting, this.sky);
+    this.pipe.setLook(a.look);
+    const w = a.weather ?? {};
+    MatEnv.wetness = w.wetness ?? 0;
+    MatEnv.coverAmount = w.cover ?? 0;
+    if (w.coverColor) MatEnv.coverColor = w.coverColor;
+    MatEnv.windStrength = w.wind ?? 0.25;
+    if (w.windDir) {
+      MatEnv.wind.set(w.windDir[0], 0, w.windDir[1]);
+      this.sky.setWind(w.windDir[0], w.windDir[1]);
+    }
+    await this.lighting.captureEnvironment(this.sky);
+    this.pipe.exposure.reset();
+  }
+
+  async loadLevel(id: string, checkpoint?: string): Promise<void> {
+    if (this.level) {
+      this.level.dispose();
+      await this.assets.releaseScope(this.level.scope);
+      this.physics.clearLevel();
+    }
+    const level = createLevel(this, id);
+    this.level = level;
+    await this.applyAtmos(level.atmosphere());
+    await level.load(checkpoint);
+    if (!this.player) await this.spawnPlayer();
+    const s = level.spawn(checkpoint);
+    this.player!.place(s.position, s.yaw);
+    this.rig.snapBehind(s.yaw);
+    (window as unknown as { __level: unknown }).__level = level;
+  }
+
+  private async spawnPlayer(): Promise<void> {
+    const c = await Character.create(this.scene, this.assets, this.charMats, this.humanAnims, 'kael', 'kael');
+    for (const m of c.meshes) this.lighting.addCaster(m, false);
+    await attachWeapon(this.scene, this.assets, c, 'oathkeeper', 'weapon_r', this.lighting);
+    this.player = new Player(this.scene, c, this.input, this.rig, this.combat, this.clock, Vector3.Zero());
+    this.combat.events.on('hit', (h) => {
+      if (h.attacker === this.player && (h.result === 'hit' || h.result === 'staggered' || h.result === 'killed')) {
+        this.hud.damageNumber(h.info.point, h.info.amount, !!h.info.critical);
+      }
+    });
   }
 
   get activeCamera(): Camera {
@@ -120,7 +196,7 @@ export class Game {
 
   /** One real frame: run the fixed steps that fit, then render once. */
   frame(realDt: number): void {
-    const n = this.clock.accumulate(realDt);
+    const n = this.paused ? 0 : this.clock.accumulate(realDt);
     for (let i = 0; i < n; i++) this.step(Clock.STEP);
     this.fps = this.fps * 0.95 + (realDt > 0 ? 1 / realDt : 0) * 0.05;
     this.render(realDt);
@@ -128,7 +204,14 @@ export class Game {
 
   private step(dt: number): void {
     this.clock.tick();
+    this.input.update(this.clock.time);
     this.physics.step(dt);
+    if (this.player) {
+      this.player.update(dt);
+      this.rig.update(dt, { pivot: this.player.position.add(new Vector3(0, 1.45, 0)) }, this.input.look);
+    }
+    this.level?.update(dt);
+    for (const u of this.updaters) u(dt);
   }
 
   private render(dt: number): void {
@@ -141,8 +224,10 @@ export class Game {
       this.pipe.atmosphere.sunDir.copyFrom(this.lighting.toSun);
       this.pipe.atmosphere.sunColor.copyFrom(this.lighting.sun.diffuse.scale(this.lighting.sun.intensity * 0.1));
     }
-    this.pipe.update(dt, { center: this.camera.position, toSun: this.lighting.toSun });
+    const focus = this.player ? this.player.position : this.camera.position;
+    this.pipe.update(dt, { center: focus, toSun: this.lighting.toSun });
     this.scene.render();
+    this.hud.update(this.player);
   }
 
   /** Test hook: advance game time by `seconds` in fixed steps and render one frame. */
@@ -157,3 +242,13 @@ export class Game {
     engine.endFrame();
   }
 }
+
+const DEV_ATMOS: Atmos = {
+  lighting: {
+    sunColor: new Color3(1.0, 0.86, 0.7), sunIntensity: 4.2, sunElevation: 0.42, sunAzimuth: 2.5,
+    skyFill: new Color3(0.55, 0.62, 0.75), groundFill: new Color3(0.25, 0.2, 0.17), fillIntensity: 0.12,
+    environmentIntensity: 0.9, exposure: 1, contrast: 1.1, shadowDarkness: 0,
+  },
+  sky: {},
+  look: {},
+};

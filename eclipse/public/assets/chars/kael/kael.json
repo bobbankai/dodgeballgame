@@ -1,0 +1,56 @@
+{
+ "name": "Kael",
+ "height": 1.8368637561798096,
+ "parts": {
+  "kael_skin": {
+   "kind": "skin",
+   "tex": "skin",
+   "clearcoat": 0.12
+  },
+  "kael_gear": {
+   "kind": "gear",
+   "tex": "gear",
+   "emissive": 1.5
+  },
+  "kael_hair": {
+   "kind": "hair",
+   "tex": "hair"
+  },
+  "kael_eyes": {
+   "kind": "eye",
+   "tex": "eye"
+  },
+  "kael_teeth": {
+   "kind": "teeth"
+  },
+  "kael_teeth_lower": {
+   "kind": "teeth"
+  }
+ },
+ "sockets": {
+  "weapon_r": "weapon_r",
+  "weapon_l": "weapon_l",
+  "lantern": "lantern"
+ },
+ "morphs": [
+  "blink_L",
+  "blink_R",
+  "squint_L",
+  "squint_R",
+  "wide_L",
+  "wide_R",
+  "browUp_L",
+  "browUp_R",
+  "browDown_L",
+  "browDown_R",
+  "browInner",
+  "jawOpen",
+  "smile",
+  "frown",
+  "lipsPress",
+  "lipsPucker",
+  "lipsWide",
+  "snarl",
+  "mouthPart"
+ ]
+}

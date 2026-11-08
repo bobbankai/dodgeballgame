@@ -112,12 +112,12 @@ def gear(R, B):
         step = np.floor(band)
         r_t = 0.128 - 0.02 * t - 0.006 * step
         env = rad - r_t
-        region = np.maximum(-t, t - 0.75)
+        region = np.maximum(-t, t - 0.52)
         return np.maximum(np.abs(env) - 0.0026, region)
 
     pieces.append(Piece('gorget', gorget_field, (nax_a + np.array([-0.17, -0.17, -0.09]), nax_a + np.array([0.17, 0.17, 0.12])),
-                        lambda p: np.where(along(p, nax_a, nax_b)[0] > 0.62, MAT_INDEX['gold'], MAT_INDEX['steel']),
-                        skin={'bone': 'neck_01', 'blend': [('spine_03', nax_a[2] - 0.05, nax_a[2] + 0.01)]}, budget=1800))
+                        lambda p: np.where(along(p, nax_a, nax_b)[0] > 0.44, MAT_INDEX['gold'], MAT_INDEX['steel']),
+                        skin={'bone': 'neck_01', 'blend': [('spine_03', nax_a[2] - 0.05, nax_a[2] + 0.01)]}, budget=2800))
 
     # ------------------------------------------------------------ pauldrons (left larger: shield side)
     for s, side, scale in ((1, 'l', 1.18), (-1, 'r', 1.0)):
@@ -294,18 +294,28 @@ def gear(R, B):
                             lambda p, knee=knee, ankle=ankle: np.where(np.abs(along(p, knee, ankle)[0] - 0.5) > 0.36, MAT_INDEX['gold'], MAT_INDEX['steel']),
                             skin={'bone': f'calf_{side}'}, budget=1400))
 
-        kc = knee + np.array([0, -0.06, 0.0])
+        kc = knee + np.array([0, -0.055, 0.005])
 
-        def poleyn_field(p, kc=kc, knee=knee):
-            dome = sdf.ellipsoid(kc, (0.06, 0.05, 0.062))(p)
-            wing = sdf.ellipsoid(kc + np.array([s * 0.045, 0.035, 0.0]), (0.03, 0.05, 0.05))(p)
-            env = smin(dome, wing, 0.02)
-            region = (p[:, 1] - (knee[1] - 0.015))
-            return np.maximum(np.abs(env) - 0.0026, region)
+        def poleyn_field(p, kc=kc, knee=knee, s=s):
+            q = p - kc
+            # a shallow cop with a raised central ridge, plus a heart-shaped side wing
+            dome = sdf.ellipsoid(kc + np.array([0, 0.016, 0]), (0.046, 0.032, 0.05))(p)
+            ridge = 0.005 * np.exp(-(q[:, 0] / 0.006) ** 2) * (q[:, 1] < 0)
+            wing = sdf.ellipsoid(kc + np.array([s * 0.05, 0.03, 0.0]), (0.022, 0.045, 0.045))(p)
+            env = smin(dome - ridge, wing, 0.012)
+            region = (p[:, 1] - (knee[1] - 0.008))
+            roll = 0.003 * np.exp(-(region / 0.004) ** 2)
+            return np.maximum(np.abs(env - roll) - 0.0024, region)
 
-        pieces.append(Piece(f'poleyn_{side}', poleyn_field, (kc - 0.12, kc + 0.12),
-                            lambda p, kc=kc: np.where(np.linalg.norm(p - kc, axis=1) > 0.055, MAT_INDEX['gold'], MAT_INDEX['steel']),
-                            skin={'bone': f'calf_{side}', 'blend': [(f'thigh_{side}', None, None)]}, budget=900))
+        def poleyn_mats(p, kc=kc):
+            q = p - kc
+            m = np.full(len(p), MAT_INDEX['steel'])
+            m[np.abs(q[:, 0]) < 0.004] = MAT_INDEX['gold']
+            m[np.linalg.norm(q * np.array([1, 1, 1]), axis=1) > 0.06] = MAT_INDEX['gold']
+            return m
+
+        pieces.append(Piece(f'poleyn_{side}', poleyn_field, (kc - 0.11, kc + 0.11), poleyn_mats,
+                            skin={'bone': f'calf_{side}', 'blend': [(f'thigh_{side}', None, None)]}, budget=1100))
 
     # ------------------------------------------------------------ belt with buckle and pouches
     zb = zw - 0.2

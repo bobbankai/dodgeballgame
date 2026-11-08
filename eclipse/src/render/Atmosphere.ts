@@ -52,7 +52,7 @@ export const DEFAULT_FOG: FogParams = {
 const PARAMS = [
   'uInvViewProj', 'uCamPos', 'uCamFwd', 'uFogColor', 'uSunColor', 'uSunDir', 'uDensity', 'uFalloff', 'uBase', 'uSunScatter',
   'uAniso', 'uSkyAmount', 'uVolDensity', 'uVolScale', 'uVolHeight', 'uVolColor', 'uWind', 'uMaxDist', 'uTime', 'uSteps', 'uFrame',
-  'uSunViewProj', 'uSunView', 'uShadowOn', 'uShaft',
+  'uSunViewProj', 'uSunView', 'uShadowOn', 'uShaft', 'uDebug',
 ];
 
 const FRAG_GLSL = /* glsl */ `
@@ -65,7 +65,7 @@ uniform sampler2D sunDepthSampler;
 uniform sampler3D noiseSampler;
 uniform mat4 uInvViewProj, uSunViewProj, uSunView;
 uniform vec3 uCamPos, uCamFwd, uFogColor, uSunColor, uSunDir, uVolColor, uWind;
-uniform float uDensity, uFalloff, uBase, uSunScatter, uAniso, uSkyAmount, uVolDensity, uVolScale, uVolHeight, uMaxDist, uTime, uSteps, uFrame, uShadowOn, uShaft;
+uniform float uDensity, uFalloff, uBase, uSunScatter, uAniso, uSkyAmount, uVolDensity, uVolScale, uVolHeight, uMaxDist, uTime, uSteps, uFrame, uShadowOn, uShaft, uDebug;
 float hg(float c, float g) { float g2 = g * g; return (1.0 - g2) / (12.566 * pow(max(1.0 + g2 - 2.0 * g * c, 1e-4), 1.5)); }
 float ign(vec2 p) { return fract(52.9829189 * fract(dot(p, vec2(0.06711056, 0.00583715)))); }
 float noise(vec3 p) { return texture(noiseSampler, p).r * 0.65 + texture(noiseSampler, p * 2.73 + 0.31).r * 0.35; }
@@ -125,6 +125,7 @@ void main(void) {
   acc += T * (1.0 - T2) * haze;
   T *= T2;
   gl_FragColor = vec4(scene.rgb * T + acc, scene.a);
+  if (uDebug > 0.5) gl_FragColor = vec4(vec3(fract(vz * 0.1), vz > 1e-4 ? 1.0 : 0.0, 0.0), 1.0);
 }`;
 
 const FRAG_WGSL = /* wgsl */ `
@@ -142,7 +143,7 @@ uniform uCamPos: vec3f; uniform uCamFwd: vec3f; uniform uFogColor: vec3f; unifor
 uniform uVolColor: vec3f; uniform uWind: vec3f;
 uniform uDensity: f32; uniform uFalloff: f32; uniform uBase: f32; uniform uSunScatter: f32; uniform uAniso: f32; uniform uSkyAmount: f32;
 uniform uVolDensity: f32; uniform uVolScale: f32; uniform uVolHeight: f32; uniform uMaxDist: f32; uniform uTime: f32; uniform uSteps: f32;
-uniform uFrame: f32; uniform uShadowOn: f32; uniform uShaft: f32;
+uniform uFrame: f32; uniform uShadowOn: f32; uniform uShaft: f32; uniform uDebug: f32;
 fn hg(c: f32, g: f32) -> f32 { let g2 = g * g; return (1.0 - g2) / (12.566 * pow(max(1.0 + g2 - 2.0 * g * c, 1e-4), 1.5)); }
 fn ign(p: vec2f) -> f32 { return fract(52.9829189 * fract(dot(p, vec2f(0.06711056, 0.00583715)))); }
 fn noise(p: vec3f) -> f32 {
@@ -206,6 +207,11 @@ fn main(input: FragmentInputs) -> FragmentOutputs {
   acc += T * (1.0 - T2) * haze;
   T *= T2;
   fragmentOutputs.color = vec4f(scene.rgb * T + acc, scene.a);
+  if (uniforms.uDebug > 0.5) {
+    var hit = 0.0;
+    if (vz > 1e-4) { hit = 1.0; }
+    fragmentOutputs.color = vec4f(fract(vz * 0.1), hit, 0.0, 1.0);
+  }
 }`;
 
 registerShader({ name: 'ecAtmosphere', glsl: { fragment: FRAG_GLSL }, wgsl: { fragment: FRAG_WGSL } });
@@ -254,6 +260,8 @@ export class Atmosphere {
   sunColor = new Color3(1, 1, 1);
   steps = 12;
   enabled = true;
+  /** 1 = show the depth map (red = depth bands, green = geometry present). */
+  debug = 0;
   sun?: SunDepth;
   private time = 0;
   private frame = 0;
@@ -312,6 +320,7 @@ export class Atmosphere {
       effect.setFloat('uSteps', this.enabled ? this.steps : 0);
       effect.setFloat('uFrame', this.frame % 64);
       effect.setFloat('uShaft', this.enabled ? p.shaftDensity : 0);
+      effect.setFloat('uDebug', this.debug);
     });
   }
 

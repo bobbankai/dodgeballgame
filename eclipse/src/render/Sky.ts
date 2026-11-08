@@ -349,7 +349,10 @@ export class Sky {
       uniforms: UNIFORMS,
       samplers: ['noiseSampler'],
       shaderLanguage: shaderLanguage(scene.getEngine()),
+      // drawn after the opaque scene at the far plane (cheaper, and keeps it out of depth maps)
+      needAlphaBlending: true,
     });
+    this.material.alphaMode = Constants.ALPHA_DISABLE;
     this.material.setTexture('noiseSampler', sharedNoise3D(scene));
     this.material.backFaceCulling = false;
     this.material.disableDepthWrite = true;

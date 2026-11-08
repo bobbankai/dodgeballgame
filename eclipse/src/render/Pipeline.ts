@@ -1,6 +1,6 @@
 import {
   Constants, FxaaPostProcess, MotionBlurPostProcess, SSAO2RenderingPipeline, SSRRenderingPipeline,
-  TAARenderingPipeline, Texture, type AbstractMesh, type Camera, type DepthRenderer, type PostProcess, type Scene,
+  TAARenderingPipeline, Texture, type Camera, type DepthRenderer, type PostProcess, type Scene,
 } from '@babylonjs/core';
 import type { GraphicsSettings } from '../core/Settings';
 import { Atmosphere, SunDepth, type FogParams } from './Atmosphere';
@@ -69,9 +69,12 @@ export class Pipeline {
     scene.onAfterRenderObservable.add(() => this.exposure.update(scene.getEngine().getDeltaTime() / 1000 || 1 / 60));
   }
 
-  /** Meshes flagged `metadata.noDepth` (sky dome, effects) are kept out of depth maps. */
+  /**
+   * Depth maps render every opaque and alpha-tested mesh. The sky dome and effects stay out of them
+   * by drawing in the transparent queue (depth renderers skip alpha-blended materials).
+   */
   private excludeFromDepth(d: DepthRenderer): void {
-    d.getDepthMap().renderListPredicate = (m: AbstractMesh) => !(m.metadata && (m.metadata as { noDepth?: boolean }).noDepth);
+    d.forceDepthWriteTransparentMeshes = false;
   }
 
   build(settings: GraphicsSettings): void {

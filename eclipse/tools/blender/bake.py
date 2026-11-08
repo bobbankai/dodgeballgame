@@ -161,27 +161,37 @@ def bake_set(pairs, res, out_prefix, kinds=('normal', 'ao', 'mat', 'curv'), extr
         if 'curv' in kinds and 'curv' not in o.data.color_attributes:
             add_curvature_attr(o)
     for kind in kinds:
-        img = _image(f'bake_{kind}', res, non_color=(kind != 'mat'), float_buffer=(kind == 'normal'))
+        img = _image(f'bake_{kind}', res, non_color=True, float_buffer=(kind == 'normal'))
         for hi, lo in pairs:
             _target_material(lo, img)
-            if kind in ('mat', 'curv'):
-                hi.data.materials.clear()
-                hi.data.materials.append(_emit_material(kind))
+            if kind in ('mat', 'curv', 'pos', 'mA', 'mB', 'mC', 'mD'):
+                if hi is lo:
+                    # baking a mesh onto itself: one material emits the attribute and holds the target
+                    em = _emit_material(kind).copy()
+                    node = em.node_tree.nodes.new('ShaderNodeTexImage')
+                    node.image = img
+                    em.node_tree.nodes.active = node
+                    lo.data.materials.clear()
+                    lo.data.materials.append(em)
+                else:
+                    hi.data.materials.clear()
+                    hi.data.materials.append(_emit_material(kind))
             select_only(lo, hi)
             bpy.context.view_layer.objects.active = lo
             hi.select_set(True)
             lo.select_set(True)
+            sc.render.bake.use_selected_to_active = hi is not lo
             if kind == 'normal':
                 sc.cycles.samples = 1
                 bpy.ops.object.bake(type='NORMAL', normal_space='TANGENT', use_selected_to_active=True,
                                     cage_extrusion=extrusion, max_ray_distance=ray, margin=6, use_clear=False)
             elif kind == 'ao':
                 sc.cycles.samples = ao_samples
-                bpy.ops.object.bake(type='AO', use_selected_to_active=True, cage_extrusion=extrusion,
+                bpy.ops.object.bake(type='AO', use_selected_to_active=hi is not lo, cage_extrusion=extrusion,
                                     max_ray_distance=ray, margin=6, use_clear=False)
             else:
                 sc.cycles.samples = 1
-                bpy.ops.object.bake(type='EMIT', use_selected_to_active=True, cage_extrusion=extrusion,
+                bpy.ops.object.bake(type='EMIT', use_selected_to_active=hi is not lo, cage_extrusion=extrusion,
                                     max_ray_distance=ray, margin=6, use_clear=False)
         path = f'{out_prefix}_{kind}.png'
         img.filepath_raw = path
@@ -234,6 +244,16 @@ def tile_texture(name, res, texels_per_m, size_m, rot=0.0):
     x1 = (x0 + 1) % w
     y1 = (y0 + 1) % h
     return (src[y0, x0] * (1 - fx) * (1 - fy) + src[y0, x1] * fx * (1 - fy) + src[y1, x0] * (1 - fx) * fy + src[y1, x1] * fx * fy)
+
+
+def speckle(res, density, seed=0, blur=0.7):
+    """Fine per-pixel dots (stubble, pores, dust): random points softened by a tiny blur."""
+    from PIL import ImageFilter
+    rng = np.random.default_rng(seed)
+    a = (rng.random((res, res)) < density).astype(np.float32)
+    im = Image.fromarray((a * 255).astype(np.uint8)).filter(ImageFilter.GaussianBlur(blur))
+    v = np.asarray(im, np.float32) / 255
+    return np.clip(v / max(v.max(), 1e-6), 0, 1)
 
 
 def noise2(res, scale, seed=0, octaves=4):

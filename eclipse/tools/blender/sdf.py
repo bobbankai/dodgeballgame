@@ -310,7 +310,8 @@ def mesh(field, lo, hi, voxel, project=2, coarse=4):
         return np.zeros((0, 3)), np.zeros((0, 3), int)
     verts, faces, _, _ = measure.marching_cubes(D, level=0.0, spacing=(voxel, voxel, voxel))
     verts += np.asarray(lo, float)
-    faces = faces[:, ::-1]
+    # skimage already winds faces counter-clockwise seen from outside (normals towards increasing
+    # field values), which is Blender's and glTF's convention: no flip.
     for _ in range(project):
         verts = project_to_surface(field, verts, voxel)
     return verts, faces

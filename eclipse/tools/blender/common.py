@@ -44,7 +44,8 @@ def link(obj, coll=None):
 
 def select_only(*objs):
     for o in bpy.context.view_layer.objects:
-        o.select_set(False)
+        if o is not None:
+            o.select_set(False)
     for o in objs:
         o.select_set(True)
     if objs:
