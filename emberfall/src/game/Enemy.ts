@@ -78,6 +78,8 @@ export interface EnemyDef {
   roar?: string;
   /** keeps this distance while circling */
   spacing?: number;
+  /** non-lethal: health never falls below this fraction; reaching it makes the enemy yield (no finisher) */
+  minHp?: number;
 }
 
 type State = 'idle' | 'investigate' | 'search' | 'return' | 'alert' | 'engage' | 'attack' | 'feint' | 'block' | 'evade' | 'roar'
@@ -98,6 +100,8 @@ export class Enemy implements Combatant {
   aware = false;
   state: State = 'idle';
   staggered = false;
+  /** a non-lethal enemy (def.minHp) beaten down to its floor: it stops fighting */
+  yielded = false;
   private stateT = 0;
   private cool = new Map<string, number>();
   private atk: AttackDef | null = null;
@@ -672,6 +676,14 @@ export class Enemy implements Combatant {
     this.hp -= hit.damage * mult;
     this.char.flash(1);
     this.char.face.react('pain', 0.6);
+    if (this.def.minHp !== undefined) {
+      const floor = this.maxHp * this.def.minHp;
+      if (this.hp <= floor) {
+        this.hp = floor;
+        if (!this.yielded) { this.yielded = true; this.doStagger(); }
+        return 'hit';
+      }
+    }
     if (this.hp <= 0) { this.die(hit); return 'killed'; }
     this.poise -= hit.poise;
     if (this.poise <= 0 && !this.staggered) { this.doStagger(); return 'hit'; }

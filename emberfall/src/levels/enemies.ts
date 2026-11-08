@@ -107,6 +107,43 @@ export const SMITH: EnemyDef = {
   ],
 };
 
+/** Chapter Five: Ren, possessed. He fights like his sister taught him, too fast and guarding everything; the
+ * duel is won by breaking his guard. He cannot be killed: beaten down to a fifth of his health, he yields. */
+export const REN_HOLLOW: EnemyDef = {
+  id: 'ren', name: 'Ren, Possessed', model: M('ren'), weapon: 'katana', hp: 420, poise: 70, damage: 0.9, minHp: 0.2,
+  walk: 2.0, run: 5.0, idle: 'w_idle', move: ['walk', 'sprint'], aggression: 0.65, block: 0.55, skill: 0.85, flank: 0.7, caution: 0.35, spacing: 3.0,
+  boss: true, superArmor: 0.1, glow: [1.6, 0.25, 1.1], roar: 'b_roar',
+  hurt: ['hit_front', 'hit_back'], stagger: 'guard_break', death: 'death', blockClip: 'block_hit', evade: { back: 'dodge_back', left: 'dodge_left', right: 'dodge_right' },
+  attacks: [
+    { clip: 'e_slash', range: [0, 2.3], damage: 12, poise: 14, cooldown: 1.8, track: 6, chain: 'e_slash_b' },
+    { clip: 'e_slash_b', range: [0, 2.2], damage: 12, poise: 14, cooldown: 2.8, weight: 0, track: 5, chain: 'e_thrust' },
+    { clip: 'e_thrust', range: [1.6, 3.8], damage: 15, poise: 20, cooldown: 3.2, track: 3, weight: 0.6 },
+    { clip: 'w_dash', range: [2.5, 7.5], damage: 16, poise: 18, cooldown: 3.0, track: 1.2 },
+    { clip: 'w_flurry', range: [0, 2.2], damage: 9, poise: 9, cooldown: 3.4, track: 6, phase: 0.6 },
+  ],
+};
+
+/** The final boss: Lord Soen, the Hollow King. A swordmaster in black lacquer; at half health he takes the
+ * black flame into himself, grows, and adds hammer-heavy shockwaves and charges to his blade-work. */
+export const HOLLOW_KING: EnemyDef = {
+  id: 'king', name: 'Soen, the Hollow King', model: M('hollow_king'), weapon: 'katana', scale: 1.14, hp: 1250, poise: 260, damage: 1.45,
+  walk: 1.6, run: 4.4, idle: 'e_idle', move: ['walk', 'run'], aggression: 0.7, block: 0.3, skill: 0.9, flank: 0.3, caution: 0.15, spacing: 3.4,
+  boss: true, superArmor: 0.6, radius: 0.5, glow: [3.2, 2.5, 1.2], roar: 'b_roar',
+  hurt: ['hit_front'], stagger: 'guard_break', death: 'death', blockClip: 'block_hit', evade: { back: 'dodge_back', left: 'dodge_left', right: 'dodge_right' },
+  attacks: [
+    { clip: 'e_slash', range: [0, 2.6], damage: 20, poise: 26, cooldown: 2.2, track: 5, chain: 'e_slash_b' },
+    { clip: 'e_slash_b', range: [0, 2.6], damage: 20, poise: 26, cooldown: 3.0, weight: 0, track: 4, chain: 'e_sweep' },
+    { clip: 'e_sweep', range: [0, 3.2], damage: 22, poise: 34, cooldown: 3.4, track: 3.5, weight: 0.8 },
+    { clip: 'e_thrust', range: [1.8, 4.4], damage: 24, poise: 34, cooldown: 3.6, track: 3, weight: 0.7 },
+    { clip: 'w_dash', range: [3, 9], damage: 24, poise: 30, cooldown: 4.5, track: 1.2, weight: 0.7 },
+    { clip: 'e_lunge', range: [4, 8], damage: 30, poise: 40, cooldown: 6, track: 2, unblockable: true, weight: 0.6 },
+    // phase two: the black flame
+    { clip: 'b_slam', range: [0, 4.4], damage: 36, poise: 70, heavy: true, knock: 1, cooldown: 4.0, track: 2.6, guardBreak: 2.4, aoe: 5.2, phase: 0.5, chain: 'e_sweep' },
+    { clip: 'b_charge', range: [5, 13], damage: 34, poise: 60, heavy: true, knock: 1, unblockable: true, cooldown: 7, track: 1.6, weight: 0.7, phase: 0.5 },
+    { clip: 'w_flurry', range: [0, 2.6], damage: 14, poise: 14, cooldown: 3.2, track: 6, phase: 0.5 },
+  ],
+};
+
 export const WRAITH: EnemyDef = {
   id: 'wraith', name: 'Hollow Wraith', model: M('hollow_wraith'), weapon: 'dagger', offhand: 'dagger', hp: 45, poise: 20, walk: 2.2, run: 5.0,
   idle: 'w_idle', move: ['walk', 'sprint'], aggression: 0.75, skill: 0.75, flank: 0.9, caution: 0.6, spacing: 3.4, glow: [0.6, 1.4, 3.2],

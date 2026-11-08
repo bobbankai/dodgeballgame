@@ -209,7 +209,7 @@ export class Game {
   finisherTarget(): Enemy | null {
     const p = this.player;
     for (const e of this.enemies) {
-      if (e.dead || !e.staggered) continue;
+      if (e.dead || !e.staggered || e.def.minHp !== undefined) continue;
       const d = e.body.pos.distanceTo(p.body.pos);
       if (d > 2.6) continue;
       return e;

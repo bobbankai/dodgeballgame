@@ -49,6 +49,7 @@ MATSPEC = {
     'bamboo': ('bamboo_wall', (0.85, 0.9, 0.7), 1.5, {}),
     'steel': ('steel_gray', (0.36, 0.35, 0.34), 1.0, {'metal': 0.95}),
     'leather': ('leather_brown', (0.62, 0.46, 0.34), 1.0, {}),
+    'gold': ('steel_gray', (0.95, 0.68, 0.3), 1.0, {'metal': 1.0}),
 }
 _mats = {}
 
@@ -1150,7 +1151,154 @@ def chain_hang(name='chain_hang', L=3.0, seed=24):
     return k.finish()
 
 
+# ------------------------------------------------------------------ the castle (Chapter Five)
+
+def ishigaki(k, cx, cy, w, d, h, batter=0.18, base=0.0, sides=(1, 1, 1, 1), n=10):
+    """a battered dry-stone castle base: each face leans in (and curves out at the foot, the
+    'fan slope' of Japanese castle walls); sides = which of +y, +x, -y, -x faces to build"""
+    hw, hd = w / 2, d / 2
+    faces = [((-hw, hd), (hw, hd), (0, 1)), ((hw, hd), (hw, -hd), (1, 0)), ((hw, -hd), (-hw, -hd), (0, -1)), ((-hw, -hd), (-hw, hd), (-1, 0))]
+    for on, ((ax, ay), (bx, by), (nx, ny)) in zip(sides, faces):
+        if not on:
+            continue
+        L = math.hypot(bx - ax, by - ay)
+        nu = max(4, int(L / 0.8))
+        grid, uvs = [], []
+        for j in range(n + 1):
+            t = j / n
+            # the curve: steep at the top, flaring at the foot
+            out = h * batter * (1 - t) ** 1.8
+            row, urow = [], []
+            for i in range(nu + 1):
+                s = i / nu
+                x = ax + (bx - ax) * s + nx * out
+                y = ay + (by - ay) * s + ny * out
+                row.append(Vector((cx + x, cy + y, base + h * t)))
+                urow.append((s * L, h * t))
+            grid.append(row)
+            uvs.append(urow)
+        k.surface('stone_wall', grid, uvs, thick=0.5)
+    k.box('stone', (cx, cy, base + h + 0.08), (w + 0.1, d + 0.1, 0.16), bevel=0.04)
+
+
+def plaster_storey(k, cx, cy, w, d, z0, z1, windows=True, band=0.45):
+    """a white plastered storey with black weatherboarding (shitamiban) on its lower part and barred windows"""
+    k.box('plaster', (cx, cy, (z0 + z1) / 2), (w, d, z1 - z0), bevel=0.02)
+    zb = z0 + (z1 - z0) * band
+    for (sx, sy, L, rz) in ((0, 1, w, 0.0), (0, -1, w, 0.0), (1, 0, d, math.pi / 2), (-1, 0, d, math.pi / 2)):
+        px, py = cx + sx * (w / 2 + 0.03), cy + sy * (d / 2 + 0.03)
+        nb = max(2, int((zb - z0) / 0.24))
+        for i in range(nb):
+            z = z0 + (i + 0.5) * (zb - z0) / nb
+            k.box('lacquer_black', (px, py, z), (L + 0.06 if rz == 0 else 0.05, 0.05 if rz == 0 else L + 0.06, (zb - z0) / nb + 0.02),
+                  tilt=Matrix.Rotation(0.12 * (1 if (sx + sy) > 0 else -1), 4, 'X' if rz == 0 else 'Y'), bevel=0.006, grain=(1, 0, 0) if rz == 0 else (0, 1, 0))
+        k.box('lacquer_black', (px, py, zb + 0.05), (L + 0.1 if rz == 0 else 0.08, 0.08 if rz == 0 else L + 0.1, 0.1), bevel=0.01)
+        if windows:
+            nw = max(1, int(L / 3.2))
+            for i in range(nw):
+                o = -L / 2 + L * (i + 0.5) / nw
+                wx, wy = (px + o, py) if rz == 0 else (px, py + o)
+                wz = (zb + z1) / 2 + 0.1
+                ww, wh = 1.1, 0.75
+                k.box('lacquer_black', (wx, wy, wz), (ww if rz == 0 else 0.06, 0.06 if rz == 0 else ww, wh), bevel=0.01)
+                for b in range(5):
+                    bo = -ww / 2 + ww * (b + 0.5) / 5
+                    bx, by = (wx + bo, wy + sy * 0.05) if rz == 0 else (wx + sx * 0.05, wy + bo)
+                    k.box('post', (bx, by, wz), (0.05, 0.05, wh), bevel=0.008, grain=(0, 0, 1))
+
+
+def castle_wall(name='castle_wall', L=8.0, seed=31):
+    """dobei: a plastered earthen wall on a stone base, black boards below, loopholes, a tiled coping roof"""
+    k = Kit(name, seed)
+    ishigaki(k, 0, 0, L, 1.6, 1.6, batter=0.2, sides=(1, 0, 1, 0))
+    z0, z1 = 1.76, 3.7
+    k.box('plaster', (0, 0, (z0 + z1) / 2), (L, 0.5, z1 - z0), bevel=0.02)
+    for sy in (-1, 1):
+        for i in range(4):
+            z = z0 + (i + 0.5) * 0.22
+            k.box('lacquer_black', (0, sy * 0.28, z), (L, 0.04, 0.24), tilt=Matrix.Rotation(sy * 0.1, 4, 'X'), bevel=0.005, grain=(1, 0, 0))
+        k.box('lacquer_black', (0, sy * 0.28, z0 + 0.92), (L, 0.06, 0.07), bevel=0.01)
+        # loopholes: alternating triangles and squares
+        for i in range(int(L / 1.6)):
+            x = -L / 2 + 0.8 + i * 1.6
+            if i % 2:
+                k.box('lacquer_black', (x, sy * 0.255, z0 + 1.35), (0.22, 0.02, 0.22), bevel=0.0)
+            else:
+                k.box('lacquer_black', (x, sy * 0.255, z0 + 1.32), (0.2, 0.02, 0.2), rz=0.0, tilt=Matrix.Rotation(math.pi / 4, 4, 'Y'), bevel=0.0)
+    gable_roof(k, 'kawara', L, 0.6, z1, 0.55, 0.42, 0.0, 0.06, sag=0.02, upturn=0.0, nx=int(L * 2), ny=3)
+    return k.finish()
+
+
+def castle_gate(name='castle_gate', seed=32):
+    """yaguramon: a two-storey gatehouse bridging a passage between stone bastions; heavy doors stand open"""
+    k = Kit(name, seed)
+    PW = 4.4  # passage width
+    BW, BD, BH = 4.2, 7.0, 3.6
+    for s in (-1, 1):
+        ishigaki(k, s * (PW / 2 + BW / 2), 0, BW, BD, BH, batter=0.16)
+    # the passage frame: great posts and a lintel
+    for s in (-1, 1):
+        for y in (-BD / 2 + 0.4, BD / 2 - 0.4):
+            k.box('post', (s * (PW / 2 - 0.2), y, BH / 2 + 0.1), (0.4, 0.4, BH + 0.2), grain=(0, 0, 1), bevel=0.02)
+        k.beam('post', (s * (PW / 2 - 0.2), -BD / 2 + 0.4, 0.3), (s * (PW / 2 - 0.2), BD / 2 - 0.4, 0.3), 0.3, 0.3)
+    for y in (-BD / 2 + 0.4, BD / 2 - 0.4):
+        k.beam('post', (-PW / 2 - 0.3, y, BH + 0.1), (PW / 2 + 0.3, y, BH + 0.1), 0.45, 0.5)
+    # the doors, swung open against the passage walls, iron-banded and studded
+    for s in (-1, 1):
+        cx = s * (PW / 2 - 0.35)
+        k.box('plank', (cx, -0.6, 1.6), (0.14, 2.1, 3.1), grain=(0, 0, 1), bevel=0.01)
+        for z in (0.5, 1.6, 2.7):
+            k.box('iron', (cx - s * 0.08, -0.6, z), (0.03, 2.12, 0.14), bevel=0.005)
+            for i in range(7):
+                k.cyl('iron', (cx - s * 0.09, -1.55 + i * 0.32, z), (cx - s * 0.13, -1.55 + i * 0.32, z), 0.025, sides=6)
+    # the upper storey spans bastions and passage
+    W = PW + 2 * BW + 0.4
+    plaster_storey(k, 0, 0, W - 0.6, BD - 1.0, BH + 0.4, BH + 3.2)
+    k.box('post', (0, 0, BH + 0.35), (W, BD - 0.6, 0.3), bevel=0.02, grain=(1, 0, 0))
+    hip_roof(k, 'kawara', W - 0.6, BD - 1.0, BH + 3.25, 0.55, 1.15, 0.22, sag=0.25, upturn=0.45)
+    rz = BH + 3.25 + 0.55 * (BD - 1.0) / 2
+    k.cyl('kawara', (-(W - BD) / 2 - 0.2, 0, rz + 0.2), ((W - BD) / 2 + 0.2, 0, rz + 0.2), 0.2, sides=10, tint=0.55)
+    return k.finish()
+
+
+def tenshu(name='tenshu', seed=33):
+    """the keep: a tall battered stone base and three diminishing plastered storeys under flaring tiled hip
+    roofs, chidori gables on the first roof, gold shachihoko on the ridge"""
+    k = Kit(name, seed)
+    BH = 5.2
+    ishigaki(k, 0, 0, 15.0, 12.5, BH, batter=0.2, n=12)
+    storeys = [(12.6, 10.2, 3.6, 1.35), (9.6, 7.8, 3.1, 1.1), (6.8, 5.6, 2.8, 0.95)]
+    z = BH + 0.16
+    for i, (w, d, h, over) in enumerate(storeys):
+        plaster_storey(k, 0, 0, w, d, z, z + h, band=0.42 if i == 0 else 0.35)
+        k.box('post', (0, 0, z + h + 0.12), (w + 0.4, d + 0.4, 0.24), bevel=0.02, grain=(1, 0, 0))
+        hip_roof(k, 'kawara', w, d, z + h + 0.25, 0.55, over, 0.24, sag=0.3, upturn=0.55)
+        if i == 0:
+            # chidori gables: small triangular gables set into the first roof, front and back
+            for sy in (-1, 1):
+                gy = sy * (d / 2 - 0.2)
+                gz = z + h + 0.25 + 0.55 * 0.2 + 0.05
+                grid = [[Vector((-1.6, gy, gz - 0.1)), Vector((1.6, gy, gz - 0.1))], [Vector((-0.02, gy, gz + 1.2)), Vector((0.02, gy, gz + 1.2))]]
+                k.surface('plaster', grid, [[(0, 0), (3.2, 0)], [(1.6, 1.3), (1.6, 1.3)]], thick=0.08, flip=sy < 0)
+                for s in (-1, 1):
+                    k.beam('lacquer_black', (s * 1.9, gy + sy * 0.15, gz - 0.25), (0, gy + sy * 0.15, gz + 1.45), 0.18, 0.28)
+        z += h + 0.55 * d / 2 * 0.5
+    # the ridge with its golden shachihoko
+    w, d, h, _ = storeys[-1]
+    top = z - 0.55 * d / 2 * 0.5 + 0.25 + 0.55 * d / 2
+    rl = max(0.3, (w - d) / 2)
+    k.cyl('kawara', (-rl - 0.3, 0, top + 0.2), (rl + 0.3, 0, top + 0.2), 0.22, sides=10, tint=0.55)
+    for s in (-1, 1):
+        x = s * (rl + 0.35)
+        k.cyl('gold', (x, 0, top + 0.2), (x + s * 0.15, 0, top + 0.95), 0.2, 0.08, sides=10)
+        k.cyl('gold', (x + s * 0.15, 0, top + 0.95), (x - s * 0.15, 0, top + 1.35), 0.09, 0.02, sides=8)
+    return k.finish()
+
+
 PIECES = {
+    'castle_wall': castle_wall,
+    'castle_gate': castle_gate,
+    'tenshu': tenshu,
     'anvil': anvil,
     'forge_hearth': forge_hearth,
     'barrel': barrel,
