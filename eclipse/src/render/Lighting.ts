@@ -85,8 +85,11 @@ export class Lighting {
   }
 
   /** (Re)creates the cascaded shadow map for a quality level; casters are kept. */
-  setShadowQuality(level: number, camera: Camera): void {
-    const q = SHADOW_LEVELS[Math.max(0, Math.min(SHADOW_LEVELS.length - 1, level))];
+  setShadowQuality(level: number, camera: Camera, maxVaryings = 32): void {
+    const q = { ...SHADOW_LEVELS[Math.max(0, Math.min(SHADOW_LEVELS.length - 1, level))] };
+    // Each cascade costs two interpolated varyings in every lit shader; devices limited to the
+    // WebGPU minimum (16) can only afford two cascades alongside two-sided lighting and effects.
+    if (maxVaryings < 20) q.cascades = Math.min(q.cascades, 2);
     this.shadows?.dispose();
     const csm = new CascadedShadowGenerator(q.mapSize, this.sun, true, camera);
     csm.numCascades = q.cascades;
@@ -158,7 +161,7 @@ export class Lighting {
       tex.onAfterRenderObservable.addOnce(() => resolve());
       // Make sure it renders even when the main loop is not running (loading screens).
       scene.customRenderTargets.includes(tex) || scene.customRenderTargets.push(tex);
-      tex.render(false);
+      sky.withSteps(Math.min(sky.cloudSteps, 12), () => tex.render(false));
     });
     try {
       tex.sphericalPolynomial = await CubeMapToSphericalPolynomialTools.ConvertCubeMapTextureToSphericalPolynomial(tex);

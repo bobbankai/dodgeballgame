@@ -38,6 +38,9 @@ export class EngineHost {
           stencil: true,
           powerPreference: 'high-performance',
           adaptToDeviceRatio: false,
+          // Ask for the adapter's real limits (desktop GPUs allow 28-32 inter-stage varyings; the
+          // WebGPU default of 16 is too tight for PBR + cascaded shadows + effects).
+          setMaximumLimits: true,
           // A lost device should not take the page down; the engine restores resources itself.
           enableGPUDebugMarkers: false,
         });

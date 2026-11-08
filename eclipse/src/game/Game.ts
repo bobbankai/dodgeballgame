@@ -10,6 +10,7 @@ import { MaterialLibrary } from '../render/Materials';
 import { Physics } from '../physics/Physics';
 import { buildSandbox } from '../dev/Sandbox';
 import { applyEnginePatches } from '../render/EnginePatches';
+import { MatEnv } from '../render/materials/EcPlugin';
 import { Color3 } from '@babylonjs/core';
 
 /**
@@ -88,12 +89,12 @@ export class Game {
       contrast: 1.1,
       shadowDarkness: 0,
     }, this.sky);
-    this.lighting.setShadowQuality(g.shadows, this.camera);
-    this.pipe.setSun(this.sky.mesh);
+    this.lighting.setShadowQuality(g.shadows, this.camera, this.pipe.caps.varyings);
+    this.sky.cloudSteps = { low: 0, medium: 14, high: 24, ultra: 40 }[g.preset];
     await this.lighting.captureEnvironment(this.sky);
     this.pipe.build(g);
     const level = this.params.get('level') ?? 'sandbox';
-    if (level === 'sandbox') buildSandbox(this.scene, this.mats, this.lighting, this.physics);
+    if (level === 'sandbox') await buildSandbox(this.scene, this.mats, this.lighting, this.physics);
     this.camera.setTarget(new Vector3(0, 1.5, 0));
     await this.scene.whenReadyAsync();
     log.info(`ready (${this.host.backend})`);
@@ -131,12 +132,16 @@ export class Game {
   }
 
   private render(dt: number): void {
+    MatEnv.time = this.clock.time;
+    MatEnv.sunDir.copyFrom(this.lighting.toSun);
+    this.lighting.sun.diffuse.scaleToRef(this.lighting.sun.intensity, MatEnv.sunColor);
+    this.sky.camY = this.activeCamera.globalPosition.y;
     this.sky.update(dt, this.clock.time);
     if (this.pipe.atmosphere) {
       this.pipe.atmosphere.sunDir.copyFrom(this.lighting.toSun);
       this.pipe.atmosphere.sunColor.copyFrom(this.lighting.sun.diffuse.scale(this.lighting.sun.intensity * 0.1));
     }
-    this.pipe.update(dt);
+    this.pipe.update(dt, { center: this.camera.position, toSun: this.lighting.toSun });
     this.scene.render();
   }
 
