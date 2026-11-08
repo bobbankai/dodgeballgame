@@ -80,6 +80,10 @@ export class CharacterMaterials {
       }
       case 'gear': {
         withMaps(spec.tex ?? 'gear');
+        // cloth and plate shells are single-walled (their hidden inner walls are dropped at build
+        // time): render both sides, lit correctly from behind
+        m.backFaceCulling = false;
+        m.twoSidedLighting = true;
         m.emissiveTexture = this.tex(dir, `${spec.tex ?? 'gear'}_e`, true);
         m.emissiveColor = new Color3(1, 1, 1).scale(spec.emissive ?? 1.5);
         const fx = new EmissiveFxPlugin(m);

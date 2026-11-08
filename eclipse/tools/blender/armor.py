@@ -30,6 +30,9 @@ MATERIALS = [
     ('ember', (1.0, 0.35, 0.05)),
     ('wood', (0.33, 0.22, 0.13)),
     ('rope', (0.55, 0.45, 0.3)),
+    ('rust', (0.45, 0.25, 0.15)),
+    ('charcloth', (0.12, 0.1, 0.09)),
+    ('char', (0.08, 0.06, 0.05)),
 ]
 MAT_INDEX = {n: i for i, (n, _) in enumerate(MATERIALS)}
 
@@ -85,8 +88,11 @@ def smoothstep(e0, e1, x):
 class Piece:
     """A sculpted part: field + material assignment + skinning hint."""
 
-    def __init__(self, name, field, bounds, materials, skin='transfer', voxel=0.003, budget=4000, mirror=False):
+    def __init__(self, name, field, bounds, materials, skin='transfer', voxel=0.003, budget=4000, mirror=False, inner=None):
         self.name = name
+        # a field the piece is wrapped around (usually the body): the shell's inner wall, which faces
+        # it and is never seen, is dropped so it costs no triangles and no texture space
+        self.inner = inner
         self.field = field
         self.bounds = bounds  # (lo, hi)
         self.materials = materials  # callable(points) -> material index array, or a material name
@@ -99,6 +105,8 @@ class Piece:
         v, f = sdf.mesh(self.field, lo, hi, self.voxel)
         if len(v) == 0:
             raise RuntimeError(f'piece {self.name} is empty')
+        if self.inner is not None:
+            v, f = drop_inner(v, f, self.inner)
         hi_obj = mesh_from_arrays(self.name + '_hi', v, f, coll)
         shade_smooth(hi_obj)
         if isinstance(self.materials, str):
@@ -109,6 +117,23 @@ class Piece:
         color_attribute(hi_obj, 'mat', cols[mids])
         hi_obj['mat_ids'] = sorted(set(int(i) for i in np.unique(mids)))
         return hi_obj
+
+
+def drop_inner(v, f, inner, cos_limit=-0.35):
+    """Removes faces whose outward normal points into `inner` (the hidden wall of a shell)."""
+    f = np.asarray(f)
+    a, b, c = v[f[:, 0]], v[f[:, 1]], v[f[:, 2]]
+    n = np.cross(b - a, c - a)
+    n /= np.maximum(np.linalg.norm(n, axis=1, keepdims=True), 1e-12)
+    ctr = (a + b + c) / 3
+    g = sdf.gradient(inner, ctr, h=1e-3)
+    g /= np.maximum(np.linalg.norm(g, axis=1, keepdims=True), 1e-12)
+    keep = (n * g).sum(1) > cos_limit
+    f = f[keep]
+    used = np.unique(f)
+    remap = np.full(len(v), -1)
+    remap[used] = np.arange(len(used))
+    return v[used], remap[f]
 
 
 def material_by_fields(default, parts):

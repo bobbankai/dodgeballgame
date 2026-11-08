@@ -80,7 +80,8 @@ def build_body(spec):
     for k in ('eyes', 'eyebrows', 'eyelashes', 'teeth', 'tongue', 'hair', 'skin_mhmat', 'proxy'):
         info[k] = ''
     info['clothes'] = []
-    info['targets'] = [{'target': t, 'value': v} for t, v in spec.get('targets', [])]
+    # MPFB resolves targets by file basename ('chin-prominent-incr'), not by 'chin/...' paths
+    info['targets'] = [{'target': t.split('/')[-1], 'value': v} for t, v in spec.get('targets', [])]
     settings = HumanService.get_default_deserialization_settings()
     settings.update({'subdiv_levels': 0, 'mask_helpers': False, 'load_clothes': False, 'feet_on_ground': True})
     body = HumanService.deserialize_from_dict(info, settings)

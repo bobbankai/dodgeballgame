@@ -1,4 +1,4 @@
-import { PBRMaterial, Texture, type AbstractMesh, type Scene, type TransformNode } from '@babylonjs/core';
+import { Color3, PBRMaterial, Texture, type AbstractMesh, type Scene, type TransformNode } from '@babylonjs/core';
 import type { AssetManager } from '../assets/AssetManager';
 import type { Character } from './Character';
 import type { Lighting } from '../render/Lighting';
@@ -12,10 +12,15 @@ export interface WeaponSpec {
   base: number;
   tip: number;
   radius: number;
+  /** Glow strength of the weapon's emissive map (0 = none). */
+  emissive?: number;
 }
 
 export const WEAPONS: Record<string, WeaponSpec> = {
   oathkeeper: { id: 'oathkeeper', base: 0.06, tip: 0.98, radius: 0.06 },
+  ashblade: { id: 'ashblade', base: 0.05, tip: 0.83, radius: 0.05 },
+  cinder_greatsword: { id: 'cinder_greatsword', base: 0.12, tip: 1.46, radius: 0.07, emissive: 2.6 },
+  cinderfall: { id: 'cinderfall', base: 0.12, tip: 1.46, radius: 0.07, emissive: 4 },
 };
 
 const matCache = new Map<string, PBRMaterial>();
@@ -40,6 +45,11 @@ function weaponMaterial(scene: Scene, id: string): PBRMaterial {
   m.useMetallnessFromMetallicTextureBlue = true;
   m.metallic = 1;
   m.roughness = 1;
+  const glow = WEAPONS[id]?.emissive ?? 0;
+  if (glow > 0) {
+    m.emissiveTexture = t('e', true);
+    m.emissiveColor = new Color3(glow, glow, glow);
+  }
   new DissolvePlugin(m);
   matCache.set(id, m);
   return m;

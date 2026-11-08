@@ -1,4 +1,4 @@
-import { Color3, type Material, type MaterialDefines, type UniformBuffer } from '@babylonjs/core';
+import { Color3, Vector2, type Material, type MaterialDefines, type UniformBuffer } from '@babylonjs/core';
 import { EcPlugin, MatEnv, type PluginCode } from './EcPlugin';
 import { NOISE_FN_GLSL, NOISE_FN_WGSL } from './SurfaceLayers';
 
@@ -458,6 +458,77 @@ uniform vec4 ecWindB;
 #endif`,
         },
       },
+    };
+  }
+}
+
+/**
+ * Molten rock: plates of cooling crust (the material's own dark rock albedo) drifting slowly over
+ * glowing lava, with bright seams between the plates and open molten pools. The flow is a
+ * domain-warped noise field in world XZ, so any flat or gently sloped mesh becomes a lava surface.
+ * Emission is HDR (bloom picks it up) and ramps dark red -> orange -> yellow-white with heat.
+ */
+export class LavaPlugin extends EcPlugin {
+  /** Flow speed (m/s) and direction. */
+  flow = new Vector2(0.12, 0.05);
+  /** Size of the crust plates (metres). */
+  plate = 2.6;
+  /** 0..1: how much of the surface is open molten pool. */
+  molten = 0.35;
+  intensity = 6;
+
+  constructor(material: Material) {
+    super(material, 'EcLava', 150, { EC_LAVA: false });
+  }
+  override prepareDefines(defines: MaterialDefines): void {
+    defines.EC_LAVA = this.isEnabled;
+  }
+  override getUniforms() {
+    return {
+      ubo: [{ name: 'ecLava', size: 4, type: 'vec4' }, { name: 'ecLavaB', size: 4, type: 'vec4' }],
+      fragment: `#ifdef EC_LAVA
+uniform vec4 ecLava;
+uniform vec4 ecLavaB;
+#endif`,
+    };
+  }
+  override bindForSubMesh(ubo: UniformBuffer): void {
+    if (!this.isEnabled) return;
+    ubo.updateFloat4('ecLava', this.flow.x, this.flow.y, 1 / this.plate, this.molten, '');
+    ubo.updateFloat4('ecLavaB', MatEnv.time, this.intensity, 0, 0, '');
+  }
+  override getClassName(): string {
+    return 'EcLava';
+  }
+  protected code(): PluginCode {
+    const body = (L: 'glsl' | 'wgsl') => {
+      const v2 = L === 'glsl' ? 'vec2' : 'vec2f';
+      const v3 = L === 'glsl' ? 'vec3' : 'vec3f';
+      const u = (n: string) => (L === 'glsl' ? n : `uniforms.${n}`);
+      const decl = (n: string) => (L === 'glsl' ? `float ${n}` : `let ${n}`);
+      const declv = (n: string) => (L === 'glsl' ? `${v2} ${n}` : `let ${n}`);
+      const wp = L === 'glsl' ? 'vPositionW' : 'fragmentInputs.vPositionW';
+      return `
+#ifdef EC_LAVA
+{
+  ${decl('t')} = ${u('ecLavaB')}.x;
+  ${declv('p')} = ${wp}.xz * ${u('ecLava')}.z - ${u('ecLava')}.xy * t * ${u('ecLava')}.z;
+  ${declv('warp')} = ${v2}(ecFbm(p * 0.7 + ${v2}(t * 0.03, 0.0)), ecFbm(p * 0.7 + ${v2}(5.2, 1.3 - t * 0.02)));
+  ${decl('n')} = ecFbm(p + warp * 1.3);
+  // seams between crust plates, and open pools where the large-scale field runs hot
+  ${decl('seam')} = 1.0 - smoothstep(0.0, 0.07, abs(n - 0.5));
+  ${decl('pool')} = smoothstep(1.0 - ${u('ecLava')}.w - 0.1, 1.0 - ${u('ecLava')}.w + 0.12, ecFbm(p * 0.3 + warp * 0.4 + ${v2}(t * 0.01, 0.0)));
+  ${decl('heat')} = clamp(max(seam * (0.6 + 0.4 * ecFbm(p * 3.0 + t * 0.2)), pool), 0.0, 1.0);
+  ${decl('pulse')} = 0.85 + 0.15 * sin(t * 1.7 + n * 12.0);
+  ${L === 'glsl' ? 'vec3' : 'let'} ramp = mix(${v3}(0.35, 0.02, 0.0), ${v3}(1.0, 0.32, 0.04), smoothstep(0.0, 0.55, heat));
+  ${L === 'glsl' ? 'vec3' : 'let'} hot = mix(ramp, ${v3}(1.0, 0.82, 0.45), smoothstep(0.75, 1.0, heat));
+  finalEmissive += hot * heat * heat * ${u('ecLavaB')}.y * pulse;
+}
+#endif`;
+    };
+    return {
+      glsl: { fragment: { CUSTOM_FRAGMENT_DEFINITIONS: NOISE_FN_GLSL, CUSTOM_FRAGMENT_BEFORE_FINALCOLORCOMPOSITION: body('glsl') } },
+      wgsl: { fragment: { CUSTOM_FRAGMENT_DEFINITIONS: NOISE_FN_WGSL, CUSTOM_FRAGMENT_BEFORE_FINALCOLORCOMPOSITION: body('wgsl') } },
     };
   }
 }

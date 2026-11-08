@@ -31,6 +31,8 @@ export interface AiContext {
   projectiles: Projectiles;
   hazards: Hazards;
   player(): (Combatant & { busy?: boolean; sprint?: boolean }) | null;
+  /** Camera shake for big impacts near the player (0..1). */
+  shake(amount: number): void;
 }
 
 export type EnemyState =
@@ -72,7 +74,7 @@ export class Enemy implements Combatant, Tactical {
   readonly height: number;
   readonly heavy: boolean;
   readonly targetable = true;
-  readonly boss: boolean = false;
+  readonly boss: boolean;
   readonly ranged: boolean;
   readonly stats: Stats;
   readonly events = new EventBus<EnemyEvents>();
@@ -84,11 +86,11 @@ export class Enemy implements Combatant, Tactical {
   /** Patrol route (walked in a loop with pauses); empty = guard the spawn point. */
   patrol: Vector3[] = [];
   removed = false;
-  private tactic: Tactic = 'approach';
+  protected tactic: Tactic = 'approach';
   private agent: CrowdAgent | null = null;
-  private cooldowns = new Map<string, number>();
-  private time = 0;
-  private thinkAt = 0;
+  protected cooldowns = new Map<string, number>();
+  protected time = 0;
+  protected thinkAt = 0;
   private perceiveAt = Math.random() * 0.2;
   private lastSeen = -99;
   private readonly lastKnown = new Vector3();
@@ -96,15 +98,15 @@ export class Enemy implements Combatant, Tactical {
   private readonly homeYaw: number;
   private patrolIdx = 0;
   private waitUntil = 0;
-  private sweep = new MeleeSweep();
+  protected sweep = new MeleeSweep();
   private hurt: HurtCapsule[];
   private weapon: WeaponSpec;
   private flinchTimes: number[] = [];
-  private armourUntil = 0;
+  protected armourUntil = 0;
   private blockUntil = 0;
   private reactAt = -1;
   private reaction: 'block' | 'dodge' | null = null;
-  private iframesUntil = 0;
+  protected iframesUntil = 0;
   private locoMode: 'free' | 'combat' | '' = '';
   private deathAt = 0;
   private deathFx: FxHandle | null = null;
@@ -113,14 +115,15 @@ export class Enemy implements Combatant, Tactical {
   private hasMoveTarget = false;
   private noTokenSince = 0;
   /** Motion warping for the current attack: measured reach and this step's correction. */
-  private reach: Reach | null = null;
-  private warpEnd = 0;
-  private readonly warp = new Vector3();
-  private readonly scale: number;
-  private tmp = new Vector3();
+  protected reach: Reach | null = null;
+  protected warpEnd = 0;
+  protected readonly warp = new Vector3();
+  protected readonly scale: number;
+  protected tmp = new Vector3();
 
-  constructor(readonly ctx: AiContext, readonly def: EnemyArchetype, readonly char: Character, at: Vector3, yaw: number, name?: string) {
+  constructor(readonly ctx: AiContext, readonly def: EnemyArchetype, readonly char: Character, at: Vector3, yaw: number, name?: string, boss = false) {
     this.id = ctx.world.newId();
+    this.boss = boss;
     this.name = name ?? def.name;
     this.scale = def.scale;
     this.radius = def.radius * def.scale;
@@ -184,14 +187,14 @@ export class Enemy implements Combatant, Tactical {
   }
 
   // ------------------------------------------------------------------ helpers
-  private clip(name: string, fallback?: string): string {
+  protected clip(name: string, fallback?: string): string {
     const clips = this.char.animator.clips;
     if (clips.has(name)) return name;
     if (fallback && clips.has(fallback)) return fallback;
     return 'idle';
   }
 
-  private setLoco(mode: 'free' | 'combat'): void {
+  protected setLoco(mode: 'free' | 'combat'): void {
     if (this.locoMode === mode) return;
     this.locoMode = mode;
     const a = this.char.animator;
@@ -210,33 +213,33 @@ export class Enemy implements Combatant, Tactical {
     }
   }
 
-  private dist(c: Combatant): number {
+  protected dist(c: Combatant): number {
     const dx = c.position.x - this.position.x;
     const dz = c.position.z - this.position.z;
     return Math.max(0, Math.sqrt(dx * dx + dz * dz) - this.radius - c.radius);
   }
 
-  private angleTo(p: Vector3): number {
+  protected angleTo(p: Vector3): number {
     const want = Math.atan2(p.x - this.position.x, p.z - this.position.z);
     return Math.abs(wrapAngle(want - this.char.yaw));
   }
 
-  private turnTowards(yaw: number, dt: number, rate: number): void {
+  protected turnTowards(yaw: number, dt: number, rate: number): void {
     const cur = this.char.yaw;
     const d = wrapAngle(yaw - cur);
     this.char.yaw = cur + Math.sign(d) * Math.min(Math.abs(d), rate * dt);
   }
 
-  private face(p: Vector3, dt: number, rate: number): void {
+  protected face(p: Vector3, dt: number, rate: number): void {
     this.turnTowards(Math.atan2(p.x - this.position.x, p.z - this.position.z), dt, rate);
   }
 
-  private setState(s: EnemyState): void {
+  protected setState(s: EnemyState): void {
     this.state = s;
     this.stateTime = 0;
   }
 
-  private moveTo(p: Vector3, speed: number): void {
+  protected moveTo(p: Vector3, speed: number): void {
     this.hasMoveTarget = true;
     this.moveTarget.copyFrom(p);
     if (this.agent) {
@@ -249,7 +252,7 @@ export class Enemy implements Combatant, Tactical {
 
   private directSpeed = 0;
 
-  private stop(): void {
+  protected stop(): void {
     this.hasMoveTarget = false;
     this.agent?.resetMoveTarget();
     this.agent?.updateParameters({ maxSpeed: 0.01 });
@@ -416,7 +419,7 @@ export class Enemy implements Combatant, Tactical {
     }
   }
 
-  private combat(dt: number): void {
+  protected combat(dt: number): void {
     const t = this.target;
     if (!t || !t.alive) return this.disengage();
     const d = this.dist(t);
@@ -457,7 +460,7 @@ export class Enemy implements Combatant, Tactical {
     if (close || this.tactic !== 'approach') this.face(t.position, dt, 6);
   }
 
-  private decide(t: Combatant, d: number): void {
+  protected decide(t: Combatant, d: number): void {
     const dir = this.ctx.director;
     const atk = this.pickAttack(t, d);
     if (atk) {
@@ -483,11 +486,11 @@ export class Enemy implements Combatant, Tactical {
     else this.tactic = Math.random() < 0.15 ? 'hold' : 'circle';
   }
 
-  private inRange(a: EnemyAttack, t: Combatant, d: number): boolean {
+  protected inRange(a: EnemyAttack, t: Combatant, d: number): boolean {
     return d >= a.range[0] && d <= a.range[1] && this.angleTo(t.position) <= (a.angle ?? 1.2);
   }
 
-  private pickAttack(t: Combatant, d: number): EnemyAttack | null {
+  protected pickAttack(t: Combatant, d: number): EnemyAttack | null {
     let best: EnemyAttack | null = null;
     let bestScore = 0;
     for (const a of this.def.attacks) {
@@ -514,7 +517,7 @@ export class Enemy implements Combatant, Tactical {
   }
 
   // ------------------------------------------------------------------ attacking
-  private startAttack(a: EnemyAttack): void {
+  protected startAttack(a: EnemyAttack): void {
     const t = this.target;
     this.attack = a;
     this.setState('attack');
@@ -550,7 +553,7 @@ export class Enemy implements Combatant, Tactical {
     this.events.emit('attack', { attack: a });
   }
 
-  private attackTick(dt: number): void {
+  protected attackTick(dt: number): void {
     const a = this.attack;
     this.warp.setAll(0);
     if (!a || !this.target) return;
@@ -573,7 +576,7 @@ export class Enemy implements Combatant, Tactical {
     }
   }
 
-  private endAttack(): void {
+  protected endAttack(): void {
     const a = this.attack;
     this.attack = null;
     this.sweep.end();
@@ -589,7 +592,7 @@ export class Enemy implements Combatant, Tactical {
     this.thinkAt = this.time + 0.35 + (1 - this.def.aggression) * 0.6;
   }
 
-  private onClipEvent(e: ClipEvent): void {
+  protected onClipEvent(e: ClipEvent): void {
     const a = this.attack;
     switch (e.name) {
       case 'hit_on':
@@ -620,7 +623,7 @@ export class Enemy implements Combatant, Tactical {
     }
   }
 
-  private makeDamage(a: EnemyAttack, victim: Combatant, point: Vector3, scale = 1): DamageInfo {
+  protected makeDamage(a: EnemyAttack, victim: Combatant, point: Vector3, scale = 1): DamageInfo {
     const dir = victim.position.subtract(this.position);
     dir.y = 0;
     dir.normalize();
@@ -643,7 +646,7 @@ export class Enemy implements Combatant, Tactical {
   }
 
   /** Blade (or limb) segments in world space for the current attack. */
-  private blade(): Segment[] {
+  protected blade(): Segment[] {
     const a = this.attack;
     if (a?.hit?.kind === 'bones') {
       return a.hit.pairs.map(([p, q]) => ({ a: this.char.bonePosition(p), b: this.char.bonePosition(q) }));
@@ -674,7 +677,7 @@ export class Enemy implements Combatant, Tactical {
     }
   }
 
-  private impact(a: EnemyAttack): void {
+  protected impact(a: EnemyAttack): void {
     const imp = a.impact!;
     const f = this.char.forward;
     const c = this.position.add(f.scale(imp.ahead * this.scale));
@@ -799,12 +802,12 @@ export class Enemy implements Combatant, Tactical {
     return 'hit';
   }
 
-  private recentFlinches(): number {
+  protected recentFlinches(): number {
     this.flinchTimes = this.flinchTimes.filter((t) => this.time - t < 2.5);
     return this.flinchTimes.length;
   }
 
-  private flinch(hit: DamageInfo): void {
+  protected flinch(hit: DamageInfo): void {
     this.flinchTimes.push(this.time);
     if (this.attack) this.ctx.director.release(this);
     this.attack = null;
@@ -826,7 +829,7 @@ export class Enemy implements Combatant, Tactical {
     this.char.animator.play(clip, { fade: 0.04, speed: 1.15, onEvent: (e) => this.onClipEvent(e), onEnd: () => { if (this.state === 'hit') this.toCombat(); } });
   }
 
-  private stun(seconds: number): void {
+  protected stun(seconds: number): void {
     this.attack = null;
     this.sweep.end();
     this.reaction = null;
@@ -847,14 +850,14 @@ export class Enemy implements Combatant, Tactical {
     });
   }
 
-  private recover(): void {
+  protected recover(): void {
     this.executable = false;
     this.stats.resetPoise();
     this.setState('getup');
     this.char.animator.play('getup', { fade: 0.2, speed: 1.2, onEvent: (e) => this.onClipEvent(e), onEnd: () => { if (this.state === 'getup') this.toCombat(); } });
   }
 
-  private knockdown(dir: Vector3): void {
+  protected knockdown(dir: Vector3): void {
     this.attack = null;
     this.sweep.end();
     this.ctx.director.release(this);
@@ -886,7 +889,7 @@ export class Enemy implements Combatant, Tactical {
     });
   }
 
-  private die(hit: DamageInfo): void {
+  protected die(hit: DamageInfo): void {
     this.ctx.director.release(this);
     this.attack = null;
     this.sweep.end();
@@ -924,7 +927,7 @@ export class Enemy implements Combatant, Tactical {
     this.events.emit('removed', {});
   }
 
-  private toCombat(): void {
+  protected toCombat(): void {
     if (!this.alive) return;
     if (!this.target) {
       this.setState('return');

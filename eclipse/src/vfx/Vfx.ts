@@ -1,7 +1,8 @@
 import {
-  Color3, Color4, ParticleSystem, PointLight, Vector3, type AbstractMesh, type Scene, type Texture, type TransformNode,
+  Color3, Color4, ParticleSystem, Vector3, type AbstractMesh, type Scene, type Texture, type TransformNode,
 } from '@babylonjs/core';
 import { fxTextures } from './Textures';
+import type { LocalLights } from '../render/LocalLights';
 
 /** How one particle layer of an effect looks and moves. Times in seconds, distances in metres. */
 interface Layer {
@@ -135,6 +136,30 @@ export const PRESETS: Record<string, Preset> = {
     ],
     light: { color: [1, 0.15, 0.05], intensity: 15, range: 4, time: 0.45 },
   },
+  // ambient: grey flakes drifting down in a wide box that follows the camera
+  ashfall: {
+    layers: [
+      { tex: 'soft', add: false, count: 0, rate: 220, capacity: 1600, life: [5, 8], size: [0.025, 0.06], power: [0.2, 0.6], shape: 'box', extent: 22, height: 14, gravity: -0.35, drag: 0.4, color: [0.62, 0.6, 0.58, 0.75], dead: [0.5, 0.48, 0.46, 0], spin: 2 },
+    ],
+  },
+  emberDrift: {
+    layers: [
+      { tex: 'soft', add: true, count: 0, rate: 30, capacity: 260, life: [3, 6], size: [0.02, 0.045], power: [0.2, 0.8], shape: 'box', extent: 18, height: 6, gravity: 0.35, drag: 0.3, color: [3.5, 1.3, 0.3, 1], dead: [0.6, 0.06, 0, 0] },
+    ],
+  },
+  // a building on fire: tall tongues of flame, sparks and heavy smoke
+  bonfire: {
+    layers: [
+      { tex: 'flame', add: true, count: 0, rate: 60, capacity: 160, life: [0.5, 1.1], size: [0.8, 1.8], grow: [[0, 0.5], [0.3, 1], [1, 0.4]], power: [1.5, 3.5], shape: 'up', extent: 1.4, height: 0.4, gravity: 1.5, drag: 1, color: [3.2, 1.4, 0.4, 1], color2: [2.6, 0.8, 0.18, 1], dead: [0.3, 0.04, 0, 0], spin: 1.5 },
+      { tex: 'soft', add: true, count: 0, rate: 25, capacity: 120, life: [1.5, 3], size: [0.02, 0.05], power: [2, 5], shape: 'up', extent: 1.2, gravity: 0.6, drag: 0.4, color: [3.5, 1.3, 0.3, 1], dead: [0.6, 0.06, 0, 0] },
+      { tex: 'smoke', add: false, count: 0, rate: 9, capacity: 90, life: [4, 7], size: [1.5, 2.6], grow: [[0, 0.5], [1, 3]], power: [2, 3.5], shape: 'up', extent: 1.2, height: 1.5, gravity: 0.3, drag: 0.2, color: [0.08, 0.07, 0.065, 0.55], dead: [0.12, 0.11, 0.1, 0], spin: 0.3 },
+    ],
+  },
+  smokeColumn: {
+    layers: [
+      { tex: 'smoke', add: false, count: 0, rate: 5, capacity: 80, life: [10, 16], size: [4, 7], grow: [[0, 0.5], [1, 3]], power: [3, 5], shape: 'up', extent: 3, height: 2, gravity: 0.2, drag: 0.1, color: [0.1, 0.09, 0.085, 0.5], dead: [0.16, 0.15, 0.14, 0], spin: 0.15 },
+    ],
+  },
   heal: {
     layers: [
       { tex: 'soft', add: true, count: 50, life: [0.8, 1.5], size: [0.03, 0.08], power: [0.5, 1.6], shape: 'box', extent: 0.4, height: 1.6, gravity: 1.2, drag: 1, color: [3.4, 2.2, 0.9, 1], dead: [1, 0.5, 0.1, 0] },
@@ -156,7 +181,7 @@ export interface FxHandle {
 }
 
 interface Flash {
-  light: PointLight;
+  light: import('@babylonjs/core').PointLight;
   t: number;
   dur: number;
   peak: number;
@@ -175,17 +200,17 @@ export class Vfx {
   private flashes: Flash[] = [];
   /** Scales particle counts (quality presets). */
   density = 1;
+  /** Called for every burst (the game maps effects to sounds). */
+  onBurst: ((name: string, at: Vector3, scale: number) => void) | null = null;
   private dt = 1 / 60;
 
-  constructor(private scene: Scene, lights = 2) {
+  constructor(private scene: Scene, local: LocalLights, lights = 6) {
     this.textures = fxTextures(scene);
     scene.useConstantAnimationDeltaTime = true;
-    for (let i = 0; i < lights; i++) {
-      const l = new PointLight(`fxLight${i}`, Vector3.Zero(), scene);
-      l.intensity = 0;
-      l.range = 6;
-      l.shadowEnabled = false;
-      this.flashes.push({ light: l, t: 1, dur: 1, peak: 0 });
+    // flash lights live in the clustered container (dark until an effect borrows one)
+    for (let i = 0; i < (local.clustered ? lights : 2); i++) {
+      const l = local.add(new Vector3(0, -100, 0), { color: [1, 1, 1], intensity: 0, range: 6 });
+      if (l) this.flashes.push({ light: l, t: 1, dur: 1, peak: 0 });
     }
   }
 
@@ -279,6 +304,7 @@ export class Vfx {
       ps.manualEmitCount = Math.max(1, Math.round(layer.count * (layer.count > 2 ? this.density : 1)));
     });
     if (preset.light) this.flash(at, preset.light.color, preset.light.intensity * scale, preset.light.range * Math.sqrt(scale), preset.light.time);
+    this.onBurst?.(name, at, scale);
   }
 
   /** A continuous effect that follows a node or a point until stopped. */

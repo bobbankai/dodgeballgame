@@ -119,13 +119,21 @@ def decimate(obj, ratio=None, target_tris=None, symmetric=False, axis='X'):
         ratio = min(1.0, target_tris / max(1, n))
     if ratio >= 0.999:
         return obj
-    m = obj.modifiers.new('dec', 'DECIMATE')
-    m.decimate_type = 'COLLAPSE'
-    m.ratio = ratio
-    m.use_collapse_triangulate = True
-    m.use_symmetry = symmetric
-    m.symmetry_axis = axis
-    apply_modifiers(obj)
+    # attribute seams (material-id colours) slow the collapse down; repeat until the budget is met
+    for _ in range(4):
+        m = obj.modifiers.new('dec', 'DECIMATE')
+        m.decimate_type = 'COLLAPSE'
+        m.ratio = ratio
+        m.use_collapse_triangulate = True
+        m.use_symmetry = symmetric
+        m.symmetry_axis = axis
+        apply_modifiers(obj)
+        if target_tris is None:
+            break
+        n = sum(len(p.vertices) - 2 for p in obj.data.polygons)
+        if n <= target_tris * 1.1:
+            break
+        ratio = target_tris / n
     return obj
 
 
@@ -250,6 +258,9 @@ def export_glb(path, objects, animations=False, morphs=True, skins=True, actions
         export_animations=animations,
         export_extras=True,
         export_def_bones=False,
+        # colour attributes on our meshes are bake inputs (material ids, height), never shading data
+        export_vertex_color='NONE',
+        export_all_vertex_colors=False,
     )
     if animations:
         kw.update(export_animation_mode='ACTIONS', export_force_sampling=True, export_frame_step=1,
@@ -260,7 +271,7 @@ def export_glb(path, objects, animations=False, morphs=True, skins=True, actions
     except TypeError as e:
         # option names drift between Blender versions; drop unknown ones and retry
         print('gltf export option error:', e)
-        for k in ('export_image_format', 'export_optimize_animation_size', 'export_anim_single_armature',
+        for k in ('export_image_format', 'export_vertex_color', 'export_all_vertex_colors', 'export_optimize_animation_size', 'export_anim_single_armature',
                   'export_reset_pose_bones', 'export_bake_animation', 'export_def_bones'):
             kw.pop(k, None)
         bpy.ops.export_scene.gltf(**kw)

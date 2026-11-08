@@ -117,8 +117,8 @@ export const ARCHETYPES: Record<string, EnemyArchetype> = {
     resist: { fire: 0.5, water: 1.4 },
   },
   cinder_knight: {
-    id: 'cinder_knight', name: 'Cinder Knight', model: 'cinder_knight', weapon: 'cinder_greatsword', scale: 1.12,
-    health: 300, poise: 95, stamina: 120, radius: 0.48, height: 2.05,
+    id: 'cinder_knight', name: 'Cinder Knight', model: 'cinder_knight', weapon: 'cinder_greatsword', scale: 1,
+    health: 300, poise: 95, stamina: 120, radius: 0.48, height: 2.2,
     walk: 1.3, run: 3.6, strafe: 1.2, sight: 22, fov: 2.0, hearing: 10,
     aggression: 0.55, block: 0.35, dodge: 0.0, holdRange: 3.6, heavy: true, executable: true,
     xp: 80, aether: 18, glow: [1.0, 0.38, 0.08],

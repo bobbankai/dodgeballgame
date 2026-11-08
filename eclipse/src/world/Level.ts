@@ -10,6 +10,9 @@ export interface Atmos {
   sky: Partial<SkyParams>;
   look: Partial<LookParams>;
   weather?: { wetness?: number; cover?: number; coverColor?: Color3; wind?: number; windDir?: [number, number] };
+  /** Music piece (audio/manifest.json) and ambient loop for the area. */
+  music?: string;
+  ambience?: string;
 }
 
 /**
@@ -42,6 +45,11 @@ export abstract class Level {
   abstract spawn(checkpoint?: string): { position: Vector3; yaw: number };
 
   abstract atmosphere(): Atmos;
+
+  /** What the ground is made of at a point (footstep sounds). */
+  surface(_at: Vector3): 'stone' | 'ash' | 'wood' {
+    return 'ash';
+  }
 
   /** Called every fixed step while the level is active. */
   update(_dt: number): void {}

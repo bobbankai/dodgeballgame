@@ -24,7 +24,10 @@ import { attachWeapon } from '../character/Weapons';
 import type { Level, Atmos } from '../world/Level';
 import { createLevel } from '../levels/registry';
 import { HUD } from '../ui/HUD';
+import { Audio, type LoopHandle } from '../audio/Audio';
+import type { Enemy } from '../ai/Enemy';
 import { Vfx } from '../vfx/Vfx';
+import { LocalLights } from '../render/LocalLights';
 import { GroundFx } from '../vfx/GroundFx';
 import { BladeTrail } from '../vfx/BladeTrail';
 import { Projectiles } from '../combat/Projectiles';
@@ -58,6 +61,10 @@ export class Game {
   readonly charMats: CharacterMaterials;
   readonly hud: HUD;
   readonly vfx: Vfx;
+  readonly lights: LocalLights;
+  readonly audio: Audio;
+  private ambience: LoopHandle | null = null;
+  private musicCheck = 0;
   readonly ground: GroundFx;
   readonly projectiles: Projectiles;
   readonly hazards: Hazards;
@@ -103,7 +110,11 @@ export class Game {
     this.rig = new CameraRig(this.camera, physics);
     this.rig.shakeScale = settings.data.access.cameraShake;
     this.hud = new HUD(scene, document.getElementById('ui')!);
-    this.vfx = new Vfx(scene);
+    this.lights = new LocalLights(scene);
+    this.vfx = new Vfx(scene, this.lights);
+    this.audio = new Audio(settings.data.audio);
+    if (params.has('test')) this.audio.enabled = false;
+    this.vfx.onBurst = (name, at, k) => this.burstSound(name, at, k);
     this.ground = new GroundFx(scene);
     this.projectiles = new Projectiles(scene, this.combat, physics, this.vfx);
     this.hazards = new Hazards(this.combat, this.vfx, this.ground);
@@ -114,12 +125,62 @@ export class Game {
       projectiles: this.projectiles, hazards: this.hazards,
       get nav() { return game.nav; },
       player: () => game.player,
+      shake: (k: number) => game.rig.shake(k),
     };
     this.combat.events.on('hit', (h) => this.hitFx(h));
   }
 
+  private burstSound(name: string, at: Vector3, k: number): void {
+    const a = this.audio;
+    switch (name) {
+      case 'fireBurst': a.play('fire_burst', { at, volume: Math.min(1, 0.6 + 0.2 * k) }); break;
+      case 'firePillar': a.play('fire_burst', { at, pitch: -5, volume: 1 }); break;
+      case 'emberSlam': a.play('slam', { at, volume: Math.min(1, 0.5 + 0.25 * k) }); break;
+      case 'aether': a.play('aether', { at }); break;
+      case 'tellRed': a.play('fire_cast', { at, pitch: -6, volume: 0.6 }); break;
+      default: break;
+    }
+  }
+
+  /** Sounds for a resolved hit. */
+  private hitSound(h: HitEvent): void {
+    const a = this.audio;
+    const at = h.info.point;
+    const burnt = (h.victim as { def?: { glow?: number[] } }).def?.glow !== undefined && !h.victim.heavy;
+    switch (h.result) {
+      case 'hit': case 'staggered': case 'killed':
+        if (h.info.tag === 'lava' || h.info.ranged) break;
+        a.play(burnt ? 'hit_ash' : 'hit_metal', { at, volume: 0.7 + 0.3 * h.info.weight, pitch: -3 * h.info.weight });
+        if (h.victim === this.player) a.play('kael_hurt', { at });
+        if (h.result === 'killed' && h.victim !== this.player) {
+          this.hazards.after(0.9, () => a.play('bodyfall', { at: h.victim.position.clone() }));
+          this.hazards.after(2.3, () => a.play('ash_dissolve', { at: h.victim.position.clone() }));
+        }
+        break;
+      case 'blocked': a.play('block', { at }); break;
+      case 'parried': case 'guardbreak': a.play('parry', { at }); break;
+      default: break;
+    }
+  }
+
+  /** Voices and swings of enemies (hooked when each one spawns). */
+  watchEnemy(e: Enemy): void {
+    const a = this.audio;
+    const big = e.def.scale > 1.5;
+    e.events.on('attack', ({ attack }) => {
+      const heavy = attack.weight >= 0.7 || e.heavy;
+      a.play(big ? 'swing_great' : heavy ? 'swing_heavy' : 'swing_light', { at: e.position, delay: 0.25 / (attack.speed ?? 1), pitch: big ? -4 : 0 });
+      if (e.heavy && !big && Math.random() < 0.5) a.play('knight_effort', { at: e.position });
+    });
+    e.events.on('alerted', () => a.play(big ? 'roar_giant' : e.heavy ? 'knight_effort' : 'thrall_groan', { at: e.position }));
+    e.events.on('hurt', ({ result }) => {
+      if (result === 'staggered') a.play(big ? 'roar_giant' : e.heavy ? 'knight_effort' : 'thrall_groan', { at: e.position, pitch: big ? 3 : 0, volume: 0.8 });
+    });
+  }
+
   /** Impact effects for every resolved hit (sparks on armour, ash from the burnt, parry flashes). */
   private hitFx(h: HitEvent): void {
+    this.hitSound(h);
     const back = h.info.direction.scale(-1);
     const victim = h.victim as typeof h.victim & { def?: { id: string; glow?: number[] } };
     switch (h.result) {
@@ -171,6 +232,8 @@ export class Game {
     this.pipe.build(g);
     this.humanAnims = await AnimLibrary.load(this.assets, 'human');
     this.enemies = new Enemies(this.ai, this.assets, this.charMats, this.humanAnims, this.lighting);
+    this.enemies.onSpawn = (e) => this.watchEnemy(e);
+    await this.audio.load();
     const level = this.params.get('level') ?? 'playground';
     if (level === 'sandbox' || level === 'viewer') {
       await this.applyAtmos(DEV_ATMOS);
@@ -207,6 +270,12 @@ export class Game {
     }
     await this.lighting.captureEnvironment(this.sky);
     this.pipe.exposure.reset();
+    if (a.music) {
+      void this.audio.music(a.music);
+      this.audio.setState('explore');
+    }
+    this.ambience?.stop(2);
+    this.ambience = a.ambience ? this.audio.loop(a.ambience) : null;
   }
 
   async loadLevel(id: string, checkpoint?: string): Promise<void> {
@@ -239,13 +308,38 @@ export class Game {
     await attachWeapon(this.scene, this.assets, c, 'oathkeeper', 'weapon_r', this.lighting);
     this.player = new Player(this.scene, c, this.input, this.rig, this.combat, this.clock, Vector3.Zero());
     const player = this.player;
-    player.events.on('attackStart', () => this.enemies.threatened(player));
+    player.events.on('attackStart', ({ attack }) => {
+      this.enemies.threatened(player);
+      if (attack.weight >= 0.65) this.audio.play('kael_effort', { at: player.position });
+    });
+    player.events.on('swing', ({ attack }) => this.audio.play(attack.weight >= 0.65 ? 'swing_heavy' : 'swing_light', { at: player.bladeWorld().tip }));
+    player.events.on('footstep', ({ position }) => this.audio.play(this.level?.surface(position) === 'stone' ? 'step_stone' : 'step_ash', { at: position }));
+    player.events.on('dodge', () => this.audio.play('dodge', { at: player.position }));
+    player.events.on('land', ({ heavy }) => this.audio.play('land', { at: player.position, volume: heavy ? 1 : 0.6 }));
+    player.events.on('heal', () => {
+      this.audio.play('heal', { at: player.position });
+      this.vfx.burst('heal', player.position);
+    });
+    player.events.on('perfectDodge', () => this.vfx.burst('aether', player.aimPoint(new Vector3())));
     this.trail = new BladeTrail(this.scene, 'kaelTrail');
     this.combat.events.on('hit', (h) => {
       if (h.attacker === this.player && (h.result === 'hit' || h.result === 'staggered' || h.result === 'killed')) {
         this.hud.damageNumber(h.info.point, h.info.amount, !!h.info.critical);
       }
     });
+  }
+
+  /** Explore / combat / boss music from what the enemies are doing. */
+  private updateMusic(dt: number): void {
+    this.musicCheck -= dt;
+    if (this.musicCheck > 0) return;
+    this.musicCheck = 0.5;
+    const engaged = this.enemies?.list.filter((e) => e.alive && e.engaged) ?? [];
+    if (engaged.some((e) => e.boss)) this.audio.setState('boss');
+    else if (engaged.length) {
+      this.audio.setState('combat');
+      this.audio.updateIntensity(Math.min(1, engaged.reduce((s, e) => s + (e.heavy ? 2 : 1), 0) / 5));
+    } else this.audio.setState('explore');
   }
 
   get activeCamera(): Camera {
@@ -290,13 +384,17 @@ export class Game {
     this.projectiles.update(dt);
     this.hazards.update(dt);
     this.director.update(dt);
+    this.updateMusic(dt);
     this.level?.update(dt);
     for (const u of this.updaters) u(dt);
   }
 
   /** `dt`: real seconds since the last frame; `gameDt`: game seconds simulated for it. */
   private render(dt: number, gameDt: number): void {
+    const cam = this.activeCamera;
+    this.audio.setListener(cam.globalPosition, cam.getDirection(Vector3.Forward(this.scene.useRightHandedSystem)), cam.upVector);
     this.vfx.update(gameDt);
+    this.lights.update(gameDt);
     this.ground.update(gameDt);
     this.trail?.update();
     MatEnv.time = this.clock.time;

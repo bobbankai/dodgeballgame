@@ -18,6 +18,57 @@ WebGL 2 screenshots, or tests), not just compiled.
 
 ## Log
 
+### Sessions 2–3 — shaders, Kael, combat, enemies, Ignaroth, Varn Keld (in progress)
+
+Built:
+- **Shader system** (`render/post/*`, `render/materials/*`): own post chain (6-level energy-conserving
+  bloom with lens dirt, histogram-free auto exposure, CPU-built 3D LUT grading, ACES/AgX tone map,
+  CAS sharpening, thin-lens DoF), volumetric fog with sun shadow-map light shafts, ray-marched
+  volumetric clouds, PBR material plugins (ash/snow/moss cover, wetness and puddles, dissolve,
+  animated emissive, skin, Kajiya-Kay hair, wind), a 4-layer height-blended terrain with biplanar
+  cliffs, clustered local lights (`render/LocalLights.ts`) for fires and spell flashes.
+- **Kael** built entirely by script in Blender (`tools/blender/kael.py`): MakeHuman CC0 body, SDF-
+  sculpted armour shells, Cycles bakes, composited PBR textures (procedural forged steel and
+  chainmail, `tools/tex/gen_metal.py`), hair cards, expression morphs, sockets. 52 hand-keyed clips
+  baked through an IK control rig (`kael_anims.py`) plus 8 enemy clips.
+- **Combat** (`combat/*`, `player/Player.ts`): swept blade hits, stats, attack table, parry/riposte,
+  executions, dodge i-frames, lock-on, HUD. **Motion warping** for every attacker: each attack clip's
+  real reach is measured from its animation (`anim/Reach.ts`) and the swing is steered to land.
+- **Enemy AI** (`ai/*`): Recast navmesh + Detour crowd, perception (cone, line of sight, hearing),
+  group tactics through an AI director (attack tokens, slots round the player), utility-scored
+  attacks with chains and tells, blocks/dodges, poise breaks into executable stuns, ash-dissolve
+  deaths; projectiles and telegraphed hazards (`combat/Projectiles.ts`, `combat/Hazards.ts`).
+- **Ashen enemies** (`tools/blender/enemy_build.py`, `ashen_gear.py`, `ashen_weapons.py`): Ashbound
+  Thrall, Cinder Knight, Pyre Acolyte, their weapons, and **Ignaroth** with his sword Cinderfall.
+- **Bosses** (`ai/Boss.ts`, `ai/bosses/Ignaroth.ts`): phases with roaring transitions, phase-gated
+  move sets, special moves (fire-line cleave, stomp, leaping slam, meteor rain, nova, summons).
+- **VFX** (`vfx/*`): pooled HDR particle presets on game time, Catmull-Rom blade trails, ground
+  telegraphs / shockwaves / scorch marks, falling ash, house fires, smoke columns.
+- **Environment pipeline**: `tools/blender/envkit.py` + `ashen_kit.py` (walls, ramparts, towers,
+  gatehouse, houses, chapel, stairs, rubble, dead trees, props; metric UVs, baked vertex AO,
+  collision proxies) and `world/EnvKit.ts` (thin-instanced placement, merged collider for physics
+  and navmesh), `world/TerrainBuilder.ts`, `world/Encounters.ts`.
+- **Chapter One level** `levels/AshenKingdom.ts` (`?level=ashen&at=village|gate|throne`): first
+  layout pass of Varn Keld from the Cinder Road to the Crucible Throne arena.
+
+Verified (headless screenshots / logs):
+- Playground fights against three enemies: approach, circling, token turns, telegraphs, hits on the
+  player after motion warping was added, kills with ash dissolve, Cinder Knight impact + scorch.
+
+Fixed along the way:
+- MPFB targets were silently skipped (it matches by basename, not `dir/name`): Kael's face shaping
+  had never applied. Fixed in `human.py`; Kael is being rebuilt.
+- GLBs carried bake-only vertex colours (5 MB of waste on the thrall); exporter now drops them.
+  Cloth/plate shells drop their hidden inner wall (half the UV space back).
+- Recast saw every floor upside down (Babylon's index winding); navmesh input is now flipped.
+
+Not done yet / honest gaps:
+- The Ashen level is a first layout pass: not yet verified in the running game; no Undercroft, no
+  lava fissures or rising-lava phase 3, no throne model; archers and hounds from the design are not
+  built (the roster is thrall / knight / acolyte).
+- No story cinematics, dialogue, camp, progression menus, saves, audio or mobile controls yet.
+- Chapters II–V not started.
+
 ### Session 1 — foundation
 
 Built:

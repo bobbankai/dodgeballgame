@@ -3,6 +3,8 @@ import { Level, type Atmos } from '../world/Level';
 import { TrainingDummy } from '../combat/Dummy';
 import { withLayers } from '../render/materials/SurfaceLayers';
 import { Navigation } from '../ai/Navigation';
+import { IGNAROTH } from '../ai/bosses/Ignaroth';
+import type { BossDef } from '../ai/Boss';
 import type { AbstractMesh } from '@babylonjs/core';
 
 /** Combat test arena (`?level=playground`): flat stone yard, walls, steps and training posts. */
@@ -54,8 +56,21 @@ export class Playground extends Level {
     for (const m of walk) this.own(m);
     // `?enemies=thrall,thrall,cinder_knight` spawns a test group across the yard
     const list = g.params.get('enemies');
+    const bossId = g.params.get('boss');
+    if (list || bossId) g.nav = await Navigation.build(walk);
+    const BOSSES: Record<string, BossDef> = { ignaroth: IGNAROTH };
+    if (bossId && BOSSES[bossId]) {
+      const b = await g.enemies.spawnBoss(BOSSES[bossId], new Vector3(0, 0, 13), Math.PI);
+      g.hud.showBoss({ name: b.name, title: b.title, stats: b.stats, phases: b.phases });
+      b.spawnAdds = (at, n) => {
+        for (let i = 0; i < n; i++) {
+          const a = (i / n) * Math.PI * 2;
+          void g.enemies.spawn('thrall', at.add(new Vector3(Math.sin(a) * 4, 0, Math.cos(a) * 4)), { aggro: true });
+        }
+      };
+      b.events.on('died', () => g.hud.showBoss(null));
+    }
     if (list) {
-      g.nav = await Navigation.build(walk);
       const ids = list.split(',').filter(Boolean);
       for (let i = 0; i < ids.length; i++) {
         const a = (i / ids.length) * Math.PI - Math.PI / 2;

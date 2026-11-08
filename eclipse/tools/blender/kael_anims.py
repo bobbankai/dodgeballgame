@@ -620,6 +620,127 @@ def traversal(body):
     return out
 
 
+# ----------------------------------------------------------------------------- enemies
+# Ignaroth's thralls move hunched and lurching; the Cinder Knights swing a greatsword two-handed.
+HUNCH = P(bend=26, chest=-6, head=(-14, 0, 4), neck=(10, 0, 6), pelvis=(0, 0, 10),
+          r=dict(up=(-22, 32, 14), low=(-38, 0, 0), hand=(-20, 0, 25)), l=dict(up=(-4, 48, -8), low=(-34, 0, 0), curl=0.6))
+FEET_HUNCH = {'l': ((0.16, -0.14), 12), 'r': ((-0.18, 0.15), -24)}
+# two-handed guard: both hands on the long grip, point raised toward the enemy's eyes
+GUARD2 = P(tw=-12, bend=12, pelvis=(0, 0, 20), r=dict(up=(-48, 18, 18), low=(-52, 0, 0), hand=(-30, 0, 20)),
+           l=dict(up=(-58, 12, -42), low=(-70, 0, 0), hand=(-10, 0, -10), curl=0.85, thumb=0.7))
+
+
+def enemy_clips(body):
+    out = []
+    E = lambda *a: a  # noqa: E731
+    hunched = lambda: merge(torso(bend=26, chest=-6, neck=(12, 0, 0), head=(-16, 0, 6)),  # noqa: E731
+                            arm('l', up=(12, 46, -6), low=(-22, 0, 0), curl=0.55), arm('r', up=(-6, 36, 10), low=(-28, 0, 0), hand=(-10, 0, 25), **GRIP_R))
+    # a dragging, uneven walk: short lift, long stance, heavy lean, little arm swing
+    out.append(gait('e_shamble', body, speed=1.6, period=1.2, stance=0.68, width=0.12, lift=0.05, heel=0.03, bob=0.03, low=-0.05,
+                    sway=0.035, twist=10, swing=9, lean=10, upper=hunched))
+
+    # thrall: a wild overhead chop that throws its whole body into the blow
+    out.append(action('e_slash', 30, [
+        (0, HUNCH),
+        (9, P(tw=-20, bend=-2, chest=8, pelvis=(0, 0, 6), head=(-6, 0, 4), r=dict(up=(-162, -6, 34), low=(-72, 0, 0), hand=(-36, 0, 16)),
+              l=dict(up=(-15, 52, -24), low=(-28, 0, 0), curl=0.7))),
+        (12, P(tw=8, bend=30, pelvis=(0, 0, 18), r=dict(up=(-76, 10, -4), low=(-10, 0, 0), hand=(30, 0, -10)), l=dict(up=(12, 46, 0), curl=0.7))),
+        (15, P(tw=24, bend=40, pelvis=(0, 0, 24), head=(-10, 0, 0), r=dict(up=(-26, 30, -40), low=(-10, 0, 0), hand=(36, 0, -24)), l=dict(up=(22, 46, 12), curl=0.7))),
+        (22, P(tw=18, bend=34, pelvis=(0, 0, 20), r=dict(up=(-26, 32, -34), low=(-26, 0, 0), hand=(26, 0, -20)), l=dict(up=(10, 46, 0), curl=0.6))),
+        (30, HUNCH),
+    ], feet=FEET_HUNCH, root=[(0, (0, 0, 0), 0), (9, (0, 0.04, 0), 0), (14, (0, -0.46, 0), 0), (30, (0, -0.5, 0), 0)],
+        steps={'l': [(13, (0.17, -0.5), 12, 0.08)], 'r': [(22, (-0.18, -0.12), -24, 0.04)]},
+        hips=[(0, (0, 0.01, -0.1)), (9, (0, 0.04, -0.06)), (14, (0, -0.04, -0.19)), (30, (0, 0.01, -0.1))],
+        events=[E(7, 'whoosh'), E(11, 'hit_on', {'arc': 'vertical'}), E(15, 'hit_off'), E(19, 'cancel'), E(28, 'end')], body=body))
+
+    # thrall: coil back, then spring a long way forward on a stab
+    stab = P(tw=10, bend=24, pelvis=(0, 0, 20), r=dict(up=(-86, 12, -4), low=(-4, 0, 0), hand=(10, 0, 0)), l=dict(up=(22, 50, 18), curl=0.6))
+    out.append(action('e_lunge', 38, [
+        (0, HUNCH),
+        (9, P(tw=-26, bend=32, pelvis=(0, 0, -12), head=(-12, 0, 8), r=dict(up=(-26, 40, 40), low=(-92, 0, 0), hand=(-20, 0, 30)),
+              l=dict(up=(-40, 30, -28), low=(-40, 0, 0), curl=0.6))),
+        (14, stab), (18, merge(stab, {'spine_03': (14, 0, 6)})),
+        (27, P(tw=4, bend=28, r=dict(up=(-50, 26, 6), low=(-30, 0, 0)), l=dict(up=(5, 48, -6), curl=0.6))),
+        (38, HUNCH),
+    ], feet=FEET_HUNCH, root=[(0, (0, 0, 0), 0), (9, (0, 0.1, 0), 0), (13, (0, -0.72, 0), 0), (18, (0, -1.08, 0), 0), (38, (0, -1.12, 0), 0)],
+        steps={'l': [(14, (0.17, -0.98), 12, 0.13)], 'r': [(25, (-0.18, -0.78), -24, 0.06)]},
+        hips=[(0, (0, 0.01, -0.1)), (9, (0, 0.06, -0.22)), (14, (0, -0.05, -0.2)), (38, (0, 0.01, -0.1))],
+        events=[E(8, 'whoosh'), E(12, 'hit_on', {'arc': 'thrust'}), E(18, 'hit_off'), E(26, 'cancel'), E(36, 'end')], body=body))
+
+    # knight: a slow two-handed overhead cleave that ends in the ground
+    high = P(tw=-14, bend=-14, chest=12, pelvis=(0, 0, 4), head=(-4, 0, 2), r=dict(up=(-168, -4, 30), low=(-66, 0, 0), hand=(-38, 0, 14)),
+             l=dict(up=(-162, 2, -28), low=(-76, 0, 0), hand=(-30, 0, -10), curl=0.85))
+    down = P(tw=2, bend=46, pelvis=(0, 0, 10), head=(-6, 0, 0), r=dict(up=(-38, 12, -2), low=(-4, 0, 0), hand=(48, 0, 0)),
+             l=dict(up=(-40, 14, -22), low=(-30, 0, 0), hand=(30, 0, -4), curl=0.85))
+    out.append(action('e_overhead', 56, [
+        (0, GUARD2), (16, high), (19, merge(high, {'spine_03': (-16, 0, 0)})),
+        (23, P(tw=0, bend=20, pelvis=(0, 0, 10), r=dict(up=(-112, 2, 10), low=(-18, 0, 0), hand=(14, 0, 4)),
+               l=dict(up=(-108, 6, -26), low=(-30, 0, 0), curl=0.85))),
+        (26, down), (40, merge(down, {'spine_03': (6, 0, 0), 'head': (2, 0, 0)})), (56, GUARD2),
+    ], root=[(0, (0, 0, 0), 0), (16, (0, 0.08, 0), 0), (25, (0, -0.62, 0), 0), (56, (0, -0.66, 0), 0)],
+        steps={'l': [(24, (0.21, -0.62), 14, 0.1)], 'r': [(40, (-0.17, -0.22), -28, 0.05)]},
+        hips=[(0, (0, 0.01, -0.09)), (16, (0, 0.07, -0.02)), (26, (0, -0.07, -0.24)), (40, (0, -0.05, -0.2)), (56, (0, 0.01, -0.09))],
+        events=[E(13, 'charge'), E(20, 'whoosh'), E(22, 'hit_on', {'arc': 'vertical', 'heavy': True}), E(27, 'hit_off'), E(26, 'impact', {'shake': 0.7}),
+                E(44, 'cancel'), E(54, 'end')], body=body))
+
+    # knight: crouch back, then charge in with the point leading (unblockable)
+    aim = P(tw=-22, bend=30, pelvis=(0, 0, -6), r=dict(up=(-62, 26, 30), low=(-96, 0, 0), hand=(-14, 0, 20)),
+            l=dict(up=(-52, 18, -30), low=(-88, 0, 0), hand=(-6, 0, -10), curl=0.85))
+    lance = P(tw=-6, bend=28, pelvis=(0, 0, 8), r=dict(up=(-86, 8, -2), low=(-4, 0, 0), hand=(10, 0, 0)),
+              l=dict(up=(-80, 10, -30), low=(-20, 0, 0), curl=0.85))
+    out.append(action('e_thrust', 50, [
+        (0, GUARD2), (14, aim), (19, merge(aim, {'spine_03': (6, 0, -6)})), (24, lance), (31, lance),
+        (40, P(tw=-4, bend=22, r=dict(up=(-60, 18, 8), low=(-30, 0, 0)), l=dict(up=(-56, 14, -34), low=(-60, 0, 0), curl=0.85))), (50, GUARD2),
+    ], root=[(0, (0, 0, 0), 0), (14, (0, 0.18, 0), 0), (19, (0, 0.18, 0), 0), (24, (0, -1.3, 0), 0), (31, (0, -2.1, 0), 0), (50, (0, -2.18, 0), 0)],
+        steps={'l': [(23, (0.19, -1.0), 14, 0.14), (31, (0.19, -2.0), 14, 0.1)], 'r': [(28, (-0.17, -1.6), -28, 0.12), (40, (-0.17, -1.95), -28, 0.05)]},
+        hips=[(0, (0, 0.01, -0.09)), (14, (0, 0.08, -0.24)), (24, (0, -0.06, -0.18)), (50, (0, 0.01, -0.09))],
+        events=[E(18, 'whoosh'), E(21, 'hit_on', {'arc': 'thrust', 'heavy': True}), E(31, 'hit_off'), E(42, 'cancel'), E(48, 'end')], body=body))
+
+    # stunned: down on one knee, swaying, head hanging (loops while executable)
+    kneel = merge(torso(bend=30, head=(24, 0, 0), neck=(10, 0, 0)), arm('l', up=(-10, 52, -10), low=(-30, 0, 0), curl=0.4),
+                  arm('r', up=(-30, 36, 10), low=(-30, 0, 0), hand=(30, 0, 0), **GRIP_R))
+    c = Clip('e_stun', 60, loop=True)
+    for f in range(0, 61, 10):
+        w = math.sin(2 * math.pi * f / 60)
+        c.key(f, merge(kneel, {'spine_02': (kneel['spine_02'][0], 3 * w, kneel['spine_02'][2]), 'head': (24 + 4 * w, 6 * w, 0)}))
+        c.hips(f, (0.02 * w, 0.12, -0.46 + 0.01 * w))
+    for f in (0, 60):
+        c.foot('l', f, (0.14, -0.3, body.ank), yaw=8)
+        c.foot('r', f, (-0.13, 0.42, body.ank + 0.02), pitch=60, yaw=-10)
+    out.append(c)
+
+    # executed: the riposte lands; thrown back, knees give way
+    c = Clip('e_executed', 46, loop=False, root_motion=True)
+    c.key(0, GUARD)
+    c.key(6, merge(P(tw=-24, bend=-22, chest=-10, head=(-30, 0, 12), r=dict(up=(-10, 60, 30), low=(-20, 0, 0)), l=dict(up=(-30, 40, -30), low=(-60, 0, 0)))))
+    c.key(20, merge(kneel, {'head': (-10, 0, 10), 'spine_03': (-6, 0, 0)}))
+    c.key(46, kneel)
+    for f, off in ((0, (0, 0.01, -0.08)), (6, (0, 0.08, -0.06)), (20, (0, 0.12, -0.46)), (46, (0, 0.12, -0.46))):
+        c.hips(f, off)
+    c.move(0, (0, 0, 0))
+    c.move(8, (0, 0.35, 0))
+    c.move(46, (0, 0.4, 0))
+    c.foot('l', 0, (0.17, -0.18, body.ank), yaw=14)
+    c.foot('l', 10, (0.15, 0.0, body.ank + 0.06), yaw=10)
+    c.foot('l', 18, (0.14, -0.3, body.ank), yaw=8)
+    c.foot('l', 46, (0.14, -0.3, body.ank), yaw=8)
+    c.foot('r', 0, (-0.17, 0.16, body.ank), yaw=-28)
+    c.foot('r', 20, (-0.13, 0.42, body.ank + 0.02), pitch=60, yaw=-10)
+    c.foot('r', 46, (-0.13, 0.42, body.ank + 0.02), pitch=60, yaw=-10)
+    c.event(18, 'thud', soft=True)
+    c.event(44, 'end')
+    out.append(c)
+
+    # alert: sees the player, straightens, brandishes the weapon and roars
+    roar = P(tw=-6, bend=-10, chest=12, head=(-22, 0, 0), neck=(-10, 0, 0), pelvis=(0, 0, 8),
+             r=dict(up=(-40, 10, 60), low=(-70, 0, 0), hand=(-30, 0, 30)), l=dict(up=(10, 20, -30), low=(-40, 0, 0), curl=0.9))
+    out.append(action('e_alert', 44, [
+        (0, HUNCH), (6, merge(HUNCH, {'head': (-26, 0, 8)})), (14, roar), (28, merge(roar, {'spine_03': (-14, 0, 2)})), (44, HUNCH),
+    ], feet=FEET_HUNCH, hips=[(0, (0, 0.01, -0.1)), (14, (0, 0.03, -0.04)), (44, (0, 0.01, -0.1))],
+        events=[E(12, 'roar'), E(40, 'end')], body=body))
+    return out
+
+
 def main():
     bpy.ops.wm.open_mainfile(filepath=os.path.join(WORK, 'kael.blend'))
     rig = next(o for o in bpy.data.objects if o.type == 'ARMATURE')
@@ -630,7 +751,7 @@ def main():
         bpy.data.actions.remove(act)
     body = Body(rig)
     rigger = Rigger(rig)
-    clips = locomotion(body) + idles(body) + attacks(body) + defense(body) + reactions(body) + abilities(body) + traversal(body)
+    clips = locomotion(body) + idles(body) + attacks(body) + defense(body) + reactions(body) + abilities(body) + traversal(body) + enemy_clips(body)
     if ONLY:
         clips = [c for c in clips if c.name in ONLY]
     for c in clips:
