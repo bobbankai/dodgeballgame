@@ -143,6 +143,8 @@ export class Player implements Combatant {
   update(dt: number, input: Input, cam: CameraRig, world: World): void {
     this.time += dt;
     this.tickStatus(dt);
+    // feet on the ground: full when standing or walking, lighter at a run, off in the air or mid-roll
+    if (this.char.ik) this.char.ik.weight = !this.body.grounded || this.act === 'dodge' || this.dead ? 0 : this.speed < 0.6 ? 1 : this.speed < 4.8 ? 0.7 : 0.35;
     this.invuln = Math.max(0, this.invuln - dt);
     this.parryT = Math.max(0, this.parryT - dt);
     this.combatT += dt;

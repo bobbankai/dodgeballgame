@@ -1,7 +1,8 @@
 // A rigged character: mesh + skeleton + materials + weapon sockets + face + animator.
 import * as THREE from 'three';
+import { FootIK, type GroundProbe } from '../anim/IK';
 import { loadGLTF, loadGLTFShared } from '../core/Assets';
-import { Animator, ClipLib, ClipMeta, prepareLibrary } from './Animator';
+import { Animator, ClipLib, ClipMeta, groundClips, prepareLibrary } from './Animator';
 import { setupCharacterMaterial } from './Materials';
 import type { Pipeline } from '../render/Pipeline';
 import { setFX } from '../render/MaterialFX';
@@ -13,7 +14,11 @@ export function clipLibrary(): Promise<ClipLib> {
       loadGLTFShared('assets/anims/human.glb'),
       fetch('assets/anims/human.json').then((r) => r.json() as Promise<Record<string, ClipMeta>>),
     ]);
-    return prepareLibrary(g.animations, meta);
+    const lib = prepareLibrary(g.animations, meta);
+    // put every clip's feet on the floor (retargeted clips key the pelvis at the source actor's height)
+    const shifted = groundClips(g.scene, lib.clips.values());
+    if (shifted.size) console.info('grounded clips', Object.fromEntries([...shifted].map(([k, d]) => [k, +d.toFixed(2)])));
+    return lib;
   })();
   return libPromise;
 }
@@ -233,6 +238,15 @@ export class Character {
   bladeTip: THREE.Object3D | null = null;
   height = 1.7;
   private hitFlash = 0;
+  /** feet planted on the real ground (stairs, slopes), when enabled */
+  ik: FootIK | null = null;
+
+  /** plant this character's feet on the ground the probe reports */
+  enableFootIK(probe: GroundProbe): FootIK | null {
+    const ik = new FootIK(this.bones, probe);
+    this.ik = ik.ready ? ik : null;
+    return this.ik;
+  }
 
   static async load(pipe: Pipeline, opts: CharacterOptions): Promise<Character> {
     const c = new Character();
@@ -308,10 +322,13 @@ export class Character {
 
   update(dt: number): void {
     this.gaze.restore();
+    this.ik?.restore();
     this.animator.update(dt);
     this.gaze.capture();
+    this.ik?.capture();
     this.root.updateMatrixWorld(true);
     this.gaze.apply(dt, this.root);
+    this.ik?.apply(dt, this.root);
     this.face.update(dt);
     if (this.hitFlash > 0) {
       this.hitFlash = Math.max(0, this.hitFlash - dt * 6);

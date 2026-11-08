@@ -29,6 +29,7 @@ export function prepareLibrary(anims: THREE.AnimationClip[], meta: Record<string
   const clips = new Map<string, THREE.AnimationClip>();
   const root = new Map<string, Float32Array>();
   for (const c of anims) {
+    foldRootHeight(c);
     const keep: THREE.KeyframeTrack[] = [];
     for (const tr of c.tracks) {
       if (tr.name === 'Root.position') {
@@ -52,6 +53,85 @@ export function prepareLibrary(anims: THREE.AnimationClip[], meta: Record<string
     clips.set(c.name, c);
   }
   return { clips, meta, root };
+}
+
+/**
+ * Root motion keeps only the Root bone's travel across the ground (x, z). Its height must not be lost with
+ * it: retargeted motion-capture clips carry the body's height partly on the Root (a negative offset that
+ * balances a pelvis keyed high). Fold the Root's vertical component into the pelvis track (pelvis local z is
+ * up under the Root's rotation), at the pelvis's own key times, so the body stays on the ground and genuine
+ * vertical motion (a jump, a fall) is kept. Returns the mean offset applied (m).
+ */
+export function foldRootHeight(c: THREE.AnimationClip): number {
+  const rt = c.tracks.find((t) => t.name === 'Root.position');
+  const pt = c.tracks.find((t) => t.name === 'pelvis.position');
+  if (!rt || !pt) return 0;
+  const interp = (rt as unknown as { createInterpolant(): THREE.Interpolant }).createInterpolant();
+  let sum = 0;
+  const n = pt.times.length;
+  for (let i = 0; i < n; i++) {
+    const y = interp.evaluate(Math.min(c.duration, pt.times[i]))[1];
+    pt.values[i * 3 + 2] += y;
+    sum += y;
+  }
+  return n ? sum / n : 0;
+}
+
+/** poses that do not stand on their feet (lying, sitting, kneeling, carried): never re-grounded */
+export const GROUND_SKIP = ['carried', 'death', 'down_hold', 'knockdown', 'sit_wounded', 'getup', 'getup_front', 'kneel', 'kneel_hold', 'kneel_down', 'cower'];
+
+/**
+ * Grounding: some clips (the retargeted motion capture) key the pelvis at the source actor's height, so the
+ * body hovers above the floor. Sample every clip on the library's own skeleton, find the lowest the feet and
+ * toes reach over the clip (the contact height), and shift its pelvis track so that contact matches the
+ * hand-keyed reference clip. Clips already on the ground are left alone; poses that are not standing on
+ * anything (being carried) are skipped. Returns the shift applied per clip (m) for clips that were moved.
+ */
+export function groundClips(skeletonRoot: THREE.Object3D, clips: Iterable<THREE.AnimationClip>, reference = 'idle', skip: string[] = GROUND_SKIP, tolerance = 0.04): Map<string, number> {
+  const bones = new Map<string, THREE.Object3D>();
+  skeletonRoot.traverse((o) => { if (o.name) bones.set(o.name, o); });
+  const contacts = ['foot_l', 'foot_r', 'ball_l', 'ball_r'].map((n) => bones.get(n)).filter((b): b is THREE.Object3D => !!b);
+  const shifted = new Map<string, number>();
+  if (contacts.length < 2 || !bones.get('pelvis')) return shifted;
+  // the rest pose, restored before each clip so untouched bones do not inherit the previous clip's pose
+  const rest: [THREE.Object3D, THREE.Vector3, THREE.Quaternion, THREE.Vector3][] = [];
+  skeletonRoot.traverse((o) => rest.push([o, o.position.clone(), o.quaternion.clone(), o.scale.clone()]));
+  const mixer = new THREE.AnimationMixer(skeletonRoot);
+  const v = new THREE.Vector3();
+  const list = [...clips];
+  const contactOf = (c: THREE.AnimationClip): number => {
+    for (const [o, p, q, sc] of rest) { o.position.copy(p); o.quaternion.copy(q); o.scale.copy(sc); }
+    const a = mixer.clipAction(c);
+    a.reset().play();
+    let lo = Infinity;
+    const N = 12;
+    for (let i = 0; i <= N; i++) {
+      mixer.setTime((c.duration * i) / N);
+      skeletonRoot.updateMatrixWorld(true);
+      for (const b of contacts) lo = Math.min(lo, b.getWorldPosition(v).y);
+    }
+    a.stop();
+    mixer.uncacheAction(c);
+    return lo;
+  };
+  const ref = list.find((c) => c.name === reference);
+  if (!ref) return shifted;
+  const target = contactOf(ref);
+  for (const c of list) {
+    if (c === ref || skip.includes(c.name)) continue;
+    const pt = c.tracks.find((t) => t.name === 'pelvis.position');
+    if (!pt) continue;
+    const lo = contactOf(c);
+    if (!Number.isFinite(lo)) continue;
+    const delta = target - lo;
+    if (Math.abs(delta) <= tolerance) continue;
+    // the pelvis lives under the Root, whose rotation turns its local z into world up
+    for (let i = 2; i < pt.values.length; i += 3) pt.values[i] += delta;
+    shifted.set(c.name, delta);
+  }
+  for (const [o, p, q, sc] of rest) { o.position.copy(p); o.quaternion.copy(q); o.scale.copy(sc); }
+  mixer.stopAllAction();
+  return shifted;
 }
 
 function sampleRoot(curve: Float32Array, t: number, out: THREE.Vector2): THREE.Vector2 {

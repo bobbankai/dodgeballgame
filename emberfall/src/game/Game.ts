@@ -65,6 +65,8 @@ export class Game {
   crowd: CrowdAgent[] = [];
   private playerAgent: CrowdAgent | null = null;
   private playerPrev = new THREE.Vector3();
+  /** the ground under a point (foot IK): height, and the surface normal into `n` */
+  readonly groundProbe = (x: number, y: number, z: number, n: THREE.Vector3): number | null => this.world.ground(x, y, z, 1.4, n);
   /** how well things can be seen here (1 = daylight); night levels lower it */
   envLight = 1;
   /** projectiles, burning ground and the combat log */
@@ -117,6 +119,7 @@ export class Game {
     const ch = await Character.load(this.pipe, { url: 'assets/chars/kaede.glb', weapon: 'katana', sheathed: true });
     this.pipe.scene.add(ch.root);
     this.player = new Player(ch, this);
+    ch.enableFootIK(this.groundProbe);
   }
 
   // ------------------------------------------------------------------ level lifecycle
@@ -215,6 +218,7 @@ export class Game {
       });
     }
     this.pipe.scene.add(ch.root);
+    ch.enableFootIK(this.groundProbe);
     const g = new THREE.Vector3(pos.x, (this.world.ground(pos.x, pos.y + 3, pos.z) ?? pos.y), pos.z);
     const e = new Enemy(ch, def, this, g, yaw);
     this.enemies.push(e);

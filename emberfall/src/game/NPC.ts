@@ -41,6 +41,7 @@ export class NPC {
   static async create(game: Game, o: NPCOptions): Promise<NPC> {
     const n = new NPC(game, o.name);
     n.char = await Character.load(game.pipe, { url: o.url, weapon: o.weapon ?? null, sheathed: o.sheathed, scale: o.scale });
+    n.char.enableFootIK(game.groundProbe);
     const a = n.char.animator;
     const walk = o.walk ?? 'walk_relaxed';
     const moves = [walk, o.run ?? 'run_relaxed'].filter((m) => a.has(m));

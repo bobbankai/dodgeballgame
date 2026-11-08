@@ -320,6 +320,7 @@ export class Enemy implements Combatant {
     if (this.noAI) { a.locomote(0, dt); this.sync(); return; }
     this.tickStatus(dt);
     if (this.dead) { this.sync(); return; }
+    if (this.char.ik) this.char.ik.weight = !this.body.grounded || this.state === 'evade' || this.state === 'down' || this.state === 'attack' ? 0 : this.speedNow < 0.6 ? 1 : 0.6;
 
     // ---------------- perception
     const seen = this.state === 'scripted' ? false : this.sense(dt);
