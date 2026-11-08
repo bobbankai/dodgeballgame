@@ -1,6 +1,7 @@
 // The game: owns every system and runs the frame.
 import * as THREE from 'three';
 import { Navigation } from '../ai/nav/Navigation';
+import { CombatWorld } from '../combat/CombatWorld';
 import type { CrowdAgent } from '../ai/nav/Crowd';
 import type { FXOptions } from '../render/MaterialFX';
 import type { Pipeline } from '../render/Pipeline';
@@ -66,6 +67,11 @@ export class Game {
   private playerPrev = new THREE.Vector3();
   /** how well things can be seen here (1 = daylight); night levels lower it */
   envLight = 1;
+  /** projectiles, burning ground and the combat log */
+  combat!: CombatWorld;
+  get projectiles(): CombatWorld['projectiles'] { return this.combat.projectiles; }
+  /** Kaede's planar velocity (ranged enemies lead their throws with it) */
+  get playerVelocity(): THREE.Vector3 | null { return this.playerAgent?.vel ?? null; }
   paused = false;
   /** the level's music set: exploration, combat and boss cues (crossfaded by the fight state) */
   music: { explore: string; combat: string; boss?: string } | null = null;
@@ -104,6 +110,7 @@ export class Game {
     pipe.scene.add(this.trail.mesh, this.particles.group, this.weather.group, this.levelRoot);
     this.hud.artNames = ['Ember Whirl', 'Rising Flame', 'Cinder Burst'];
     this.squad = new Squad(this);
+    this.combat = new CombatWorld(this);
   }
 
   async createPlayer(): Promise<void> {
@@ -135,6 +142,8 @@ export class Game {
     this.squad.reset();
     this.levelRoot.clear();
     this.envFx = {};
+    this.combat.clear();
+    this.player?.status.clear();
     this.nav = null;
     this.crowd = [];
     this.envLight = 1;
@@ -477,6 +486,7 @@ export class Game {
       e.update(edt, this.world);
       e.char.update(edt);
     }
+    this.combat.update(dt);
     for (const e of this.enemies.filter((x) => x.removed)) e.char.root.removeFromParent();
     this.enemies = this.enemies.filter((x) => !x.removed);
     if (p) separate([p.body, ...this.enemies.filter((e) => !e.dead).map((e) => e.body)], new Set());

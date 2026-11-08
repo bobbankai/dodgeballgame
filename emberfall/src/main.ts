@@ -3,6 +3,7 @@ import { Pipeline } from './render/Pipeline';
 import { initialQuality, QUALITY } from './render/Quality';
 import { Game, type Level } from './game/Game';
 import { Menu, loadSettings, type Settings } from './ui/Menu';
+import * as ENEMY_DEFS from './levels/enemies';
 import { LEVELS, CHAPTER_ORDER } from './levels';
 
 const params = new URLSearchParams(location.search);
@@ -110,6 +111,7 @@ async function boot(): Promise<void> {
   if (TEST) {
     pipe.adaptive = false;
     window.__game = game;
+    (window as unknown as { __defs: typeof ENEMY_DEFS }).__defs = ENEMY_DEFS;
     window.__pipe = pipe;
     window.THREE = THREE;
     const level = params.get('level') ?? CHAPTER_ORDER[0];

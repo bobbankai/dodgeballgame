@@ -15,11 +15,25 @@ import * as THREE from 'three';
 import { PathFollower } from '../ai/nav/PathFollower';
 import { avoid, type CrowdAgent } from '../ai/nav/Crowd';
 import { Perception } from '../ai/Perception';
+import { StatusEffects, inflictionOf, type StatusKind } from '../combat/Status';
+import { computeDamage, type DamageType, type Resistances } from '../combat/DamageModel';
+import type { ProjectileKind } from '../combat/Projectiles';
 import type { Character } from './Character';
 import { makeBody, type Body, type World } from './World';
 import { angleDiff, bladeSweep, inCone, type Combatant, type Hit, type HitResult } from './Combat';
 import type { Game } from './Game';
 import { setFX } from '../render/MaterialFX';
+
+/** the damage type of a hit */
+function hitType(h: Hit): DamageType {
+  switch (h.kind) {
+    case 'fire': return 'fire';
+    case 'ice': return 'frost';
+    case 'shadow': return 'shadow';
+    case 'blunt': return 'blunt';
+    default: return 'slash';
+  }
+}
 
 const senseFwd = new THREE.Vector3();
 const senseHead = new THREE.Vector3();
@@ -28,6 +42,21 @@ const senseDir = new THREE.Vector3();
 const moveDir = new THREE.Vector3();
 const crowdWish = new THREE.Vector3();
 const crowdOut = new THREE.Vector3();
+
+export interface RangedDef {
+  kind: ProjectileKind;
+  /** the throwing motion */
+  clip: string;
+  /** distance band it throws from */
+  range: [number, number];
+  cooldown: number;
+  /** fraction of the clip at which the projectile leaves the hand */
+  release?: number;
+  /** below this health fraction only */
+  phase?: number;
+  /** how keen it is to throw rather than close in (0..1) */
+  weight?: number;
+}
 
 export interface AttackDef {
   clip: string;
@@ -91,9 +120,17 @@ export interface EnemyDef {
   spacing?: number;
   /** non-lethal: health never falls below this fraction; reaching it makes the enemy yield (no finisher) */
   minHp?: number;
+  /** damage taken per type (1 normal, below 1 resists, above 1 is a weakness) */
+  resist?: Resistances;
+  /** status build-up / duration multipliers (0 = immune) */
+  statusResist?: Partial<Record<StatusKind, number>>;
+  /** what its own blows inflict (default: by weapon, slashes bleed) */
+  damageType?: DamageType;
+  /** a thrown or cast attack */
+  ranged?: RangedDef;
 }
 
-type State = 'idle' | 'investigate' | 'search' | 'return' | 'alert' | 'engage' | 'attack' | 'feint' | 'block' | 'evade' | 'roar'
+type State = 'idle' | 'investigate' | 'search' | 'return' | 'alert' | 'engage' | 'attack' | 'feint' | 'block' | 'evade' | 'roar' | 'throw'
   | 'hit' | 'stagger' | 'down' | 'getup' | 'dead' | 'scripted';
 type Move = 'hold' | 'approach' | 'slot' | 'flank' | 'backoff' | 'retreat';
 
@@ -155,6 +192,10 @@ export class Enemy implements Combatant {
   private follower: PathFollower | null = null;
   /** planar velocity actually moved last frame (for crowd avoidance) */
   readonly vel = new THREE.Vector3();
+  /** burn, bleed, frost, blight */
+  readonly status: StatusEffects;
+  private thrown = false;
+  private statusFxT = 0;
   /** this enemy as an obstacle for the crowd solver */
   readonly crowdSelf: CrowdAgent;
 
@@ -171,6 +212,8 @@ export class Enemy implements Combatant {
     char.root.position.copy(pos);
     char.root.rotation.y = yaw;
     this.strafeDir = Math.random() < 0.5 ? -1 : 1;
+    this.status = new StatusEffects(() => this.maxHp, {}, { onTrigger: (k) => { if (k === 'bleed') this.game.particles.burst('blood', this.center(), 30); } });
+    if (def.statusResist) this.status.resist = def.statusResist;
     this.perception = new Perception({ range: def.sight ?? 15, reaction: 0.75 + (1 - (def.skill ?? 0.4)) * 0.6, acuity: def.boss ? 1.3 : 1 });
     this.crowdSelf = { pos: this.body.pos, vel: this.vel, radius: this.body.radius, priority: def.boss ? 2 : (def.superArmor ?? 0) > 0.5 ? 1 : 0 };
   }
@@ -275,6 +318,8 @@ export class Enemy implements Combatant {
       return;
     }
     if (this.noAI) { a.locomote(0, dt); this.sync(); return; }
+    this.tickStatus(dt);
+    if (this.dead) { this.sync(); return; }
 
     // ---------------- perception
     const seen = this.state === 'scripted' ? false : this.sense(dt);
@@ -391,6 +436,22 @@ export class Enemy implements Combatant {
         if (a.finished) { g.squad.releaseToken(this); this.go('engage'); a.stop(0.25); this.thinkT = 0.2 + Math.random() * 0.4; }
         break;
       }
+      case 'throw': {
+        const rdef = this.def.ranged!;
+        if (!this.thrown) this.turnTo(yawP, dt, 6);
+        this.applyRoot(dt, world);
+        if (!this.thrown && a.time >= a.duration * (rdef.release ?? 0.45)) {
+          this.thrown = true;
+          const hand = this.center();
+          hand.y += 0.5;
+          hand.x += Math.sin(this.yaw) * 0.45;
+          hand.z += Math.cos(this.yaw) * 0.45;
+          g.projectiles.throwAt(rdef.kind, hand, p, g.playerVelocity, 'enemy', this);
+          g.audio.sfx(rdef.kind === 'blackfire' ? 'burst' : 'whoosh', hand, 0.7);
+        }
+        if (a.finished) { this.go('engage'); a.stop(0.2); this.thinkT = 0.3; }
+        break;
+      }
       case 'block': {
         this.turnTo(yawP, dt, 8);
         this.applyRoot(dt, world);
@@ -460,6 +521,14 @@ export class Enemy implements Combatant {
     const turtle = M.guardRate > 0.45;
     const parrier = M.parryRate > 0.3;
     const kiting = M.retreating > 0.5;
+    // a ranged attack from the right distance, with a clear line, when the cooldown allows
+    const rd = this.def.ranged;
+    if (rd && (this.cool.get('ranged') ?? 0) <= 0 && dist >= rd.range[0] && dist <= rd.range[1] && (rd.phase === undefined || hpK <= rd.phase) && visible) {
+      if (Math.random() < (rd.weight ?? 0.6) * (dist > (this.def.spacing ?? 2.6) + 2 ? 1 : 0.35) && this.clearShot()) {
+        this.startThrow(rd);
+        return true;
+      }
+    }
     let best: { kind: 'attack' | 'feint'; atk: AttackDef } | null = null;
     let bestS = 0;
     for (const atk of this.def.attacks) {
@@ -576,6 +645,7 @@ export class Enemy implements Combatant {
         want.copy(dl > dr ? l : r);
       }
     }
+    speed *= this.status.speedFactor;
     this.speedNow += (speed - this.speedNow) * Math.min(1, dt * 6);
     const before = crowdWish.copy(this.body.pos);
     world.move(this.body, want.multiplyScalar(this.speedNow * dt), dt);
@@ -718,6 +788,43 @@ export class Enemy implements Combatant {
     }
   }
 
+  private startThrow(rd: RangedDef): void {
+    this.go('throw');
+    this.thrown = false;
+    this.cool.set('ranged', rd.cooldown * (0.85 + Math.random() * 0.3));
+    this.char.animator.play(rd.clip, { fade: 0.12 });
+    this.game.squad.releaseToken(this);
+  }
+
+  /** nothing solid between hand and target */
+  private clearShot(): boolean {
+    const p = this.game.player;
+    const from = this.center();
+    from.y += 0.5;
+    const to = p.center();
+    const d = from.distanceTo(to);
+    const dir = to.sub(from).normalize();
+    return this.game.world.raycast(from, dir, d) >= d - 0.4;
+  }
+
+  /** status effects: damage ticks and their look */
+  private tickStatus(dt: number): void {
+    const dmg = this.status.update(dt);
+    if (dmg > 0 && !this.dead) {
+      this.hp -= dmg;
+      if (this.def.minHp !== undefined) this.hp = Math.max(this.hp, this.maxHp * this.def.minHp);
+      if (this.hp <= 0) this.die();
+    }
+    this.statusFxT -= dt;
+    if (this.statusFxT <= 0 && !this.dead) {
+      this.statusFxT = 0.09;
+      const c = this.center();
+      const pr = this.game.particles;
+      if (this.status.has('burn')) { pr.burst('fire', c.clone().add(new THREE.Vector3((Math.random() - 0.5) * 0.5, (Math.random() - 0.4) * 1.2, (Math.random() - 0.5) * 0.5)), 2); if (Math.random() < 0.3) pr.burst('smoke', c, 1); }
+      if (this.status.has('frost')) pr.burst('ice', c, 1, new THREE.Vector3(0, 1, 0), 0.6);
+    }
+  }
+
   private doStagger(): void {
     this.staggered = true;
     this.go('stagger');
@@ -728,11 +835,11 @@ export class Enemy implements Combatant {
 
   receive(hit: Hit): HitResult {
     if (this.dead || this.invulnerable) return 'none';
-    if (!this.aware) {
-      // backstab on an unaware enemy: heavy bonus
-      hit.damage *= 2;
-      this.alert();
-    }
+    // the damage model: type against resistance, backstab on the unaware, a counter-hit on a wind-up
+    const counter = this.state === 'attack' && !this.char.animator.after('hit');
+    const dr = computeDamage(hit.damage, hitType(hit), this.def.resist, { backstab: !this.aware, counter, scale: 1 });
+    hit.damage = dr.amount;
+    if (!this.aware) this.alert();
     const g = this.game;
     this.perception.touch(g.player.body.pos);
     g.squad.noise(this.body.pos, 12);
@@ -746,6 +853,8 @@ export class Enemy implements Combatant {
     }
     const mult = this.staggered ? 1.5 : 1;
     this.hp -= hit.damage * mult;
+    const inf = inflictionOf(hit.kind, hit.damage, hit.heavy);
+    if (inf) this.status.apply(inf.kind, inf.amount, inf.level);
     this.char.flash(1);
     this.char.face.react('pain', 0.6);
     if (this.def.minHp !== undefined) {

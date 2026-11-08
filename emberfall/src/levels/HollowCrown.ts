@@ -7,7 +7,7 @@ import type { Game, Level } from '../game/Game';
 import type { Enemy } from '../game/Enemy';
 import { NPC } from '../game/NPC';
 import { applyAtmosphere, fbm, paving, place, rand, type Atmosphere } from './common';
-import { FOOTMAN, SPEARMAN, WRAITH, BRUTE, SMITH, REN_HOLLOW, HOLLOW_KING } from './enemies';
+import { FOOTMAN, SPEARMAN, WRAITH, BRUTE, SMITH, REN_HOLLOW, HOLLOW_KING, THROWER } from './enemies';
 import { G } from '../render/MaterialFX';
 import { Valley, sstep } from './valley';
 import { ribbon, waterMesh } from '../render/Water';
@@ -299,7 +299,7 @@ export class HollowCrown implements Level {
       const a = [await spawnAt(FOOTMAN, -3, -112), await spawnAt(FOOTMAN, 4, -110), await spawnAt(SPEARMAN, 0, -104), await spawnAt(FOOTMAN, -6, -100)];
       await game.waitDefeated(a);
       await game.waitUntil(() => P.body.pos.z > -92);
-      const b = [await spawnAt(WRAITH, 5, -76), await spawnAt(WRAITH, -6, -74), await spawnAt(BRUTE, 0, -70)];
+      const b = [await spawnAt(WRAITH, 5, -76), await spawnAt(WRAITH, -6, -74), await spawnAt(BRUTE, 0, -70), await spawnAt(THROWER, -7, -62), await spawnAt(THROWER, 6, -60)];
       await game.waitDefeated(b);
     }
     // ---------------------------------------------------------------- the outer gate
@@ -311,7 +311,7 @@ export class HollowCrown implements Level {
       const g1 = [await spawnAt(SPEARMAN, -4, -46), await spawnAt(SPEARMAN, 4, -46), await spawnAt(SMITH, 0, -42)];
       await game.say('Kaede', 'The gate is open. They want me inside.', 2.2, P.char, 'determined');
       await game.waitDefeated(g1);
-      const g2 = [await spawnAt(BRUTE, 0, -40), await spawnAt(FOOTMAN, -5, -48), await spawnAt(FOOTMAN, 5, -49)];
+      const g2 = [await spawnAt(BRUTE, 0, -40), await spawnAt(FOOTMAN, -5, -48), await spawnAt(FOOTMAN, 5, -49), await spawnAt(THROWER, 0, -30)];
       await game.waitDefeated(g2);
     }
     // ---------------------------------------------------------------- the outer bailey: Ren

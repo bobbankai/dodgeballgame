@@ -6,7 +6,7 @@ import type { Game, Level } from '../game/Game';
 import type { Enemy } from '../game/Enemy';
 import { NPC } from '../game/NPC';
 import { applyAtmosphere, fbm, paving, place, rand } from './common';
-import { FOOTMAN, SPEARMAN, WRAITH, BRUTE, SMITH, FORGEMOTHER } from './enemies';
+import { FOOTMAN, SPEARMAN, WRAITH, BRUTE, SMITH, FORGEMOTHER, THROWER } from './enemies';
 import { G } from '../render/MaterialFX';
 import { Valley, sstep } from './valley';
 import { ribbon } from '../render/Water';
@@ -387,7 +387,7 @@ export class HeartForge implements Level {
       const extra = [await spawnAt(FOOTMAN, 4, 36), await spawnAt(FOOTMAN, -3, 40)];
       await game.waitDefeated([...smiths, ...extra]);
       await game.waitUntil(() => P.body.pos.z > 32);
-      const b = [await spawnAt(SPEARMAN, -4, 48), await spawnAt(SPEARMAN, 4, 50), await spawnAt(BRUTE, 0, 53)];
+      const b = [await spawnAt(SPEARMAN, -4, 48), await spawnAt(SPEARMAN, 4, 50), await spawnAt(BRUTE, 0, 53), await spawnAt(THROWER, -9, 52), await spawnAt(THROWER, 9, 51)];
       await game.waitDefeated(b);
     }
     // ---------------------------------------------------------------- the Great Forge: Ren in chains

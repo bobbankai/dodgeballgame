@@ -71,6 +71,7 @@ export const FROST_WARDEN: EnemyDef = {
   id: 'warden', name: 'The Frost Warden', model: M('hollow_brute'), weapon: 'warhammer', scale: 1.62, hp: 780, poise: 200, damage: 1.35,
   walk: 1.15, run: 3.0, idle: 'b_idle', move: ['walk', 'run'], aggression: 0.55, skill: 0.4, flank: 0, caution: 0, spacing: 3.6,
   boss: true, superArmor: 0.9, radius: 0.7, glow: [0.6, 1.5, 3.4], roar: 'b_roar',
+  resist: { fire: 1.4, frost: 0.2 }, statusResist: { frost: 0, burn: 1.5 },
   hurt: ['hit_front'], stagger: 'guard_break', death: 'death',
   attacks: [
     { clip: 'b_slam', range: [0, 3.8], damage: 34, poise: 60, heavy: true, knock: 1, cooldown: 3.6, track: 2.2, guardBreak: 2.2, aoe: 3.6 },
@@ -87,6 +88,7 @@ export const FORGEMOTHER: EnemyDef = {
   id: 'forgemother', name: 'The Forgemother', model: M('forgemother'), weapon: 'warhammer', scale: 1.3, hp: 900, poise: 230, damage: 1.4,
   walk: 1.25, run: 3.3, idle: 'b_idle', move: ['walk', 'run'], aggression: 0.6, skill: 0.5, flank: 0, caution: 0, spacing: 3.4,
   boss: true, superArmor: 0.9, radius: 0.6, glow: [3.6, 1.1, 0.22], roar: 'b_roar',
+  resist: { fire: 0.35, slash: 0.85 }, statusResist: { burn: 0.2, bleed: 0.6 },
   hurt: ['hit_front'], stagger: 'guard_break', death: 'death',
   attacks: [
     { clip: 'b_slam', range: [0, 3.6], damage: 32, poise: 60, heavy: true, knock: 1, cooldown: 3.2, track: 2.4, guardBreak: 2.2, aoe: 3.4 },
@@ -129,6 +131,9 @@ export const HOLLOW_KING: EnemyDef = {
   id: 'king', name: 'Soen, the Hollow King', model: M('hollow_king'), weapon: 'katana', scale: 1.14, hp: 1250, poise: 260, damage: 1.45,
   walk: 1.6, run: 4.4, idle: 'e_idle', move: ['walk', 'run'], aggression: 0.7, block: 0.3, skill: 0.9, flank: 0.3, caution: 0.15, spacing: 3.4,
   boss: true, superArmor: 0.6, radius: 0.5, glow: [3.2, 2.5, 1.2], roar: 'b_roar',
+  resist: { shadow: 0, fire: 0.8 }, statusResist: { blight: 0, burn: 0.5, bleed: 0.5 },
+  // phase two: bolts of black flame hurled across the courtyard
+  ranged: { kind: 'blackfire', clip: 'e_thrust', range: [5.5, 20], cooldown: 6.5, release: 0.5, phase: 0.5, weight: 0.7 },
   hurt: ['hit_front'], stagger: 'guard_break', death: 'death', blockClip: 'block_hit', evade: { back: 'dodge_back', left: 'dodge_left', right: 'dodge_right' },
   attacks: [
     { clip: 'e_slash', range: [0, 2.6], damage: 20, poise: 26, cooldown: 2.2, track: 5, chain: 'e_slash_b' },
@@ -141,6 +146,18 @@ export const HOLLOW_KING: EnemyDef = {
     { clip: 'b_slam', range: [0, 4.4], damage: 36, poise: 70, heavy: true, knock: 1, cooldown: 4.0, track: 2.6, guardBreak: 2.4, aoe: 5.2, phase: 0.5, chain: 'e_sweep' },
     { clip: 'b_charge', range: [5, 13], damage: 34, poise: 60, heavy: true, knock: 1, unblockable: true, cooldown: 7, track: 1.6, weight: 0.7, phase: 0.5 },
     { clip: 'w_flurry', range: [0, 2.6], damage: 14, poise: 14, cooldown: 3.2, track: 6, phase: 0.5 },
+  ],
+};
+
+/** a Hollow that keeps its distance and lobs pots of burning oil (they leave fire on the ground) */
+export const THROWER: EnemyDef = {
+  id: 'thrower', name: 'Hollow Firethrower', model: M('hollow_footman'), weapon: 'dagger', hp: 50, poise: 20, walk: 1.5, run: 3.4,
+  idle: 'e_idle', move: ['walk', 'run'], aggression: 0.4, block: 0.05, skill: 0.4, flank: 0.2, caution: 0.75, spacing: 9, glow: [3.0, 0.9, 0.2],
+  hurt: ['hit_front', 'hit_back'], stagger: 'guard_break', death: 'death', evade: { back: 'dodge_back' },
+  statusResist: { burn: 0.3 },
+  ranged: { kind: 'firepot', clip: 'e_slash', range: [4.5, 16], cooldown: 3.8, release: 0.42, weight: 0.85 },
+  attacks: [
+    { clip: 'e_slash', range: [0, 2.0], damage: 9, poise: 10, cooldown: 2.6, track: 5 },
   ],
 };
 

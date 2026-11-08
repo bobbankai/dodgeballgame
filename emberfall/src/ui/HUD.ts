@@ -24,6 +24,16 @@ const CSS = `
 #hud .heals { display: flex; gap: 6px; margin-top: 8px; }
 #hud .heals span { width: 14px; height: 18px; clip-path: polygon(50% 0, 100% 40%, 80% 100%, 20% 100%, 0 40%); background: linear-gradient(#ffd38a, #ff6a1a); box-shadow: 0 0 8px #ff7a2a; }
 #hud .heals span.used { background: rgba(80,60,50,.6); box-shadow: none; }
+#hud .status { display: flex; gap: 6px; margin-top: 8px; min-height: 22px; }
+#hud .status .st { position: relative; width: 22px; height: 22px; border-radius: 4px; overflow: hidden; background: rgba(10,8,8,.55); border: 1px solid rgba(255,255,255,.18); }
+#hud .status .st i { position: absolute; left: 0; right: 0; bottom: 0; transform-origin: bottom; }
+#hud .status .st b { position: absolute; inset: 0; display: grid; place-items: center; font: 600 11px/1 'Cinzel', serif; color: #fff; text-shadow: 0 1px 2px #000; }
+#hud .status .st.burn i { background: linear-gradient(#ffb347, #ff4a10); }
+#hud .status .st.bleed i { background: linear-gradient(#ff5a5a, #7a0010); }
+#hud .status .st.frost i { background: linear-gradient(#d8f4ff, #4aa8ff); }
+#hud .status .st.blight i { background: linear-gradient(#c070ff, #2a0030); }
+#hud .status .st.on { animation: stpulse .8s ease-in-out infinite alternate; }
+@keyframes stpulse { from { box-shadow: 0 0 2px rgba(255,180,120,.4); } to { box-shadow: 0 0 10px rgba(255,180,120,.9); } }
 #hud .art { position: absolute; left: max(28px, env(safe-area-inset-left)); bottom: max(28px, env(safe-area-inset-bottom)); font-family: Cinzel, serif; font-size: 15px; letter-spacing: .12em; opacity: .9; text-shadow: 0 0 8px #000; }
 #hud .art small { display: block; font-family: 'Cormorant Garamond', serif; font-size: 13px; letter-spacing: 0; opacity: .7; }
 #hud .boss { position: absolute; left: 50%; bottom: max(64px, calc(env(safe-area-inset-bottom) + 40px)); width: min(760px, 78vw); transform: translateX(-50%); opacity: 0; transition: opacity .8s; }
@@ -70,7 +80,7 @@ function el(tag: string, cls: string, parent: HTMLElement, html = ''): HTMLEleme
   return e;
 }
 
-export interface HudPlayer { hp: number; maxHp: number; ember: number; maxEmber: number; guard: number; heals: number; maxHeals: number; act: string | null; artIndex: number; artsUnlocked: number }
+export interface HudPlayer { hp: number; maxHp: number; ember: number; maxEmber: number; guard: number; heals: number; maxHeals: number; act: string | null; artIndex: number; artsUnlocked: number; status?: { view(): { kind: string; value: number; active: boolean }[] } }
 export interface HudEnemy { hp: number; maxHp: number; dead: boolean; staggered: boolean; center(out?: THREE.Vector3): THREE.Vector3; poise: number; def: { poise: number; boss?: boolean; name: string } }
 
 export class HUD {
@@ -82,6 +92,8 @@ export class HUD {
   private obj: HTMLElement; private card: HTMLElement; private fadeEl: HTMLElement; private letter: HTMLElement; private death: HTMLElement;
   stats: HTMLElement;
   private ebars: HTMLElement[] = [];
+  private statusEl!: HTMLElement;
+  private statusKey = '';
   private toastT = 0;
   bossTarget: HudEnemy | null = null;
   artNames: string[] = [];
@@ -102,6 +114,7 @@ export class HUD {
     this.guardBar = el('div', 'bar guard', bars, '<i></i>');
     this.guard = this.guardBar.querySelector('i')!;
     this.heals = el('div', 'heals', bars);
+    this.statusEl = el('div', 'status', bars);
     this.art = el('div', 'art', this.root);
     this.boss = el('div', 'boss', this.root, '<div class="name"></div><div class="bar"><b></b><i></i></div><div class="bar poise"><i></i></div>');
     this.bossName = this.boss.querySelector('.name')!;
@@ -186,6 +199,16 @@ export class HUD {
     if (this.lastHeals !== p.heals) {
       this.lastHeals = p.heals;
       this.heals.innerHTML = Array.from({ length: p.maxHeals }, (_, i) => `<span class="${i < p.heals ? '' : 'used'}"></span>`).join('');
+    }
+    // status effects: a chip each, filled by how far along it is
+    if (p.status) {
+      const v = p.status.view();
+      const key = v.map((x) => `${x.kind}${x.active ? '!' : ''}${Math.round(x.value * 20)}`).join(',');
+      if (key !== this.statusKey) {
+        this.statusKey = key;
+        const label: Record<string, string> = { burn: 'B', bleed: 'Bl', frost: 'F', blight: 'X' };
+        this.statusEl.innerHTML = v.map((x) => `<div class="st ${x.kind}${x.active ? ' on' : ''}" title="${x.kind}"><i style="height:${Math.round(x.value * 100)}%"></i><b>${label[x.kind] ?? ''}</b></div>`).join('');
+      }
     }
     const an = this.artNames[p.artIndex] ?? '';
     this.art.innerHTML = p.artsUnlocked > 0 ? `${an}<small>${p.artsUnlocked > 1 ? 'Art ' + (p.artIndex + 1) + ' of ' + p.artsUnlocked : 'Ember art'}</small>` : '';

@@ -6,6 +6,7 @@ import type { Input } from '../core/Input';
 import type { CameraRig } from './CameraRig';
 import { angleDiff, bladeSweep, inCone, yawTo, type Combatant, type Hit, type HitResult } from './Combat';
 import type { Game } from './Game';
+import { StatusEffects, inflictionOf } from '../combat/Status';
 
 type Act = 'attack' | 'heavy' | 'dodge' | 'block' | 'parry' | 'hit' | 'down' | 'getup' | 'art' | 'heal' | 'finisher' | 'interact' | 'death' | 'draw' | 'guardbreak' | 'scripted';
 
@@ -24,6 +25,9 @@ export class Player implements Combatant {
   body: Body;
   yaw = 0;
   hp = 100;
+  /** burn, bleed, frost and blight */
+  readonly status = new StatusEffects(() => this.maxHp);
+  private statusFxT = 0;
   maxHp = 100;
   ember = 0;
   maxEmber = 100;
@@ -138,6 +142,7 @@ export class Player implements Combatant {
 
   update(dt: number, input: Input, cam: CameraRig, world: World): void {
     this.time += dt;
+    this.tickStatus(dt);
     this.invuln = Math.max(0, this.invuln - dt);
     this.parryT = Math.max(0, this.parryT - dt);
     this.combatT += dt;
@@ -219,7 +224,7 @@ export class Player implements Combatant {
   private freeUpdate(dt: number, input: Input, dir: THREE.Vector3, mag: number, world: World): void {
     const a = this.char.animator;
     const sprint = input.down('sprint') && !this.lock;
-    const want = mag < 0.05 ? 0 : mag < 0.55 ? 1.6 * (mag / 0.55) : (sprint ? 6.2 : this.drawn ? 4.3 : 4.6) * Math.min(1, mag);
+    const want = (mag < 0.05 ? 0 : mag < 0.55 ? 1.6 * (mag / 0.55) : (sprint ? 6.2 : this.drawn ? 4.3 : 4.6) * Math.min(1, mag)) * this.status.speedFactor;
     this.speed += (want - this.speed) * Math.min(1, dt * (want > this.speed ? 7 : 10));
     // facing
     if (this.lock && this.drawn) {
@@ -376,7 +381,10 @@ export class Player implements Combatant {
       case 'heal': {
         if (!this.healGiven && a.after('heal')) {
           this.healGiven = true;
-          this.hp = Math.min(this.maxHp, this.hp + 45);
+          this.hp = Math.min(this.maxHp, this.hp + 45 * this.status.healFactor);
+          // the gourd's warmth puts out fire and stops bleeding
+          this.status.cure('burn');
+          this.status.cure('bleed');
           this.char.face.react('relief', 1.4);
           this.game.particles.burst('heal', this.center(), 40);
           this.game.audio.sfx('heal', this.body.pos, 0.8);
@@ -478,7 +486,7 @@ export class Player implements Combatant {
       const hit: Hit = { from: this, damage: dmg, poise, heavy, point, dir: hdir, kind: art ? 'fire' : 'slash', art, knock };
       const res = e.receive(hit);
       this.game.onHit(this, e, hit, res);
-      if (res === 'hit' || res === 'killed' || res === 'armor') this.ember = Math.min(this.maxEmber, this.ember + (art ? 2 : heavy ? 9 : 6));
+      if ((res === 'hit' || res === 'killed' || res === 'armor') && this.status.emberRegen) this.ember = Math.min(this.maxEmber, this.ember + (art ? 2 : heavy ? 9 : 6));
       if (cur === 'art_whirl') this.hitSetClearLater(e);
     }
   }
@@ -533,6 +541,8 @@ export class Player implements Combatant {
       return 'blocked';
     }
     this.hp -= hit.damage;
+    const inf = inflictionOf(hit.kind, hit.damage, hit.heavy);
+    if (inf) this.status.apply(inf.kind, inf.amount, inf.level);
     this.char.flash(0.8);
     this.char.face.react('pain', 0.8);
     this.lock = this.lock ?? (hit.from as Combatant);
@@ -545,6 +555,27 @@ export class Player implements Combatant {
       this.play('hit', back ? 'hit_back' : 'hit_front', { fade: 0.04 });
     }
     return 'hit';
+  }
+
+  /** status effects: their damage, and the look of them (flames on her, frost breath) */
+  private tickStatus(dt: number): void {
+    if (this.dead) return;
+    this.status.wet = !!this.game.envFx.wet;
+    const dmg = this.status.update(dt);
+    if (dmg > 0) {
+      this.hp -= dmg;
+      this.checkDeath();
+    }
+    this.statusFxT -= dt;
+    if (this.statusFxT <= 0) {
+      this.statusFxT = 0.08;
+      const c = this.center();
+      const pr = this.game.particles;
+      if (this.status.has('burn')) { pr.burst('fire', c.clone().add(new THREE.Vector3((Math.random() - 0.5) * 0.4, (Math.random() - 0.4) * 1.1, (Math.random() - 0.5) * 0.4)), 2); if (Math.random() < 0.3) pr.burst('smoke', c, 1); }
+      if (this.status.has('frost')) pr.burst('ice', c.clone().add(new THREE.Vector3(0, 0.4, 0)), 1, new THREE.Vector3(0, 1, 0), 0.6);
+      if (this.status.has('blight')) pr.burst('hexfire', c, 1, new THREE.Vector3(0, 1, 0), 0.5);
+      if (this.status.s.bleed.active > 0) pr.burst('blood', c, 4);
+    }
   }
 
   private checkDeath(): boolean {
@@ -564,6 +595,7 @@ export class Player implements Combatant {
     this.dead = false;
     this.hp = this.maxHp;
     this.heals = this.maxHeals;
+    this.status.clear();
     this.guard = 100;
     this.act = null;
     this.char.animator.stop(0.01);
