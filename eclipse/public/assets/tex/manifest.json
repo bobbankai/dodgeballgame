@@ -1,0 +1,652 @@
+{
+ "ash_burned_ground": {
+  "albedo": [
+   0.3844,
+   0.3351,
+   0.2856
+  ],
+  "height": false,
+  "id": "ash_burned_ground",
+  "region": "ashen",
+  "roughness": 0.519,
+  "size": 1024,
+  "src": "burned_ground_01"
+ },
+ "ash_castle_brick": {
+  "albedo": [
+   0.4584,
+   0.3093,
+   0.2112
+  ],
+  "height": false,
+  "id": "ash_castle_brick",
+  "region": "ashen",
+  "roughness": 0.875,
+  "size": 1024,
+  "src": "castle_brick_07"
+ },
+ "ash_castle_slate": {
+  "albedo": [
+   0.5414,
+   0.494,
+   0.3984
+  ],
+  "height": false,
+  "id": "ash_castle_slate",
+  "region": "ashen",
+  "roughness": 0.522,
+  "size": 1024,
+  "src": "castle_wall_slates"
+ },
+ "ash_cobble": {
+  "albedo": [
+   0.5714,
+   0.5463,
+   0.5008
+  ],
+  "height": true,
+  "id": "ash_cobble",
+  "region": "ashen",
+  "roughness": 0.578,
+  "size": 1024,
+  "src": "cobblestone_floor_08"
+ },
+ "ash_dark_rock": {
+  "albedo": [
+   0.2286,
+   0.2028,
+   0.1729
+  ],
+  "height": false,
+  "id": "ash_dark_rock",
+  "region": "ashen",
+  "roughness": 0.824,
+  "size": 1024,
+  "src": "dark_rock_02"
+ },
+ "ash_mud": {
+  "albedo": [
+   0.4515,
+   0.3554,
+   0.2419
+  ],
+  "height": false,
+  "id": "ash_mud",
+  "region": "ashen",
+  "roughness": 0.527,
+  "size": 1024,
+  "src": "brown_mud_dry"
+ },
+ "ash_plaster": {
+  "albedo": [
+   0.4936,
+   0.4372,
+   0.3366
+  ],
+  "height": false,
+  "id": "ash_plaster",
+  "region": "ashen",
+  "roughness": 0.872,
+  "size": 1024,
+  "src": "worn_cracked_plaster"
+ },
+ "ash_rock": {
+  "albedo": [
+   0.5134,
+   0.4116,
+   0.3152
+  ],
+  "height": false,
+  "id": "ash_rock",
+  "region": "ashen",
+  "roughness": 0.818,
+  "size": 1024,
+  "src": "rock_face_03"
+ },
+ "ash_roof": {
+  "albedo": [
+   0.565,
+   0.5249,
+   0.4604
+  ],
+  "height": false,
+  "id": "ash_roof",
+  "region": "ashen",
+  "roughness": 0.845,
+  "size": 1024,
+  "src": "roof_slates_02"
+ },
+ "ash_wood": {
+  "albedo": [
+   0.4511,
+   0.4065,
+   0.3627
+  ],
+  "height": false,
+  "id": "ash_wood",
+  "region": "ashen",
+  "roughness": 0.535,
+  "size": 1024,
+  "src": "medieval_wood"
+ },
+ "cloth_denim": {
+  "albedo": [
+   0.2271,
+   0.3453,
+   0.467
+  ],
+  "height": false,
+  "id": "cloth_denim",
+  "region": "chars",
+  "roughness": 0.69,
+  "size": 1024,
+  "src": "denim_fabric_03"
+ },
+ "cloth_jacquard": {
+  "albedo": [
+   0.5759,
+   0.0118,
+   0.125
+  ],
+  "height": false,
+  "id": "cloth_jacquard",
+  "region": "chars",
+  "roughness": 0.717,
+  "size": 1024,
+  "src": "quatrefoil_jacquard_fabric"
+ },
+ "cloth_leather_brown": {
+  "albedo": [
+   0.3174,
+   0.1778,
+   0.0621
+  ],
+  "height": false,
+  "id": "cloth_leather_brown",
+  "region": "chars",
+  "roughness": 0.662,
+  "size": 1024,
+  "src": "brown_leather"
+ },
+ "cloth_leather_red": {
+  "albedo": [
+   0.3105,
+   0.1731,
+   0.104
+  ],
+  "height": false,
+  "id": "cloth_leather_red",
+  "region": "chars",
+  "roughness": 0.507,
+  "size": 1024,
+  "src": "leather_red_02"
+ },
+ "cloth_leather_worn": {
+  "albedo": [
+   0.5057,
+   0.3049,
+   0.1033
+  ],
+  "height": false,
+  "id": "cloth_leather_worn",
+  "region": "chars",
+  "roughness": 0.461,
+  "size": 1024,
+  "src": "fabric_leather_02"
+ },
+ "cloth_metal_plate": {
+  "albedo": [
+   0.2407,
+   0.1958,
+   0.1098
+  ],
+  "height": false,
+  "id": "cloth_metal_plate",
+  "region": "chars",
+  "roughness": 0.589,
+  "size": 1024,
+  "src": "metal_plate"
+ },
+ "cloth_metal_plate2": {
+  "albedo": [
+   0.3303,
+   0.2849,
+   0.2414
+  ],
+  "height": false,
+  "id": "cloth_metal_plate2",
+  "region": "chars",
+  "roughness": 0.659,
+  "size": 1024,
+  "src": "metal_plate_02"
+ },
+ "cloth_rust": {
+  "albedo": [
+   0.6733,
+   0.5633,
+   0.3536
+  ],
+  "height": false,
+  "id": "cloth_rust",
+  "region": "chars",
+  "roughness": 0.423,
+  "size": 1024,
+  "src": "rusty_metal_02"
+ },
+ "cloth_weave": {
+  "albedo": [
+   0.6058,
+   0.3491,
+   0.3321
+  ],
+  "height": false,
+  "id": "cloth_weave",
+  "region": "chars",
+  "roughness": 0.64,
+  "size": 1024,
+  "src": "fabric_pattern_07"
+ },
+ "sea_coral_wall": {
+  "albedo": [
+   0.565,
+   0.5135,
+   0.4486
+  ],
+  "height": false,
+  "id": "sea_coral_wall",
+  "region": "drowned",
+  "roughness": 0.734,
+  "size": 1024,
+  "src": "coral_stone_wall"
+ },
+ "sea_damp_sand": {
+  "albedo": [
+   0.488,
+   0.3689,
+   0.2176
+  ],
+  "height": false,
+  "id": "sea_damp_sand",
+  "region": "drowned",
+  "roughness": 0.897,
+  "size": 1024,
+  "src": "damp_sand"
+ },
+ "sea_low_tide_rocks": {
+  "albedo": [
+   0.4006,
+   0.3514,
+   0.2777
+  ],
+  "height": false,
+  "id": "sea_low_tide_rocks",
+  "region": "drowned",
+  "roughness": 0.63,
+  "size": 1024,
+  "src": "low_tide_rocks"
+ },
+ "sea_mossy_cobble": {
+  "albedo": [
+   0.4657,
+   0.4217,
+   0.2992
+  ],
+  "height": false,
+  "id": "sea_mossy_cobble",
+  "region": "drowned",
+  "roughness": 0.883,
+  "size": 1024,
+  "src": "mossy_cobblestone"
+ },
+ "sea_mossy_wall": {
+  "albedo": [
+   0.3075,
+   0.2678,
+   0.1884
+  ],
+  "height": false,
+  "id": "sea_mossy_wall",
+  "region": "drowned",
+  "roughness": 0.912,
+  "size": 1024,
+  "src": "mossy_stone_wall"
+ },
+ "sea_pitted_rock": {
+  "albedo": [
+   0.7653,
+   0.6119,
+   0.4628
+  ],
+  "height": false,
+  "id": "sea_pitted_rock",
+  "region": "drowned",
+  "roughness": 0.673,
+  "size": 1024,
+  "src": "rock_pitted_mossy"
+ },
+ "sea_sand": {
+  "albedo": [
+   0.5085,
+   0.4482,
+   0.3582
+  ],
+  "height": false,
+  "id": "sea_sand",
+  "region": "drowned",
+  "roughness": 0.963,
+  "size": 1024,
+  "src": "coast_sand_01"
+ },
+ "sea_sandstone_blocks": {
+  "albedo": [
+   0.3357,
+   0.3259,
+   0.2927
+  ],
+  "height": false,
+  "id": "sea_sandstone_blocks",
+  "region": "drowned",
+  "roughness": 0.822,
+  "size": 1024,
+  "src": "large_sandstone_blocks"
+ },
+ "sea_seaworn_brick": {
+  "albedo": [
+   0.5471,
+   0.4735,
+   0.3838
+  ],
+  "height": false,
+  "id": "sea_seaworn_brick",
+  "region": "drowned",
+  "roughness": 0.769,
+  "size": 1024,
+  "src": "seaworn_sandstone_brick"
+ },
+ "sky_cliff": {
+  "albedo": [
+   0.3316,
+   0.2794,
+   0.2214
+  ],
+  "height": false,
+  "id": "sky_cliff",
+  "region": "sky",
+  "roughness": 0.958,
+  "size": 1024,
+  "src": "rock_face_04"
+ },
+ "sky_cliff_side": {
+  "albedo": [
+   0.4859,
+   0.3235,
+   0.1936
+  ],
+  "height": false,
+  "id": "sky_cliff_side",
+  "region": "sky",
+  "roughness": 0.862,
+  "size": 1024,
+  "src": "cliff_side"
+ },
+ "sky_grass_rock": {
+  "albedo": [
+   0.4462,
+   0.3812,
+   0.1434
+  ],
+  "height": false,
+  "id": "sky_grass_rock",
+  "region": "sky",
+  "roughness": 0.809,
+  "size": 1024,
+  "src": "aerial_grass_rock"
+ },
+ "sky_monastery_floor": {
+  "albedo": [
+   0.3989,
+   0.3348,
+   0.2794
+  ],
+  "height": false,
+  "id": "sky_monastery_floor",
+  "region": "sky",
+  "roughness": 0.834,
+  "size": 1024,
+  "src": "monastery_stone_floor"
+ },
+ "sky_old_stone": {
+  "albedo": [
+   0.5278,
+   0.4652,
+   0.3884
+  ],
+  "height": false,
+  "id": "sky_old_stone",
+  "region": "sky",
+  "roughness": 0.937,
+  "size": 1024,
+  "src": "old_stone_wall"
+ },
+ "sky_planks": {
+  "albedo": [
+   0.2742,
+   0.2673,
+   0.2491
+  ],
+  "height": false,
+  "id": "sky_planks",
+  "region": "sky",
+  "roughness": 0.843,
+  "size": 1024,
+  "src": "wood_planks_grey"
+ },
+ "sky_slate_tiles": {
+  "albedo": [
+   0.2269,
+   0.214,
+   0.2028
+  ],
+  "height": false,
+  "id": "sky_slate_tiles",
+  "region": "sky",
+  "roughness": 0.677,
+  "size": 1024,
+  "src": "patterned_slate_tiles"
+ },
+ "sky_snow": {
+  "albedo": [
+   0.6479,
+   0.6474,
+   0.6553
+  ],
+  "height": false,
+  "id": "sky_snow",
+  "region": "sky",
+  "roughness": 0.801,
+  "size": 1024,
+  "src": "snow_02"
+ },
+ "sun_castle_white": {
+  "albedo": [
+   0.5023,
+   0.43,
+   0.3386
+  ],
+  "height": false,
+  "id": "sun_castle_white",
+  "region": "eclipse",
+  "roughness": 0.802,
+  "size": 1024,
+  "src": "castle_brick_02_white"
+ },
+ "sun_granite": {
+  "albedo": [
+   0.305,
+   0.3067,
+   0.308
+  ],
+  "height": false,
+  "id": "sun_granite",
+  "region": "eclipse",
+  "roughness": 0.543,
+  "size": 1024,
+  "src": "granite_tile"
+ },
+ "sun_marble": {
+  "albedo": [
+   0.6957,
+   0.6151,
+   0.4767
+  ],
+  "height": false,
+  "id": "sun_marble",
+  "region": "eclipse",
+  "roughness": 0.506,
+  "size": 1024,
+  "src": "marble_01"
+ },
+ "sun_marble_cliff": {
+  "albedo": [
+   0.5869,
+   0.4456,
+   0.3591
+  ],
+  "height": false,
+  "id": "sun_marble_cliff",
+  "region": "eclipse",
+  "roughness": 0.881,
+  "size": 1024,
+  "src": "marble_cliff_02"
+ },
+ "sun_marble_tiles": {
+  "albedo": [
+   0.5486,
+   0.5056,
+   0.4465
+  ],
+  "height": false,
+  "id": "sun_marble_tiles",
+  "region": "eclipse",
+  "roughness": 0.633,
+  "size": 1024,
+  "src": "marble_tiles"
+ },
+ "sun_white_blocks": {
+  "albedo": [
+   0.7006,
+   0.642,
+   0.5635
+  ],
+  "height": false,
+  "id": "sun_white_blocks",
+  "region": "eclipse",
+  "roughness": 0.529,
+  "size": 1024,
+  "src": "white_sandstone_blocks_02"
+ },
+ "wood_bark": {
+  "albedo": [
+   0.3716,
+   0.3367,
+   0.2496
+  ],
+  "height": false,
+  "id": "wood_bark",
+  "region": "sanctuary",
+  "roughness": 0.902,
+  "size": 1024,
+  "src": "bark_brown_02"
+ },
+ "wood_forest_ground": {
+  "albedo": [
+   0.4163,
+   0.3516,
+   0.265
+  ],
+  "height": false,
+  "id": "wood_forest_ground",
+  "region": "sanctuary",
+  "roughness": 0.9,
+  "size": 1024,
+  "src": "forest_ground_04"
+ },
+ "wood_leaves": {
+  "albedo": [
+   0.5564,
+   0.4399,
+   0.2289
+  ],
+  "height": false,
+  "id": "wood_leaves",
+  "region": "sanctuary",
+  "roughness": 0.933,
+  "size": 1024,
+  "src": "forest_leaves_02"
+ },
+ "wood_moss_wood": {
+  "albedo": [
+   0.3808,
+   0.4333,
+   0.1414
+  ],
+  "height": false,
+  "id": "wood_moss_wood",
+  "region": "sanctuary",
+  "roughness": 0.514,
+  "size": 1024,
+  "src": "moss_wood"
+ },
+ "wood_mossy_brick": {
+  "albedo": [
+   0.1503,
+   0.1221,
+   0.0494
+  ],
+  "height": false,
+  "id": "wood_mossy_brick",
+  "region": "sanctuary",
+  "roughness": 0.979,
+  "size": 1024,
+  "src": "mossy_brick"
+ },
+ "wood_mossy_plaster": {
+  "albedo": [
+   0.519,
+   0.497,
+   0.4505
+  ],
+  "height": false,
+  "id": "wood_mossy_plaster",
+  "region": "sanctuary",
+  "roughness": 0.854,
+  "size": 1024,
+  "src": "worn_mossy_plasterwall"
+ },
+ "wood_mossy_rock": {
+  "albedo": [
+   0.4245,
+   0.4175,
+   0.3395
+  ],
+  "height": false,
+  "id": "wood_mossy_rock",
+  "region": "sanctuary",
+  "roughness": 0.805,
+  "size": 1024,
+  "src": "mossy_rock"
+ },
+ "wood_root_bark": {
+  "albedo": [
+   0.2972,
+   0.2642,
+   0.1947
+  ],
+  "height": false,
+  "id": "wood_root_bark",
+  "region": "sanctuary",
+  "roughness": 0.803,
+  "size": 1024,
+  "src": "knotted_pine_bark"
+ }
+}
