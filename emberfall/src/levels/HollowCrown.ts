@@ -379,7 +379,7 @@ export class HollowCrown implements Level {
       game.cam.snapBehind(0);
       game.shot({ pos: V(-7, UP + 3.2, 52), look: V(0, UP + 5, 86), fov: 44, blend: 1.4, focus: 26 });
       await game.wait(1.5);
-      game.shot({ pos: V(1.5, UP + 1.75, 75.2), look: king.center().add(V(0, 0.75, 0)), fov: 34, blend: 1.4, focus: 4.0 });
+      game.shot({ pos: V(1.5, UP + 1.7, 75.2), look: king.center().add(V(0, 0.3, 0)), fov: 34, blend: 1.4, focus: 4.0 });
       await game.say('The Hollow King', 'I kept the first Ember for forty years, girl. Do you know what it is to burn that long?', undefined, king.char, 'calm');
       await game.say('The Hollow King', 'I will light a flame that never needs keeping. Your brother\'s hands will do it.', undefined, king.char, 'smirk');
       game.shot({ pos: V(1.0, UP + 1.65, 56.4), look: P.body.pos.clone().setY(P.body.pos.y + 1.55), fov: 34, blend: 0.8, focus: 2.4 });
