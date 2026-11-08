@@ -61,6 +61,7 @@ export class Drowned implements Level {
 
   async load(game: Game): Promise<void> {
     this.game = game;
+    game.envLight = 0.6;
     applyAtmosphere(game, {
       sun: V(0.35, 0.55, -0.6), night: true, sunPower: 0.9, lightIntensity: this.moonIntensity, mie: 2.6, rayleigh: 1.0,
       tint: new THREE.Color(0.75, 0.85, 1.0), clouds: 0.92, cloudDensity: 1.0, cloudTint: new THREE.Color(0.55, 0.6, 0.7), stars: 0.2, skyGain: 0.8, env: 0.55,

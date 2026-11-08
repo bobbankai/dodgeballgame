@@ -12,11 +12,22 @@
 //  squad        attack tokens, ring slots, one perilous attack at a time, no unannounced off-screen hits
 //  steering     separation from allies, obstacle feelers against the level BVH
 import * as THREE from 'three';
+import { PathFollower } from '../ai/nav/PathFollower';
+import { avoid, type CrowdAgent } from '../ai/nav/Crowd';
+import { Perception } from '../ai/Perception';
 import type { Character } from './Character';
 import { makeBody, type Body, type World } from './World';
 import { angleDiff, bladeSweep, inCone, type Combatant, type Hit, type HitResult } from './Combat';
 import type { Game } from './Game';
 import { setFX } from '../render/MaterialFX';
+
+const senseFwd = new THREE.Vector3();
+const senseHead = new THREE.Vector3();
+const senseHips = new THREE.Vector3();
+const senseDir = new THREE.Vector3();
+const moveDir = new THREE.Vector3();
+const crowdWish = new THREE.Vector3();
+const crowdOut = new THREE.Vector3();
 
 export interface AttackDef {
   clip: string;
@@ -138,6 +149,14 @@ export class Enemy implements Combatant {
   private sGoal: THREE.Vector3 | null = null;
   private sSpeed = 1.3;
   private sDone: (() => void) | null = null;
+  /** graded awareness of the player (sight, sound, touch) */
+  readonly perception: Perception;
+  /** path following over the level's navigation grid (null when the level has none) */
+  private follower: PathFollower | null = null;
+  /** planar velocity actually moved last frame (for crowd avoidance) */
+  readonly vel = new THREE.Vector3();
+  /** this enemy as an obstacle for the crowd solver */
+  readonly crowdSelf: CrowdAgent;
 
   constructor(public char: Character, def: EnemyDef, private game: Game, pos: THREE.Vector3, yaw = 0) {
     this.def = def;
@@ -152,6 +171,8 @@ export class Enemy implements Combatant {
     char.root.position.copy(pos);
     char.root.rotation.y = yaw;
     this.strafeDir = Math.random() < 0.5 ? -1 : 1;
+    this.perception = new Perception({ range: def.sight ?? 15, reaction: 0.75 + (1 - (def.skill ?? 0.4)) * 0.6, acuity: def.boss ? 1.3 : 1 });
+    this.crowdSelf = { pos: this.body.pos, vel: this.vel, radius: this.body.radius, priority: def.boss ? 2 : (def.superArmor ?? 0) > 0.5 ? 1 : 0 };
   }
 
   center(out = new THREE.Vector3()): THREE.Vector3 { return out.set(this.body.pos.x, this.body.pos.y + this.body.height * 0.68, this.body.pos.z); }
@@ -164,6 +185,7 @@ export class Enemy implements Combatant {
 
   alert(): void {
     if (this.aware || this.dead) return;
+    this.perception.set(1, this.game.player.body.pos);
     this.aware = true;
     this.hpAtEngage = this.hp / this.maxHp;
     this.go('alert');
@@ -172,28 +194,60 @@ export class Enemy implements Combatant {
   }
 
   /** heard something at pos: turn and go look (or join the fight if the player is right there) */
-  hear(pos: THREE.Vector3): void {
+  hear(pos: THREE.Vector3, loudness = 14): void {
     if (this.dead || this.aware || this.state === 'scripted') return;
+    this.perception.hear(pos, this.center(), loudness);
     this.lastSeen.copy(pos);
     this.lastSeenT = this.time;
-    if (pos.distanceTo(this.game.player.body.pos) < 6) { this.alert(); return; }
+    if (pos.distanceTo(this.game.player.body.pos) < 6 || this.perception.state === 'alerted') { this.alert(); return; }
     this.go('investigate');
   }
 
-  private canSee(): boolean {
+  /** look for the player this frame; returns true when she is clearly seen */
+  private sense(dt: number): boolean {
     const p = this.game.player;
-    if (p.dead) return false;
+    if (p.dead) { this.perception.update(dt, null); return false; }
     const eye = this.center();
     eye.y += 0.35;
-    const tgt = p.center();
-    const d = eye.distanceTo(tgt);
-    const sight = this.def.sight ?? 13;
-    if (d > sight) return false;
-    const ang = Math.abs(angleDiff(this.yaw, Math.atan2(tgt.x - eye.x, tgt.z - eye.z)));
-    const fov = this.aware ? Math.PI : 1.15;
-    if (ang > fov && d > 3) return false;
-    const dir = tgt.clone().sub(eye).normalize();
-    return this.game.world.raycast(eye, dir, d) >= d - 0.3;
+    // aware enemies keep track of her all round (they are fighting her); calm ones look where they face
+    const fwd = senseFwd.set(Math.sin(this.yaw), 0, Math.cos(this.yaw));
+    const chest = p.center();
+    const head = senseHead.copy(chest);
+    head.y += 0.45;
+    const hips = senseHips.copy(chest);
+    hips.y -= 0.45;
+    const w = this.game.world;
+    this.perception.update(dt, {
+      eye, forward: fwd, points: [chest, head, hips], speed: p.speed, light: this.game.envLight,
+      raycast: (o, d, far) => w.raycast(o, d, far),
+    });
+    if (this.aware) {
+      const d = eye.distanceTo(chest);
+      if (d > (this.def.sight ?? 15) * 1.4) return false;
+      senseDir.copy(chest).sub(eye).normalize();
+      return w.raycast(eye, senseDir, d) >= d - 0.3;
+    }
+    return this.perception.visibility > 0.12;
+  }
+
+  /**
+   * head for a point: straight there when the way is clear, along a path around obstacles when not.
+   * Returns false once arrived.
+   */
+  private moveToward(dt: number, world: World, target: THREE.Vector3, speed: number, faceYaw: number | null, turn: number): boolean {
+    const nav = this.game.nav;
+    const dir = moveDir;
+    if (nav) {
+      this.follower ??= new PathFollower(nav, { arrive: 0.45 });
+      const m = this.follower.steer(this.body.pos, target, this.time, dir, speed > 0.01);
+      if (m === 'arrived') { this.steer(dt, world, dir.set(0, 0, 0), 0, faceYaw ?? this.yaw, turn); return false; }
+    } else {
+      dir.set(target.x - this.body.pos.x, 0, target.z - this.body.pos.z);
+      if (dir.lengthSq() < 0.2) { this.steer(dt, world, dir.set(0, 0, 0), 0, faceYaw ?? this.yaw, turn); return false; }
+      dir.normalize();
+    }
+    this.steer(dt, world, dir, speed, faceYaw ?? Math.atan2(dir.x, dir.z), turn);
+    return true;
   }
 
   update(dt: number, world: World): void {
@@ -223,17 +277,29 @@ export class Enemy implements Combatant {
     if (this.noAI) { a.locomote(0, dt); this.sync(); return; }
 
     // ---------------- perception
-    const seen = this.canSee();
+    const seen = this.state === 'scripted' ? false : this.sense(dt);
     if (seen) {
       this.lastSeen.copy(p.body.pos);
       this.lastSeenT = this.time;
       this.sinceSeen = 0;
-      if (!this.aware) this.alert();
     } else this.sinceSeen += dt;
+    if (!this.aware && this.state !== 'scripted') {
+      const pc = this.perception;
+      if (pc.state === 'alerted') this.alert();
+      else if (pc.state === 'suspicious' && (this.state === 'idle' || this.state === 'return' || this.state === 'search')) {
+        // something caught the eye: turn to it and go and look
+        const st = pc.consume();
+        this.lastSeen.copy(st ? st.pos : pc.lastKnown);
+        this.lastSeenT = this.time;
+        this.go('investigate');
+      }
+    }
     if (p.dead && this.aware) { this.aware = false; g.squad.releaseToken(this); this.go('return'); }
     // lost the player for a while: investigate the last known position
     if (this.aware && this.sinceSeen > 3.5 && (this.state === 'engage')) {
       this.aware = false;
+      // not forgotten: suspicious, hunting along a path to where she was last seen
+      this.perception.lose(0.75);
       g.squad.releaseToken(this);
       this.go('investigate');
     }
@@ -259,7 +325,10 @@ export class Enemy implements Combatant {
         const to = this.lastSeen.clone().sub(this.body.pos).setY(0);
         // memory fades: stale leads are abandoned
         if (to.length() < 1.2 || this.stateT > 12 || this.time - this.lastSeenT > 25) { this.go('search'); this.searchT = 0; break; }
-        this.steer(dt, world, to.normalize(), this.def.walk, Math.atan2(to.x, to.z), 4);
+        // a moment's pause to turn towards it first, then walk (faster when more certain)
+        if (this.stateT < 0.5) { this.turnTo(Math.atan2(to.x, to.z), dt, 5); a.locomote(0, dt); break; }
+        const sp = this.def.walk * (1 + this.perception.certainty * 0.5);
+        if (!this.moveToward(dt, world, this.lastSeen, sp, null, 4)) { this.go('search'); this.searchT = 0; }
         break;
       }
       case 'search': {
@@ -272,8 +341,7 @@ export class Enemy implements Combatant {
       }
       case 'return': {
         const to = this.home.clone().sub(this.body.pos).setY(0);
-        if (to.length() < 0.8) { this.go('idle'); a.locomote(0, dt); break; }
-        this.steer(dt, world, to.normalize(), this.def.walk, Math.atan2(to.x, to.z), 4);
+        if (to.length() < 0.8 || !this.moveToward(dt, world, this.home, this.def.walk, null, 4)) { this.go('idle'); a.locomote(0, dt); break; }
         break;
       }
       case 'alert': {
@@ -451,18 +519,18 @@ export class Enemy implements Combatant {
     let speed = 0;
     switch (this.move) {
       case 'approach':
-        dir.copy(toP);
-        speed = dist > spacing + 5 ? this.def.run : this.def.walk;
-        break;
+        // around obstacles when the way is not clear; face the player only once close
+        this.moveToward(dt, world, p.body.pos, dist > spacing + 5 ? this.def.run : this.def.walk, dist < spacing + 3 ? yawP : null, 5);
+        return;
       case 'slot':
       case 'flank': {
         let ang = this.game.squad.slotFor(this);
         if (this.move === 'flank' || ang === null) ang = p.yaw + Math.PI * (this.strafeDir > 0 ? 0.6 : -0.6);
         const ring = spacing + 0.4;
         const target = new THREE.Vector3(p.body.pos.x + Math.sin(ang) * ring, 0, p.body.pos.z + Math.cos(ang) * ring);
-        const to = target.sub(this.body.pos).setY(0);
-        const d = to.length();
-        if (d > 0.4) { dir.copy(to.normalize()); speed = d > 3 ? this.def.run * 0.7 : this.def.walk * 0.75; }
+        target.y = p.body.pos.y;
+        const d = Math.hypot(target.x - this.body.pos.x, target.z - this.body.pos.z);
+        if (d > 0.4) { this.moveToward(dt, world, target, d > 3 ? this.def.run * 0.7 : this.def.walk * 0.75, d < 3 ? yawP : null, 5); return; }
         break;
       }
       case 'backoff':
@@ -488,13 +556,14 @@ export class Enemy implements Combatant {
   /** steering: separation from allies + obstacle feelers; faces `faceYaw` */
   private steer(dt: number, world: World, dir: THREE.Vector3, speed: number, faceYaw: number, turn: number): void {
     const want = dir.clone();
-    // separation
-    for (const o of this.game.enemies) {
-      if (o === this || o.dead) continue;
-      const d = this.body.pos.distanceTo(o.body.pos);
-      if (d < 1.8 && d > 1e-3) want.add(this.body.pos.clone().sub(o.body.pos).setY(0).multiplyScalar((1.8 - d) / d * 0.9));
+    // crowd avoidance: allies (and Kaede) are moving obstacles; pick the velocity nearest the wish that does
+    // not walk into anyone
+    if (speed > 0.01 && want.lengthSq() > 1e-6) {
+      const others = this.game.crowd;
+      const v = avoid(this.crowdSelf, crowdWish.copy(want).multiplyScalar(speed), others, crowdOut, { horizon: 1.2, range: 5 });
+      const vs = Math.hypot(v.x, v.z);
+      if (vs > 1e-3) { want.set(v.x / vs, 0, v.z / vs); speed = vs; } else speed = 0;
     }
-    if (want.lengthSq() > 1e-6) want.normalize();
     // feelers: avoid walking into walls (try the freer side)
     if (speed > 0.01 && want.lengthSq() > 0) {
       const eye = this.body.pos.clone();
@@ -508,7 +577,9 @@ export class Enemy implements Combatant {
       }
     }
     this.speedNow += (speed - this.speedNow) * Math.min(1, dt * 6);
+    const before = crowdWish.copy(this.body.pos);
     world.move(this.body, want.multiplyScalar(this.speedNow * dt), dt);
+    if (dt > 0) this.vel.set((this.body.pos.x - before.x) / dt, 0, (this.body.pos.z - before.z) / dt);
     this.turnTo(faceYaw, dt, turn);
     this.char.animator.locomote(this.speedNow, dt);
   }
@@ -663,6 +734,7 @@ export class Enemy implements Combatant {
       this.alert();
     }
     const g = this.game;
+    this.perception.touch(g.player.body.pos);
     g.squad.noise(this.body.pos, 12);
     const facing = Math.abs(angleDiff(this.yaw, Math.atan2(-hit.dir.x, -hit.dir.z))) < 1.2;
     if (this.state === 'block' && facing && !hit.art) {

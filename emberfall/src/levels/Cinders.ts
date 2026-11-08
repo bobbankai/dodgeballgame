@@ -112,6 +112,7 @@ export class Cinders implements Level {
 
   async load(game: Game): Promise<void> {
     this.game = game;
+    game.envLight = 0.9;
     // dusk: the sun just above the western ridge, smoke over everything
     applyAtmosphere(game, {
       sun: V(-0.8, 0.24, 0.45), sunPower: 20, lightIntensity: 3.6, mie: 1.8, rayleigh: 1.15, ozone: 1.1,

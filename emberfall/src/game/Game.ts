@@ -1,5 +1,7 @@
 // The game: owns every system and runs the frame.
 import * as THREE from 'three';
+import { Navigation } from '../ai/nav/Navigation';
+import type { CrowdAgent } from '../ai/nav/Crowd';
 import type { FXOptions } from '../render/MaterialFX';
 import type { Pipeline } from '../render/Pipeline';
 import { Input } from '../core/Input';
@@ -54,6 +56,16 @@ export class Game {
   levelRoot = new THREE.Group();
   /** weather features every environment material of the current level gets (wet, snow) */
   envFx: FXOptions = {};
+  /** the level's navigation grid (built after the level's collision) */
+  nav: Navigation | null = null;
+  private navBounds: THREE.Vector2[] | null = null;
+  private navPrepT = 0;
+  /** everyone the crowd solver steers around this frame (the enemies and Kaede) */
+  crowd: CrowdAgent[] = [];
+  private playerAgent: CrowdAgent | null = null;
+  private playerPrev = new THREE.Vector3();
+  /** how well things can be seen here (1 = daylight); night levels lower it */
+  envLight = 1;
   paused = false;
   /** the level's music set: exploration, combat and boss cues (crossfaded by the fight state) */
   music: { explore: string; combat: string; boss?: string } | null = null;
@@ -108,6 +120,8 @@ export class Game {
     this.checkpoint = checkpoint;
     await level.load(this);
     this.world.build();
+    this.nav = Navigation.forWorld(this.world);
+    this.navBounds = this.world.bounds;
     this.save();
     void level.run(this, checkpoint).catch((e) => console.error(e));
   }
@@ -121,6 +135,9 @@ export class Game {
     this.squad.reset();
     this.levelRoot.clear();
     this.envFx = {};
+    this.nav = null;
+    this.crowd = [];
+    this.envLight = 1;
     this.pipe.haze.sources = [];
     for (const m of this.pipe.mirrors) m.dispose();
     this.pipe.mirrors = [];
@@ -454,6 +471,7 @@ export class Game {
       p.char.update(pdt);
     }
     if (p) this.squad.update(dt);
+    this.updateNav(dt);
     for (const e of this.enemies) {
       const edt = dt * this.time.charScale(e.char);
       e.update(edt, this.world);
@@ -500,4 +518,31 @@ export class Game {
   }
 
   onPause: (() => void) | null = null;
+
+  /** navigation upkeep: re-sample after a bounds change, warm tiles round the fighters, refresh the crowd */
+  private updateNav(dt: number): void {
+    const p = this.player;
+    if (this.nav) {
+      if (this.world.bounds !== this.navBounds) {
+        this.navBounds = this.world.bounds;
+        this.nav.invalidateAll();
+      }
+      this.navPrepT -= dt;
+      if (this.navPrepT <= 0) {
+        this.navPrepT = 0.5;
+        if (p) this.nav.prepare(p.body.pos, 18);
+        for (const e of this.enemies) if (!e.dead) this.nav.prepare(e.body.pos, 10);
+      }
+      this.nav.update(1.2);
+    }
+    // the crowd: enemies plus Kaede (a high-priority agent: they step round her, not she round them)
+    this.crowd.length = 0;
+    for (const e of this.enemies) if (!e.dead) this.crowd.push(e.crowdSelf);
+    if (p) {
+      if (!this.playerAgent || this.playerAgent.pos !== p.body.pos) this.playerAgent = { pos: p.body.pos, vel: new THREE.Vector3(), radius: p.body.radius, priority: 3 };
+      if (dt > 0) this.playerAgent.vel.set((p.body.pos.x - this.playerPrev.x) / dt, 0, (p.body.pos.z - this.playerPrev.z) / dt);
+      this.playerPrev.copy(p.body.pos);
+      this.crowd.push(this.playerAgent);
+    }
+  }
 }

@@ -102,6 +102,7 @@ export class HeartForge implements Level {
 
   async load(game: Game): Promise<void> {
     this.game = game;
+    game.envLight = 0.8;
     applyAtmosphere(game, {
       // a cool, ash-veiled moon against the warm light of the lava: the two temperatures keep the crater legible
       sun: V(-0.3, 0.42, 0.6), night: true, sunPower: 1.0, lightIntensity: 0.6, mie: 3.0, rayleigh: 0.6,

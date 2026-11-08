@@ -95,6 +95,7 @@ export class HollowCrown implements Level {
 
   async load(game: Game): Promise<void> {
     this.game = game;
+    game.envLight = 0.65;
     applyAtmosphere(game, NIGHT);
     G.uWind.value.set(0.8, 0.2, 0.5, 0.2);
     game.envFx = {};

@@ -45,6 +45,7 @@ export class Frostwake implements Level {
 
   async load(game: Game): Promise<void> {
     this.game = game;
+    game.envLight = 0.7;
     applyAtmosphere(game, {
       sun: V(0.3, 0.42, -0.55), sunPower: 14, lightIntensity: 1.9, mie: 3.2, rayleigh: 0.8,
       tint: new THREE.Color(0.92, 0.96, 1.05), zenith: new THREE.Color(0.85, 0.9, 1.0), clouds: 0.9, cloudDensity: 1.0, cloudTint: new THREE.Color(0.85, 0.88, 0.95), skyGain: 1.1, env: 1.25,
