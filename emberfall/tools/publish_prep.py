@@ -63,17 +63,28 @@ for f in os.listdir(tex):
 print('textures removed', removed)
 
 # ---- models: no meshopt compression
-for f in glob.glob(os.path.join(site, 'assets', '**', '*.glb'), recursive=True):
+LIMIT = 15.5e6  # the host's per-file limit is 16 MB; leave room
+
+
+def repack(f, simplify=None):
+    """repack one model from its source in public/ (geometry stays quantized; optionally simplified)"""
+    src = os.path.join(EMB, 'public', os.path.relpath(f, site))
+    if not os.path.exists(src):
+        src = f
     tmp = f + '.plain.glb'
     extra = ['-ac'] if 'anims' in f else []
-    # the one model whose dense armour pushes it past the host's 16 MB file limit: lighter geometry here
-    if os.path.basename(f) == 'hollow_footman.glb':
-        extra += ['-si', '0.6']
-    r = subprocess.run(['npx', 'gltfpack', '-i', f, '-o', tmp, '-kn', '-km', '-ke', '-kv', '-vtf', *extra], cwd=ROOT, capture_output=True, text=True)
+    if simplify:
+        extra += ['-si', str(simplify)]
+    r = subprocess.run(['npx', 'gltfpack', '-i', src, '-o', tmp, '-kn', '-km', '-ke', '-kv', '-vtf', *extra], cwd=ROOT, capture_output=True, text=True)
     if r.returncode != 0 or not os.path.exists(tmp):
         print('repack failed', f, r.stderr[-300:])
-        continue
+        return False
     os.replace(tmp, f)
+    return True
+
+
+for f in glob.glob(os.path.join(site, 'assets', '**', '*.glb'), recursive=True):
+    repack(f)
 print('models repacked')
 
 def shrink_images(j, binc, maxdim):
@@ -106,7 +117,9 @@ def shrink_images(j, binc, maxdim):
 
 # ---- the host doesn't serve .glb: ship each model as JSON glTF with its binary chunk embedded (base64)
 import base64
-for f in glob.glob(os.path.join(site, 'assets', '**', '*.glb'), recursive=True):
+
+
+def to_json(f):
     b = open(f, 'rb').read()
     jl = struct.unpack('<I', b[12:16])[0]
     j = json.loads(b[20:20 + jl])
@@ -114,11 +127,24 @@ for f in glob.glob(os.path.join(site, 'assets', '**', '*.glb'), recursive=True):
     if rest:
         bl = struct.unpack('<I', rest[0:4])[0]
         binc = rest[8:8 + bl]
-        if len(binc) * 4 / 3 > 14.5e6:
+        if len(binc) * 4 / 3 > LIMIT * 0.93:
             j, binc = shrink_images(j, binc, 1024)
         j['buffers'][0]['uri'] = 'data:application/octet-stream;base64,' + base64.b64encode(binc).decode()
+    return json.dumps(j, separators=(',', ':'))
+
+
+for f in glob.glob(os.path.join(site, 'assets', '**', '*.glb'), recursive=True):
+    txt = to_json(f)
+    # too big for the host: simplify the geometry from the source, a step at a time, until it fits
+    for si in (0.7, 0.55, 0.4):
+        if len(txt) <= LIMIT or 'anims' in f:
+            break
+        print('simplifying', os.path.basename(f), round(len(txt) / 1e6, 1), 'MB at', si)
+        if not repack(f, si):
+            break
+        txt = to_json(f)
     with open(f[:-4] + '.gltf.json', 'w') as o:
-        json.dump(j, o, separators=(',', ':'))
+        o.write(txt)
     os.remove(f)
 print('models converted to JSON glTF')
 
