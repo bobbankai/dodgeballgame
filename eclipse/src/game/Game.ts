@@ -24,6 +24,16 @@ import { attachWeapon } from '../character/Weapons';
 import type { Level, Atmos } from '../world/Level';
 import { createLevel } from '../levels/registry';
 import { HUD } from '../ui/HUD';
+import { Vfx } from '../vfx/Vfx';
+import { GroundFx } from '../vfx/GroundFx';
+import { BladeTrail } from '../vfx/BladeTrail';
+import { Projectiles } from '../combat/Projectiles';
+import { Hazards } from '../combat/Hazards';
+import { AiDirector } from '../ai/AiDirector';
+import type { Navigation } from '../ai/Navigation';
+import type { AiContext } from '../ai/Enemy';
+import { Enemies } from '../ai/Enemies';
+import type { HitEvent } from '../combat/CombatWorld';
 
 /**
  * Top-level owner of every system. One scene for the whole game: levels stream their content into
@@ -47,6 +57,16 @@ export class Game {
   readonly combat = new CombatWorld();
   readonly charMats: CharacterMaterials;
   readonly hud: HUD;
+  readonly vfx: Vfx;
+  readonly ground: GroundFx;
+  readonly projectiles: Projectiles;
+  readonly hazards: Hazards;
+  readonly director = new AiDirector();
+  readonly ai: AiContext;
+  /** The current level's navmesh and crowd (null in levels without enemies). */
+  nav: Navigation | null = null;
+  enemies!: Enemies;
+  private trail: BladeTrail | null = null;
   humanAnims!: AnimLibrary;
   player: Player | null = null;
   level: Level | null = null;
@@ -83,6 +103,45 @@ export class Game {
     this.rig = new CameraRig(this.camera, physics);
     this.rig.shakeScale = settings.data.access.cameraShake;
     this.hud = new HUD(scene, document.getElementById('ui')!);
+    this.vfx = new Vfx(scene);
+    this.ground = new GroundFx(scene);
+    this.projectiles = new Projectiles(scene, this.combat, physics, this.vfx);
+    this.hazards = new Hazards(this.combat, this.vfx, this.ground);
+    // eslint-disable-next-line @typescript-eslint/no-this-alias
+    const game = this;
+    this.ai = {
+      scene, world: this.combat, director: this.director, physics, vfx: this.vfx, ground: this.ground,
+      projectiles: this.projectiles, hazards: this.hazards,
+      get nav() { return game.nav; },
+      player: () => game.player,
+    };
+    this.combat.events.on('hit', (h) => this.hitFx(h));
+  }
+
+  /** Impact effects for every resolved hit (sparks on armour, ash from the burnt, parry flashes). */
+  private hitFx(h: HitEvent): void {
+    const back = h.info.direction.scale(-1);
+    const victim = h.victim as typeof h.victim & { def?: { id: string; glow?: number[] } };
+    switch (h.result) {
+      case 'hit':
+      case 'staggered':
+      case 'killed': {
+        if (h.info.ranged) break;
+        const burnt = victim.def?.glow !== undefined && !victim.heavy;
+        this.vfx.burst(burnt ? 'ash' : 'sparks', h.info.point, back, h.result === 'hit' ? 1 : 1.4);
+        if (h.result === 'staggered') this.vfx.burst('sparks', h.info.point, back, 1.6);
+        break;
+      }
+      case 'blocked':
+        this.vfx.burst('blocked', h.info.point, back);
+        break;
+      case 'parried':
+      case 'guardbreak':
+        this.vfx.burst('parry', h.info.point, back);
+        break;
+      default:
+        break;
+    }
   }
 
   static async create(canvas: HTMLCanvasElement, params: URLSearchParams): Promise<Game> {
@@ -111,6 +170,7 @@ export class Game {
     this.sky.cloudSteps = { low: 0, medium: 14, high: 24, ultra: 40 }[g.preset];
     this.pipe.build(g);
     this.humanAnims = await AnimLibrary.load(this.assets, 'human');
+    this.enemies = new Enemies(this.ai, this.assets, this.charMats, this.humanAnims, this.lighting);
     const level = this.params.get('level') ?? 'playground';
     if (level === 'sandbox' || level === 'viewer') {
       await this.applyAtmos(DEV_ATMOS);
@@ -151,6 +211,13 @@ export class Game {
 
   async loadLevel(id: string, checkpoint?: string): Promise<void> {
     if (this.level) {
+      this.enemies.clear();
+      this.projectiles.clear();
+      this.hazards.clear();
+      this.ground.clear();
+      this.director.clear();
+      this.nav?.dispose();
+      this.nav = null;
       this.level.dispose();
       await this.assets.releaseScope(this.level.scope);
       this.physics.clearLevel();
@@ -171,6 +238,9 @@ export class Game {
     for (const m of c.meshes) this.lighting.addCaster(m, false);
     await attachWeapon(this.scene, this.assets, c, 'oathkeeper', 'weapon_r', this.lighting);
     this.player = new Player(this.scene, c, this.input, this.rig, this.combat, this.clock, Vector3.Zero());
+    const player = this.player;
+    player.events.on('attackStart', () => this.enemies.threatened(player));
+    this.trail = new BladeTrail(this.scene, 'kaelTrail');
     this.combat.events.on('hit', (h) => {
       if (h.attacker === this.player && (h.result === 'hit' || h.result === 'staggered' || h.result === 'killed')) {
         this.hud.damageNumber(h.info.point, h.info.amount, !!h.info.critical);
@@ -199,7 +269,7 @@ export class Game {
     const n = this.paused ? 0 : this.clock.accumulate(realDt);
     for (let i = 0; i < n; i++) this.step(Clock.STEP);
     this.fps = this.fps * 0.95 + (realDt > 0 ? 1 / realDt : 0) * 0.05;
-    this.render(realDt);
+    this.render(realDt, n * Clock.STEP);
   }
 
   private step(dt: number): void {
@@ -209,12 +279,26 @@ export class Game {
     if (this.player) {
       this.player.update(dt);
       this.rig.update(dt, { pivot: this.player.position.add(new Vector3(0, 1.45, 0)) }, this.input.look);
+      if (this.trail) {
+        this.trail.emitting = this.player.swinging;
+        const b = this.player.bladeWorld();
+        this.trail.sample(b.base, b.tip, dt);
+      }
     }
+    this.nav?.update(dt);
+    this.enemies?.update(dt);
+    this.projectiles.update(dt);
+    this.hazards.update(dt);
+    this.director.update(dt);
     this.level?.update(dt);
     for (const u of this.updaters) u(dt);
   }
 
-  private render(dt: number): void {
+  /** `dt`: real seconds since the last frame; `gameDt`: game seconds simulated for it. */
+  private render(dt: number, gameDt: number): void {
+    this.vfx.update(gameDt);
+    this.ground.update(gameDt);
+    this.trail?.update();
     MatEnv.time = this.clock.time;
     MatEnv.sunDir.copyFrom(this.lighting.toSun);
     this.lighting.sun.diffuse.scaleToRef(this.lighting.sun.intensity, MatEnv.sunColor);
@@ -238,7 +322,7 @@ export class Game {
     // its command buffers in endFrame).
     const engine = this.host.engine;
     engine.beginFrame();
-    this.render(seconds);
+    this.render(seconds, steps * Clock.STEP);
     engine.endFrame();
   }
 }

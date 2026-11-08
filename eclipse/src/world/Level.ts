@@ -24,7 +24,16 @@ export abstract class Level {
     return `level:${this.id}`;
   }
 
+  /** Everything the level created that must go when it unloads (meshes, materials, lights...). */
+  private owned: { dispose(): void }[] = [];
+
   constructor(protected game: Game) {}
+
+  /** Registers something for disposal with the level; returns it for chaining. */
+  protected own<T extends { dispose(): void }>(x: T): T {
+    this.owned.push(x);
+    return x;
+  }
 
   /** Build the scenery and systems. `checkpoint` names where to start. */
   abstract load(checkpoint?: string): Promise<void>;
@@ -37,5 +46,8 @@ export abstract class Level {
   /** Called every fixed step while the level is active. */
   update(_dt: number): void {}
 
-  dispose(): void {}
+  dispose(): void {
+    for (let i = this.owned.length - 1; i >= 0; i--) this.owned[i].dispose();
+    this.owned = [];
+  }
 }

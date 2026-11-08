@@ -2,6 +2,8 @@ import { Color3, CreateBox, CreateGround, Vector3 } from '@babylonjs/core';
 import { Level, type Atmos } from '../world/Level';
 import { TrainingDummy } from '../combat/Dummy';
 import { withLayers } from '../render/materials/SurfaceLayers';
+import { Navigation } from '../ai/Navigation';
+import type { AbstractMesh } from '@babylonjs/core';
 
 /** Combat test arena (`?level=playground`): flat stone yard, walls, steps and training posts. */
 export class Playground extends Level {
@@ -12,12 +14,14 @@ export class Playground extends Level {
   async load(): Promise<void> {
     const g = this.game;
     const scene = g.scene;
+    const walk: AbstractMesh[] = [];
     const ground = CreateGround('yard', { width: 80, height: 80, subdivisions: 2 }, scene);
     const gm = g.mats.surface({ set: 'ash_cobble', tile: 30 }).clone('yardMat');
     withLayers(gm, { porosity: 0.8, allowPuddles: true });
     ground.material = gm;
     g.lighting.addStatic(ground, false);
     g.physics.addStaticMesh(ground);
+    walk.push(ground);
     const wallMat = g.mats.surface({ set: 'ash_castle_brick', tile: 2 });
     for (const [x, z, w, d] of [[0, -20, 40, 1.5], [0, 20, 40, 1.5], [-20, 0, 1.5, 40], [20, 0, 1.5, 40]] as const) {
       const wall = CreateBox('wall', { width: w, depth: d, height: 4 }, scene);
@@ -25,6 +29,7 @@ export class Playground extends Level {
       wall.material = wallMat;
       g.lighting.addStatic(wall);
       g.physics.addStaticMesh(wall);
+      walk.push(wall);
     }
     // steps and a raised platform for jumps and landings
     for (let i = 0; i < 6; i++) {
@@ -33,16 +38,30 @@ export class Playground extends Level {
       step.material = wallMat;
       g.lighting.addStatic(step);
       g.physics.addStaticMesh(step);
+      walk.push(step);
     }
     const plat = CreateBox('platform', { width: 6, depth: 6, height: 1.8 }, scene);
     plat.position.set(10, 0.9, -1.4);
     plat.material = wallMat;
     g.lighting.addStatic(plat);
     g.physics.addStaticMesh(plat);
+    walk.push(plat);
     for (const p of [new Vector3(0, 0, 6), new Vector3(-3, 0, 8), new Vector3(3, 0, 8)]) {
       const d = new TrainingDummy(scene, g.combat, g.mats, p);
       g.lighting.addStatic(d.mesh);
       this.dummies.push(d);
+    }
+    for (const m of walk) this.own(m);
+    // `?enemies=thrall,thrall,cinder_knight` spawns a test group across the yard
+    const list = g.params.get('enemies');
+    if (list) {
+      g.nav = await Navigation.build(walk);
+      const ids = list.split(',').filter(Boolean);
+      for (let i = 0; i < ids.length; i++) {
+        const a = (i / ids.length) * Math.PI - Math.PI / 2;
+        const at = new Vector3(Math.sin(a) * 7, 0, 12 + Math.cos(a) * 3);
+        await g.enemies.spawn(ids[i], at, { yaw: Math.PI });
+      }
     }
   }
 

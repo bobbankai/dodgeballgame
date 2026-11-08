@@ -12,6 +12,7 @@ import type { Clock } from '../core/Clock';
 import type { ClipEvent } from '../anim/Clip';
 import { WEAPONS, type WeaponSpec } from '../character/Weapons';
 import { EventBus } from '../core/Events';
+import { measureReach, type Reach } from '../anim/Reach';
 
 export type PlayerState =
   | 'move' | 'air' | 'land' | 'attack' | 'charge' | 'dodge' | 'block' | 'blockHit' | 'parry' | 'hitstun'
@@ -100,6 +101,10 @@ export class Player implements Combatant {
   private tmp = new Vector3();
   private time = 0;
   private lastFoot = 0;
+  /** Attack magnetism (motion warping toward the chosen target through the wind-up). */
+  private warpTarget: Combatant | null = null;
+  private warpReach: Reach | null = null;
+  private warpEnd = 0;
 
   constructor(readonly scene: Scene, readonly char: Character, private input: Input, private rig: CameraRig,
     private world: CombatWorld, private clock: Clock, start: Vector3) {
@@ -395,6 +400,7 @@ export class Player implements Combatant {
       // keep a little of the momentum the player had, then let root motion own the move
       this.vel.scaleInPlace(Math.exp(-dt * 10));
       desired.addInPlace(this.vel.scale(0.3));
+      desired.addInPlace(this.attackWarp(dt));
     }
     const cur = ctrl.getVelocity();
     let out: Vector3;
@@ -520,22 +526,28 @@ export class Player implements Combatant {
     this.swingHits.clear();
     this.armour = !!def.armour;
     // snap towards the target (or the stick) at the start: attacks go where the player means
+    this.warpTarget = null;
     if (victim) {
       const to = victim.position.subtract(this.position);
       this.char.yaw = Math.atan2(to.x, to.z);
       (victim as Combatant & { beginExecution?: (by: Combatant) => void }).beginExecution?.(this);
+      this.warpTarget = victim;
     } else if (this.target && Vector3.Distance(this.target.position, this.position) < 7) {
       const to = this.target.position.subtract(this.position);
       this.char.yaw = Math.atan2(to.x, to.z);
+      this.warpTarget = this.target;
     } else {
       const near = this.world.targets(this, 4.5, this.moveDir.lengthSquared() > 0.01 ? this.moveDir : this.char.forward, 0.3)[0];
       if (near) {
         const to = near.position.subtract(this.position);
         this.char.yaw = Math.atan2(to.x, to.z);
+        this.warpTarget = near;
       } else if (this.moveDir.lengthSquared() > 0.01) {
         this.char.yaw = Math.atan2(this.moveDir.x, this.moveDir.z);
       }
     }
+    this.warpReach = measureReach(this.char, def.clip, { socket: 'weapon_r', base: this.weapon.base, tip: this.weapon.tip });
+    this.warpEnd = this.warpReach ? this.warpReach.hitOn / (id === 'charged' ? 0.9 : 1) : 0;
     this.char.face.set(def.weight > 0.6 ? 'effort' : 'determined', 1);
     this.char.animator.play(def.clip, {
       fade: id === 'light_1' || id === 'execution' ? 0.08 : 0.05,
@@ -563,6 +575,24 @@ export class Player implements Combatant {
     // dodge cancels: before the swing connects (feint) or once the recovery begins
     if (inp.pressed('dodge') && (this.cancelOpen || this.stateTime < 0.08)) return this.dodge();
     if (this.cancelOpen && inp.held('block')) return this.toMove();
+  }
+
+  /**
+   * Velocity that brings the chosen target to the distance this swing actually reaches by the time
+   * it lands (limited, so it reads as commitment rather than sliding).
+   */
+  private attackWarp(dt: number): Vector3 {
+    const t = this.warpTarget;
+    const r = this.warpReach;
+    if (this.state !== 'attack' || !t || !t.alive || !r || this.stateTime >= this.warpEnd) return Vector3.Zero();
+    const to = t.position.subtract(this.position);
+    to.y = 0;
+    const d = to.length();
+    if (d < 1e-3 || d > 4.5) return Vector3.Zero();
+    const ideal = Math.max(this.radius + t.radius + 0.1, r.contact + t.radius * 0.5 - 0.1);
+    const left = Math.max(dt, this.warpEnd - this.stateTime);
+    const v = Math.max(-1.2, Math.min(4, (d - ideal) / left));
+    return to.scaleInPlace(v / d);
   }
 
   private endAttack(): void {
@@ -920,6 +950,16 @@ export class Player implements Combatant {
 
   get lastAttackAgo(): number {
     return this.time - this.lastAttackEnd;
+  }
+
+  /** The blade is live (between an attack's hit_on and hit_off). */
+  get swinging(): boolean {
+    return this.hitWindow && this.state === 'attack';
+  }
+
+  /** Current planar velocity (AI leads its spells with it). */
+  get velocity(): Vector3 {
+    return this.vel;
   }
 
   get sprint(): boolean {
