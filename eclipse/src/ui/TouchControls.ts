@@ -79,6 +79,8 @@ export class TouchControls {
     zone.addEventListener('pointercancel', (ev) => this.end(ev));
     const touch = 'ontouchstart' in window || navigator.maxTouchPoints > 0 || new URLSearchParams(location.search).has('touch');
     this.root.classList.toggle('on', touch);
+    // the HUD lays itself out round the pad (hotbar out of the pad's way)
+    document.documentElement.classList.toggle('ec-touch-on', touch);
   }
 
   private start(ev: PointerEvent): void {

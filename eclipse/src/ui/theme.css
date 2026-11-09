@@ -105,7 +105,7 @@
 
 @media (max-width: 720px) {
   .ec-vitals { width: 46vw; }
-  .ec-abilities { bottom: 150px; right: 14px; transform: scale(0.85); transform-origin: right bottom; }
+  .ec-abilities { right: 14px; transform: scale(0.85); transform-origin: right bottom; }
   .ec-boss { bottom: auto; top: calc(var(--ec-safe-t) + 52px); width: 86vw; }
   .ec-subtitle { font-size: 17px; bottom: 34%; }
   .ec-subtitle.large { font-size: 20px; }
@@ -167,6 +167,9 @@
 .ec-touch .b-ab2 { width: 46px; height: 46px; right: 166px; bottom: 182px; }
 .ec-touch .b-pause { position: fixed; top: max(12px, env(safe-area-inset-top)); right: max(12px, env(safe-area-inset-right)); width: 40px; height: 40px; bottom: auto; }
 @media (max-height: 500px) { .ec-touch .pad { transform: scale(0.8); transform-origin: right bottom; } }
+/* on touch the pad has the ability buttons: the hotbar only shows cooldowns, low in the middle, clear of the pad */
+.ec-touch-on .ec-abilities { right: auto; left: calc(50% - 70px); bottom: max(12px, env(safe-area-inset-bottom)); transform: translateX(-50%) scale(0.66); transform-origin: center bottom; gap: 14px; }
+.ec-touch-on .ec-slot.empty { display: none; }
 
 .ec-status { display: flex; gap: 6px; margin-top: 6px; min-height: 18px; }
 .ec-status span { position: relative; overflow: hidden; padding: 1px 8px; font-family: var(--ec-title); font-size: 11px; letter-spacing: 0.08em; border: 1px solid rgba(217,181,106,0.4); background: rgba(10,8,14,0.5); color: var(--ec-muted); }

@@ -3,7 +3,7 @@ import { NOISE_GLSL, NOISE_WGSL, registerShader, shaderLanguage } from '../rende
 
 /*
  * Ground-plane effects drawn on flat discs: danger telegraphs (an edge ring and a fill that grows to
- * the rim as the strike approaches, with crawling runes), shockwave rings, and scorch marks that cool
+ * the rim as the strike approaches, inside a ring of glyphs that light in turn), shockwave rings, and scorch marks that cool
  * from glowing embers to soot. Mode 0/1 are additive; mode 2 is alpha blended.
  */
 const VERT_GLSL = /* glsl */ `
@@ -24,6 +24,28 @@ varying vec2 vUV;
 uniform vec4 uColor;
 uniform vec4 uParams; // x progress, y time, z mode, w alpha
 ${NOISE_GLSL}
+// one glyph per cell: a spine and up to seven more strokes picked by a hash of the cell
+float ec_seg(vec2 p, vec2 a, vec2 b) {
+  vec2 pa = p - a; vec2 ba = b - a;
+  float h = clamp(dot(pa, ba) / dot(ba, ba), 0.0, 1.0);
+  return length(pa - ba * h);
+}
+float ec_glyph(vec2 p, float seed) {
+  float bits = floor(fract(sin(seed * 91.7 + 13.1) * 43758.5453) * 256.0);
+  float d = ec_seg(p, vec2(0.5, 0.12), vec2(0.5, 0.88));
+  for (int i = 1; i < 8; i++) {
+    if (mod(floor(bits / exp2(float(i))), 2.0) < 0.5) continue;
+    vec2 a = vec2(0.22, 0.82); vec2 b = vec2(0.78, 0.82);
+    if (i == 2) { a = vec2(0.22, 0.18); b = vec2(0.78, 0.18); }
+    else if (i == 3) { a = vec2(0.22, 0.18); b = vec2(0.5, 0.5); }
+    else if (i == 4) { a = vec2(0.5, 0.5); b = vec2(0.78, 0.82); }
+    else if (i == 5) { a = vec2(0.28, 0.5); b = vec2(0.72, 0.5); }
+    else if (i == 6) { a = vec2(0.22, 0.82); b = vec2(0.22, 0.45); }
+    else if (i == 7) { a = vec2(0.78, 0.18); b = vec2(0.78, 0.55); }
+    d = min(d, ec_seg(p, a, b));
+  }
+  return d;
+}
 void main(void) {
   float r = length(vUV);
   if (r > 1.0) discard;
@@ -31,19 +53,26 @@ void main(void) {
   float ang = atan(vUV.y, vUV.x);
   vec3 col; float a;
   if (mode < 0.5) {
-    float rim = exp(-pow((r - 0.96) * 38.0, 2.0)) * (0.7 + 0.3 * sin(t * 18.0));
+    // a sigil: thin bright rim, guide circles, a ring of glyphs that light in turn as the strike
+    // nears, and a soft fill (capped, so it keeps its colour instead of burning to white)
+    float rim = exp(-pow((r - 0.96) * 38.0, 2.0)) * (0.75 + 0.25 * sin(t * 18.0));
     float fillEdge = smoothstep(prog - 0.04, prog, r) * (1.0 - smoothstep(prog, prog + 0.015, r));
-    float fill = (1.0 - smoothstep(prog - 0.02, prog, r)) * 0.22;
-    float runes = step(0.62, ec_noise2(vec2(ang * 6.0 + t * 0.8, r * 9.0 - t * 2.0))) * smoothstep(0.55, 0.85, r) * (1.0 - smoothstep(0.9, 0.95, r));
-    a = (rim + fillEdge * 1.4 + fill + runes * 0.35) * alpha;
-    col = uColor.rgb * uColor.a * a;
+    float fill = (1.0 - smoothstep(prog - 0.02, prog, r)) * (0.07 + 0.1 * r * r);
+    float circles = exp(-pow((r - 0.72) * 110.0, 2.0)) + exp(-pow((r - 0.9) * 110.0, 2.0));
+    float a01 = fract((ang + t * 0.25) / 6.2831853) * 28.0;
+    float cell = mod(floor(a01), 28.0);
+    vec2 gp = vec2(fract(a01), (r - 0.745) / 0.13);
+    float lit = smoothstep(cell / 28.0 - 0.02, cell / 28.0 + 0.04, prog * 1.15);
+    float runes = (gp.y > 0.0 && gp.y < 1.0) ? smoothstep(0.1, 0.05, ec_glyph(gp, cell)) * (0.35 + 0.65 * lit) : 0.0;
+    float lines = rim + fillEdge * 1.2 + runes * 0.85 + circles * 0.45;
+    col = uColor.rgb * (uColor.a * lines + min(uColor.a, 1.6) * fill) * alpha;
     gl_FragColor = vec4(col, 0.0);
   } else if (mode < 1.5) {
     float w = 0.08 + 0.1 * (1.0 - prog);
     float ring = exp(-pow((r - mix(0.15, 0.97, prog)) / w, 2.0));
     float broken = 0.6 + 0.4 * ec_noise2(vec2(ang * 5.0, prog * 4.0));
     a = ring * broken * (1.0 - prog) * alpha;
-    gl_FragColor = vec4(uColor.rgb * uColor.a * a, 0.0);
+    gl_FragColor = vec4(uColor.rgb * min(uColor.a, 2.5) * a, 0.0);
   } else {
     float n = ec_fbm2(vUV * 3.0 + 7.0);
     float shape = 1.0 - smoothstep(0.35, 1.0, r + (n - 0.5) * 0.6);
@@ -73,6 +102,27 @@ varying vUV: vec2f;
 uniform uColor: vec4f;
 uniform uParams: vec4f;
 ${NOISE_WGSL}
+fn ec_seg(p: vec2f, a: vec2f, b: vec2f) -> f32 {
+  let pa = p - a; let ba = b - a;
+  let h = clamp(dot(pa, ba) / dot(ba, ba), 0.0, 1.0);
+  return length(pa - ba * h);
+}
+fn ec_glyph(p: vec2f, seed: f32) -> f32 {
+  let bits = u32(floor(fract(sin(seed * 91.7 + 13.1) * 43758.5453) * 256.0));
+  var d = ec_seg(p, vec2f(0.5, 0.12), vec2f(0.5, 0.88));
+  for (var i = 1u; i < 8u; i++) {
+    if (((bits >> i) & 1u) == 0u) { continue; }
+    var a = vec2f(0.22, 0.82); var b = vec2f(0.78, 0.82);
+    if (i == 2u) { a = vec2f(0.22, 0.18); b = vec2f(0.78, 0.18); }
+    else if (i == 3u) { a = vec2f(0.22, 0.18); b = vec2f(0.5, 0.5); }
+    else if (i == 4u) { a = vec2f(0.5, 0.5); b = vec2f(0.78, 0.82); }
+    else if (i == 5u) { a = vec2f(0.28, 0.5); b = vec2f(0.72, 0.5); }
+    else if (i == 6u) { a = vec2f(0.22, 0.82); b = vec2f(0.22, 0.45); }
+    else if (i == 7u) { a = vec2f(0.78, 0.18); b = vec2f(0.78, 0.55); }
+    d = min(d, ec_seg(p, a, b));
+  }
+  return d;
+}
 @fragment
 fn main(input: FragmentInputs) -> FragmentOutputs {
   let uv = fragmentInputs.vUV;
@@ -81,18 +131,24 @@ fn main(input: FragmentInputs) -> FragmentOutputs {
   let prog = uniforms.uParams.x; let t = uniforms.uParams.y; let mode = uniforms.uParams.z; let alpha = uniforms.uParams.w;
   let ang = atan2(uv.y, uv.x);
   if (mode < 0.5) {
-    let rim = exp(-pow((r - 0.96) * 38.0, 2.0)) * (0.7 + 0.3 * sin(t * 18.0));
+    let rim = exp(-pow((r - 0.96) * 38.0, 2.0)) * (0.75 + 0.25 * sin(t * 18.0));
     let fillEdge = smoothstep(prog - 0.04, prog, r) * (1.0 - smoothstep(prog, prog + 0.015, r));
-    let fill = (1.0 - smoothstep(prog - 0.02, prog, r)) * 0.22;
-    let runes = step(0.62, ec_noise2(vec2f(ang * 6.0 + t * 0.8, r * 9.0 - t * 2.0))) * smoothstep(0.55, 0.85, r) * (1.0 - smoothstep(0.9, 0.95, r));
-    let a = (rim + fillEdge * 1.4 + fill + runes * 0.35) * alpha;
-    fragmentOutputs.color = vec4f(uniforms.uColor.rgb * uniforms.uColor.a * a, 0.0);
+    let fill = (1.0 - smoothstep(prog - 0.02, prog, r)) * (0.07 + 0.1 * r * r);
+    let circles = exp(-pow((r - 0.72) * 110.0, 2.0)) + exp(-pow((r - 0.9) * 110.0, 2.0));
+    let a01 = fract((ang + t * 0.25) / 6.2831853) * 28.0;
+    let cell = floor(a01) % 28.0;
+    let gp = vec2f(fract(a01), (r - 0.745) / 0.13);
+    let lit = smoothstep(cell / 28.0 - 0.02, cell / 28.0 + 0.04, prog * 1.15);
+    var runes = 0.0;
+    if (gp.y > 0.0 && gp.y < 1.0) { runes = smoothstep(0.1, 0.05, ec_glyph(gp, cell)) * (0.35 + 0.65 * lit); }
+    let lines = rim + fillEdge * 1.2 + runes * 0.85 + circles * 0.45;
+    fragmentOutputs.color = vec4f(uniforms.uColor.rgb * (uniforms.uColor.a * lines + min(uniforms.uColor.a, 1.6) * fill) * alpha, 0.0);
   } else if (mode < 1.5) {
     let w = 0.08 + 0.1 * (1.0 - prog);
     let ring = exp(-pow((r - mix(0.15, 0.97, prog)) / w, 2.0));
     let broken = 0.6 + 0.4 * ec_noise2(vec2f(ang * 5.0, prog * 4.0));
     let a = ring * broken * (1.0 - prog) * alpha;
-    fragmentOutputs.color = vec4f(uniforms.uColor.rgb * uniforms.uColor.a * a, 0.0);
+    fragmentOutputs.color = vec4f(uniforms.uColor.rgb * min(uniforms.uColor.a, 2.5) * a, 0.0);
   } else {
     let n = ec_fbm2(uv * 3.0 + 7.0);
     let shape = 1.0 - smoothstep(0.35, 1.0, r + (n - 0.5) * 0.6);
