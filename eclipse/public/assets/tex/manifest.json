@@ -181,6 +181,19 @@
   "size": 1024,
   "src": "leather_red_02"
  },
+ "cloth_leather_white": {
+  "albedo": [
+   0.5866,
+   0.5741,
+   0.5008
+  ],
+  "height": false,
+  "id": "cloth_leather_white",
+  "region": "chars",
+  "roughness": 0.617,
+  "size": 1024,
+  "src": "leather_white"
+ },
  "cloth_leather_worn": {
   "albedo": [
    0.5057,
@@ -193,6 +206,19 @@
   "roughness": 0.461,
   "size": 1024,
   "src": "fabric_leather_02"
+ },
+ "cloth_linen": {
+  "albedo": [
+   0.5694,
+   0.6708,
+   0.8053
+  ],
+  "height": false,
+  "id": "cloth_linen",
+  "region": "chars",
+  "roughness": 0.659,
+  "size": 1024,
+  "src": "rough_linen"
  },
  "cloth_metal_plate": {
   "albedo": [
@@ -219,6 +245,19 @@
   "roughness": 0.659,
   "size": 1024,
   "src": "metal_plate_02"
+ },
+ "cloth_poplin": {
+  "albedo": [
+   0.7158,
+   0.8314,
+   0.3897
+  ],
+  "height": false,
+  "id": "cloth_poplin",
+  "region": "chars",
+  "roughness": 0.808,
+  "size": 1024,
+  "src": "stretch_poplin"
  },
  "cloth_rust": {
   "albedo": [
@@ -495,16 +534,16 @@
  },
  "sun_marble": {
   "albedo": [
-   0.6957,
-   0.6151,
-   0.4767
+   0.8779,
+   0.8521,
+   0.8004
   ],
   "height": false,
   "id": "sun_marble",
   "region": "eclipse",
-  "roughness": 0.506,
+  "roughness": 0.202,
   "size": 1024,
-  "src": "marble_01"
+  "src": "gen_marble.py"
  },
  "sun_marble_cliff": {
   "albedo": [

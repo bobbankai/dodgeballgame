@@ -108,7 +108,7 @@ def bloomcaller(R, B, info):
         return np.maximum(np.abs(env) - 0.003, np.maximum(z - (neck[2] + 0.02), (zw - 0.06) - z))
 
     pieces.append(Piece('bodice', bodice, (np.array([-0.9, -0.3, zw - 0.1]), np.array([0.9, 0.3, neck[2] + 0.05])),
-                        lambda p: mat_ids(p, 'leaf', [(lambda q: cracks(q, 9, 0.012, 711), 'sapglow')]), skin='transfer', voxel=0.0032, budget=6000, inner=B))
+                        lambda p: mat_ids(p, 'leaf', [(lambda q: cracks(q, 14, 0.0045, 711) & (q[:, 2] < zw + 0.16), 'sapglow')]), skin='transfer', voxel=0.0032, budget=6000, inner=B))
 
     def petals(p):
         # a gown of overlapping petals: scalloped tiers, each lifting at its lower edge
@@ -139,12 +139,12 @@ def bloomcaller(R, B, info):
         hb = R.head(f'hand_{side}')
         ea, wa = R.head(f'lowerarm_{side}'), R.tail(f'lowerarm_{side}')
         pieces.append(Piece(f'hand_{side}', lambda p, ea=ea, wa=wa: np.maximum(B(p) - 0.004, 0.7 - along(p, ea, wa)[0]), (hb - 0.18, hb + 0.18),
-                            lambda p: mat_ids(p, 'bark', [(lambda q: cracks(q, 22, 0.03, 719), 'sapglow')]), skin='transfer', voxel=0.0022, budget=2200))
+                            lambda p: mat_ids(p, 'bark', [(lambda q: cracks(q, 22, 0.011, 719), 'sapglow')]), skin='transfer', voxel=0.0022, budget=2200))
         pieces.append(Piece(f'sleeve_{side}', lambda p, ea=ea, wa=wa: np.maximum(np.abs(along(p, ea, wa)[1] - (0.055 + 0.07 * np.clip(along(p, ea, wa)[0], 0, 1) ** 1.5)) - 0.003,
                                                                        np.maximum(-0.05 - along(p, ea, wa)[0], along(p, ea, wa)[0] - 0.85)),
                             ((ea + wa) / 2 - 0.25, (ea + wa) / 2 + 0.25), 'petal', skin={'bone': f'lowerarm_{side}', 'blend': [(f'upperarm_{side}', None, None)]}, budget=1800))
     pieces.append(Piece('mask', face_mask(L, B, skull, eyes, neck, 0.012), (skull - np.array([0.12, 0.17, 0.2]), skull + np.array([0.12, 0.02, 0.08])),
-                        lambda p: mat_ids(p, 'bark', [(lambda q: sdf.fbm(q, 12, 2, 720) > 0.62, 'moss')]), skin={'bone': 'head'}, voxel=0.0016, budget=2400))
+                        lambda p: mat_ids(p, 'bark', [(lambda q: (sdf.fbm(q, 30, 2, 720) > 0.64) & (q[:, 2] > eyes[2] + 0.01), 'moss')]), skin={'bone': 'head'}, voxel=0.0016, budget=2400))
     pieces.append(Piece('eyes', glow_eyes(L), (eyes - 0.08, eyes + 0.08), 'sapglow', skin={'bone': 'head'}, voxel=0.0012, budget=400))
     head_ell = sdf.ellipsoid(skull + np.array([0, 0.012, 0.01]), (0.11, 0.13, 0.14))
 
@@ -157,19 +157,75 @@ def bloomcaller(R, B, info):
         return np.maximum(np.maximum(np.abs(env) - 0.0032, region), -opening)
 
     pieces.append(Piece('hood', hood, (np.array([-0.3, -0.3, zc - 0.06]), np.array([0.3, 0.3, L['top'] + 0.08])), 'leaf', skin='transfer', voxel=0.003, budget=3800))
-    cc = skull + np.array([0, 0.01, 0.13])
+    # a circlet of open blossoms seated on the hood's brow, a leaf between each pair
+    hc = skull + np.array([0, 0.012, 0.01])
+    hr = np.array([0.11, 0.13, 0.14]) + 0.023  # the hood's outer surface
+    flowers, leaves = [], []
+    for i in range(9):
+        a = -np.pi / 2 + (i - 4) * 0.34
+        dz = 0.085 + 0.012 * abs(i - 4) / 4
+        k = np.sqrt(max(1e-3, 1 - (dz / hr[2]) ** 2))
+        on = hc + np.array([np.cos(a) * hr[0] * k, np.sin(a) * hr[1] * k, dz])
+        nrm = (on - hc) / hr ** 2
+        nrm /= np.linalg.norm(nrm)
+        s = 0.034 - 0.009 * abs(i - 4) / 4
+        flowers.append((on + nrm * 0.004, nrm, s, i * 0.7))
+        if i < 8:
+            a2 = a + 0.17
+            on2 = hc + np.array([np.cos(a2) * hr[0] * k, np.sin(a2) * hr[1] * k, dz - 0.012])
+            n2 = (on2 - hc) / hr ** 2
+            leaves.append((on2 + n2 / np.linalg.norm(n2) * 0.002, n2 / np.linalg.norm(n2), a2))
+    centres = np.array([f[0] for f in flowers])
 
     def crown(p):
         out = np.full(len(p), 1e3)
-        for i in range(9):
-            a = -np.pi / 2 + (i - 4) * 0.36
-            c = cc + np.array([np.cos(a) * 0.12, np.sin(a) * 0.13 + 0.01, 0.01 * np.cos(i)])
-            out = np.minimum(out, sdf.sphere(c, 0.026)(p) - 0.006 * np.sin(np.arctan2(p[:, 1] - c[1], p[:, 0] - c[0]) * 5))
+        for c, n, s, tw in flowers:
+            u = np.cross(n, [0, 0, 1.0])
+            u = u / max(np.linalg.norm(u), 1e-6) if np.linalg.norm(u) > 1e-3 else np.array([1.0, 0, 0])
+            v = np.cross(n, u)
+            for j in range(5):
+                th = tw + j * 2 * np.pi / 5
+                d = u * np.cos(th) + v * np.sin(th)
+                dd = d + n * 0.45
+                dd /= np.linalg.norm(dd)          # petals cup upwards a little
+                nn = np.cross(dd, np.cross(n, dd))
+                nn /= np.linalg.norm(nn)
+                out = np.minimum(out, oriented_ellipsoid(c + dd * s * 0.52, (dd, np.cross(nn, dd), nn), (s * 0.55, s * 0.34, s * 0.075))(p))
+            out = smin(out, sdf.sphere(c + n * s * 0.08, s * 0.2)(p), 0.006)
+        return np.minimum(out, leaf_field(p))
+
+    def leaf_field(p):
+        out = np.full(len(p), 1e3)
+        for c, n, a2 in leaves:
+            t = np.array([-np.sin(a2), np.cos(a2), 0.0])
+            t = t - n * (t @ n)
+            t /= np.linalg.norm(t)
+            out = np.minimum(out, oriented_ellipsoid(c, (t, np.cross(n, t), n), (0.026, 0.011, 0.0035))(p))
         return out
 
-    pieces.append(Piece('crown', crown, (cc - 0.2, cc + 0.12), lambda p: mat_ids(p, 'petal', [(lambda q: q[:, 2] > cc[2] + 0.018, 'sapglow')]),
-                        skin={'bone': 'head'}, voxel=0.0016, budget=2000))
+    def crown_mats(p):
+        dc = np.min(np.linalg.norm(p[:, None, :] - centres[None], axis=2), axis=1)
+        da = np.min(np.array([np.linalg.norm(p - (c + n * s * 0.08), axis=1) - s * 0.27 for c, n, s, _ in flowers]), axis=0)
+        dl = leaf_field(p)
+        return mat_ids(p, 'leaf', [(lambda q: (dc < 0.045) & (dl > 0.0015), 'petal'), (lambda q: da < 0.0, 'sapglow')])
+
+    pieces.append(Piece('crown', crown, (hc - np.array([0.2, 0.2, 0.0]), hc + np.array([0.2, 0.2, 0.2])), crown_mats,
+                        skin={'bone': 'head'}, voxel=0.0011, budget=5200))
     return pieces
+
+
+def oriented_ellipsoid(c, axes, radii):
+    """An ellipsoid with its own axes (three orthonormal vectors) and radii along them."""
+    c = np.asarray(c, float)
+    R = np.array(axes, float)
+    r = np.asarray(radii, float)
+
+    def f(p):
+        q = ((p - c) @ R.T) / r
+        k0 = np.linalg.norm(q, axis=1)
+        k1 = np.linalg.norm(q / r, axis=1)
+        return k0 * (k0 - 1.0) / np.maximum(k1, 1e-9)
+    return f
 
 
 # =============================================================================================

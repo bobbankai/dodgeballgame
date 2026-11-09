@@ -276,7 +276,49 @@ def decode_ids(mat_rgb, ids):
     pal = np.array([mat_color(MATERIALS[i][0]) for i in ids], np.float32)
     flat = mat_rgb.reshape(-1, 3)
     d = ((flat[:, None, :] - pal[None, :, :]) ** 2).sum(-1)
-    return np.array(ids)[np.argmin(d, axis=1)].reshape(mat_rgb.shape[:2])
+    k = np.argmin(d, axis=1).reshape(mat_rgb.shape[:2])
+    return np.array(ids)[_mend_seams(k, mat_rgb, pal)]
+
+
+def _mend_seams(k, rgb, pal, radius=3):
+    """ID colours are interpolated across the triangles where two materials meet, and on the way from
+    one palette colour to the other the blend can pass through a third material's colour (the palette
+    is a grid, so a midpoint often is one): a hairline of the wrong material along every seam. Texels
+    of such a 'between' material that lie on the segment between two materials both present close by,
+    and that are a thin minority there, are given back to whichever end they are nearer."""
+    from scipy.ndimage import uniform_filter
+    n = len(pal)
+    w = 2 * radius + 1
+    near = {}
+
+    def present(i):
+        if i not in near:
+            near[i] = uniform_filter((k == i).astype(np.float32), w, mode='nearest')
+        return near[i]
+
+    out = k.copy()
+    for a in range(n):
+        for b in range(a + 1, n):
+            ab = pal[b] - pal[a]
+            L2 = float((ab ** 2).sum())
+            if L2 < 1e-6:
+                continue
+            # which other materials does the blend from a to b pass through?
+            ts = np.linspace(0.04, 0.96, 47)
+            line = pal[a][None] + ts[:, None] * ab[None]
+            via = set(np.argmin(((line[:, None, :] - pal[None]) ** 2).sum(-1), axis=1).tolist()) - {a, b}
+            for c in via:
+                sel = k == c
+                if not sel.any():
+                    continue
+                q = rgb[sel] - pal[a]
+                t = np.clip((q @ ab) / L2, 0, 1)
+                off = np.linalg.norm(q - t[:, None] * ab[None], axis=1)
+                fix = (off < 0.12) & (present(a)[sel] > 0.04) & (present(b)[sel] > 0.04) & (present(c)[sel] < 0.45)
+                vals = out[sel]
+                vals[fix] = np.where(t[fix] < 0.5, a, b)
+                out[sel] = vals
+    return out
 
 
 def blend_normals(base, detail, strength=1.0):
