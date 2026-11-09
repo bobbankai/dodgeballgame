@@ -204,6 +204,54 @@ export const PRESETS: Record<string, Preset> = {
       { tex: 'soft', add: true, count: 0, rate: 40, capacity: 110, life: [1, 2], size: [0.02, 0.05], power: [0.3, 1], shape: 'box', extent: 0.3, height: 1.7, gravity: 1.2, drag: 0.6, color: [0.4, 1.8, 2.4, 1], dead: [0.05, 0.25, 0.35, 0] },
     ],
   },
+  // Aurelion's servants burn away into motes of sunlight
+  deathSun: {
+    layers: [
+      { tex: 'soft', add: true, count: 0, rate: 70, capacity: 160, life: [1, 2], size: [0.02, 0.06], power: [0.5, 1.6], shape: 'box', extent: 0.3, height: 1.8, gravity: 1.8, drag: 0.6, color: [4, 2.8, 1.2, 1], dead: [0.6, 0.3, 0.05, 0] },
+      { tex: 'flame', add: true, count: 0, rate: 16, capacity: 40, life: [0.4, 0.8], size: [0.3, 0.6], grow: [[0, 0.5], [0.4, 1], [1, 0.2]], power: [0.5, 1.2], shape: 'up', extent: 0.3, height: 1.4, gravity: 1, drag: 1, color: [2.8, 2.0, 0.9, 0.8], dead: [0.4, 0.2, 0.05, 0], spin: 1 },
+    ],
+  },
+  // a pillar of sunfire bursting up out of the stone
+  sunPillar: {
+    layers: [
+      { tex: 'flame', add: true, count: 50, life: [0.4, 0.9], size: [0.8, 1.8], grow: [[0, 0.4], [0.3, 1], [1, 0.3]], power: [8, 16], shape: 'up', extent: 0.8, gravity: 2, drag: 1, color: [5, 3.8, 1.6, 1], color2: [4, 2.6, 0.9, 1], dead: [0.5, 0.2, 0.05, 0], spin: 1.5 },
+      { tex: 'soft', add: true, count: 2, life: [0.15, 0.2], size: [3.5, 4.5], power: [0, 0], shape: 'box', color: [6, 5, 3, 1], dead: [0.6, 0.3, 0.1, 0] },
+      { tex: 'spark', add: true, count: 40, life: [0.3, 0.8], size: [0.03, 0.06], power: [6, 14], shape: 'ring', gravity: -6, drag: 1, color: [5, 3.5, 1.4, 1], dead: [0.8, 0.3, 0.05, 0], stretched: true },
+    ],
+    light: { color: [1, 0.78, 0.45], intensity: 90, range: 14, time: 0.4 },
+  },
+  sunBurst: {
+    layers: [
+      { tex: 'spark', add: true, count: 30, life: [0.1, 0.35], size: [0.03, 0.06], power: [4, 11], shape: 'burst', gravity: -6, drag: 2, color: [5, 3.8, 1.6, 1], dead: [0.8, 0.3, 0.05, 0], stretched: true },
+      { tex: 'soft', add: true, count: 1, life: [0.12, 0.12], size: [1.4, 1.4], power: [0, 0], shape: 'box', color: [5, 4, 2, 1], dead: [0.6, 0.3, 0.1, 0] },
+    ],
+    light: { color: [1, 0.8, 0.5], intensity: 30, range: 6, time: 0.15 },
+  },
+  sunTrail: {
+    layers: [
+      { tex: 'soft', add: true, count: 0, rate: 90, capacity: 110, life: [0.15, 0.3], size: [0.14, 0.28], grow: [[0, 1], [1, 0.2]], power: [0.1, 0.3], shape: 'burst', gravity: 0, drag: 2, color: [5, 3.6, 1.4, 1], dead: [0.6, 0.25, 0.05, 0] },
+    ],
+  },
+  // the black sun's servants: void orbs that drink the light round them
+  voidTrail: {
+    layers: [
+      { tex: 'smoke', add: false, count: 0, rate: 40, capacity: 70, life: [0.4, 0.8], size: [0.3, 0.6], grow: [[0, 0.8], [1, 1.8]], power: [0.1, 0.3], shape: 'burst', gravity: 0, drag: 2, color: [0.03, 0.02, 0.05, 0.75], dead: [0.05, 0.03, 0.08, 0], spin: 1 },
+      { tex: 'soft', add: true, count: 0, rate: 30, capacity: 40, life: [0.2, 0.4], size: [0.05, 0.1], power: [0.5, 1.5], shape: 'burst', gravity: 0, drag: 2, color: [1.6, 0.8, 3, 1], dead: [0.2, 0.05, 0.4, 0] },
+    ],
+  },
+  voidBurst: {
+    layers: [
+      { tex: 'smoke', add: false, count: 16, life: [0.6, 1.2], size: [0.8, 1.4], grow: [[0, 0.4], [1, 2]], power: [2, 5], shape: 'burst', gravity: 0, drag: 2, color: [0.03, 0.02, 0.05, 0.8], dead: [0.05, 0.03, 0.08, 0], spin: 1 },
+      { tex: 'ring', add: true, count: 1, life: [0.4, 0.4], size: [1, 1], grow: [[0, 0.3], [1, 3.5]], power: [0, 0], shape: 'box', color: [1.4, 0.6, 2.6, 1], dead: [0.2, 0.05, 0.4, 0] },
+    ],
+    light: { color: [0.6, 0.3, 1], intensity: 25, range: 6, time: 0.2 },
+  },
+  // ambient: sun-motes in the still, gold air of Solmara
+  sunMotes: {
+    layers: [
+      { tex: 'soft', add: true, count: 0, rate: 22, capacity: 220, life: [5, 9], size: [0.012, 0.03], power: [0.1, 0.4], shape: 'box', extent: 20, height: 8, gravity: 0.06, drag: 0.3, color: [2.2, 1.6, 0.7, 1], dead: [0.3, 0.15, 0.03, 0] },
+    ],
+  },
   // the forest's dead come apart: petals and leaves loosed, sap-light rising
   deathBloom: {
     layers: [

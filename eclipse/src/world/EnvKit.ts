@@ -66,6 +66,13 @@ const SETS: Record<string, EnvSet> = {
   'wood_leaves#blight': { size: 1.6, porosity: 0.8, tint: new Color3(0.65, 0.5, 0.42) },
   'sun_marble#glow': { size: 1.0, tint: new Color3(0.55, 0.95, 0.75), porosity: 0.3, emissive: new Color3(0.45, 1.4, 0.95) },
   'sun_marble#moss': { size: 2.2, tint: new Color3(0.55, 0.62, 0.5), porosity: 0.7 },
+  'sun_marble#sunglow': { size: 1.2, tint: new Color3(1.0, 0.82, 0.45), porosity: 0.1, emissive: new Color3(2.6, 1.6, 0.6) },
+  'gen_forged_steel#gold': { size: 0.9, tint: new Color3(1.0, 0.74, 0.34), porosity: 0.05, metallic: 1, roughness: 0.3 },
+  sun_white_blocks: { size: 2.6, porosity: 0.5 },
+  sun_castle_white: { size: 2.6, porosity: 0.5 },
+  sun_marble_tiles: { size: 2.4, porosity: 0.3 },
+  sun_granite: { size: 2.4, porosity: 0.4 },
+  sun_marble_cliff: { size: 6, porosity: 0.5 },
   cloth_jacquard: { size: 0.6, tint: new Color3(0.9, 0.75, 0.35), porosity: 0.9 },
 };
 
@@ -76,6 +83,12 @@ interface Template {
   colPositions: Float32Array | null;
   colIndices: Uint32Array | null;
   placed: number;
+  /** Placement matrices, kept for pieces with a level of detail (their buffers are rebuilt). */
+  placements: Matrix[];
+  /** Beyond `dist` from the camera, instances switch to `low` (or are culled when it is null). */
+  lod: { low: string | null; dist: number } | null;
+  /** This template is some other piece's distant version. */
+  isLow: boolean;
 }
 
 export interface Placement {
@@ -98,6 +111,8 @@ export class EnvKit {
   private colPos: number[] = [];
   private colIdx: number[] = [];
   readonly owned: { dispose(): void }[] = [];
+  private lods = new Map<string, { low: string | null; dist: number }>();
+  private lodFrom = new Vector3(1e9, 0, 0);
 
   constructor(private scene: Scene, private assets: AssetManager, private mats: MaterialLibrary, private lighting: Lighting,
     private dir: string, private scope: string) {}
@@ -118,6 +133,48 @@ export class EnvKit {
     this.materials.set(name, m);
     this.owned.push(pm);
     return m;
+  }
+
+  /**
+   * Gives a piece a level of detail: past `dist` metres from the camera its instances draw as `low`
+   * (a lighter model), or not at all when `low` is null (ground cover). Call before placing.
+   */
+  setLod(piece: string, low: string | null, dist: number): void {
+    this.lods.set(piece, { low, dist });
+  }
+
+  /** Re-sorts LOD'd instances into near and far sets when the camera has moved far enough. */
+  updateLods(cam: Vector3): void {
+    if (Vector3.DistanceSquared(cam, this.lodFrom) < 9) return;
+    this.lodFrom.copyFrom(cam);
+    for (const t of this.templates.values()) {
+      if (!t.lod || !t.placed) continue;
+      const near: Matrix[] = [];
+      const far: Matrix[] = [];
+      const d2 = t.lod.dist * t.lod.dist;
+      const p = new Vector3();
+      for (const m of t.placements) {
+        m.getTranslationToRef(p);
+        (Vector3.DistanceSquared(p, cam) < d2 ? near : far).push(m);
+      }
+      this.fill(t, near);
+      const low = t.lod.low ? this.templates.get(t.lod.low) : null;
+      if (low) this.fill(low, far);
+    }
+  }
+
+  private fill(t: Template, list: Matrix[]): void {
+    t.meshes.forEach((m, i) => {
+      if (!list.length) {
+        m.setEnabled(false);
+        return;
+      }
+      const arr = new Float32Array(list.length * 16);
+      list.forEach((pm, k) => t.locals[i].multiply(pm).copyToArray(arr, k * 16));
+      m.thinInstanceSetBuffer('matrix', arr, 16, false);
+      m.thinInstanceRefreshBoundingInfo(false);
+      m.setEnabled(true);
+    });
   }
 
   /** Loads a piece (once). */
@@ -175,7 +232,13 @@ export class EnvKit {
       meshes.push(m);
       locals.push(world);
     }
-    t = { meshes, locals, colPositions, colIndices, placed: 0 };
+    const lod = this.lods.get(piece) ?? null;
+    t = { meshes, locals, colPositions, colIndices, placed: 0, placements: [], lod, isLow: false };
+    if (lod?.low) {
+      this.templates.set(piece, t);
+      const low = await this.load(lod.low);
+      low.isLow = true;
+    }
     this.templates.set(piece, t);
     return t;
   }
@@ -184,9 +247,13 @@ export class EnvKit {
     const t = await this.load(p.piece);
     const s = p.scale ?? 1;
     const placement = Matrix.Compose(new Vector3(s, s, s), Quaternion.RotationYawPitchRoll(p.yaw ?? 0, 0, 0), p.position);
-    t.meshes.forEach((m, i) => {
-      m.thinInstanceAdd(t.locals[i].multiply(placement), false);
-    });
+    if (t.lod) {
+      t.placements.push(placement);
+    } else {
+      t.meshes.forEach((m, i) => {
+        m.thinInstanceAdd(t.locals[i].multiply(placement), false);
+      });
+    }
     t.placed++;
     if (t.colPositions && t.colIndices) {
       const base = this.colPos.length / 3;
@@ -212,6 +279,16 @@ export class EnvKit {
    */
   finish(): Mesh | null {
     for (const [name, t] of this.templates) {
+      if (t.lod || t.isLow) {
+        // buffers are filled by updateLods; still register for shadows and disposal
+        for (const m of t.meshes) {
+          const r = m.getBoundingInfo().boundingSphere.radius;
+          this.lighting.addStatic(m, (r > 1.2 || !name.startsWith('ph_')) && !t.isLow);
+          this.owned.push(m);
+          m.setEnabled(false);
+        }
+        continue;
+      }
       for (const m of t.meshes) {
         if (t.placed === 0) {
           m.setEnabled(false);

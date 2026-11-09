@@ -658,7 +658,153 @@ def sylvaris():
     return {'stems': stems, 'bpm': bpm, 'bars': bars}
 
 
-PIECES = {'ashen': ashen, 'ignaroth': ignaroth, 'drowned': drowned, 'thaloryn': thaloryn, 'sky': sky, 'vaeltris': vaeltris,
+# ============================================================================== Chapter Five and the end
+def eclipse():
+    bpm, bars = 66, 24
+    # D minor under a major sky: Dm - Bb - F - C | Gm - Bb - A - A | Dm - F - C - Bb ... the Vigil's hymn, darkened
+    prog = [('D', 'm'), ('Bb', 'M'), ('F', 'M'), ('C', 'M'), ('G', 'm'), ('Bb', 'M'), ('A', 'M'), ('A', 'M'),
+            ('D', 'm'), ('F', 'M'), ('C', 'M'), ('Bb', 'M')]
+
+    def triad(root, kind, octave):
+        r = n(root, octave)
+        return [r, r + (3 if kind == 'm' else 4), r + 7]
+
+    stems = {}
+    s = Stem(bpm, bars)
+    st = s.track(GM['strings'], 88, 52)
+    cb = s.track(GM['contrabass'], 88, 64)
+    ch = s.track(GM['choir'], 80, 76)
+    for i, (root, kind) in enumerate(prog):
+        b = i * 8
+        tri = triad(root, kind, 3)
+        s.chord(st, b, 7.9, [tri[0], tri[2], tri[1] + 12, tri[0] + 12], 60 + 6 * (i % 4 == 0))
+        s.note(cb, b, 7.9, n(root, 2), 76)
+        s.chord(ch, b, 7.9, [tri[0] + 12, tri[2] + 12], 52 + 6 * (i % 2))
+    stems['explore_pad'] = render(s, 'eclipse_explore_pad', 0.7)
+    s = Stem(bpm, bars)
+    harp = s.track(GM['harp'], 82, 40)
+    horn = s.track(GM['horn'], 96, 70)
+    bells = s.track(GM['bells'], 60, 90)
+    for i, (root, kind) in enumerate(prog):
+        b = i * 8
+        tri = triad(root, kind, 4)
+        for k in range(8):
+            s.note(harp, b + k, 0.9, [tri[0], tri[1], tri[2], tri[1] + 12][k % 4] - (12 if k == 0 else 0), 46 + 10 * (k == 0))
+        if i % 4 == 0:
+            s.note(bells, b, 6, n(root, 5), 52)
+    # the hymn of the Dawn Vigil, on a lone horn
+    theme = [(0, 2, 'A', 4), (2, 2, 'D', 5), (4, 3, 'F', 5), (7, 1, 'E', 5), (8, 4, 'D', 5), (12, 2, 'C', 5), (14, 2, 'Bb', 4),
+             (16, 3, 'A', 4), (19, 1, 'Bb', 4), (20, 2, 'C', 5), (22, 2, 'D', 5), (24, 8, 'A', 4),
+             (32, 2, 'D', 5), (34, 2, 'F', 5), (36, 3, 'A', 5), (39, 1, 'G', 5), (40, 4, 'F', 5), (44, 2, 'E', 5), (46, 2, 'C', 5), (48, 8, 'D', 5)]
+    for beat, length, name, octv in theme:
+        s.note(horn, 32 + beat, length - 0.05, n(name, octv - 1), 84)
+    stems['explore_theme'] = render(s, 'eclipse_explore_theme', 0.7)
+    s = Stem(bpm, bars)
+    taiko = s.track(GM['taiko'], 112, 64)
+    timp = s.track(GM['timpani'], 106, 58)
+    low = s.track(GM['strings2'], 100, 64)
+    for bar in range(bars):
+        b = bar * 4
+        root = prog[(bar // 2) % len(prog)][0]
+        for off in ([0, 1.5, 2, 3] if bar % 4 != 3 else [0, 0.5, 1, 1.5, 2, 2.5, 3, 3.25, 3.5, 3.75]):
+            s.note(taiko, b + off, 0.35, n('D', 2), 120 if off in (0, 2) else 90)
+        s.note(timp, b, 0.8, n(root, 2), 100)
+        for k in range(8):
+            s.note(low, b + k * 0.5, 0.3, n(root, 3) + (12 if k in (3, 6) else 0), 102 if k in (0, 3, 6) else 74)
+    stems['combat_drums'] = render(s, 'eclipse_combat_drums', 0.75)
+    s = Stem(bpm, bars)
+    brass = s.track(GM['brass'], 104, 56)
+    tbn = s.track(GM['trombone'], 98, 76)
+    for i, (root, kind) in enumerate(prog):
+        b = i * 8
+        tri = triad(root, kind, 3)
+        s.chord(brass, b, 1.6, [tri[0] + 12, tri[1] + 12, tri[2] + 12], 104)
+        s.chord(brass, b + 4, 1.2, [tri[0] + 12, tri[2] + 12], 94)
+        s.note(tbn, b + 2, 1.9, n(root, 2) + 12, 100)
+    stems['combat_brass'] = render(s, 'eclipse_combat_brass', 0.7)
+    return {'stems': stems, 'bpm': bpm, 'bars': bars}
+
+
+def aurelion():
+    bpm, bars = 104, 32
+    # D minor, the hymn turned to a war-march: i - bVI - bVII - i | i - iv - bII - V
+    prog = [('D', 'm'), ('Bb', 'M'), ('C', 'M'), ('D', 'm'), ('D', 'm'), ('G', 'm'), ('Eb', 'M'), ('A', 'M')]
+
+    def triad(root, kind, octave):
+        r = n(root, octave)
+        return [r, r + (3 if kind == 'm' else 4), r + 7]
+
+    stems = {}
+    s = Stem(bpm, bars)
+    trem = s.track(GM['tremolo'], 96, 46)
+    lo = s.track(GM['contrabass'], 106, 64)
+    brass = s.track(GM['brass'], 112, 70)
+    horn = s.track(GM['horn'], 104, 88)
+    for bar in range(bars):
+        root, kind = prog[(bar // 4) % len(prog)]
+        b = bar * 4
+        tri = triad(root, kind, 3)
+        s.chord(trem, b, 3.95, [tri[0] + 12, tri[1] + 12, tri[2] + 12], 84)
+        for k in range(8):
+            s.note(lo, b + k * 0.5, 0.35, n(root, 1) + (12 if k % 2 else 0), 110 if k % 2 == 0 else 86)
+    theme = [(0, 2, 'A', 4), (2, 2, 'D', 5), (4, 3, 'F', 5), (7, 1, 'E', 5), (8, 4, 'D', 5), (12, 2, 'Eb', 5), (14, 2, 'D', 5),
+             (16, 3, 'C', 5), (19, 1, 'Bb', 4), (20, 2, 'A', 4), (22, 2, 'Db', 5), (24, 8, 'D', 5)]
+    for rep in (0, 64):
+        for beat, length, name, octv in theme:
+            s.note(brass, 32 + rep + beat, length - 0.05, n(name, octv), 114)
+            s.note(horn, 32 + rep + beat, length - 0.05, n(name, octv - 1), 100)
+    stems['boss_orch'] = render(s, 'aurelion_orch', 0.65)
+    s = Stem(bpm, bars)
+    choir = s.track(GM['choir'], 108, 64)
+    taiko = s.track(GM['taiko'], 120, 64)
+    timp = s.track(GM['timpani'], 112, 58)
+    bells = s.track(GM['bells'], 84, 80)
+    for bar in range(bars):
+        root, kind = prog[(bar // 4) % len(prog)]
+        b = bar * 4
+        tri = triad(root, kind, 4)
+        if bar % 2 == 0:
+            s.chord(choir, b, 7.9, [tri[0] - 12, tri[0], tri[1], tri[2] + 12], 100 if bar >= 8 else 76)
+        for off in (0, 0.75, 1.5, 2, 2.75, 3.5):
+            s.note(taiko, b + off, 0.3, n('D', 2), 126 if off in (0, 2) else 94)
+        s.note(timp, b, 0.6, n(root, 2), 114)
+        if bar % 4 == 0:
+            s.note(bells, b, 4, n(root, 5), 70)
+    stems['boss_choir'] = render(s, 'aurelion_choir', 0.7)
+    return {'stems': stems, 'bpm': bpm, 'bars': bars}
+
+
+def ending():
+    bpm, bars = 60, 16
+    # D major at last: the hymn opened into the morning (I - V - vi - IV | I - iii - IV - V - I)
+    prog = [('D', 'M'), ('A', 'M'), ('B', 'm'), ('G', 'M'), ('D', 'M'), ('Gb', 'm'), ('G', 'M'), ('A', 'M')]
+
+    def triad(root, kind, octave):
+        r = n(root, octave)
+        return [r, r + (3 if kind == 'm' else 4), r + 7]
+
+    stems = {}
+    s = Stem(bpm, bars)
+    st = s.track(GM['strings'], 92, 52)
+    ch = s.track(GM['choir'], 84, 76)
+    harp = s.track(GM['harp'], 84, 40)
+    horn = s.track(GM['horn'], 98, 70)
+    for i, (root, kind) in enumerate(prog):
+        b = i * 8
+        tri = triad(root, kind, 3)
+        s.chord(st, b, 7.9, [tri[0], tri[2], tri[1] + 12, tri[0] + 12], 64)
+        s.chord(ch, b, 7.9, [tri[0] + 12, tri[1] + 12, tri[2] + 12], 58)
+        for k in range(8):
+            s.note(harp, b + k, 0.9, [tri[0] + 12, tri[1] + 12, tri[2] + 12, tri[1] + 24][k % 4], 50)
+    theme = [(0, 2, 'A', 4), (2, 2, 'D', 5), (4, 3, 'Gb', 5), (7, 1, 'E', 5), (8, 4, 'D', 5), (12, 2, 'E', 5), (14, 2, 'Gb', 5),
+             (16, 3, 'A', 5), (19, 1, 'Gb', 5), (20, 2, 'E', 5), (22, 2, 'Db', 5), (24, 8, 'D', 5)]
+    for beat, length, name, octv in theme:
+        s.note(horn, 16 + beat, length - 0.05, n(name, octv - 1), 90)
+    stems['explore_pad'] = render(s, 'ending_theme', 0.7)
+    return {'stems': stems, 'bpm': bpm, 'bars': bars}
+
+
+PIECES = {'eclipse': eclipse, 'aurelion': aurelion, 'ending': ending, 'ashen': ashen, 'ignaroth': ignaroth, 'drowned': drowned, 'thaloryn': thaloryn, 'sky': sky, 'vaeltris': vaeltris,
           'forest': forest, 'sylvaris': sylvaris}
 
 if __name__ == '__main__':

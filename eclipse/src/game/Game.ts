@@ -173,6 +173,9 @@ export class Game {
       case 'shockBurst': a.play('shock', { at, volume: Math.min(1, 0.5 + 0.2 * k) }); break;
       case 'gust': a.play('gust', { at }); break;
       case 'rootBurst': a.play('root_burst', { at }); break;
+      case 'sunPillar': a.play('sun_flare', { at }); break;
+      case 'sunBurst': a.play('fire_burst', { at, pitch: 3, volume: 0.7 }); break;
+      case 'voidBurst': a.play('void_burst', { at }); break;
       case 'sporeBurst': a.play('spore_burst', { at, volume: Math.min(1, 0.5 + 0.2 * k) }); break;
       default: break;
     }
@@ -208,7 +211,7 @@ export class Game {
       const heavy = attack.weight >= 0.7 || e.heavy;
       if (attack.hit?.kind === 'none') {
         // spells: a gathering sound in the caster's element instead of a weapon swing
-        const cast = attack.element === 'water' ? 'water_cast' : attack.element === 'lightning' ? 'storm_cast' : attack.element === 'life' ? 'bloom_cast' : 'fire_cast';
+        const cast = attack.element === 'water' ? 'water_cast' : attack.element === 'lightning' ? 'storm_cast' : attack.element === 'life' ? 'bloom_cast' : attack.element === 'light' ? 'sun_cast' : 'fire_cast';
         a.play(cast, { at: e.position, pitch: big ? -5 : 0 });
         return;
       }

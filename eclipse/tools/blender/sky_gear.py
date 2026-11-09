@@ -62,25 +62,27 @@ def wings_field(root_l, root_r, span, seed, feathers=9):
             d = d / np.linalg.norm(d)
             blades.append((base, d, length, width, t))
 
-        back_down = np.array([0.0, 0.35, -1.0])
-        # secondaries along the forearm (shoulder -> wrist), hanging back and down, growing outward
-        for k in range(10):
-            u = (k + 0.5) / 10
+        back_down = np.array([0.0, 0.7, -0.75])
+        # secondaries along the forearm (shoulder -> wrist): broad, swept back and down, overlapping
+        # like shingles so the trailing edge reads as one surface, growing longer toward the wrist
+        for k in range(18):
+            u = (k + 0.5) / 18
             base = sh + (wr - sh) * u if u > 0.5 else sh + (el - sh) * (u * 2)
-            out = np.array([s * (0.25 + 0.5 * u), 0.0, 0.0])
-            feather(base, back_down + out, span * (0.42 + 0.22 * u), 0.055 * span, 0.008)
+            out = np.array([s * (0.35 + 0.55 * u), 0.0, 0.0])
+            feather(base, back_down + out, span * (0.46 + 0.24 * u), 0.1 * span, 0.008)
         # primaries from the wrist to the tip, splaying out like fingers
-        for k in range(7):
-            u = k / 6
-            base = wr + (tip - wr) * (0.15 + 0.85 * u)
-            ang = np.radians(-60 + 85 * u)
-            d = np.array([s * np.cos(ang) * 0.9, 0.3, np.sin(ang) - 0.25])
-            feather(base, d, span * (0.62 + 0.18 * np.sin(np.pi * (0.25 + 0.6 * u))), 0.05 * span, 0.007)
-        # coverts: short and overlapping, laid along the top of the arm
-        for k in range(12):
-            u = (k + 0.5) / 12
-            base = sh + (tip - sh) * u * 0.92 + np.array([0, 0.02, 0.02]) * span
-            feather(base, back_down + np.array([s * 0.35, 0.0, 0.0]), span * (0.18 + 0.08 * rng.random()), 0.05 * span, 0.009)
+        for k in range(9):
+            u = k / 8
+            base = wr + (tip - wr) * (0.1 + 0.9 * u)
+            ang = np.radians(-55 + 85 * u)
+            d = np.array([s * np.cos(ang) * 0.9, 0.45, np.sin(ang) - 0.3])
+            feather(base, d, span * (0.66 + 0.2 * np.sin(np.pi * (0.25 + 0.6 * u))), 0.075 * span, 0.007)
+        # coverts: two rows of short overlapping feathers laid along the top of the arm
+        for row in range(2):
+            for k in range(16):
+                u = (k + 0.5) / 16
+                base = sh + (tip - sh) * u * 0.9 + np.array([0, 0.02 + 0.03 * row, 0.02 - 0.06 * row]) * span
+                feather(base, back_down + np.array([s * 0.4, 0.0, 0.0]), span * (0.16 + 0.1 * row + 0.06 * rng.random()), 0.085 * span, 0.009)
         wings.append((bones, blades))
 
     def blade_d(p, base, d, length, width, thick):

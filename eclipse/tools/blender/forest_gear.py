@@ -85,9 +85,10 @@ def thornbound(R, B, info):
     head_ell = sdf.ellipsoid(skull + np.array([0, 0.02, 0.02]), (0.115, 0.135, 0.145))
 
     def cowl(p):
-        # bark grown over the back and top of the skull, moss on the crown
-        env = head_ell(p) - 0.008 - 0.005 * (sdf.fbm(p, 14, 3, 708) - 0.5)
-        return np.maximum(np.abs(env) - 0.004, np.maximum(-(p[:, 1] - (skull[1] - 0.04)), (eyes[2] - 0.02) - p[:, 2]))
+        # bark grown close over the back and top of the skull (following the head itself, so no gap
+        # shows from the front), moss on the crown
+        env = smin(B(p) - 0.013, head_ell(p) + 0.01, 0.02) - 0.004 * (sdf.fbm(p, 14, 3, 708) - 0.5)
+        return np.maximum(np.abs(env) - 0.004, np.maximum(-(p[:, 1] - (skull[1] - 0.02)), (eyes[2] + 0.01) - p[:, 2]))
 
     pieces.append(Piece('cowl', cowl, (skull - np.array([0.2, 0.2, 0.15]), skull + np.array([0.2, 0.22, 0.2])),
                         lambda p: mat_ids(p, 'bark', [(lambda q: q[:, 2] > skull[2] + 0.07, 'moss')]), skin={'bone': 'head'}, voxel=0.002, budget=2400))

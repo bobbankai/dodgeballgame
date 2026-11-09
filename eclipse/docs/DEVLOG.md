@@ -18,6 +18,50 @@ WebGL 2 screenshots, or tests), not just compiled.
 
 ## Log
 
+### Session 5 — Chapters Three to Five, the ending, downloaded photoscans
+
+Built:
+- **Chapter Three, the Shattered Sky** (`levels/ShatteredSky.ts`, `?level=sky`): Aethel Spire torn
+  into islands over a sea of cloud (a billowing heightfield, `world/CloudSea.ts`); rope bridges,
+  stairs and stepping stones to the Stormcrown; distant lightning strikes. Sky kit (17 pieces).
+  Stormbound Monk (glaive, dodges, shock), Tempest Warden (bolts, lightning strikes, wards),
+  **Vaeltris** (hovering; walking lightning strikes, wind gust, feather fans, a dive from the
+  clouds, the tempest, summons). Lightning bolts (`vfx/Lightning.ts`: jagged forked channels with
+  return-stroke flicker, sky flash, thunder delayed at the speed of sound). Shock status.
+- **Chapter Four, the Forgotten Sanctuary** (`levels/Sanctuary.ts`, `?level=forest`): a forest
+  valley past the root-swallowed gate, the keepers' grove, a ravine crossed on a fallen giant, the
+  blight, and the Heartwood glade ringed by roots under a colossal flowering tree. Forest kit
+  (17 pieces) plus **downloaded CC0 photoscans** (Poly Haven: ferns, shrubs, stumps, roots,
+  trunks, moss, boulders and three trees) through a new pipeline (`tools/models/ph_models.py`,
+  `tools/blender/import_models.py`: decimation to budgets, leaf-island thinning for trees, WebP
+  textures; EnvKit keeps their own materials). Thornbound, Bloomcaller, **Sylvaris** (lash,
+  thicket of roots, spore pods, vine grasp, regrowth that heals unless staggered, the bloomfield,
+  summons). Root status (a dodge tears free).
+- **Chapter Five, the Eternal Eclipse** (`levels/Eclipse.ts`, `?level=eclipse`): Solmara's
+  terraces under a huge black sun; Gilded Sentinels (sword and tower shield; off-hand weapons are
+  now attached), Eclipse Priests (sun rays, flares, wards), **Aurelion** (greatsword, sun-lance,
+  solar flares, corona nova rings to jump or dodge, the Black Sun phase that darkens the summit
+  and looses void orbs, summons). **The ending**: the sparks given back, the black sun sliding
+  off the sun as the sky turns to morning, then the credits.
+- Story: chapters 3–5 (Ithra's confession, the truth about the Eclipse), 111 recorded lines in
+  all; scores for every chapter and boss plus the ending (11 pieces); storm, forest and sun sounds.
+- Gear pipeline: material IDs widened to 64; storm cloth, storm-glow, feather, copper, silver,
+  bark, moss, petal, sap-glow, leaf, sun-glow, white cloth and void-glass materials; seven new
+  weapons; Vaeltris's wings rebuilt twice (now an armoured arm with overlapping feathers).
+- `?level=kitview&kit=<sky|forest|photoscans|trees|sun|...>` lays a kit out with game materials.
+- The simulation holds while a level loads; small ground cover casts no shadows.
+
+Verified headless: the Shattered Sky loads and renders (islands, bridges, cloud sea, monks in
+place); kit pieces and photoscans render with their own materials; the chapter transition and
+the Thaloryn intro play.
+
+Not done yet / honest gaps:
+- Chapters Four and Five have not been played through headless yet (models still building at the
+  time of writing); the Vaeltris, Sylvaris and Aurelion fights and the ending are untested.
+- The sculpted forest trees (blobby canopies) were replaced by photoscans in the level; the forest
+  kit's own trees remain only as a fallback.
+- Wing and cloak animation is rigid (no cloth or secondary motion).
+
 ### Session 4 — Chapter Two: the Drowned Empire; two rendering bugs found and fixed
 
 Built:

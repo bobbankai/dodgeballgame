@@ -30,6 +30,7 @@ export const SPEAKERS: Record<string, Speaker> = {
   thaloryn: { name: 'Thaloryn', size: 'large' },
   vaeltris: { name: 'Vaeltris', size: 'large' },
   sylvaris: { name: 'Sylvaris', size: 'large' },
+  aurelion: { name: 'Aurelion', size: 'large' },
   mira: { name: 'Mira' },
   brannoc: { name: 'Brannoc' },
 };

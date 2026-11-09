@@ -6,6 +6,7 @@ import { Drowned } from './Drowned';
 import { KitView } from './KitView';
 import { ShatteredSky } from './ShatteredSky';
 import { Sanctuary } from './Sanctuary';
+import { Eclipse } from './Eclipse';
 
 /** Level ids -> constructors. Chapters register here as they are built. */
 const LEVELS: Record<string, (g: Game) => Level> = {
@@ -15,6 +16,7 @@ const LEVELS: Record<string, (g: Game) => Level> = {
   kitview: (g) => new KitView(g),
   sky: (g) => new ShatteredSky(g),
   forest: (g) => new Sanctuary(g),
+  eclipse: (g) => new Eclipse(g),
 };
 
 export function createLevel(game: Game, id: string): Level {

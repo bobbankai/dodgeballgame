@@ -259,6 +259,42 @@ Object.assign(ARCHETYPES, {
   },
 } satisfies Record<string, EnemyArchetype>);
 
+const SUNBLADE: HitShape = { kind: 'weapon' };
+/** Aurelion's servants burn away to light. */
+const SUNLIT = { vfx: 'deathSun', color: [1.0, 0.75, 0.35] as [number, number, number], sound: 'sun_dissolve' };
+const FLARE = { radius: 1.8, delay: 1.0, vfx: 'sunPillar', color: [1, 0.72, 0.3, 4] as [number, number, number, number], scorch: true, zone: 0 };
+
+/** Chapter Five, the Eternal Eclipse: Aurelion's gilded sentinels (the Dawn Vigil that knelt) and his priests. */
+Object.assign(ARCHETYPES, {
+  sentinel: {
+    id: 'sentinel', name: 'Gilded Sentinel', model: 'sentinel', weapon: 'sun_blade', weaponL: 'sun_shield', scale: 1.05,
+    health: 240, poise: 80, stamina: 140, radius: 0.42, height: 2.0,
+    walk: 1.5, run: 4.4, strafe: 1.6, sight: 24, fov: 2.4, hearing: 12,
+    aggression: 0.65, block: 0.5, dodge: 0.05, holdRange: 3.2, heavy: true, executable: true,
+    xp: 90, aether: 14, voice: 'sentinel_grunt', death: SUNLIT,
+    attacks: [
+      { id: 'slash', clip: 'light_1', speed: 1.0, damage: 28, poise: 24, weight: 0.5, knockback: 0.8, element: 'light', range: [0, 2.4], cooldown: 1.6, score: 1, parryable: true, track: 8, trackTime: 0.3, next: ['slash2'], chain: 0.55, hit: SUNBLADE, tell: 'glint' },
+      { id: 'slash2', clip: 'light_2', speed: 1.0, damage: 30, poise: 26, weight: 0.55, knockback: 1.0, element: 'light', range: [0, 2.6], cooldown: 2, score: 0, parryable: true, track: 6, trackTime: 0.25, hit: SUNBLADE },
+      { id: 'overhead', clip: 'e_overhead', fallback: 'heavy_1', speed: 0.85, damage: 40, poise: 44, weight: 0.8, knockback: 1.6, element: 'light', range: [0, 2.6], cooldown: 4, score: 0.9, parryable: false, knockdown: true, track: 5, trackTime: 0.4, armour: true, hit: SUNBLADE, tell: 'red', status: { burn: 35 } },
+      { id: 'charge', clip: 'sprint_attack', speed: 1.0, damage: 32, poise: 34, weight: 0.65, knockback: 1.4, element: 'light', range: [3, 8], cooldown: 5, score: 0.9, parryable: true, track: 7, trackTime: 0.35, lunge: 1.3, armour: true, hit: SUNBLADE, tell: 'glint' },
+    ],
+    resist: { light: 0.3, fire: 0.6, lightning: 1.2, physical: 0.8 },
+  },
+  priest: {
+    id: 'priest', name: 'Eclipse Priest', model: 'priest', scale: 1,
+    health: 110, poise: 22, stamina: 60, radius: 0.34, height: 1.85,
+    walk: 1.3, run: 3.9, strafe: 1.6, sight: 28, fov: 2.4, hearing: 12,
+    aggression: 0.5, block: 0, dodge: 0.28, holdRange: 12, heavy: false, executable: true, ranged: true,
+    xp: 55, aether: 14, voice: 'priest_chant', death: SUNLIT,
+    attacks: [
+      { id: 'ray', clip: 'cast_push', damage: 24, poise: 16, weight: 0.35, knockback: 0.6, element: 'light', range: [3, 22], cooldown: 2.2, score: 1, parryable: false, track: 8, trackTime: 0.45, projectile: 'sunRay', hit: { kind: 'none' }, status: { burn: 30 } },
+      { id: 'flare', clip: 'cast_slam', damage: 32, poise: 32, weight: 0.5, knockback: 1.2, element: 'light', range: [4, 20], cooldown: 5.5, score: 1.2, parryable: false, unblockable: true, track: 3, trackTime: 0.3, eruption: FLARE, hit: { kind: 'none' }, tell: 'red', status: { burn: 50 } },
+      { id: 'ward', clip: 'cast_heal', damage: 0, poise: 0, weight: 0, knockback: 0, range: [0, 30], cooldown: 10, score: 1.2, parryable: false, track: 2, trackTime: 0.2, hit: { kind: 'none' }, ward: { amount: 110, range: 14 } },
+    ],
+    resist: { light: 0.2, fire: 0.7, lightning: 1.3 },
+  },
+} satisfies Record<string, EnemyArchetype>);
+
 export function archetype(id: string): EnemyArchetype {
   const a = ARCHETYPES[id];
   if (!a) throw new Error(`unknown enemy ${id}`);

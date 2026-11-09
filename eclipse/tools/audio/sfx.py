@@ -642,6 +642,58 @@ def forest():
     write('forest_loop', norm(loopify(reverb(x, 1.6, 0.3, 0.7), 1.0), 0.6), volume=0.6, ref=12, bus='ambience', pitch=0)
 
 
+# ============================================================================== sun (Chapter Five)
+def sun():
+    for i in range(3):
+        d = 1.0
+        t = t_axis(d)
+        swell = band_sweep(d, 300, 2400, 0.6, 0.7) * env(d, 0.35, 4)
+        shimmer = sum(np.sin(2 * np.pi * f * t) for f in (880, 1320, 1760)) * 0.1 * np.clip(t / 0.6, 0, 1) * np.exp(-np.clip(t - 0.6, 0, None) * 6)
+        write(f'sun_cast_{i}', norm(fade(reverb(swell + shimmer, 0.9, 0.3, 0.9))), volume=0.7, pitch=1.4, ref=6)
+    for i in range(3):
+        d = 1.8
+        t = t_axis(d)
+        roar = band_sweep(d, 180, 900, 0.9, 0.7) * env(d, 0.02, 4)
+        crack = bp(noise(d), 1500, 9000) * np.exp(-t * 14)
+        boom = np.sin(2 * np.pi * (60 * np.exp(-t * 3) + 35) * t) * np.exp(-t * 4)
+        choir = sum(np.sin(2 * np.pi * f * t) for f in (440, 554, 659)) * 0.08 * env(d, 0.05, 3)
+        write(f'sun_flare_{i}', norm(fade(reverb(roar + 0.7 * crack + 0.8 * boom + choir, 1.4, 0.3, 0.6))), volume=0.95, pitch=1.2, ref=12)
+    d = 2.0
+    t = t_axis(d)
+    x = sum(np.sin(2 * np.pi * f * t) * np.exp(-t * 1.8) for f in (523, 784, 1046, 1568)) * 0.25 + hp(noise(d), 5000) * env(d, 0.05, 4) * 0.3
+    write('sun_dissolve', norm(fade(reverb(x, 1.8, 0.4, 0.9))), volume=0.55, pitch=1, ref=6)
+    for i in range(2):
+        d = 1.4
+        t = t_axis(d)
+        suck = band_sweep(d, 2400, 120, 0.8, 1.2) * env(d, 0.3, 3)
+        thud = np.sin(2 * np.pi * (45 * np.exp(-t * 2) + 30) * t) * np.exp(-np.clip(t - 0.35, 0, None) * 5) * (t > 0.35)
+        write(f'void_burst_{i}', norm(fade(suck + thud)), volume=0.8, pitch=1, ref=8)
+    for i in range(3):
+        d = 0.45
+        src = glottal(d, lambda t: 115 - 30 * t / 0.45, jitter=0.03)
+        v = formants(src, [650, 1100, 2500], [150, 200, 350], [1, 0.7, 0.3]) + 0.3 * bp(noise(d), 500, 3000)
+        clank = modal(0.45, 900, [1, 2.7, 5.4], [6, 9, 14], [1, 0.5, 0.3]) * 0.3
+        write(f'sentinel_grunt_{i}', norm(fade(np.tanh(2 * v) * env(d, 0.02, 6) + clank)), volume=0.6, pitch=1.2, ref=6, bus='voice')
+    for i in range(3):
+        d = 1.6
+        t = t_axis(d)
+        f0 = [196, 220, 247][i]
+        src = glottal(d, lambda t, f0=f0: f0 + 3 * np.sin(2 * np.pi * 5 * t), jitter=0.01, shimmer=0.05)
+        v = formants(src, [600, 1000, 2600], [100, 150, 300], [1, 0.6, 0.3])
+        write(f'priest_chant_{i}', norm(fade(reverb(v * env(d, 0.3, 3, hold=0.8), 2.0, 0.45, 0.6))), volume=0.5, pitch=1, ref=8, bus='voice')
+    for i in range(2):
+        d = 3.4
+        t = t_axis(d)
+        f = lambda t: 46 + 18 * np.sin(np.pi * np.clip(t / 2.8, 0, 1)) + 5 * i  # noqa: E731
+        src = glottal(d, f, jitter=0.04, shimmer=0.3)
+        v = formants(src, [420, 780, 1700, 2600], [140, 180, 260, 360], [1, 0.8, 0.45, 0.25])
+        v /= np.abs(v).max() + 1e-9
+        choir = sum(np.sin(2 * np.pi * f0 * t) for f0 in (147, 185, 220, 294)) * 0.1 * env(d, 0.4, 3, hold=1.4)
+        flame = band_sweep(d, 200, 1400, 0.9, 0.6) * 0.35 * env(d, 0.3, 3, hold=1.0)
+        x = np.tanh(1.4 * v) * env(d, 0.25, 5, hold=1.4) + choir + flame + 0.4 * lp(brown(d), 80) * env(d, 0.3, 3)
+        write(f'roar_sun_{i}', norm(fade(reverb(x, 2.8, 0.4, 0.6))), volume=1.0, pitch=0.5, ref=22, bus='voice')
+
+
 swings()
 impacts()
 movement()
@@ -653,6 +705,7 @@ drowned_voices()
 storm()
 storm_voices()
 forest()
+sun()
 man_path = os.path.join(ROOT, 'manifest.json')
 man = json.load(open(man_path)) if os.path.exists(man_path) else {'sounds': {}, 'music': {}}
 # keep the recorded voice lines (tools/voices/record.py registers them in the same table)

@@ -11,6 +11,7 @@ const CHAPTERS: { id: string; name: string; sub: string }[] = [
   { id: 'drowned', name: 'The Drowned Empire', sub: 'Chapter Two' },
   { id: 'sky', name: 'The Shattered Sky', sub: 'Chapter Three' },
   { id: 'forest', name: 'The Forgotten Sanctuary', sub: 'Chapter Four' },
+  { id: 'eclipse', name: 'The Eternal Eclipse', sub: 'Chapter Five' },
 ];
 
 const CREDITS = `ECLIPSE: FALLEN GODS
@@ -20,7 +21,7 @@ built from scratch in Babylon.js, Blender and Python
 
 Engine — Babylon.js (WebGPU / WebGL 2), Havok Physics, Recast & Detour
 Characters — MakeHuman / MPFB2 base meshes (CC0), sculpted and rigged by script
-Textures — Poly Haven (CC0), and procedural metal
+Textures and photoscanned plants — Poly Haven (CC0), and procedural metal
 Voices — Kokoro-82M (Apache 2.0), recorded locally
 Music — rendered with FluidSynth and the FluidR3 GM soundfont (MIT)
 Fonts — Cinzel and Cormorant Garamond (SIL Open Font License)

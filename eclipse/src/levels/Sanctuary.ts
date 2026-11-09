@@ -105,6 +105,13 @@ export class Sanctuary extends Level {
     g.lighting.addStatic(this.terrain.mesh, false);
 
     this.kit = new EnvKit(scene, g.assets, g.mats, g.lighting, 'env/forest', this.scope);
+    // levels of detail: lighter trees and shrubs past a distance, ground cover culled
+    for (const [piece, low, dist] of [
+      ['ph_tree_small_02', 'ph_tree_small_02_lod1', 34], ['ph_island_tree_02', 'ph_island_tree_02_lod1', 30],
+      ['ph_jacaranda_tree', 'ph_jacaranda_tree_lod1', 45], ['ph_shrub_02', 'ph_shrub_02_lod1', 25], ['ph_shrub_04', 'ph_shrub_04_lod1', 25],
+      ['ph_nettle_plant', 'ph_nettle_plant_lod1', 20], ['ph_dead_tree_trunk', 'ph_dead_tree_trunk_lod1', 35],
+      ['ph_fern_02', null, 32], ['ph_moss_01', null, 30], ['ph_weed_plant_02', null, 24], ['ph_dry_branches_medium_01', null, 24], ['ph_shrub_03', null, 30],
+    ] as [string, string | null, number][]) this.kit.setLod(piece, low, dist);
     await this.kit.placeAll(this.layout());
     const col = this.kit.finish();
     this.own(this.kit);
@@ -177,24 +184,40 @@ export class Sanctuary extends Level {
       || Math.hypot(x - GLADE.x, z - GLADE.z) < GLADE_R + 4 + r || Math.abs(z - RAVINE_Z) < 8
       || Math.hypot(x - SHRINE.x, z - SHRINE.z) < 7 || Math.abs(z - GATE_Z) < 4 && Math.abs(x) < 9;
     let n = 0;
-    for (let gz = -30; gz < 220; gz += 11) {
-      for (let gx = -66; gx <= 66; gx += 11) {
+    for (let gz = -30; gz < 220; gz += 8.5) {
+      for (let gx = -64; gx <= 64; gx += 8.5) {
         n++;
-        const x = gx + (rnd(n, 1) - 0.5) * 8;
-        const z = gz + (rnd(n, 2) - 0.5) * 8;
+        const x = gx + (rnd(n, 1) - 0.5) * 7;
+        const z = gz + (rnd(n, 2) - 0.5) * 7;
         const d = pathDist(x, z);
-        if (d > 42 || rnd(n, 3) < 0.2) continue;
+        if (d > 44 || rnd(n, 3) < 0.15) continue;
         const blight = z > 105 && z < 160;
         const r = rnd(n, 4);
-        const piece = d > 26 && r < 0.18 ? 'tree_giant' : blight ? (r < 0.55 ? 'tree_b' : 'tree_dead') : (r < 0.7 ? 'tree_a' : r < 0.85 ? 'tree_b' : 'tree_dead');
-        const size = piece === 'tree_giant' ? 6 : 2;
+        // photoscanned trees: slender ones for the canopy, broad jacarandas further out, low island
+        // trees under them; the blight is bare wood
+        let piece: string;
+        let scale: number;
+        if (blight && r < 0.55) {
+          piece = r < 0.35 ? 'tree_dead' : 'ph_dead_tree_trunk';
+          scale = 0.9 + rnd(n, 6) * 0.5;
+        } else if (d > 13 && r < 0.22) {
+          piece = 'ph_jacaranda_tree';
+          scale = 0.8 + rnd(n, 6) * 0.4;
+        } else if (r < 0.32) {
+          piece = 'ph_island_tree_02';
+          scale = 1.3 + rnd(n, 6) * 0.6;
+        } else {
+          piece = 'ph_tree_small_02';
+          scale = 2.6 + rnd(n, 6) * 1.0;
+        }
+        const size = piece === 'ph_jacaranda_tree' ? 8 * scale : 2;
         if (blocked(x, z, size)) continue;
-        put(piece, x, z, rnd(n, 5) * 6.28, piece === 'tree_giant' ? 0.7 + rnd(n, 6) * 0.4 : 0.8 + rnd(n, 6) * 0.5, -0.2);
+        put(piece, x, z, rnd(n, 5) * 6.28, scale, -0.15);
       }
     }
     // ------------------------------------------------ undergrowth: photoscanned ferns, shrubs, nettles, moss
     const cover: [string, number, number][] = [['ph_fern_02', 70, 1.2], ['ph_shrub_03', 26, 1], ['ph_shrub_02', 10, 1], ['ph_nettle_plant', 20, 1],
-      ['ph_weed_plant_02', 18, 1], ['ph_moss_01', 40, 1.6], ['ph_dry_branches_medium_01', 12, 1], ['bush_a', 18, 1], ['bush_b', 14, 1]];
+      ['ph_weed_plant_02', 18, 1], ['ph_moss_01', 40, 1.6], ['ph_dry_branches_medium_01', 12, 1], ['ph_shrub_04', 16, 1.4], ['ph_shrub_02', 10, 1.2], ['ph_tree_stump_02', 6, 1.1]];
     let k = 1000;
     for (const [piece, count, sc] of cover) {
       for (let i = 0; i < count; i++) {
@@ -229,9 +252,10 @@ export class Sanctuary extends Level {
       if (i === 3) continue;
       P.push({ piece: 'root_wall', position: new Vector3(GLADE.x, this.height(GLADE.x, GLADE.z) - 0.2, GLADE.z), yaw: (i * Math.PI) / 6, scale: 1 });
     }
-    put('tree_giant', 0, GLADE.z + GLADE_R + 12, 0.4, 1.5, -0.5);
-    put('tree_giant', -30, GLADE.z + 6, 2.1, 1.1, -0.5);
-    put('tree_giant', 32, GLADE.z - 4, 4.0, 1.2, -0.5);
+    // the Heartwood itself: a colossal flowering tree over the glade's far side, two more flanking
+    put('ph_jacaranda_tree', 0, GLADE.z + GLADE_R + 14, 0.4, 2.2, -0.4);
+    put('ph_jacaranda_tree', -34, GLADE.z + 4, 2.1, 1.5, -0.4);
+    put('ph_jacaranda_tree', 36, GLADE.z - 6, 4.0, 1.6, -0.4);
     put('mushroom_giant', -14, GLADE.z + 12, 1.1, 1.2);
     put('mushroom_giant', 15, GLADE.z + 10, 2.6, 1.0);
     return P;
@@ -295,6 +319,7 @@ export class Sanctuary extends Level {
     const p = g.player;
     if (!p) return;
     this.pollen?.move(p.position.add(new Vector3(0, 1.5, 0)));
+    this.kit.updateLods(g.activeCamera.globalPosition);
     this.encounters.update(p.position);
     this.falls(dt);
     if (this.bossKey && this.boss) {

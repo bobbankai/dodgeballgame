@@ -49,6 +49,9 @@ MATERIALS = [
     ('petal', (0.6, 0.3, 0.48)),
     ('sapglow', (0.75, 1.0, 0.35)),
     ('leaf', (0.3, 0.45, 0.2)),
+    ('sunglow', (1.0, 0.8, 0.4)),
+    ('cloth_white', (0.85, 0.83, 0.78)),
+    ('voidglass', (0.04, 0.03, 0.05)),
 ]
 MAT_INDEX = {n: i for i, (n, _) in enumerate(MATERIALS)}
 

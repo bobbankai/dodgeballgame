@@ -688,6 +688,206 @@
    "pitch": 0,
    "bus": "voice"
   },
+  "line:ithra_8zn7j4": {
+   "files": [
+    "voices/ithra_8zn7j4.ogg"
+   ],
+   "volume": 1.0,
+   "pitch": 0,
+   "bus": "voice"
+  },
+  "line:kael_eilksn": {
+   "files": [
+    "voices/kael_eilksn.ogg"
+   ],
+   "volume": 1.0,
+   "pitch": 0,
+   "bus": "voice"
+  },
+  "line:ithra_iuir40": {
+   "files": [
+    "voices/ithra_iuir40.ogg"
+   ],
+   "volume": 1.0,
+   "pitch": 0,
+   "bus": "voice"
+  },
+  "line:ithra_14z6rkr": {
+   "files": [
+    "voices/ithra_14z6rkr.ogg"
+   ],
+   "volume": 1.0,
+   "pitch": 0,
+   "bus": "voice"
+  },
+  "line:kael_1d5cudt": {
+   "files": [
+    "voices/kael_1d5cudt.ogg"
+   ],
+   "volume": 1.0,
+   "pitch": 0,
+   "bus": "voice"
+  },
+  "line:ithra_7ar491": {
+   "files": [
+    "voices/ithra_7ar491.ogg"
+   ],
+   "volume": 1.0,
+   "pitch": 0,
+   "bus": "voice"
+  },
+  "line:aurelion_131hbvo": {
+   "files": [
+    "voices/aurelion_131hbvo.ogg"
+   ],
+   "volume": 1.0,
+   "pitch": 0,
+   "bus": "voice"
+  },
+  "line:aurelion_18bcb56": {
+   "files": [
+    "voices/aurelion_18bcb56.ogg"
+   ],
+   "volume": 1.0,
+   "pitch": 0,
+   "bus": "voice"
+  },
+  "line:kael_scrw6x": {
+   "files": [
+    "voices/kael_scrw6x.ogg"
+   ],
+   "volume": 1.0,
+   "pitch": 0,
+   "bus": "voice"
+  },
+  "line:aurelion_1izdabf": {
+   "files": [
+    "voices/aurelion_1izdabf.ogg"
+   ],
+   "volume": 1.0,
+   "pitch": 0,
+   "bus": "voice"
+  },
+  "line:ithra_vk5b5z": {
+   "files": [
+    "voices/ithra_vk5b5z.ogg"
+   ],
+   "volume": 1.0,
+   "pitch": 0,
+   "bus": "voice"
+  },
+  "line:aurelion_lposjw": {
+   "files": [
+    "voices/aurelion_lposjw.ogg"
+   ],
+   "volume": 1.0,
+   "pitch": 0,
+   "bus": "voice"
+  },
+  "line:aurelion_1i20eae": {
+   "files": [
+    "voices/aurelion_1i20eae.ogg"
+   ],
+   "volume": 1.0,
+   "pitch": 0,
+   "bus": "voice"
+  },
+  "line:ithra_j1s5vj": {
+   "files": [
+    "voices/ithra_j1s5vj.ogg"
+   ],
+   "volume": 1.0,
+   "pitch": 0,
+   "bus": "voice"
+  },
+  "line:kael_vk6e2u": {
+   "files": [
+    "voices/kael_vk6e2u.ogg"
+   ],
+   "volume": 1.0,
+   "pitch": 0,
+   "bus": "voice"
+  },
+  "line:ithra_bceljh": {
+   "files": [
+    "voices/ithra_bceljh.ogg"
+   ],
+   "volume": 1.0,
+   "pitch": 0,
+   "bus": "voice"
+  },
+  "line:kael_swcto3": {
+   "files": [
+    "voices/kael_swcto3.ogg"
+   ],
+   "volume": 1.0,
+   "pitch": 0,
+   "bus": "voice"
+  },
+  "line:ithra_15meze6": {
+   "files": [
+    "voices/ithra_15meze6.ogg"
+   ],
+   "volume": 1.0,
+   "pitch": 0,
+   "bus": "voice"
+  },
+  "line:kael_1gtbhsb": {
+   "files": [
+    "voices/kael_1gtbhsb.ogg"
+   ],
+   "volume": 1.0,
+   "pitch": 0,
+   "bus": "voice"
+  },
+  "line:ithra_109jy0b": {
+   "files": [
+    "voices/ithra_109jy0b.ogg"
+   ],
+   "volume": 1.0,
+   "pitch": 0,
+   "bus": "voice"
+  },
+  "line:kael_1dtpi7j": {
+   "files": [
+    "voices/kael_1dtpi7j.ogg"
+   ],
+   "volume": 1.0,
+   "pitch": 0,
+   "bus": "voice"
+  },
+  "line:ithra_1pp5op": {
+   "files": [
+    "voices/ithra_1pp5op.ogg"
+   ],
+   "volume": 1.0,
+   "pitch": 0,
+   "bus": "voice"
+  },
+  "line:ithra_1efeyq3": {
+   "files": [
+    "voices/ithra_1efeyq3.ogg"
+   ],
+   "volume": 1.0,
+   "pitch": 0,
+   "bus": "voice"
+  },
+  "line:aurelion_1n5we53": {
+   "files": [
+    "voices/aurelion_1n5we53.ogg"
+   ],
+   "volume": 1.0,
+   "pitch": 0,
+   "bus": "voice"
+  },
+  "line:aurelion_3wtbtv": {
+   "files": [
+    "voices/aurelion_3wtbtv.ogg"
+   ],
+   "volume": 1.0,
+   "pitch": 0,
+   "bus": "voice"
+  },
   "swing_light": {
    "files": [
     "sfx/swing_light_0.ogg",
@@ -1278,6 +1478,75 @@
    "ref": 12,
    "bus": "ambience",
    "pitch": 0
+  },
+  "sun_cast": {
+   "files": [
+    "sfx/sun_cast_0.ogg",
+    "sfx/sun_cast_1.ogg",
+    "sfx/sun_cast_2.ogg"
+   ],
+   "volume": 0.7,
+   "pitch": 1.4,
+   "ref": 6
+  },
+  "sun_flare": {
+   "files": [
+    "sfx/sun_flare_0.ogg",
+    "sfx/sun_flare_1.ogg",
+    "sfx/sun_flare_2.ogg"
+   ],
+   "volume": 0.95,
+   "pitch": 1.2,
+   "ref": 12
+  },
+  "sun_dissolve": {
+   "files": [
+    "sfx/sun_dissolve.ogg"
+   ],
+   "volume": 0.55,
+   "pitch": 1,
+   "ref": 6
+  },
+  "void_burst": {
+   "files": [
+    "sfx/void_burst_0.ogg",
+    "sfx/void_burst_1.ogg"
+   ],
+   "volume": 0.8,
+   "pitch": 1,
+   "ref": 8
+  },
+  "sentinel_grunt": {
+   "files": [
+    "sfx/sentinel_grunt_0.ogg",
+    "sfx/sentinel_grunt_1.ogg",
+    "sfx/sentinel_grunt_2.ogg"
+   ],
+   "volume": 0.6,
+   "pitch": 1.2,
+   "ref": 6,
+   "bus": "voice"
+  },
+  "priest_chant": {
+   "files": [
+    "sfx/priest_chant_0.ogg",
+    "sfx/priest_chant_1.ogg",
+    "sfx/priest_chant_2.ogg"
+   ],
+   "volume": 0.5,
+   "pitch": 1,
+   "ref": 8,
+   "bus": "voice"
+  },
+  "roar_sun": {
+   "files": [
+    "sfx/roar_sun_0.ogg",
+    "sfx/roar_sun_1.ogg"
+   ],
+   "volume": 1.0,
+   "pitch": 0.5,
+   "ref": 22,
+   "bus": "voice"
   }
  },
  "music": {
@@ -1352,6 +1621,31 @@
    },
    "bpm": 96,
    "bars": 32
+  },
+  "eclipse": {
+   "stems": {
+    "explore_pad": "music/eclipse_explore_pad.ogg",
+    "explore_theme": "music/eclipse_explore_theme.ogg",
+    "combat_drums": "music/eclipse_combat_drums.ogg",
+    "combat_brass": "music/eclipse_combat_brass.ogg"
+   },
+   "bpm": 66,
+   "bars": 24
+  },
+  "aurelion": {
+   "stems": {
+    "boss_orch": "music/aurelion_orch.ogg",
+    "boss_choir": "music/aurelion_choir.ogg"
+   },
+   "bpm": 104,
+   "bars": 32
+  },
+  "ending": {
+   "stems": {
+    "explore_pad": "music/ending_theme.ogg"
+   },
+   "bpm": 60,
+   "bars": 16
   }
  }
 }

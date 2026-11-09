@@ -83,6 +83,14 @@ export class Enemies {
         await attachWeapon(this.ctx.scene, this.assets, char, 'oathkeeper', 'weapon_r', this.lighting);
       }
     }
+    if (def.weaponL) {
+      try {
+        await attachWeapon(this.ctx.scene, this.assets, char, def.weaponL, 'weapon_l', this.lighting);
+      } catch {
+        if (!this.missing.has(def.weaponL)) log.warn(`off-hand ${def.weaponL} missing`);
+        this.missing.add(def.weaponL);
+      }
+    }
     return char;
   }
 

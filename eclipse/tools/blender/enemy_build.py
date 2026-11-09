@@ -33,6 +33,7 @@ import ashen_gear
 import drowned_gear
 import sky_gear
 import forest_gear
+import sun_gear
 
 A = args()
 ID = A[0] if A and not A[0].startswith('--') else 'thrall'
@@ -102,6 +103,21 @@ SPECS = {
         'name': 'Sylvaris', 'gear': forest_gear.sylvaris, 'grime': 0.3, 'ash': 0.0, 'emissive': 3.2,
         'phenotype': {'gender': 0.0, 'age': 0.5, 'muscle': 0.5, 'weight': 0.35, 'height': 1.0, 'proportions': 1.0},
         'targets': [],
+    },
+    'sentinel': {
+        'name': 'Gilded Sentinel', 'gear': sun_gear.sentinel, 'grime': 0.2, 'ash': 0.0, 'emissive': 2.6,
+        'phenotype': {'gender': 1.0, 'age': 0.45, 'muscle': 0.85, 'weight': 0.55, 'height': 0.85, 'proportions': 0.9},
+        'targets': [],
+    },
+    'priest': {
+        'name': 'Eclipse Priest', 'gear': sun_gear.priest, 'grime': 0.15, 'ash': 0.0, 'emissive': 2.8,
+        'phenotype': {'gender': 0.5, 'age': 0.55, 'muscle': 0.3, 'weight': 0.3, 'height': 0.7, 'proportions': 0.9},
+        'targets': [],
+    },
+    'aurelion': {
+        'name': 'Aurelion', 'gear': sun_gear.aurelion, 'grime': 0.12, 'ash': 0.0, 'emissive': 3.6,
+        'phenotype': {'gender': 1.0, 'age': 0.4, 'muscle': 0.9, 'weight': 0.5, 'height': 1.0, 'proportions': 1.0},
+        'targets': [('torso-vshape-incr', 0.5)],
     },
     'ignaroth': {
         'name': 'Ignaroth', 'gear': ashen_gear.ignaroth, 'grime': 0.45, 'ash': 0.35, 'emissive': 3.4,

@@ -11,6 +11,7 @@ const KITS: Record<string, string[]> = {
     'rocks_a', 'rocks_b', 'coral_a', 'coral_b', 'boat', 'lamp', 'stele'],
   forest: ['tree_giant', 'tree_a', 'tree_b', 'tree_dead', 'roots_arch', 'root_wall', 'shrine', 'gate', 'log', 'mushrooms', 'mushroom_giant',
     'rocks_a', 'rocks_b', 'bush_a', 'bush_b', 'statue_sylvaris', 'stones'],
+  trees: ['ph_island_tree_02', 'ph_tree_small_02', 'ph_jacaranda_tree', 'tree_a', 'tree_giant'],
   photoscans: ['ph_fern_02', 'ph_shrub_02', 'ph_shrub_03', 'ph_shrub_04', 'ph_tree_stump_01', 'ph_tree_stump_02', 'ph_root_cluster_02',
     'ph_single_root', 'ph_dead_tree_trunk', 'ph_dead_tree_trunk_02', 'ph_moss_01', 'ph_boulder_01', 'ph_stone_01', 'ph_nettle_plant',
     'ph_weed_plant_02', 'ph_dry_branches_medium_01', 'ph_pine_roots'],
@@ -39,7 +40,7 @@ export class KitView extends Level {
     ground.material = gm;
     g.lighting.addStatic(ground, false);
     g.physics.addStaticMesh(ground);
-    const env = new EnvKit(g.scene, g.assets, g.mats, g.lighting, `env/${kit === 'photoscans' ? 'forest' : kit}`, this.scope);
+    const env = new EnvKit(g.scene, g.assets, g.mats, g.lighting, `env/${kit === 'photoscans' || kit === 'trees' ? 'forest' : kit}`, this.scope);
     const P: Placement[] = [];
     const spacing = Number(g.params.get('spacing') ?? 34);
     names.forEach((n, i) => {

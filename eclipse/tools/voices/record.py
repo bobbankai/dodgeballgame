@@ -8,6 +8,7 @@ has a voice (a blend of Kokoro voice styles), a speed and a treatment applied wi
   kael      bm_george + bm_fable, a little slow and low: a tired knight
   ithra     bf_emma + af_heart: warm, close; a faint shimmer (she speaks from the lantern)
   ignaroth  am_onyx, pitched down ~7 semitones with formants, saturated, in a huge stone hall
+  aurelion  bm_george + am_onyx + bm_daniel, lowered, a chorus of himself, a golden hall
   sylvaris  bf_emma + af_nicole + af_heart, lowered, a slow phaser, a wooden hall
   vaeltris  af_sky + bf_isabella, lowered a little, chorused, a long airy echo
   thaloryn  am_onyx + am_michael, pitched down ~6 semitones, a slow flanger (moving water), a drowned hall
@@ -62,13 +63,19 @@ VOICES = {
                  'fx': 'asetrate=24000*0.86,aresample=24000,atempo=1/0.86,equalizer=f=220:t=q:w=1:g=3,'
                        'aphaser=in_gain=0.6:out_gain=0.8:delay=3:decay=0.4:speed=0.3,'
                        'aecho=0.8:0.75:70|160|260:0.3|0.2|0.12,lowpass=f=7000'},
+    # vast and calm, a king used to being obeyed: low, a slow chorus of himself, a golden hall
+    'aurelion': {'blend': [('bm_george', 0.4), ('am_onyx', 0.35), ('bm_daniel', 0.25)], 'speed': 0.84, 'lang': 'en-gb',
+                 'fx': 'asetrate=24000*0.8,aresample=24000,atempo=1/0.8,equalizer=f=140:t=q:w=1:g=4,'
+                       'chorus=0.6:0.9:30|45:0.3|0.25:0.2|0.15:1|1.3,'
+                       'acompressor=threshold=-18dB:ratio=3:attack=5:release=120,'
+                       'aecho=0.8:0.8:110|250|420:0.3|0.22|0.15,highshelf=f=6000:g=1'},
     'mira': {'blend': [('bf_isabella', 1.0)], 'speed': 1.0, 'lang': 'en-gb', 'fx': 'aecho=0.8:0.5:30:0.05'},
     'brannoc': {'blend': [('bm_lewis', 1.0)], 'speed': 0.86, 'lang': 'en-gb', 'fx': 'aecho=0.8:0.5:30:0.05'},
 }
 
 # respellings for words the model reads wrongly
 FIX = {'Varn Keld': 'Varn Kelld', 'Ignaroth': 'Igg-na-roth', 'Ithra': 'Ith-ra', 'Aurelion': 'Aw-ree-lee-on', 'Pentarchs': 'Pen-tarks',
-       'Thaloryn': 'Tha-lor-in', 'Vaeltris': 'Vale-tris', 'Aethel': 'Eh-thel', 'Sylvaris': 'Sil-var-is', 'Aetheris': 'Ay-thair-is'}
+       'Thaloryn': 'Tha-lor-in', 'Vaeltris': 'Vale-tris', 'Aethel': 'Eh-thel', 'Solmara': 'Sol-mara', 'Sylvaris': 'Sil-var-is', 'Aetheris': 'Ay-thair-is'}
 
 
 def line_key(who, text):

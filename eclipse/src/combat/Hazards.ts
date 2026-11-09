@@ -26,6 +26,18 @@ interface Wave {
   make: (victim: Combatant) => DamageInfo;
 }
 
+interface Ring {
+  center: Vector3;
+  r: number;
+  speed: number;
+  max: number;
+  height: number;
+  team: Team;
+  owner: Combatant | null;
+  hit: Set<number>;
+  make: (victim: Combatant) => DamageInfo;
+}
+
 interface Pull {
   center: Vector3;
   radius: number;
@@ -56,6 +68,7 @@ export class Hazards {
   private zones: Zone[] = [];
   private waves: Wave[] = [];
   private pulls: Pull[] = [];
+  private rings: Ring[] = [];
   private waveMat: StandardMaterial | null = null;
   time = 0;
   onHit: ((h: HitEvent) => void) | null = null;
@@ -151,6 +164,16 @@ export class Hazards {
     this.sound?.('whirlpool', center);
   }
 
+  /**
+   * A ring of force rolling outward from `center` (a nova): it hits whoever it passes unless they are
+   * above `height` (a jump clears it) or dodging through it.
+   */
+  ring(center: Vector3, speed: number, max: number, height: number, owner: Combatant | null, team: Team, make: (victim: Combatant) => DamageInfo,
+    color: [number, number, number, number] = [1, 0.75, 0.35, 5]): void {
+    this.rings.push({ center: center.clone(), r: 0.5, speed, max, height, team, owner, hit: new Set(), make });
+    this.ground.shockwave(center, max, color, max / speed);
+  }
+
   /** A steady push on the player inside `radius` of `center` (wind gusts). */
   wind(center: Vector3, radius: number, push: Vector3, duration: number): void {
     this.pulls.push({ center: center.clone(), radius, strength: 0, until: this.time + duration, push: push.clone() });
@@ -213,6 +236,22 @@ export class Hazards {
       for (const sp of w.spray) sp.stop();
     }
     this.waves = this.waves.filter((w) => w.left > 0);
+    for (const g of this.rings) {
+      const prev = g.r;
+      g.r = Math.min(g.max, g.r + g.speed * dt);
+      for (const c of this.world.list) {
+        if (!c.alive || c.team === g.team || g.hit.has(c.id)) continue;
+        const dx = c.position.x - g.center.x;
+        const dz = c.position.z - g.center.z;
+        const d = Math.hypot(dx, dz);
+        if (d < prev - 0.6 || d > g.r + 0.6) continue;
+        if (c.position.y - g.center.y > g.height) continue;
+        g.hit.add(c.id);
+        const h = this.world.apply(g.owner, c, g.make(c), null);
+        this.onHit?.(h);
+      }
+    }
+    this.rings = this.rings.filter((g) => g.r < g.max);
     const pp = this.playerPos?.();
     if (pp && this.pushPlayer) {
       for (const p of this.pulls) {
@@ -262,5 +301,6 @@ export class Hazards {
     }
     this.waves = [];
     this.pulls = [];
+    this.rings = [];
   }
 }

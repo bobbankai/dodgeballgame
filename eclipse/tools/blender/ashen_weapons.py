@@ -306,7 +306,98 @@ def briar_staff():
     return polearm('briar_staff', 2.3, 0.8, head, extra, budget=4500)
 
 
-BUILDERS = {'thorn_maul': thorn_maul, 'briar_staff': briar_staff, 'ashblade': ashblade, 'cinder_greatsword': cinder_greatsword, 'cinderfall': cinderfall, 'reaver_spear': reaver_spear, 'trident': trident,
+def sun_blade():
+    """A Gilded Sentinel's arming sword: a broad leaf blade, a sunburst guard, gold on steel."""
+    L, grip = 0.86, 0.2
+
+    def field(p):
+        z = p[:, 2]
+        t = np.clip((z - 0.06) / L, 0, 1)
+        half_w = 0.03 * (1 - t ** 2.6) + 0.012 * np.sin(np.pi * np.clip(t * 1.4, 0, 1)) + 0.004
+        thick = 0.006 * (1 - 0.5 * t)
+        fuller = 0.0025 * np.exp(-(p[:, 0] / 0.008) ** 2) * (t < 0.6)
+        prof = np.abs(p[:, 1]) - (thick * np.clip(1 - (p[:, 0] / half_w) ** 2, 0, 1) - fuller)
+        blade = np.maximum(np.maximum(prof, np.abs(p[:, 0]) - half_w), np.maximum(0.06 - z, z - (0.06 + L)))
+        guard = np.full(len(p), 1.0)
+        for k in range(9):
+            a = np.pi * (k / 8)
+            c0 = np.array([0, 0, 0.03])
+            c1 = c0 + np.array([np.cos(a) * 0.09, 0, -np.sin(a) * 0.02 + 0.01])
+            guard = np.minimum(guard, sdf.capsule(c0, c1, 0.011, 0.004)(p))
+        hilt = sdf.capsule((0, 0, -grip), (0, 0, 0.02), 0.016)(p)
+        pommel = sdf.sphere((0, 0, -grip - 0.02), 0.03)(p)
+        return np.minimum(np.minimum(blade, guard), np.minimum(hilt, pommel))
+
+    def mats(p):
+        z = p[:, 2]
+        m = np.full(len(p), MAT_INDEX['steel'])
+        m[z < 0.06] = MAT_INDEX['gold']
+        m[(z > -grip + 0.02) & (z < 0.0)] = MAT_INDEX['leather']
+        m[(np.abs(p[:, 0]) < 0.006) & (z > 0.1) & (z < 0.5)] = MAT_INDEX['gold']
+        return m
+    return Piece('sun_blade', field, (np.array([-0.12, -0.04, -grip - 0.06]), np.array([0.12, 0.04, L + 0.1])), mats, skin=None, voxel=0.0015, budget=3500)
+
+
+def sun_shield():
+    """A tower shield faced with a sunburst: held on the left forearm (grip at the origin)."""
+    def field(p):
+        # the plate stands along +Z from the hand, its face toward -Y (out from the back of the fist)
+        q = p - np.array([0, -0.07, 0.12])
+        x, y, z = q[:, 0], q[:, 1], q[:, 2]
+        outline = np.maximum(np.abs(x) - (0.27 - 0.06 * np.clip(-z / 0.5, 0, 1) ** 2), np.abs(z) - 0.5)
+        curve = y + 0.06 * (x / 0.27) ** 2
+        plate = np.maximum(outline, np.abs(curve) - 0.012)
+        rim = np.maximum(np.maximum(np.abs(np.abs(x) - (0.27 - 0.06 * np.clip(-z / 0.5, 0, 1) ** 2)) - 0.012, np.abs(z) - 0.5), np.abs(curve + 0.006) - 0.018)
+        rim = np.minimum(rim, np.maximum(np.maximum(np.abs(np.abs(z) - 0.5) - 0.012, np.abs(x) - 0.27), np.abs(curve + 0.006) - 0.018))
+        boss = sdf.ellipsoid(np.array([0, -0.07 - 0.02, 0.12]), (0.09, 0.05, 0.09))(p)
+        rays = np.full(len(p), 1.0)
+        for k in range(12):
+            a = k / 12 * 2 * np.pi
+            c0 = np.array([0, -0.085, 0.12])
+            c1 = c0 + np.array([np.cos(a) * 0.22, 0.01, np.sin(a) * 0.32])
+            rays = np.minimum(rays, sdf.capsule(c0, c1, 0.012, 0.004)(p))
+        handle = sdf.capsule((0, 0.0, -0.06), (0, 0.0, 0.08), 0.014)(p)
+        return np.minimum(np.minimum(np.minimum(plate, rim), np.minimum(boss, rays)), handle)
+
+    def mats(p):
+        m = np.full(len(p), MAT_INDEX['silver'])
+        q = p - np.array([0, -0.07, 0.12])
+        m[q[:, 1] < -0.02] = MAT_INDEX['gold']
+        m[np.abs(np.abs(q[:, 0]) - 0.26) < 0.02] = MAT_INDEX['gold']
+        m[p[:, 1] > -0.02] = MAT_INDEX['leather']
+        return m
+    return Piece('sun_shield', field, (np.array([-0.32, -0.16, -0.42]), np.array([0.32, 0.04, 0.66])), mats, skin=None, voxel=0.002, budget=4500)
+
+
+def dawnbreaker():
+    """Aurelion's greatsword: a long blade of white-gold, a sun-disc guard, a channel of living light."""
+    L, grip = 1.42, 0.32
+
+    def field(p):
+        z = p[:, 2]
+        t = np.clip((z - 0.16) / L, 0, 1)
+        half_w = 0.05 * (1 - t ** 3.2) + 0.007
+        thick = 0.009 * (1 - 0.5 * t)
+        chan = 0.004 * np.exp(-(p[:, 0] / 0.01) ** 2) * (t < 0.85)
+        prof = np.abs(p[:, 1]) - (thick * np.clip(1 - (p[:, 0] / half_w) ** 2, 0, 1) - chan)
+        blade = np.maximum(np.maximum(prof, np.abs(p[:, 0]) - half_w), np.maximum(0.16 - z, z - (0.16 + L)))
+        disc = np.maximum(np.hypot(p[:, 0], p[:, 2] - 0.08) - 0.12, np.abs(p[:, 1]) - 0.018)
+        disc = np.maximum(disc, -(np.hypot(p[:, 0], p[:, 2] - 0.08) - 0.05))
+        hilt = sdf.capsule((0, 0, -grip), (0, 0, 0.0), 0.019)(p)
+        pommel = sdf.sphere((0, 0, -grip - 0.03), 0.038)(p)
+        return np.minimum(np.minimum(blade, disc), np.minimum(hilt, pommel))
+
+    def mats(p):
+        z = p[:, 2]
+        m = np.full(len(p), MAT_INDEX['silver'])
+        m[z < 0.16] = MAT_INDEX['gold']
+        m[(z > -grip + 0.02) & (z < -0.02)] = MAT_INDEX['darkleather']
+        m[(np.abs(p[:, 0]) < 0.007) & (z > 0.2) & (z < 0.16 + L * 0.85)] = MAT_INDEX['sunglow'] if 'sunglow' in MAT_INDEX else MAT_INDEX['glow']
+        return m
+    return Piece('dawnbreaker', field, (np.array([-0.16, -0.05, -grip - 0.08]), np.array([0.16, 0.05, L + 0.22])), mats, skin=None, voxel=0.0018, budget=5000)
+
+
+BUILDERS = {'sun_blade': sun_blade, 'sun_shield': sun_shield, 'dawnbreaker': dawnbreaker, 'thorn_maul': thorn_maul, 'briar_staff': briar_staff, 'ashblade': ashblade, 'cinder_greatsword': cinder_greatsword, 'cinderfall': cinderfall, 'reaver_spear': reaver_spear, 'trident': trident,
             'storm_glaive': storm_glaive, 'storm_spear': storm_spear}
 
 
