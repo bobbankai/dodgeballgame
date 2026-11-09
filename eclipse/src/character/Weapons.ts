@@ -1,4 +1,4 @@
-import { Color3, PBRMaterial, Texture, type AbstractMesh, type Scene, type TransformNode } from '@babylonjs/core';
+import { Color3, Matrix, PBRMaterial, Quaternion, Texture, TransformNode, Vector3, VertexBuffer, type AbstractMesh, type Scene } from '@babylonjs/core';
 import type { AssetManager } from '../assets/AssetManager';
 import type { Character } from './Character';
 import type { Lighting } from '../render/Lighting';
@@ -71,4 +71,64 @@ export async function attachWeapon(scene: Scene, assets: AssetManager, c: Charac
     lighting?.addCaster(m, false);
   }
   return inst.root;
+}
+
+/**
+ * A tower shield held upright: the grip follows the hand, but the shield stands long side up with its
+ * face turned out to the front and the shield side, whatever the fist is doing (the sword clips hold
+ * the off hand like a sword hand, which lays a shield flat). The shield moves under a holder that
+ * stands in for the socket, so its own transform (export axes included) is untouched; its long and
+ * thin axes are measured from its geometry in that frame. `side` is +1 for a left-hand socket
+ * (characters face +Z, left is +X).
+ */
+export function holdUpright(c: Character, shield: TransformNode, socket = 'weapon_l', side = 1, turnOut = 0.5): TransformNode {
+  const sock = c.socket(socket);
+  // shield geometry in the socket frame, from local transforms (the fresh instance has no world matrices yet)
+  const lo = new Vector3(Infinity, Infinity, Infinity);
+  const hi = new Vector3(-Infinity, -Infinity, -Infinity);
+  const v = new Vector3();
+  for (const m of shield.getChildMeshes(false)) {
+    const pos = m.getVerticesData(VertexBuffer.PositionKind);
+    if (!pos) continue;
+    let rel = Matrix.Identity();
+    for (let n: TransformNode | null = m; n && n !== sock; n = n.parent as TransformNode | null) rel = rel.multiply(localMatrix(n));
+    for (let i = 0; i < pos.length; i += 3) {
+      Vector3.TransformCoordinatesFromFloatsToRef(pos[i], pos[i + 1], pos[i + 2], rel, v);
+      lo.minimizeInPlace(v);
+      hi.maximizeInPlace(v);
+    }
+  }
+  const ext = [hi.x - lo.x, hi.y - lo.y, hi.z - lo.z];
+  const mid = [hi.x + lo.x, hi.y + lo.y, hi.z + lo.z];
+  const order = [0, 1, 2].sort((a, b) => ext[b] - ext[a]);
+  const axis = (i: number, sgn: number) => new Vector3(i === 0 ? sgn : 0, i === 1 ? sgn : 0, i === 2 ? sgn : 0);
+  // long side: toward the longer end from the grip; face: toward the side the plate sits on
+  const L = axis(order[0], Math.sign(mid[order[0]]) || 1);
+  const N = axis(order[2], Math.sign(mid[order[2]]) || 1);
+  const face = new Vector3(side * turnOut, 0, 1).normalize();
+  const rot = Matrix.Transpose(basis(L, N)).multiply(basis(new Vector3(0, 1, 0), face));
+  const holder = new TransformNode(`${shield.name}:holder`, c.root.getScene());
+  holder.parent = c.root;
+  holder.rotationQuaternion = Quaternion.FromRotationMatrix(rot);
+  shield.parent = holder;
+  const inv = new Matrix();
+  c.animator.post.push(() => {
+    sock.computeWorldMatrix(true);
+    c.root.getWorldMatrix().invertToRef(inv);
+    Vector3.TransformCoordinatesToRef(sock.getAbsolutePosition(), inv, holder.position);
+  });
+  return holder;
+}
+
+function localMatrix(n: TransformNode): Matrix {
+  const q = n.rotationQuaternion ?? Quaternion.FromEulerVector(n.rotation);
+  return Matrix.Compose(n.scaling, q, n.position);
+}
+
+/** Rotation whose rows (Babylon's row-vector convention) are X = Y x Z, Y = up, Z = face. */
+function basis(up: Vector3, face: Vector3): Matrix {
+  const y = up.normalizeToNew();
+  const z = face.subtract(y.scale(Vector3.Dot(face, y))).normalize();
+  const x = Vector3.Cross(y, z).normalize();
+  return Matrix.FromValues(x.x, x.y, x.z, 0, y.x, y.y, y.z, 0, z.x, z.y, z.z, 0, 0, 0, 0, 1);
 }

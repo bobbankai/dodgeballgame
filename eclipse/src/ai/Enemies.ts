@@ -3,7 +3,7 @@ import { Enemy, type AiContext } from './Enemy';
 import { archetype, type EnemyArchetype } from './Archetypes';
 import { Boss, type BossDef } from './Boss';
 import { Character } from '../character/Character';
-import { attachWeapon } from '../character/Weapons';
+import { attachWeapon, holdUpright } from '../character/Weapons';
 import type { AssetManager } from '../assets/AssetManager';
 import type { CharacterMaterials } from '../character/CharacterMaterials';
 import type { AnimLibrary } from '../anim/AnimLibrary';
@@ -85,7 +85,8 @@ export class Enemies {
     }
     if (def.weaponL) {
       try {
-        await attachWeapon(this.ctx.scene, this.assets, char, def.weaponL, 'weapon_l', this.lighting);
+        const off = await attachWeapon(this.ctx.scene, this.assets, char, def.weaponL, 'weapon_l', this.lighting);
+        if (def.weaponL.includes('shield')) holdUpright(char, off);
       } catch {
         if (!this.missing.has(def.weaponL)) log.warn(`off-hand ${def.weaponL} missing`);
         this.missing.add(def.weaponL);
