@@ -18,6 +18,51 @@ WebGL 2 screenshots, or tests), not just compiled.
 
 ## Log
 
+### Session 6 — bugs found by playing: navmesh, materials, cutscenes; cloth; mobile HUD
+
+Found and fixed (each seen broken, then seen working, headless):
+- **Navmesh had no floor in the sky level.** `Navigation.build` flipped every mesh's triangles
+  (right for the terrain and Babylon's builders, wrong for glTF kit collision), so kit tops became
+  ceilings: in the Shattered Sky every query failed and monks stood still; raised kit geometry
+  elsewhere (ramparts, bridges, stairs) was missing too. Winding is now read per mesh (an open sheet
+  must face up; a closed solid must enclose positive volume). Coverage checked on Ashen, Drowned,
+  Sky and Forest; monks now close in and attack.
+- **Cloth printed a gingham check.** The `cloth_weave` detail texture is a picnic check, so linen,
+  rope, char-cloth, feathers and petals all showed plaid; bone and pearl used a tiled marble floor
+  (grout lines). New Poly Haven sets (linen, poplin, white leather); 13 characters re-composited
+  (`enemy_build.py <id> --retex`, no re-bake).
+- **Hairlines of the wrong material along seams.** Material IDs are baked as colours; across a
+  seam the blend can land exactly on a third material's colour (sap-glow between petal and leaf,
+  barnacle between kelp and sea-glow, char-cloth between char and rust: 7 characters). The decoder
+  now gives such thin between-texels back to the materials on either side.
+- **Statues and columns had floor-tile grout.** `sun_marble` is now procedural veined slab marble
+  (`tools/tex/gen_marble.py`).
+- **Danger telegraphs burned to white discs** (additive at 3-5x). Now a sigil: thin rim, guide
+  circles, glyph strokes that light in turn as the strike nears, a capped fill that keeps its hue.
+- **A boss intro could be skipped and the boss wake mid-cutscene**, hitting a player who could not
+  move: `Director.play` dropped scripts asked for while another ran. Scripts now queue.
+- **Phone layout:** the hotbar sat mid-screen; the boss bar covered Kael's bars; the pause button was
+  trapped inside the scaled pad; subtitles ran under the buttons. Reworked for narrow and short
+  screens (boss bar top right, hotbar bottom centre on touch, lines in the open middle-left).
+- Bloomcaller redesigned: blossom circlet seated on the hood, leaf robe, fine sap veins.
+
+New:
+- **Cloth secondary motion.** `tools/blender/cloth.py` (run by `enemy_build.py`; standalone for
+  built characters) adds four hem bones under the pelvis and weights hanging cloth (below the hips,
+  clear of leg and foot capsules) to them; `anim/ClothSprings.ts` hangs each panel along the
+  effective gravity (trails a lunge, swings on after a stop), flares it on a spin, lets a striding
+  thigh push it out, and couples the panels into one ring. On 13 characters; seen on the monk,
+  acolyte, cinder knight and Ignaroth in motion. (First try weighted the ankle wraps too: they swung
+  out like skis. Feet are excluded now.)
+- `?level=playground&boss=<ignaroth|thaloryn|vaeltris|sylvaris|aurelion>` for fight tests.
+
+Verified headless this session: Vaeltris (intro after the chapter opening; hits both ways, adds,
+stagger, shock), Sylvaris (lash, spores, root status, thicket telegraphs), the sun kit pieces.
+
+Still open: Chapter Five (Sentinel, Priest, Aurelion still building at the time of writing), the
+ending cinematic, Kael's own tabard (Kael's export carries face morphs; cloth.py does not handle it
+yet), wing secondary motion for Vaeltris.
+
 ### Session 5 — Chapters Three to Five, the ending, downloaded photoscans
 
 Built:

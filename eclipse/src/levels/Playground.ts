@@ -5,6 +5,10 @@ import { withLayers } from '../render/materials/SurfaceLayers';
 import { Navigation } from '../ai/Navigation';
 import { Water } from '../render/Water';
 import { IGNAROTH } from '../ai/bosses/Ignaroth';
+import { THALORYN } from '../ai/bosses/Thaloryn';
+import { VAELTRIS } from '../ai/bosses/Vaeltris';
+import { SYLVARIS } from '../ai/bosses/Sylvaris';
+import { AURELION } from '../ai/bosses/Aurelion';
 import type { BossDef } from '../ai/Boss';
 import type { AbstractMesh } from '@babylonjs/core';
 
@@ -49,7 +53,8 @@ export class Playground extends Level {
     g.lighting.addStatic(plat);
     g.physics.addStaticMesh(plat);
     walk.push(plat);
-    for (const p of [new Vector3(0, 0, 6), new Vector3(-3, 0, 8), new Vector3(3, 0, 8)]) {
+    // training posts, unless a boss is asked for (lock-on would pick a post over the god)
+    for (const p of g.params.has('boss') ? [] : [new Vector3(0, 0, 6), new Vector3(-3, 0, 8), new Vector3(3, 0, 8)]) {
       const d = new TrainingDummy(scene, g.combat, g.mats, p);
       g.lighting.addStatic(d.mesh);
       this.dummies.push(d);
@@ -69,7 +74,8 @@ export class Playground extends Level {
     const list = g.params.get('enemies');
     const bossId = g.params.get('boss');
     if (list || bossId) g.nav = await Navigation.build(walk);
-    const BOSSES: Record<string, BossDef> = { ignaroth: IGNAROTH };
+    // `?boss=<id>`: any of the five gods in the yard (fight tests without their arenas)
+    const BOSSES: Record<string, BossDef> = { ignaroth: IGNAROTH, thaloryn: THALORYN, vaeltris: VAELTRIS, sylvaris: SYLVARIS, aurelion: AURELION };
     if (bossId && BOSSES[bossId]) {
       const b = await g.enemies.spawnBoss(BOSSES[bossId], new Vector3(0, 0, 13), Math.PI);
       g.hud.showBoss({ name: b.name, title: b.title, stats: b.stats, phases: b.phases });
