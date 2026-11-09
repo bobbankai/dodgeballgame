@@ -151,18 +151,18 @@ export class AshenKingdom extends Level {
       { id: 'thrall', at: at(-4, 60), yaw: Math.PI }, { id: 'thrall', at: at(3, 63), yaw: Math.PI },
       { id: 'thrall', at: at(-8, 55), patrol: [at(-8, 55), at(6, 55), at(6, 64), at(-8, 64)] },
     ] });
-    this.encounters.add({ id: 'square', at: SQUARE, spawnRange: 50, spawns: [
+    this.encounters.add({ id: 'square', at: SQUARE, spawnRange: 50, onClear: () => g.flow.checkpoint(this.id, 'village', 'square'), spawns: [
       { id: 'thrall', at: at(-5, 102), yaw: Math.PI }, { id: 'thrall', at: at(5, 104), yaw: Math.PI },
       { id: 'thrall', at: at(-2, 110), yaw: Math.PI }, { id: 'pyre_acolyte', at: at(0, 116), yaw: Math.PI },
     ] });
-    this.encounters.add({ id: 'knight', at: at(1, 140), spawns: [{ id: 'cinder_knight', at: at(1, 142), yaw: Math.PI }] });
-    this.encounters.add({ id: 'wall', at: at(-20, 162), spawns: [
+    this.encounters.add({ id: 'knight', at: at(1, 140), onClear: () => g.flow.checkpoint(this.id, 'gate', 'knight'), spawns: [{ id: 'cinder_knight', at: at(1, 142), yaw: Math.PI }] });
+    this.encounters.add({ id: 'wall', at: at(-20, 162), onClear: () => g.flow.checkpoint(this.id, 'throne', 'wall'), spawns: [
       { id: 'pyre_acolyte', at: new Vector3(-12, 6.12, 163.4), yaw: Math.PI }, { id: 'thrall', at: new Vector3(-30, 6.12, 163.4), yaw: Math.PI / 2 },
       { id: 'pyre_acolyte', at: new Vector3(14, 6.12, 163.4), yaw: Math.PI },
     ] });
-    if (checkpoint === 'throne') {
-      for (const id of ['road1', 'road2', 'square', 'knight', 'wall']) this.encounters.skip(id);
-    }
+    const order = ['road1', 'road2', 'square', 'knight', 'wall'];
+    const upTo: Record<string, number> = { village: 2, gate: 4, throne: 5 };
+    for (const id of order.slice(0, upTo[checkpoint ?? ''] ?? 0)) this.encounters.skip(id);
   }
 
   /** A pool of molten rock: lava surface, its glow, and a burn zone. */
@@ -287,6 +287,7 @@ export class AshenKingdom extends Level {
       case 'village': return { position: at(0, 80), yaw: 0 };
       case 'gate': return { position: at(-2, 145), yaw: 0 };
       case 'throne': return { position: at(0, 185), yaw: 0 };
+      case 'title': return { position: at(0, -30), yaw: 0 };
       default: return { position: at(0, -2), yaw: 0 };
     }
   }
@@ -322,8 +323,10 @@ export class AshenKingdom extends Level {
 
   override start(checkpoint?: string): void {
     const g = this.game;
+    if (checkpoint === 'title') return;
     if (!checkpoint && !g.params.has('nointro')) void g.cine.play((d) => opening(d, g));
     if (checkpoint) this.hint = HINTS.length;
+    g.flow.checkpoint(this.id, checkpoint ?? '');
   }
 
   override surface(at: Vector3): 'stone' | 'ash' | 'wood' {
@@ -387,7 +390,10 @@ export class AshenKingdom extends Level {
     b.events.on('died', () => {
       g.hud.showBoss(null);
       void g.audio.music('ashen');
-      g.hazards.after(2.4, () => void g.cine.play((d) => bossDeath(d, g, b)));
+      g.hazards.after(2.4, () => void g.cine.play((d) => bossDeath(d, g, b)).then(() => {
+        g.flow.claimSpark('ignaroth');
+        g.flow.checkpoint(this.id, 'throne', 'ignaroth');
+      }));
     });
     g.hazards.after(3.5, () => g.hud.showBanner(null));
   }

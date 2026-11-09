@@ -76,7 +76,7 @@ export class Player implements Combatant {
   maxFlasks = 3;
   flaskHeal = 0.45;
   /** Multipliers from skills and equipment. */
-  mods = { damage: 1, staminaCost: 1, parryWindow: 0.2, aetherGain: 1, poiseDamage: 1, flinchResist: 0, dodgeDistance: 1 };
+  mods = { damage: 1, staminaCost: 1, parryWindow: 0.2, aetherGain: 1, poiseDamage: 1, flinchResist: 0, dodgeDistance: 1, executionHeal: 0, abilityCost: 1, abilityDamage: 1 };
   inputEnabled = true;
   /** Scripted walking (cinematics / tests): when set and input is disabled the player walks here. */
   goal: Vector3 | null = null;
@@ -716,6 +716,7 @@ export class Player implements Combatant {
     const def = this.attack;
     if (h.result === 'hit' || h.result === 'staggered' || h.result === 'killed' || h.result === 'guardbreak') {
       this.stats.gainAether((def?.aether ?? 4) * this.mods.aetherGain);
+      if (h.info.critical && this.mods.executionHeal > 0) this.stats.heal(this.stats.maxHealth * this.mods.executionHeal);
       this.clock.hitStop(0.035 + 0.075 * h.info.weight);
       this.rig.shake(0.08 + 0.25 * h.info.weight);
       this.input.rumble(0.2 + 0.5 * h.info.weight, 0.4, 80 + 120 * h.info.weight);
@@ -774,9 +775,14 @@ export class Player implements Combatant {
 
   private currentAbility: AbilitySlot | null = null;
 
+  /** Game time (cooldowns are measured against it). */
+  get now(): number {
+    return this.time;
+  }
+
   private useAbility(slot: AbilitySlot | null): void {
     if (!slot || this.time < slot.ready) return;
-    if (!this.stats.useAether(slot.cost)) return;
+    if (!this.stats.useAether(slot.cost * this.mods.abilityCost)) return;
     slot.ready = this.time + slot.cooldown;
     this.currentAbility = slot;
     this.state = 'cast';

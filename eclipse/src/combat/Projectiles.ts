@@ -27,6 +27,7 @@ export interface ProjectileDef {
 export const PROJECTILES: Record<string, ProjectileDef> = {
   firebolt: { speed: 15, radius: 0.22, gravity: 0, homing: 1.6, homingCutoff: 4, life: 3, core: [6, 2.6, 0.8], coreSize: 0.28, trail: 'fireTrail', impact: 'fireBurst', splash: 1.2, scorch: true },
   emberShard: { speed: 22, radius: 0.15, gravity: -4, homing: 0, homingCutoff: 0, life: 2.5, core: [5, 1.8, 0.4], coreSize: 0.18, trail: 'fireTrail', impact: 'fireBurst', splash: 0 },
+  cinderArc: { speed: 24, radius: 0.9, gravity: 0, homing: 0.6, homingCutoff: 3, life: 1.1, core: [7, 3, 0.9], coreSize: 0.55, trail: 'fireTrail', impact: 'fireBurst', splash: 1.8, scorch: true },
   aetherBolt: { speed: 26, radius: 0.24, gravity: 0, homing: 3, homingCutoff: 1.5, life: 2, core: [1.6, 2.6, 6], coreSize: 0.26, trail: 'aether', impact: 'aether', splash: 1.6 },
 };
 

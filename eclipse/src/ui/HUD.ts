@@ -109,7 +109,7 @@ export class HUD {
         slot.el.classList.toggle('empty', !a);
         if (!a) return;
         slot.ico.textContent = a.name;
-        const now = (player as unknown as { time: number }).time ?? 0;
+        const now = player.now;
         const left = Math.max(0, a.ready - now);
         slot.cd.style.transform = `scaleY(${a.cooldown > 0 ? left / a.cooldown : 0})`;
         slot.el.classList.toggle('ready', left <= 0 && s.aether >= a.cost);

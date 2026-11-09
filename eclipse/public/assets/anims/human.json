@@ -1020,6 +1020,191 @@
    "loop": false,
    "rootMotion": false,
    "events": []
+  },
+  "e_shamble": {
+   "length": 1.2,
+   "frames": 36,
+   "loop": true,
+   "rootMotion": false,
+   "events": [
+    {
+     "t": 0.0,
+     "name": "foot",
+     "side": "l"
+    },
+    {
+     "t": 0.6,
+     "name": "foot",
+     "side": "r"
+    }
+   ]
+  },
+  "e_slash": {
+   "length": 1.0,
+   "frames": 30,
+   "loop": false,
+   "rootMotion": true,
+   "events": [
+    {
+     "t": 0.23333333333333334,
+     "name": "whoosh"
+    },
+    {
+     "t": 0.36666666666666664,
+     "name": "hit_on",
+     "arc": "vertical"
+    },
+    {
+     "t": 0.5,
+     "name": "hit_off"
+    },
+    {
+     "t": 0.6333333333333333,
+     "name": "cancel"
+    },
+    {
+     "t": 0.9333333333333333,
+     "name": "end"
+    }
+   ]
+  },
+  "e_lunge": {
+   "length": 1.2666666666666666,
+   "frames": 38,
+   "loop": false,
+   "rootMotion": true,
+   "events": [
+    {
+     "t": 0.26666666666666666,
+     "name": "whoosh"
+    },
+    {
+     "t": 0.4,
+     "name": "hit_on",
+     "arc": "thrust"
+    },
+    {
+     "t": 0.6,
+     "name": "hit_off"
+    },
+    {
+     "t": 0.8666666666666667,
+     "name": "cancel"
+    },
+    {
+     "t": 1.2,
+     "name": "end"
+    }
+   ]
+  },
+  "e_overhead": {
+   "length": 1.8666666666666667,
+   "frames": 56,
+   "loop": false,
+   "rootMotion": true,
+   "events": [
+    {
+     "t": 0.43333333333333335,
+     "name": "charge"
+    },
+    {
+     "t": 0.6666666666666666,
+     "name": "whoosh"
+    },
+    {
+     "t": 0.7333333333333333,
+     "name": "hit_on",
+     "arc": "vertical",
+     "heavy": true
+    },
+    {
+     "t": 0.8666666666666667,
+     "name": "impact",
+     "shake": 0.7
+    },
+    {
+     "t": 0.9,
+     "name": "hit_off"
+    },
+    {
+     "t": 1.4666666666666666,
+     "name": "cancel"
+    },
+    {
+     "t": 1.8,
+     "name": "end"
+    }
+   ]
+  },
+  "e_thrust": {
+   "length": 1.6666666666666667,
+   "frames": 50,
+   "loop": false,
+   "rootMotion": true,
+   "events": [
+    {
+     "t": 0.6,
+     "name": "whoosh"
+    },
+    {
+     "t": 0.7,
+     "name": "hit_on",
+     "arc": "thrust",
+     "heavy": true
+    },
+    {
+     "t": 1.0333333333333334,
+     "name": "hit_off"
+    },
+    {
+     "t": 1.4,
+     "name": "cancel"
+    },
+    {
+     "t": 1.6,
+     "name": "end"
+    }
+   ]
+  },
+  "e_stun": {
+   "length": 2.0,
+   "frames": 60,
+   "loop": true,
+   "rootMotion": false,
+   "events": []
+  },
+  "e_executed": {
+   "length": 1.5333333333333334,
+   "frames": 46,
+   "loop": false,
+   "rootMotion": true,
+   "events": [
+    {
+     "t": 0.6,
+     "name": "thud",
+     "soft": true
+    },
+    {
+     "t": 1.4666666666666666,
+     "name": "end"
+    }
+   ]
+  },
+  "e_alert": {
+   "length": 1.4666666666666666,
+   "frames": 44,
+   "loop": false,
+   "rootMotion": false,
+   "events": [
+    {
+     "t": 0.4,
+     "name": "roar"
+    },
+    {
+     "t": 1.3333333333333333,
+     "name": "end"
+    }
+   ]
   }
  }
 }

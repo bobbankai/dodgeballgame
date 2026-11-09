@@ -37,6 +37,7 @@ import type { Navigation } from '../ai/Navigation';
 import type { AiContext } from '../ai/Enemy';
 import { Enemies } from '../ai/Enemies';
 import { Director } from '../story/Director';
+import { Flow } from './Flow';
 import type { HitEvent } from '../combat/CombatWorld';
 
 /**
@@ -77,6 +78,8 @@ export class Game {
   private trail: BladeTrail | null = null;
   /** Cinematics and story scripts. */
   readonly cine: Director;
+  /** Title, menus, saves and progression. */
+  readonly flow: Flow;
   humanAnims!: AnimLibrary;
   player: Player | null = null;
   level: Level | null = null;
@@ -119,6 +122,7 @@ export class Game {
     if (params.has('test')) this.audio.enabled = false;
     this.vfx.onBurst = (name, at, k) => this.burstSound(name, at, k);
     this.cine = new Director(this);
+    this.flow = new Flow(this);
     this.ground = new GroundFx(scene);
     this.projectiles = new Projectiles(scene, this.combat, physics, this.vfx);
     this.hazards = new Hazards(this.combat, this.vfx, this.ground);
@@ -243,7 +247,9 @@ export class Game {
     } catch {
       // no recordings yet: subtitles fall back to reading speed
     }
-    const level = this.params.get('level') ?? 'playground';
+    // no ?level: the real game, starting at the title screen over Chapter One
+    const title = !this.params.has('level') && !this.manualTime;
+    const level = this.params.get('level') ?? (title ? 'ashen' : 'playground');
     if (level === 'sandbox' || level === 'viewer') {
       await this.applyAtmos(DEV_ATMOS);
       if (level === 'sandbox') await buildSandbox(this.scene, this.mats, this.lighting, this.physics);
@@ -254,7 +260,9 @@ export class Game {
       }
       if (level === 'sandbox') this.camera.setTarget(new Vector3(0, 1.5, 0));
     } else {
-      await this.loadLevel(level, this.params.get('at') ?? undefined);
+      await this.loadLevel(level, title ? 'title' : this.params.get('at') ?? undefined);
+      if (this.player) this.flow.attachPlayer();
+      if (title) this.flow.showTitle();
     }
     await this.scene.whenReadyAsync();
     log.info(`ready (${this.host.backend})`);
@@ -287,7 +295,7 @@ export class Game {
     this.ambience = a.ambience ? this.audio.loop(a.ambience) : null;
   }
 
-  async loadLevel(id: string, checkpoint?: string): Promise<void> {
+  async loadLevel(id: string, checkpoint?: string, _reload = false): Promise<void> {
     if (this.level) {
       this.enemies.clear();
       this.projectiles.clear();
@@ -373,6 +381,7 @@ export class Game {
     const n = this.paused ? 0 : this.clock.accumulate(realDt);
     for (let i = 0; i < n; i++) this.step(Clock.STEP);
     this.fps = this.fps * 0.95 + (realDt > 0 ? 1 / realDt : 0) * 0.05;
+    this.flow.update(realDt);
     this.render(realDt, n * Clock.STEP);
   }
 
