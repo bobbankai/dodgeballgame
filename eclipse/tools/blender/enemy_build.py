@@ -218,6 +218,12 @@ def main():
     for m in list(gear.modifiers):
         if m.type != 'ARMATURE':
             gear.modifiers.remove(m)
+    try:
+        from cloth import add_cloth
+        cloth = add_cloth(rig, gear)
+    except Exception as e:  # never lose an hour of baking to the cloth pass; cloth.py can redo it
+        log('cloth pass failed:', e)
+        cloth = []
     export_glb(os.path.join(OUT, f'{ID}.glb'), [rig, gear], animations=False, morphs=False)
     manifest = {
         'name': SPEC['name'], 'height': info['top'],
@@ -225,6 +231,8 @@ def main():
         'sockets': {'weapon_r': 'weapon_r', 'weapon_l': 'weapon_l'},
         'morphs': [],
     }
+    if cloth:
+        manifest['cloth'] = cloth
     json.dump(manifest, open(os.path.join(OUT, f'{ID}.json'), 'w'), indent=1)
     bpy.ops.wm.save_as_mainfile(filepath=os.path.join(WORK, f'{ID}.blend'))
     log('exported')

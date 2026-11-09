@@ -4,6 +4,7 @@ import {
 import type { AssetManager, ModelInstance } from '../assets/AssetManager';
 import { CharacterMaterials, type CharacterManifest, type CharacterMaterialSet } from './CharacterMaterials';
 import { Animator, RigBinding } from '../anim/Animator';
+import { ClothSprings } from '../anim/ClothSprings';
 import type { AnimLibrary } from '../anim/AnimLibrary';
 import { Face } from './Face';
 
@@ -20,6 +21,8 @@ export class Character {
   readonly materials: CharacterMaterialSet;
   readonly manifest: CharacterManifest;
   readonly face: Face;
+  /** Hem springs for robes and skirts (characters built with cloth bones). */
+  readonly cloth: ClothSprings | null;
   readonly meshes: AbstractMesh[];
   private sockets = new Map<string, TransformNode>();
 
@@ -34,6 +37,7 @@ export class Character {
     const skeleton = model.skeletons[0];
     this.rig = new RigBinding(skeleton);
     this.animator = new Animator(this.rig, lib.bind(this.rig));
+    this.cloth = ClothSprings.create(this.rig);
     const morphs: MorphTarget[] = [];
     for (const m of this.meshes) {
       const mgr = (m as AbstractMesh & { morphTargetManager?: { numTargets: number; getTarget(i: number): MorphTarget } }).morphTargetManager;
@@ -96,6 +100,7 @@ export class Character {
 
   update(dt: number): void {
     this.animator.update(dt);
+    this.cloth?.update(dt);
     this.face.update(dt);
   }
 

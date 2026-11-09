@@ -13,5 +13,11 @@
   "weapon_r": "weapon_r",
   "weapon_l": "weapon_l"
  },
- "morphs": []
+ "morphs": [],
+ "cloth": [
+  "cloth_f",
+  "cloth_b",
+  "cloth_l",
+  "cloth_r"
+ ]
 }
