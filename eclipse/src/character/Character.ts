@@ -103,6 +103,11 @@ export class Character {
     for (const d of this.materials.dissolve) d.setAmount(v);
   }
 
+  /** The glow at the dissolving edge (ember orange by default; brine for the drowned). */
+  setDissolveColor(c: [number, number, number]): void {
+    for (const d of this.materials.dissolve) d.color.set(c[0], c[1], c[2]);
+  }
+
   dispose(): void {
     for (const s of this.sockets.values()) s.dispose();
     this.model.dispose();

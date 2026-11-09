@@ -111,6 +111,7 @@ export async function bossDeath(d: Director, g: Game, boss: Boss): Promise<void>
   await d.wait(1.2);
   await d.say('kael', 'What did he mean? Whose light?');
   await d.say('ithra', 'He is dying, and the dying lie. His spark is yours now, Kael. Four more.');
+  await d.say('ithra', 'West, then, to the sea. Thaloryn waits in the city he drowned.');
   g.audio.play('banner_boom');
   g.hud.showBanner('Godspark Claimed', 'The Flame of Ignaroth');
   await d.wait(3.5);

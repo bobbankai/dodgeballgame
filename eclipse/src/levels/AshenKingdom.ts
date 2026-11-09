@@ -329,7 +329,7 @@ export class AshenKingdom extends Level {
     g.flow.checkpoint(this.id, checkpoint ?? '');
   }
 
-  override surface(at: Vector3): 'stone' | 'ash' | 'wood' {
+  override surface(at: Vector3): 'stone' | 'ash' | 'wood' | 'water' {
     const paved = roadDist(at.x, at.z) < 2.8 || Math.hypot(at.x - SQUARE.x, at.z - SQUARE.z) < 15 || Math.hypot(at.x - ARENA.x, at.z - ARENA.z) < ARENA_R;
     return paved || at.y > 3 ? 'stone' : 'ash';
   }
@@ -393,6 +393,7 @@ export class AshenKingdom extends Level {
       g.hazards.after(2.4, () => void g.cine.play((d) => bossDeath(d, g, b)).then(() => {
         g.flow.claimSpark('ignaroth');
         g.flow.checkpoint(this.id, 'throne', 'ignaroth');
+        g.flow.chapterComplete(this.id);
       }));
     });
     g.hazards.after(3.5, () => g.hud.showBanner(null));

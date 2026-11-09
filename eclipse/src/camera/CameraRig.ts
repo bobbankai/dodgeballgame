@@ -29,6 +29,8 @@ export class CameraRig {
   maxPitch = 1.15;
   shoulder = 0.45;
   fovBase = 0.9;
+  /** Height of standing water the camera stays above (null: none). */
+  waterLevel: number | null = null;
   fovKick = 0;
   shakeScale = 1;
   lock: LockTarget | null = null;
@@ -111,6 +113,8 @@ export class CameraRig {
     const rate = allowed < this.curDistance ? 18 : 3;
     this.curDistance += (allowed - this.curDistance) * (1 - Math.exp(-dt * rate));
     this.camPos.copyFrom(pivot).addInPlace(dir.scale(this.curDistance));
+    // never dip under a water surface (the level sets it): ride just above it instead
+    if (this.waterLevel !== null && this.camPos.y < this.waterLevel + 0.3) this.camPos.y = this.waterLevel + 0.3;
     // shake: smooth noise driven by trauma^2
     this.shakeT += dt;
     this.trauma = Math.max(0, this.trauma - dt * 1.6);

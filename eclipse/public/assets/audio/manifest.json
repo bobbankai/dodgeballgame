@@ -304,6 +304,120 @@
    "pitch": 0,
    "bus": "ui"
   },
+  "step_water": {
+   "files": [
+    "sfx/step_water_0.ogg",
+    "sfx/step_water_1.ogg",
+    "sfx/step_water_2.ogg",
+    "sfx/step_water_3.ogg",
+    "sfx/step_water_4.ogg"
+   ],
+   "volume": 0.55,
+   "pitch": 1.5,
+   "ref": 3
+  },
+  "splash": {
+   "files": [
+    "sfx/splash_0.ogg",
+    "sfx/splash_1.ogg",
+    "sfx/splash_2.ogg"
+   ],
+   "volume": 0.8,
+   "pitch": 1.2,
+   "ref": 6
+  },
+  "geyser": {
+   "files": [
+    "sfx/geyser_0.ogg",
+    "sfx/geyser_1.ogg"
+   ],
+   "volume": 0.95,
+   "pitch": 0.8,
+   "ref": 12
+  },
+  "wave_roll": {
+   "files": [
+    "sfx/wave_roll_0.ogg",
+    "sfx/wave_roll_1.ogg"
+   ],
+   "volume": 1.0,
+   "pitch": 0.5,
+   "ref": 14
+  },
+  "water_cast": {
+   "files": [
+    "sfx/water_cast_0.ogg",
+    "sfx/water_cast_1.ogg",
+    "sfx/water_cast_2.ogg"
+   ],
+   "volume": 0.7,
+   "pitch": 1.4,
+   "ref": 6
+  },
+  "whirlpool": {
+   "files": [
+    "sfx/whirlpool.ogg"
+   ],
+   "volume": 0.8,
+   "pitch": 0.6,
+   "ref": 8
+  },
+  "brine_dissolve": {
+   "files": [
+    "sfx/brine_dissolve.ogg"
+   ],
+   "volume": 0.55,
+   "pitch": 1,
+   "ref": 5
+  },
+  "rain_loop": {
+   "files": [
+    "sfx/rain_loop.ogg"
+   ],
+   "volume": 0.6,
+   "bus": "ambience",
+   "pitch": 0
+  },
+  "lap_loop": {
+   "files": [
+    "sfx/lap_loop.ogg"
+   ],
+   "volume": 0.65,
+   "ref": 4,
+   "bus": "ambience",
+   "pitch": 0
+  },
+  "falls_loop": {
+   "files": [
+    "sfx/falls_loop.ogg"
+   ],
+   "volume": 0.8,
+   "ref": 8,
+   "bus": "ambience",
+   "pitch": 0
+  },
+  "drowned_groan": {
+   "files": [
+    "sfx/drowned_groan_0.ogg",
+    "sfx/drowned_groan_1.ogg",
+    "sfx/drowned_groan_2.ogg",
+    "sfx/drowned_groan_3.ogg"
+   ],
+   "volume": 0.6,
+   "pitch": 1.5,
+   "ref": 6,
+   "bus": "voice"
+  },
+  "roar_tide": {
+   "files": [
+    "sfx/roar_tide_0.ogg",
+    "sfx/roar_tide_1.ogg"
+   ],
+   "volume": 1.0,
+   "pitch": 0.5,
+   "ref": 20,
+   "bus": "voice"
+  },
   "line:ithra_n61zr4": {
    "files": [
     "voices/ithra_n61zr4.ogg"
@@ -400,6 +514,14 @@
    "pitch": 0,
    "bus": "voice"
   },
+  "line:ithra_1efjgee": {
+   "files": [
+    "voices/ithra_1efjgee.ogg"
+   ],
+   "volume": 1.0,
+   "pitch": 0,
+   "bus": "voice"
+  },
   "line:ithra_1drrpbx": {
    "files": [
     "voices/ithra_1drrpbx.ogg"
@@ -439,6 +561,190 @@
    "volume": 1.0,
    "pitch": 0,
    "bus": "voice"
+  },
+  "line:ithra_14zrdaw": {
+   "files": [
+    "voices/ithra_14zrdaw.ogg"
+   ],
+   "volume": 1.0,
+   "pitch": 0,
+   "bus": "voice"
+  },
+  "line:ithra_179lnri": {
+   "files": [
+    "voices/ithra_179lnri.ogg"
+   ],
+   "volume": 1.0,
+   "pitch": 0,
+   "bus": "voice"
+  },
+  "line:kael_1e34jc1": {
+   "files": [
+    "voices/kael_1e34jc1.ogg"
+   ],
+   "volume": 1.0,
+   "pitch": 0,
+   "bus": "voice"
+  },
+  "line:ithra_cmsvhc": {
+   "files": [
+    "voices/ithra_cmsvhc.ogg"
+   ],
+   "volume": 1.0,
+   "pitch": 0,
+   "bus": "voice"
+  },
+  "line:thaloryn_1935sjp": {
+   "files": [
+    "voices/thaloryn_1935sjp.ogg"
+   ],
+   "volume": 1.0,
+   "pitch": 0,
+   "bus": "voice"
+  },
+  "line:thaloryn_16suhkh": {
+   "files": [
+    "voices/thaloryn_16suhkh.ogg"
+   ],
+   "volume": 1.0,
+   "pitch": 0,
+   "bus": "voice"
+  },
+  "line:kael_1ybn6hc": {
+   "files": [
+    "voices/kael_1ybn6hc.ogg"
+   ],
+   "volume": 1.0,
+   "pitch": 0,
+   "bus": "voice"
+  },
+  "line:thaloryn_5wobcx": {
+   "files": [
+    "voices/thaloryn_5wobcx.ogg"
+   ],
+   "volume": 1.0,
+   "pitch": 0,
+   "bus": "voice"
+  },
+  "line:thaloryn_1lxa3w7": {
+   "files": [
+    "voices/thaloryn_1lxa3w7.ogg"
+   ],
+   "volume": 1.0,
+   "pitch": 0,
+   "bus": "voice"
+  },
+  "line:thaloryn_1qecje0": {
+   "files": [
+    "voices/thaloryn_1qecje0.ogg"
+   ],
+   "volume": 1.0,
+   "pitch": 0,
+   "bus": "voice"
+  },
+  "line:kael_3wl4uq": {
+   "files": [
+    "voices/kael_3wl4uq.ogg"
+   ],
+   "volume": 1.0,
+   "pitch": 0,
+   "bus": "voice"
+  },
+  "line:ithra_1rnq7hg": {
+   "files": [
+    "voices/ithra_1rnq7hg.ogg"
+   ],
+   "volume": 1.0,
+   "pitch": 0,
+   "bus": "voice"
+  },
+  "line:ithra_1xmjjl2": {
+   "files": [
+    "voices/ithra_1xmjjl2.ogg"
+   ],
+   "volume": 1.0,
+   "pitch": 0,
+   "bus": "voice"
+  },
+  "line:ithra_1w4zl9d": {
+   "files": [
+    "voices/ithra_1w4zl9d.ogg"
+   ],
+   "volume": 1.0,
+   "pitch": 0,
+   "bus": "voice"
+  },
+  "line:kael_17m4j49": {
+   "files": [
+    "voices/kael_17m4j49.ogg"
+   ],
+   "volume": 1.0,
+   "pitch": 0,
+   "bus": "voice"
+  },
+  "line:ithra_1nyqtp0": {
+   "files": [
+    "voices/ithra_1nyqtp0.ogg"
+   ],
+   "volume": 1.0,
+   "pitch": 0,
+   "bus": "voice"
+  },
+  "line:ithra_ri6u62": {
+   "files": [
+    "voices/ithra_ri6u62.ogg"
+   ],
+   "volume": 1.0,
+   "pitch": 0,
+   "bus": "voice"
+  },
+  "line:ithra_c4hw8e": {
+   "files": [
+    "voices/ithra_c4hw8e.ogg"
+   ],
+   "volume": 1.0,
+   "pitch": 0,
+   "bus": "voice"
+  },
+  "line:kael_u6tu4f": {
+   "files": [
+    "voices/kael_u6tu4f.ogg"
+   ],
+   "volume": 1.0,
+   "pitch": 0,
+   "bus": "voice"
+  },
+  "line:ithra_rmmi35": {
+   "files": [
+    "voices/ithra_rmmi35.ogg"
+   ],
+   "volume": 1.0,
+   "pitch": 0,
+   "bus": "voice"
+  },
+  "line:ithra_n9mcnb": {
+   "files": [
+    "voices/ithra_n9mcnb.ogg"
+   ],
+   "volume": 1.0,
+   "pitch": 0,
+   "bus": "voice"
+  },
+  "line:thaloryn_jo5rgg": {
+   "files": [
+    "voices/thaloryn_jo5rgg.ogg"
+   ],
+   "volume": 1.0,
+   "pitch": 0,
+   "bus": "voice"
+  },
+  "line:thaloryn_1k52v8s": {
+   "files": [
+    "voices/thaloryn_1k52v8s.ogg"
+   ],
+   "volume": 1.0,
+   "pitch": 0,
+   "bus": "voice"
   }
  },
  "music": {
@@ -458,6 +764,24 @@
     "boss_choir": "music/ignaroth_choir.ogg"
    },
    "bpm": 96,
+   "bars": 32
+  },
+  "drowned": {
+   "stems": {
+    "explore_pad": "music/drowned_explore_pad.ogg",
+    "explore_theme": "music/drowned_explore_theme.ogg",
+    "combat_drums": "music/drowned_combat_drums.ogg",
+    "combat_brass": "music/drowned_combat_brass.ogg"
+   },
+   "bpm": 66,
+   "bars": 24
+  },
+  "thaloryn": {
+   "stems": {
+    "boss_orch": "music/thaloryn_orch.ogg",
+    "boss_choir": "music/thaloryn_choir.ogg"
+   },
+   "bpm": 84,
    "bars": 32
   }
  }

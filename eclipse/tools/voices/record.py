@@ -8,6 +8,7 @@ has a voice (a blend of Kokoro voice styles), a speed and a treatment applied wi
   kael      bm_george + bm_fable, a little slow and low: a tired knight
   ithra     bf_emma + af_heart: warm, close; a faint shimmer (she speaks from the lantern)
   ignaroth  am_onyx, pitched down ~7 semitones with formants, saturated, in a huge stone hall
+  thaloryn  am_onyx + am_michael, pitched down ~6 semitones, a slow flanger (moving water), a drowned hall
   mira      bf_isabella; brannoc bm_lewis (older, slower)
 
 Writes public/assets/audio/voices/<key>.ogg, adds `line:<key>` sounds to the audio manifest and
@@ -43,6 +44,12 @@ VOICES = {
                  'fx': 'asetrate=24000*0.66,aresample=24000,atempo=1/0.66,equalizer=f=90:t=q:w=1:g=6,'
                        'acompressor=threshold=-18dB:ratio=4:attack=5:release=120,'
                        'aecho=0.8:0.85:120|260|430:0.35|0.25|0.18,lowpass=f=6500'},
+    # a vast, wet voice from under the water: pitched down, a slow flanger like moving water, a drowned hall
+    'thaloryn': {'blend': [('am_onyx', 0.5), ('am_michael', 0.3), ('bm_lewis', 0.2)], 'speed': 0.8, 'lang': 'en-gb',
+                 'fx': 'asetrate=24000*0.7,aresample=24000,atempo=1/0.7,equalizer=f=110:t=q:w=1:g=5,'
+                       'flanger=delay=3:depth=4:speed=0.25:width=60,'
+                       'acompressor=threshold=-18dB:ratio=4:attack=5:release=120,'
+                       'aecho=0.8:0.8:90|210|380:0.3|0.22|0.16,lowpass=f=5200'},
     'mira': {'blend': [('bf_isabella', 1.0)], 'speed': 1.0, 'lang': 'en-gb', 'fx': 'aecho=0.8:0.5:30:0.05'},
     'brannoc': {'blend': [('bm_lewis', 1.0)], 'speed': 0.86, 'lang': 'en-gb', 'fx': 'aecho=0.8:0.5:30:0.05'},
 }
@@ -99,6 +106,7 @@ def main():
         key = line_key(who, text)
         out = os.path.join(OUT, f'{key}.ogg')
         if os.path.exists(out) and not REDO and key in durations:
+            man['sounds'][f'line:{key}'] = {'files': [f'voices/{key}.ogg'], 'volume': 1.0, 'pitch': 0, 'bus': 'voice'}
             continue
         v = VOICES.get(who, VOICES['kael'])
         style = sum(k.get_voice_style(name) * w for name, w in v['blend'])

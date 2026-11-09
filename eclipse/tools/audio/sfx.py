@@ -362,14 +362,148 @@ def ui():
     write('banner_boom', norm(fade(reverb(boom + shimmer + brass, 3.0, 0.4, 0.5))), volume=0.8, pitch=0, bus='ui')
 
 
+# ============================================================================== water (Chapter Two)
+def bubble(dur, f0, rise=0.6, decay=40.0):
+    """A single bubble ringing at its Minnaert resonance, chirping upward as it rises."""
+    t = t_axis(dur)
+    f = f0 * (1 + rise * t / max(dur, 1e-3))
+    return np.sin(2 * np.pi * np.cumsum(f) / SR) * np.exp(-t * decay)
+
+
+def bubbles(d, density, f_lo, f_hi, amp=1.0, decay=(25, 80)):
+    """A cloud of bubbles scattered in time (Poisson), log-uniform in pitch."""
+    n = int(d * SR)
+    x = np.zeros(n)
+    for _ in range(int(d * density)):
+        k = int(rng.random() * (n - 4000))
+        f0 = np.exp(rng.uniform(np.log(f_lo), np.log(f_hi)))
+        L = 3000
+        b = bubble(L / SR, f0, rng.uniform(0.2, 1.2), rng.uniform(*decay))
+        x[k:k + L] += b * rng.uniform(0.2, 1.0) * amp
+    return x
+
+
+def water():
+    # wading: a push of water, a slosh and a few bubbles (five variants)
+    for i in range(5):
+        d = 0.55
+        push = bp(noise(d), 250, 2400) * env(d, 0.04, 7)
+        slosh = bp(noise(d), 600, 5000) * env(d, 0.12, 6) * 0.6
+        x = push + slosh + 0.35 * bubbles(d, 30, 500, 1800)
+        write(f'step_water_{i}', norm(fade(x), 0.8), volume=0.55, pitch=1.5, ref=3)
+    # splash: a body or blast hitting water
+    for i in range(3):
+        d = 1.4
+        crash = bp(noise(d), 300, 7000) * env(d, 0.006, 9)
+        sheet = hp(noise(d), 1800) * env(d, 0.08, 5) * 0.5
+        x = crash + sheet + 0.5 * bubbles(d, 70, 300, 2200) * env(d, 0.05, 3)
+        write(f'splash_{i}', norm(fade(reverb(x, 0.8, 0.15))), volume=0.8, pitch=1.2, ref=6)
+    # geyser: a deep boom from below, then the column roaring up and spattering down
+    for i in range(2):
+        d = 3.2
+        t = t_axis(d)
+        boom = np.sin(2 * np.pi * (55 * np.exp(-t * 2) + 28) * t) * env(d, 0.01, 7)
+        column = band_sweep(d, 300, 2400, 0.9, 0.7) * env(d, 0.15, 4, hold=0.4)
+        rain_back = bp(noise(d), 1500, 9000) * np.clip((t - 0.9) / 0.4, 0, 1) * np.exp(-np.clip(t - 1.3, 0, None) * 2)
+        x = 0.9 * boom + column + 0.6 * rain_back + 0.4 * bubbles(d, 60, 150, 900)
+        write(f'geyser_{i}', norm(fade(reverb(x, 1.6, 0.25, 0.5))), volume=0.95, pitch=0.8, ref=12)
+    # a wave: the rolling roar of a wall of water, cresting and breaking
+    for i in range(2):
+        d = 4.0
+        t = t_axis(d)
+        swell = np.clip(t / 2.6, 0, 1) ** 1.5 * np.exp(-np.clip(t - 2.8, 0, None) * 2.5)
+        roar = (lp(brown(d), 380) * 1.2 + bp(noise(d), 300, 3000) * 0.5) * swell
+        crash = bp(noise(d), 800, 9000) * np.clip((t - 2.6) / 0.15, 0, 1) * np.exp(-np.clip(t - 2.75, 0, None) * 3)
+        x = roar + 0.8 * crash + 0.3 * bubbles(d, 50, 200, 1200) * swell
+        write(f'wave_roll_{i}', norm(fade(reverb(x, 1.5, 0.2, 0.4))), volume=1.0, pitch=0.5, ref=14)
+    # water magic: a gurgling rise
+    for i in range(3):
+        d = 0.9
+        t = t_axis(d)
+        rise = band_sweep(d, 300, 1500, 0.5, 0.6) * env(d, 0.3, 4)
+        x = rise + 0.7 * bubbles(d, 80, 400 + 200 * t.mean(), 2500) * env(d, 0.2, 3)
+        write(f'water_cast_{i}', norm(fade(reverb(x, 0.8, 0.25, 0.7))), volume=0.7, pitch=1.4, ref=6)
+    # whirlpool: a long swirling suck, sweeping in pitch as it turns
+    d = 6.0
+    t = t_axis(d)
+    turn = 0.5 + 0.5 * np.sin(2 * np.pi * 0.6 * t)
+    x = bp(noise(d), 200, 1600) * (0.5 + 0.5 * turn) + lp(brown(d), 160) * 0.8 + 0.4 * bubbles(d, 40, 120, 700)
+    x *= env(d, 0.8, 2.5, hold=3.0)
+    write('whirlpool', norm(fade(x, 0.2, 0.8), 0.8), volume=0.8, pitch=0.6, ref=8)
+    # the brine dissolve: water streaming away, fizzing
+    d = 1.8
+    x = bp(noise(d), 1500, 8000) * env(d, 0.08, 4) * 0.6 + bubbles(d, 120, 600, 3000) * env(d, 0.1, 3)
+    write('brine_dissolve', norm(fade(x)), volume=0.55, pitch=1, ref=5)
+    # rain: dense droplet ticks on stone and water, a hiss, and soft low weight (seamless loop)
+    d = 12.0
+    t = t_axis(d)
+    hiss = bp(noise(d), 1200, 9000) * (0.75 + 0.25 * lp(rng.standard_normal(len(t)), 0.4) * 40)
+    ticks = np.zeros(len(t))
+    for _ in range(int(d * 600)):
+        k = int(rng.random() * (len(t) - 600))
+        L = int(rng.uniform(0.0008, 0.004) * SR)
+        ticks[k:k + L] += rng.uniform(0.1, 1) * np.exp(-np.arange(L) / (L / 5)) * rng.standard_normal(L)
+    ticks = bp(ticks, 2000, 12000)
+    drops = bubbles(d, 180, 900, 4000, 0.6, decay=(60, 140))
+    x = 0.5 * hiss / np.abs(hiss).max() + 0.6 * ticks / np.abs(ticks).max() + 0.4 * drops / (np.abs(drops).max() + 1e-9) + 0.25 * lp(brown(d), 250)
+    write('rain_loop', norm(loopify(x, 1.0), 0.6), volume=0.6, bus='ambience', pitch=0)
+    # lapping: slow wavelets slapping against stone in the flooded streets (positional loop)
+    d = 10.0
+    t = t_axis(d)
+    x = np.zeros(len(t))
+    k = 0
+    while k < len(t) - SR:
+        L = int(rng.uniform(0.35, 0.8) * SR)
+        seg = bp(noise(L / SR), 200, 2200) * np.hanning(L) ** 2
+        x[k:k + L] += seg * rng.uniform(0.4, 1)
+        k += int(rng.uniform(0.6, 1.6) * SR)
+    x += 0.5 * bubbles(d, 25, 200, 900) + 0.3 * lp(brown(d), 120)
+    write('lap_loop', norm(loopify(x, 0.8), 0.65), volume=0.65, ref=4, bus='ambience', pitch=0)
+    # waterfall: a broad, steady roar with some movement in it
+    d = 10.0
+    t = t_axis(d)
+    move = 0.8 + 0.2 * lp(rng.standard_normal(len(t)), 0.8) * 30
+    x = (bp(noise(d), 150, 5000) * 0.8 + lp(brown(d), 200) * 0.9) * move + 0.3 * bubbles(d, 100, 200, 1400)
+    write('falls_loop', norm(loopify(x, 1.0), 0.7), volume=0.8, ref=8, bus='ambience', pitch=0)
+
+
+def drowned_voices():
+    # the drowned: a throat full of water, groaning through bubbles
+    for i in range(4):
+        d = rng.uniform(1.0, 1.4)
+        f = lambda t, d=d: 82 + 18 * np.sin(np.pi * np.clip(t / d, 0, 1)) - 14 * (t / d)  # noqa: E731
+        src = glottal(d, f, jitter=0.1, shimmer=0.5)
+        gurgle = 0.6 + 0.4 * np.sin(2 * np.pi * rng.uniform(9, 14) * t_axis(d))
+        v = formants(src * gurgle + 0.4 * noise(d), [380, 700, 2100], [220, 280, 420], [1, 0.55, 0.25])
+        v = np.tanh(1.7 * v / (np.abs(v).max() + 1e-9))
+        x = (v + 0.35 * bubbles(d, 60, 250, 1100)) * env(d, 0.1, 3, hold=d * 0.4)
+        write(f'drowned_groan_{i}', norm(fade(x)), volume=0.6, pitch=1.5, ref=6, bus='voice')
+    # Thaloryn: a sea-king's bellow, vast and wet, ending in a rush of water
+    for i in range(2):
+        d = 3.0
+        t = t_axis(d)
+        f = lambda t: 34 + 18 * np.sin(np.pi * np.clip(t / 2.4, 0, 1)) + 5 * (i == 1)  # noqa: E731
+        src = glottal(d, f, jitter=0.05, shimmer=0.35)
+        v = formants(src, [360, 680, 1500, 2300], [150, 190, 280, 380], [1, 0.85, 0.4, 0.2])
+        v /= np.abs(v).max() + 1e-9
+        x = np.tanh(1.5 * (v + bp(noise(d), 250, 2200) * 0.08)) * env(d, 0.3, 6, hold=1.2)
+        x += 0.5 * lp(brown(d), 80) * env(d, 0.3, 3)
+        x += 0.45 * bp(noise(d), 400, 6000) * np.clip((t - 1.9) / 0.4, 0, 1) * np.exp(-np.clip(t - 2.3, 0, None) * 4)
+        x += 0.3 * bubbles(d, 50, 100, 600)
+        write(f'roar_tide_{i}', norm(fade(reverb(x, 2.4, 0.35, 0.4))), volume=1.0, pitch=0.5, ref=20, bus='voice')
+
+
 swings()
 impacts()
 movement()
 fire()
 voices()
 ui()
+water()
+drowned_voices()
 man_path = os.path.join(ROOT, 'manifest.json')
 man = json.load(open(man_path)) if os.path.exists(man_path) else {'sounds': {}, 'music': {}}
-man['sounds'] = MANIFEST
+# keep the recorded voice lines (tools/voices/record.py registers them in the same table)
+man['sounds'] = {**{k: v for k, v in man.get('sounds', {}).items() if k.startswith('line:')}, **MANIFEST}
 json.dump(man, open(man_path, 'w'), indent=1)
 print(len(MANIFEST), 'sounds,', sum(len(v['files']) for v in MANIFEST.values()), 'files')

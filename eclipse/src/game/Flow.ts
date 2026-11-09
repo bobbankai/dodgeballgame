@@ -8,6 +8,7 @@ import { presetGraphics, type QualityPreset } from '../core/Settings';
 
 const CHAPTERS: { id: string; name: string; sub: string }[] = [
   { id: 'ashen', name: 'The Ashen Kingdom', sub: 'Chapter One' },
+  { id: 'drowned', name: 'The Drowned Empire', sub: 'Chapter Two' },
 ];
 
 const CREDITS = `ECLIPSE: FALLEN GODS
@@ -189,6 +190,25 @@ export class Flow {
     this.playStart = performance.now();
     this.save.write(d);
     this.g.hud.toast('Progress saved');
+  }
+
+  /**
+   * A chapter's god has fallen: after a pause the next chapter loads (saved at its start), or the
+   * credits roll after the last one.
+   */
+  chapterComplete(level: string): void {
+    const i = CHAPTERS.findIndex((c) => c.id === level);
+    const next = CHAPTERS[i + 1];
+    const g = this.g;
+    g.hazards.after(6, () => {
+      if (g.level?.id !== level || g.player?.alive === false) return;
+      if (!next) {
+        this.menus.push(this.creditsScreen());
+        return;
+      }
+      this.checkpoint(next.id, '');
+      void this.startLevel(next.id, '');
+    });
   }
 
   claimSpark(god: string): void {

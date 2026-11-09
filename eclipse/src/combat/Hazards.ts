@@ -1,4 +1,4 @@
-import { Color3, MeshBuilder, StandardMaterial, Vector3, type Mesh, type Scene } from '@babylonjs/core';
+import { Color3, Mesh, StandardMaterial, Vector3, VertexData, type Scene } from '@babylonjs/core';
 import type { CombatWorld, HitEvent } from './CombatWorld';
 import type { Combatant, DamageInfo, Team } from './Types';
 import type { Vfx, FxHandle } from '../vfx/Vfx';
@@ -61,6 +61,9 @@ export class Hazards {
   pushPlayer: ((v: Vector3) => void) | null = null;
   playerPos: (() => Vector3 | null) | null = null;
 
+  /** Plays a positional sound (set by the game). */
+  sound: ((name: string, at: Vector3, volume?: number) => void) | null = null;
+
   constructor(private world: CombatWorld, private vfx: Vfx, private ground: GroundFx, private scene: Scene) {}
 
   /**
@@ -73,26 +76,77 @@ export class Hazards {
     const side = new Vector3(d.z, 0, -d.x);
     if (!this.waveMat) {
       const m = new StandardMaterial('waveMat', this.scene);
-      m.diffuseColor = new Color3(0.08, 0.32, 0.36);
-      m.emissiveColor = new Color3(0.02, 0.12, 0.15);
-      m.specularColor = new Color3(0.9, 0.95, 1);
-      m.specularPower = 96;
-      m.alpha = 0.72;
+      m.diffuseColor = new Color3(1, 1, 1);
+      m.emissiveColor = new Color3(0.03, 0.09, 0.1);
+      m.specularColor = new Color3(0.8, 0.9, 0.95);
+      m.specularPower = 80;
+      m.alpha = 0.82;
       m.backFaceCulling = false;
       this.waveMat = m;
     }
-    const mesh = MeshBuilder.CreateCylinder('wave', { height: width, diameter: height * 2, tessellation: 24, arc: 0.5, enclose: false }, this.scene);
+    const mesh = this.waveMesh(width, height);
     mesh.material = this.waveMat;
-    mesh.rotation.set(0, Math.atan2(side.x, side.z), Math.PI / 2);
+    // the mesh is built travelling along +Z: turn it to the wave's direction
+    mesh.rotation.set(0, Math.atan2(d.x, d.z), 0);
     mesh.isPickable = false;
     const spray: FxHandle[] = [];
     for (let i = -1; i <= 1; i++) spray.push(this.vfx.attach('waterTrail', from.add(side.scale(i * width * 0.35)), 2));
+    this.sound?.('wave_roll', from);
     this.waves.push({ pos: from.clone(), dir: d, side, half: width / 2, height, speed, left: distance, total: distance, team, owner, hit: new Set(), mesh, spray, make });
+  }
+
+  /**
+   * A wall of water, travelling along +Z: a crest profile (a long back slope, a steep face curling
+   * over into a lip) swept across the width, tapering away at both ends, foam-white along the lip.
+   */
+  private waveMesh(width: number, height: number): Mesh {
+    // profile: [along, up] in units of the height, from the back slope round to the curling lip
+    const prof: [number, number][] = [[-2.2, 0], [-1.6, 0.18], [-1.0, 0.5], [-0.5, 0.82], [-0.1, 0.98], [0.25, 1.0], [0.55, 0.9],
+      [0.75, 0.7], [0.78, 0.5], [0.66, 0.36], [0.5, 0.32]];
+    const cols = 28;
+    const pos: number[] = [];
+    const col: number[] = [];
+    const idx: number[] = [];
+    for (let i = 0; i <= cols; i++) {
+      const u = i / cols;
+      const x = (u - 0.5) * width;
+      // taper toward the ends, with a little irregularity along the crest
+      const taper = Math.pow(Math.sin(Math.PI * u), 0.6) * (0.85 + 0.15 * Math.sin(u * 17.0));
+      for (let k = 0; k < prof.length; k++) {
+        const [a, v] = prof[k];
+        pos.push(x, v * height * taper, a * height * (0.6 + 0.4 * taper));
+        const foam = Math.min(1, Math.max(0, (k - 4) / 5)) * (0.5 + 0.5 * taper);
+        const r = 0.07 + foam * 0.78;
+        const g = 0.26 + foam * 0.64;
+        const b = 0.3 + foam * 0.62;
+        col.push(r, g, b, 0.75 + foam * 0.25);
+      }
+    }
+    const n = prof.length;
+    for (let i = 0; i < cols; i++) {
+      for (let k = 0; k < n - 1; k++) {
+        const a = i * n + k;
+        const b = a + n;
+        idx.push(a, b, a + 1, b, b + 1, a + 1);
+      }
+    }
+    const vd = new VertexData();
+    vd.positions = pos;
+    vd.indices = idx;
+    vd.colors = col;
+    const normals: number[] = [];
+    VertexData.ComputeNormals(pos, idx, normals);
+    vd.normals = normals;
+    const mesh = new Mesh('wave', this.scene);
+    vd.applyToMesh(mesh, false);
+    mesh.hasVertexAlpha = true;
+    return mesh;
   }
 
   /** Drags the player toward a point (whirlpools, undertow). */
   pull(center: Vector3, radius: number, strength: number, duration: number): void {
     this.pulls.push({ center: center.clone(), radius, strength, until: this.time + duration });
+    this.sound?.('whirlpool', center);
   }
 
   after(seconds: number, fn: () => void): void {
@@ -131,7 +185,7 @@ export class Hazards {
       // the crest rises in and sinks out at the ends of its run
       const swell = Math.min(1, (w.total - w.left + 0.3) / 2.5, (w.left + 0.1) / 3);
       w.mesh.position.copyFrom(w.pos);
-      w.mesh.scaling.set(Math.max(0.05, swell), 1, Math.max(0.05, swell));
+      w.mesh.scaling.set(1, Math.max(0.05, swell), Math.max(0.3, swell));
       w.spray.forEach((sp, i) => sp.move(w.pos.add(w.side.scale((i - 1) * w.half * 0.7)).add(new Vector3(0, w.height * swell, 0))));
       for (const c of this.world.list) {
         if (!c.alive || c.team === w.team || w.hit.has(c.id)) continue;

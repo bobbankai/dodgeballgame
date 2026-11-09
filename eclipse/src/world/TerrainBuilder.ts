@@ -66,8 +66,26 @@ export async function buildTerrain(scene: Scene, name: string, hf: HeightField, 
       n += 6;
     }
   }
+  // normals straight from the heightfield (central differences): always up-facing and smooth,
+  // whatever the triangle winding convention
   const normals = new Float32Array(pos.length);
-  VertexData.ComputeNormals(pos, idx, normals, { useRightHandedSystem: scene.useRightHandedSystem });
+  const dx = sx / (nx - 1);
+  const dz = sz / (nz - 1);
+  for (let j = 0; j < nz; j++) {
+    for (let i = 0; i < nx; i++) {
+      const k = j * nx + i;
+      const hl = hgt[j * nx + Math.max(0, i - 1)];
+      const hr = hgt[j * nx + Math.min(nx - 1, i + 1)];
+      const hd = hgt[Math.max(0, j - 1) * nx + i];
+      const hu = hgt[Math.min(nz - 1, j + 1) * nx + i];
+      const gx = (hr - hl) / (dx * (i > 0 && i < nx - 1 ? 2 : 1));
+      const gz = (hu - hd) / (dz * (j > 0 && j < nz - 1 ? 2 : 1));
+      const inv = 1 / Math.sqrt(gx * gx + 1 + gz * gz);
+      normals[k * 3] = -gx * inv;
+      normals[k * 3 + 1] = inv;
+      normals[k * 3 + 2] = -gz * inv;
+    }
+  }
   const mesh = new Mesh(name, scene);
   const vd = new VertexData();
   vd.positions = pos;

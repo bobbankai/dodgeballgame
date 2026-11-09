@@ -982,7 +982,11 @@ export class Enemy implements Combatant, Tactical {
 
   private deathTick(): void {
     const t = this.time - this.deathAt;
-    if (t > 2.2 && !this.deathFx) this.deathFx = this.ctx.vfx.attach('deathAsh', this.position.clone(), this.scale);
+    if (t > 2.2 && !this.deathFx) {
+      const d = this.def.death;
+      if (d?.color) this.char.setDissolveColor(d.color);
+      this.deathFx = this.ctx.vfx.attach(d?.vfx ?? 'deathAsh', this.position.clone(), this.scale);
+    }
     if (t > 2.2) this.char.setDissolve(Math.min(1, (t - 2.2) / 1.8));
     if (t > 4.2 && !this.removed) this.remove();
   }

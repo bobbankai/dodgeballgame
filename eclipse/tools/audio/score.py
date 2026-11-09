@@ -11,6 +11,11 @@ reverb tails wrapped round onto the start so the loop has no seam, normalised, a
               a falling horn call).
   ignaroth    The Burning King: D phrygian, 96 bpm, 32 bars. boss_orch (brass theme over driving
               strings), boss_choir (choir and percussion).
+  drowned     E dorian/aeolian, 66 bpm, 24 bars, rolling triplets like a swell. explore_pad (strings,
+              wordless choir, warm pad), explore_theme (harp and celesta in triplets under an English
+              horn lament), combat_drums (taiko 3+3+2, timpani, cello ostinato), combat_brass (horns).
+  thaloryn    The Drowned King: E phrygian, 84 bpm, 32 bars. boss_orch (low brass theme in wide
+              intervals over tremolo strings and a rolling bass), boss_choir (choir and percussion).
 """
 import json
 import os
@@ -30,7 +35,8 @@ os.makedirs(OUT, exist_ok=True)
 TPB = 480
 
 GM = {'strings': 48, 'strings2': 49, 'choir': 52, 'voice': 53, 'cello': 42, 'contrabass': 43, 'harp': 46, 'horn': 60,
-      'trombone': 57, 'brass': 61, 'tuba': 58, 'timpani': 47, 'taiko': 116, 'pizz': 45, 'tremolo': 44, 'bells': 14, 'piano': 0}
+      'trombone': 57, 'brass': 61, 'tuba': 58, 'timpani': 47, 'taiko': 116, 'pizz': 45, 'tremolo': 44, 'bells': 14, 'piano': 0,
+      'flute': 73, 'ehorn': 69, 'celesta': 8, 'pad_warm': 89}
 
 NOTE = {'C': 0, 'Db': 1, 'D': 2, 'Eb': 3, 'E': 4, 'F': 5, 'Gb': 6, 'G': 7, 'Ab': 8, 'A': 9, 'Bb': 10, 'B': 11}
 
@@ -260,7 +266,153 @@ def ignaroth():
     return {'stems': stems, 'bpm': bpm, 'bars': bars}
 
 
-PIECES = {'ashen': ashen, 'ignaroth': ignaroth}
+# ============================================================================== Chapter Two
+def drowned():
+    bpm, bars = 66, 24
+    # Em - C - D - Bm | Em - A (the dorian sixth) - C - D | Am - Em - C - B   (two bars each)
+    prog = [('E', 'm'), ('C', 'M'), ('D', 'M'), ('B', 'm'),
+            ('E', 'm'), ('A', 'M'), ('C', 'M'), ('D', 'M'),
+            ('A', 'm'), ('E', 'm'), ('C', 'M'), ('B', 'M')]
+
+    def triad(root, kind, octave):
+        r = n(root, octave)
+        return [r, r + (3 if kind == 'm' else 4), r + 7]
+
+    stems = {}
+    # ---------------------------------------------------------------- explore_pad
+    s = Stem(bpm, bars)
+    st = s.track(GM['strings'], 90, 50)
+    cb = s.track(GM['contrabass'], 92, 64)
+    ch = s.track(GM['voice'], 72, 78)
+    pad = s.track(GM['pad_warm'], 60, 64)
+    for i, (root, kind) in enumerate(prog):
+        b = i * 8
+        tri = triad(root, kind, 3)
+        s.chord(st, b, 7.9, [tri[0], tri[2], tri[1] + 12, tri[0] + 12], 58 + 8 * (i % 4 == 0))
+        s.note(cb, b, 7.9, n(root, 2), 76)
+        s.chord(pad, b, 7.9, [tri[0] + 12, tri[1] + 12, tri[2] + 12], 46)
+        if i % 2 == 1:
+            # the drowned choir: a slow rising sigh on the third and fifth
+            s.note(ch, b + 1, 3, tri[1] + 12, 52)
+            s.note(ch, b + 4, 3.8, tri[2] + 12, 56)
+    stems['explore_pad'] = render(s, 'drowned_explore_pad', 0.7)
+    # ---------------------------------------------------------------- explore_theme
+    s = Stem(bpm, bars)
+    harp = s.track(GM['harp'], 84, 38)
+    cel = s.track(GM['celesta'], 64, 90)
+    eh = s.track(GM['ehorn'], 100, 66)
+    for i, (root, kind) in enumerate(prog):
+        b = i * 8
+        tri = triad(root, kind, 3)
+        # rolling triplets, rising and falling like a swell
+        roll = [tri[0], tri[2], tri[1] + 12, tri[2] + 12, tri[1] + 12, tri[2]]
+        for k in range(24):
+            s.note(harp, b + k / 3, 0.6, roll[k % 6] + (12 if (k // 6) % 2 else 0), 46 + 12 * (k % 6 == 0))
+        if i % 4 == 2:
+            for k, p in enumerate([tri[2] + 24, tri[1] + 24, tri[0] + 24]):
+                s.note(cel, b + 4 + k * 0.67, 1.5, p, 52)
+    # the lament: long, falling phrases, answered a step higher
+    theme = [
+        (0, 3, 'B', 4), (3, 1, 'A', 4), (4, 2, 'G', 4), (6, 2, 'E', 4), (8, 6, 'Gb', 4), (14, 2, 'D', 4),
+        (16, 3, 'E', 4), (19, 1, 'Gb', 4), (20, 2, 'G', 4), (22, 2, 'B', 4), (24, 4, 'A', 4), (28, 4, 'Db', 5),
+        (32, 3, 'B', 4), (35, 1, 'C', 5), (36, 2, 'B', 4), (38, 2, 'A', 4), (40, 6, 'G', 4), (46, 2, 'Gb', 4),
+        (48, 3, 'E', 4), (51, 1, 'D', 4), (52, 4, 'E', 4), (56, 8, 'Eb', 4),
+    ]
+    for beat, length, name, octv in theme:
+        s.note(eh, 32 + beat, length - 0.05, n(name, octv), 80)
+    stems['explore_theme'] = render(s, 'drowned_explore_theme', 0.7)
+    # ---------------------------------------------------------------- combat_drums
+    s = Stem(bpm, bars)
+    taiko = s.track(GM['taiko'], 112, 64)
+    timp = s.track(GM['timpani'], 104, 58)
+    low = s.track(GM['cello'], 100, 70)
+    for bar in range(bars):
+        b = bar * 4
+        root = prog[(bar // 2) % len(prog)][0]
+        # 3+3+2 in eighths: a surge, a surge, a break
+        pat = [0, 1.5, 3] if bar % 4 != 3 else [0, 0.5, 1.5, 2, 2.5, 3, 3.25, 3.5, 3.75]
+        for off in pat:
+            s.note(taiko, b + off, 0.4, n('E', 2), 120 if off == 0 else 92)
+        s.note(timp, b, 0.9, n(root, 2), 100)
+        s.note(timp, b + 3, 0.4, n(root, 2) + 7, 84)
+        for k in range(8):
+            s.note(low, b + k * 0.5, 0.32, n(root, 2) + (7 if k in (3, 6) else 0), 104 if k in (0, 3, 6) else 74)
+    stems['combat_drums'] = render(s, 'drowned_combat_drums', 0.75)
+    # ---------------------------------------------------------------- combat_brass
+    s = Stem(bpm, bars)
+    horn = s.track(GM['horn'], 106, 56)
+    tbn = s.track(GM['trombone'], 100, 76)
+    for i, (root, kind) in enumerate(prog):
+        b = i * 8
+        tri = triad(root, kind, 3)
+        s.chord(horn, b, 1.4, [tri[0] + 12, tri[1] + 12, tri[2] + 12], 104)
+        s.chord(horn, b + 3, 0.9, [tri[0] + 12, tri[2] + 12], 92)
+        if i % 2 == 0:
+            for k, (beat, length, step) in enumerate([(4, 1.5, 7), (5.5, 0.5, 5), (6, 2, 3)]):
+                s.note(tbn, b + beat, length - 0.05, n(root, 2) + 12 + step - (0 if kind == 'm' else 1), 104)
+    stems['combat_brass'] = render(s, 'drowned_combat_brass', 0.7)
+    return {'stems': stems, 'bpm': bpm, 'bars': bars}
+
+
+# ============================================================================== Thaloryn
+def thaloryn():
+    bpm, bars = 84, 32
+    # E phrygian: the flat second (F) is the undertow. i - bII - i - bVII | i - bII - bVI - V
+    prog = [('E', 'm'), ('F', 'M'), ('E', 'm'), ('D', 'M'), ('E', 'm'), ('F', 'M'), ('C', 'M'), ('B', 'M')]
+
+    def triad(root, kind, octave):
+        r = n(root, octave)
+        return [r, r + (3 if kind == 'm' else 4), r + 7]
+
+    stems = {}
+    s = Stem(bpm, bars)
+    trem = s.track(GM['tremolo'], 94, 48)
+    lo = s.track(GM['contrabass'], 106, 64)
+    brass = s.track(GM['trombone'], 112, 70)
+    tuba = s.track(GM['tuba'], 104, 64)
+    horn = s.track(GM['horn'], 100, 86)
+    for bar in range(bars):
+        root, kind = prog[(bar // 4) % len(prog)]
+        b = bar * 4
+        tri = triad(root, kind, 3)
+        s.chord(trem, b, 3.95, [tri[0] + 12, tri[1] + 12, tri[2] + 12], 80)
+        # a rolling dotted bass: the sea heaving under him
+        for off, dur, up in [(0, 0.7, 0), (0.75, 0.25, 12), (1, 0.5, 7), (1.5, 0.5, 0), (2, 0.7, 0), (2.75, 0.25, 12), (3, 1, 7)]:
+            s.note(lo, b + off, dur - 0.05, n(root, 1) + up, 110 if off in (0, 2) else 86)
+    # the theme: wide and slow, like something vast turning over in deep water
+    theme = [(0, 2, 'E', 3), (2, 2, 'B', 3), (4, 1.5, 'C', 4), (5.5, 0.5, 'B', 3), (6, 2, 'A', 3),
+             (8, 3, 'G', 3), (11, 1, 'F', 3), (12, 4, 'E', 3),
+             (16, 2, 'E', 3), (18, 2, 'C', 4), (20, 1.5, 'D', 4), (21.5, 0.5, 'C', 4), (22, 2, 'B', 3), (24, 4, 'F', 3), (28, 4, 'E', 3)]
+    for rep in (0, 64):
+        for beat, length, name, octv in theme:
+            s.note(brass, 32 + rep + beat, length - 0.05, n(name, octv), 112)
+            s.note(tuba, 32 + rep + beat, length - 0.05, n(name, octv - 1), 100)
+        for beat, length, name, octv in theme[:8]:
+            s.note(horn, 48 + rep + beat, length - 0.05, n(name, octv + 1), 92)
+    stems['boss_orch'] = render(s, 'thaloryn_orch', 0.65)
+    s = Stem(bpm, bars)
+    choir = s.track(GM['choir'], 104, 64)
+    taiko = s.track(GM['taiko'], 118, 64)
+    timp = s.track(GM['timpani'], 110, 58)
+    bells = s.track(GM['bells'], 80, 80)
+    for bar in range(bars):
+        root, kind = prog[(bar // 4) % len(prog)]
+        b = bar * 4
+        tri = triad(root, kind, 4)
+        if bar % 2 == 0:
+            s.chord(choir, b, 7.9, [tri[0] - 12, tri[0], tri[1], tri[2]], 94 if bar >= 8 else 72)
+        for off in (0, 1.5, 2, 3, 3.5):
+            s.note(taiko, b + off, 0.35, n('E', 2), 124 if off in (0, 2) else 94)
+        s.note(timp, b, 0.6, n(root, 2), 112)
+        s.note(timp, b + 2.75, 0.3, n(root, 2) + 7, 92)
+        if bar % 8 == 0:
+            # the drowned temple's bell, tolling under the water
+            s.note(bells, b, 6, n('E', 4), 84)
+    stems['boss_choir'] = render(s, 'thaloryn_choir', 0.7)
+    return {'stems': stems, 'bpm': bpm, 'bars': bars}
+
+
+PIECES = {'ashen': ashen, 'ignaroth': ignaroth, 'drowned': drowned, 'thaloryn': thaloryn}
 
 if __name__ == '__main__':
     names = [a for a in sys.argv[1:] if a in PIECES] or list(PIECES)

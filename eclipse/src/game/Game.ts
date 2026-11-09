@@ -131,6 +131,7 @@ export class Game {
     this.hazards = new Hazards(this.combat, this.vfx, this.ground, scene);
     this.hazards.pushPlayer = (v) => this.player?.push(v);
     this.hazards.playerPos = () => this.player?.position ?? null;
+    this.hazards.sound = (name, at, volume) => this.audio.play(name, { at, volume });
     // eslint-disable-next-line @typescript-eslint/no-this-alias
     const game = this;
     this.ai = {
@@ -151,6 +152,8 @@ export class Game {
       case 'emberSlam': a.play('slam', { at, volume: Math.min(1, 0.5 + 0.25 * k) }); break;
       case 'aether': a.play('aether', { at }); break;
       case 'tellRed': a.play('fire_cast', { at, pitch: -6, volume: 0.6 }); break;
+      case 'splash': a.play('splash', { at, volume: Math.min(1, 0.45 + 0.25 * k) }); break;
+      case 'geyser': a.play('geyser', { at, volume: Math.min(1, 0.6 + 0.2 * k) }); break;
       default: break;
     }
   }
@@ -167,7 +170,8 @@ export class Game {
         if (h.victim === this.player) a.play('kael_hurt', { at });
         if (h.result === 'killed' && h.victim !== this.player) {
           this.hazards.after(0.9, () => a.play('bodyfall', { at: h.victim.position.clone() }));
-          this.hazards.after(2.3, () => a.play('ash_dissolve', { at: h.victim.position.clone() }));
+          const dissolve = (h.victim as { def?: { death?: { sound?: string } } }).def?.death?.sound ?? 'ash_dissolve';
+          this.hazards.after(2.3, () => a.play(dissolve, { at: h.victim.position.clone() }));
         }
         break;
       case 'blocked': a.play('block', { at }); break;
@@ -182,12 +186,18 @@ export class Game {
     const big = e.def.scale > 1.5;
     e.events.on('attack', ({ attack }) => {
       const heavy = attack.weight >= 0.7 || e.heavy;
+      if (attack.hit?.kind === 'none') {
+        // spells: a gathering sound in the caster's element instead of a weapon swing
+        a.play(attack.element === 'water' ? 'water_cast' : 'fire_cast', { at: e.position, pitch: big ? -5 : 0 });
+        return;
+      }
       a.play(big ? 'swing_great' : heavy ? 'swing_heavy' : 'swing_light', { at: e.position, delay: 0.25 / (attack.speed ?? 1), pitch: big ? -4 : 0 });
       if (e.heavy && !big && Math.random() < 0.5) a.play('knight_effort', { at: e.position });
     });
-    e.events.on('alerted', () => a.play(big ? 'roar_giant' : e.heavy ? 'knight_effort' : 'thrall_groan', { at: e.position }));
+    const voice = e.def.voice ?? (big ? 'roar_giant' : e.heavy ? 'knight_effort' : 'thrall_groan');
+    e.events.on('alerted', () => a.play(voice, { at: e.position }));
     e.events.on('hurt', ({ result }) => {
-      if (result === 'staggered') a.play(big ? 'roar_giant' : e.heavy ? 'knight_effort' : 'thrall_groan', { at: e.position, pitch: big ? 3 : 0, volume: 0.8 });
+      if (result === 'staggered') a.play(voice, { at: e.position, pitch: big ? 3 : 0, volume: 0.8 });
     });
   }
 
@@ -283,6 +293,7 @@ export class Game {
     this.pipe.setLook(a.look);
     const w = a.weather ?? {};
     MatEnv.wetness = w.wetness ?? 0;
+    MatEnv.waterLevel = w.waterLevel ?? -1e4;
     MatEnv.coverAmount = w.cover ?? 0;
     if (w.coverColor) MatEnv.coverColor = w.coverColor;
     MatEnv.windStrength = w.wind ?? 0.25;
@@ -315,6 +326,7 @@ export class Game {
     }
     const level = createLevel(this, id);
     this.level = level;
+    this.rig.waterLevel = null;
     await this.applyAtmos(level.atmosphere());
     await level.load(checkpoint);
     if (!this.player) await this.spawnPlayer();
@@ -336,7 +348,16 @@ export class Game {
       if (attack.weight >= 0.65) this.audio.play('kael_effort', { at: player.position });
     });
     player.events.on('swing', ({ attack }) => this.audio.play(attack.weight >= 0.65 ? 'swing_heavy' : 'swing_light', { at: player.bladeWorld().tip }));
-    player.events.on('footstep', ({ position }) => this.audio.play(this.level?.surface(position) === 'stone' ? 'step_stone' : 'step_ash', { at: position }));
+    player.events.on('footstep', ({ position }) => {
+      const s = this.level?.surface(position);
+      this.audio.play(s === 'water' ? 'step_water' : s === 'stone' || s === 'wood' ? 'step_stone' : 'step_ash', { at: position });
+      if (s === 'water') {
+        const wy = this.level?.waterHeight(position) ?? position.y;
+        const at = new Vector3(position.x, wy + 0.02, position.z);
+        this.vfx.burst('wade', at, Vector3.Up(), 0.6);
+        this.ground.shockwave(at, 0.9, [0.55, 0.65, 0.7, 0.35], 0.9);
+      }
+    });
     player.events.on('dodge', () => this.audio.play('dodge', { at: player.position }));
     player.events.on('land', ({ heavy }) => this.audio.play('land', { at: player.position, volume: heavy ? 1 : 0.6 }));
     player.events.on('heal', () => {

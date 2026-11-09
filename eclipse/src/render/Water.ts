@@ -51,6 +51,7 @@ uniform vec3 uShallow;
 uniform vec3 uDeep;
 uniform vec4 uParams;  // absorption, foam, rain, envIntensity
 uniform vec4 uParams2; // time, flow x, flow z, ripple scale
+uniform vec4 uParams3; // body brightness, glint, normal fade distance, -
 uniform vec2 uScreen;
 ${NOISE_GLSL}
 float hgt(vec2 p, float t) {
@@ -84,14 +85,16 @@ void main(void) {
     float r0 = rain(vPos.xz, t);
     float rx = rain(vPos.xz + vec2(0.02, 0.0), t);
     float rz = rain(vPos.xz + vec2(0.0, 0.02), t);
-    n = normalize(n + vec3(-(rx - r0), 0.0, -(rz - r0)) * 2.5 * uParams.z);
+    n = normalize(n + vec3(-(rx - r0), 0.0, -(rz - r0)) * 2.5 * uParams.z * (1.0 - smoothstep(6.0, 30.0, vViewZ)));
   }
+  // far away the ripples are smaller than a pixel: flatten them so they do not alias into glitter
+  n = normalize(mix(n, vec3(0.0, 1.0, 0.0), smoothstep(uParams3.z * 0.25, uParams3.z, vViewZ) * 0.75));
   vec3 v = normalize(uCam - vPos);
   float nv = clamp(dot(n, v), 0.0, 1.0);
   float fres = 0.02 + 0.98 * pow(1.0 - nv, 5.0);
   vec3 refl = textureCube(envSampler, reflect(-v, n)).rgb * uParams.w;
   vec3 hlf = normalize(v + uSunDir);
-  float spec = pow(max(dot(n, hlf), 0.0), 900.0) * 6.0 + pow(max(dot(n, hlf), 0.0), 60.0) * 0.08;
+  float spec = (pow(max(dot(n, hlf), 0.0), 900.0) * 6.0 + pow(max(dot(n, hlf), 0.0), 60.0) * 0.08) * uParams3.y;
   // how much water lies under this pixel
   vec2 suv = gl_FragCoord.xy / uScreen;
   float sceneZ = abs(texture2D(depthSampler, suv).r);
@@ -99,7 +102,7 @@ void main(void) {
   float absorb = 1.0 - exp(-thick * uParams.x);
   vec3 body = mix(uShallow, uDeep, absorb);
   // light scattered in the water body from the sun
-  body *= 0.35 + 0.65 * clamp(uSunDir.y, 0.0, 1.0) * uSunColor * 0.3;
+  body *= (0.35 + 0.65 * clamp(uSunDir.y, 0.0, 1.0) * uSunColor * 0.3) * uParams3.x;
   float foamN = ec_fbm2(vPos.xz * 3.0 + vec2(t * 0.3, 0.0));
   float foam = (1.0 - smoothstep(0.0, 0.35 * uParams.y, thick)) * smoothstep(0.35, 0.65, foamN);
   vec3 col = mix(body, refl, fres) + uSunColor * spec;
@@ -150,6 +153,7 @@ uniform uShallow: vec3f;
 uniform uDeep: vec3f;
 uniform uParams: vec4f;
 uniform uParams2: vec4f;
+uniform uParams3: vec4f;
 uniform uScreen: vec2f;
 ${NOISE_WGSL}
 fn hgt(p: vec2f, t: f32) -> f32 {
@@ -184,21 +188,22 @@ fn main(input: FragmentInputs) -> FragmentOutputs {
     let r0 = rain(vp.xz, t);
     let rx = rain(vp.xz + vec2f(0.02, 0.0), t);
     let rz = rain(vp.xz + vec2f(0.0, 0.02), t);
-    n = normalize(n + vec3f(-(rx - r0), 0.0, -(rz - r0)) * 2.5 * uniforms.uParams.z);
+    n = normalize(n + vec3f(-(rx - r0), 0.0, -(rz - r0)) * 2.5 * uniforms.uParams.z * (1.0 - smoothstep(6.0, 30.0, fragmentInputs.vViewZ)));
   }
+  n = normalize(mix(n, vec3f(0.0, 1.0, 0.0), smoothstep(uniforms.uParams3.z * 0.25, uniforms.uParams3.z, fragmentInputs.vViewZ) * 0.75));
   let v = normalize(uniforms.uCam - vp);
   let nv = clamp(dot(n, v), 0.0, 1.0);
   let fres = 0.02 + 0.98 * pow(1.0 - nv, 5.0);
   let refl = textureSample(envSampler, envSamplerSampler, reflect(-v, n)).rgb * uniforms.uParams.w;
   let hlf = normalize(v + uniforms.uSunDir);
-  let spec = pow(max(dot(n, hlf), 0.0), 900.0) * 6.0 + pow(max(dot(n, hlf), 0.0), 60.0) * 0.08;
+  let spec = (pow(max(dot(n, hlf), 0.0), 900.0) * 6.0 + pow(max(dot(n, hlf), 0.0), 60.0) * 0.08) * uniforms.uParams3.y;
   let suv = fragmentInputs.position.xy / uniforms.uScreen;
   let sceneZ = abs(textureSampleLevel(depthSampler, depthSamplerSampler, suv, 0.0).r);
   var thick = 50.0;
   if (sceneZ >= 1e-4) { thick = max(0.0, sceneZ - fragmentInputs.vViewZ); }
   let absorb = 1.0 - exp(-thick * uniforms.uParams.x);
   var body = mix(uniforms.uShallow, uniforms.uDeep, absorb);
-  body *= 0.35 + 0.65 * clamp(uniforms.uSunDir.y, 0.0, 1.0) * uniforms.uSunColor * 0.3;
+  body *= (0.35 + 0.65 * clamp(uniforms.uSunDir.y, 0.0, 1.0) * uniforms.uSunColor * 0.3) * uniforms.uParams3.x;
   let foamN = ec_fbm2(vp.xz * 3.0 + vec2f(t * 0.3, 0.0));
   let foam = (1.0 - smoothstep(0.0, 0.35 * uniforms.uParams.y, thick)) * smoothstep(0.35, 0.65, foamN);
   var col = mix(body, refl, fres) + uniforms.uSunColor * spec;
@@ -222,6 +227,12 @@ export interface WaterOptions {
   flow?: [number, number];
   rain?: number;
   envIntensity?: number;
+  /** Multiplies the light scattered in the water body (overcast skies light it from everywhere). */
+  brightness?: number;
+  /** Strength of the sharp sun glints (low under cloud). */
+  glint?: number;
+  /** Distance (m) by which ripple normals have faded to a calm surface (anti-glitter). */
+  normalFade?: number;
 }
 
 /** A water plane (subdivided for the swell) at a height, covering a rectangle. */
@@ -236,7 +247,7 @@ export class Water {
     this.o = {
       shallow: o.shallow ?? new Color3(0.12, 0.32, 0.3), deep: o.deep ?? new Color3(0.01, 0.05, 0.06),
       absorption: o.absorption ?? 0.45, foam: o.foam ?? 1, wave: o.wave ?? [0.06, 7, 1.2], flow: o.flow ?? [0.05, 0.02],
-      rain: o.rain ?? 0, envIntensity: o.envIntensity ?? 1,
+      rain: o.rain ?? 0, envIntensity: o.envIntensity ?? 1, brightness: o.brightness ?? 1, glint: o.glint ?? 1, normalFade: o.normalFade ?? 80,
     };
     this.rain = this.o.rain;
     const sub = Math.min(256, Math.round(Math.max(size[0], size[1]) / 0.6));
@@ -245,7 +256,7 @@ export class Water {
     this.mesh.isPickable = false;
     this.material = new ShaderMaterial('water', scene, { vertex: 'ecWater', fragment: 'ecWater' }, {
       attributes: ['position'],
-      uniforms: ['world', 'viewProjection', 'view', 'uWave', 'uCam', 'uSunDir', 'uSunColor', 'uShallow', 'uDeep', 'uParams', 'uParams2', 'uScreen'],
+      uniforms: ['world', 'viewProjection', 'view', 'uWave', 'uCam', 'uSunDir', 'uSunColor', 'uShallow', 'uDeep', 'uParams', 'uParams2', 'uParams3', 'uScreen'],
       samplers: ['envSampler', 'depthSampler'],
       needAlphaBlending: true,
       shaderLanguage: shaderLanguage(scene.getEngine()),
@@ -274,6 +285,7 @@ export class Water {
     m.setColor3('uDeep', this.o.deep);
     m.setVector4('uParams', new Vector4(this.o.absorption, this.o.foam, this.rain, this.o.envIntensity));
     m.setVector4('uParams2', new Vector4(this.time, this.o.flow[0], this.o.flow[1], 1));
+    m.setVector4('uParams3', new Vector4(this.o.brightness, this.o.glint, this.o.normalFade, 0));
     m.setVector2('uScreen', new Vector2(eng.getRenderWidth(), eng.getRenderHeight()));
   }
 

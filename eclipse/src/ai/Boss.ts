@@ -2,7 +2,7 @@ import { Vector3 } from '@babylonjs/core';
 import { Enemy, type AiContext } from './Enemy';
 import type { Character } from '../character/Character';
 import type { EnemyArchetype, EnemyAttack } from './Archetypes';
-import type { Combatant, DamageInfo, HitResult, HurtCapsule } from '../combat/Types';
+import type { Combatant, DamageInfo, Element, HitResult, HurtCapsule } from '../combat/Types';
 import type { ClipEvent } from '../anim/Clip';
 
 export interface BossPhase {
@@ -21,7 +21,15 @@ export interface BossDef {
   phases: BossPhase[];
   /** Name of a special-move set registered with `Boss.specials`. */
   kit: string;
+  /** The god's element: colours the phase-change blast (default fire). */
+  element?: Element;
 }
+
+/** Phase-change blast per element: burst effect, shockwave colour (HDR rgb + intensity). */
+const ROAR_FX: Record<string, { vfx: string; ring: [number, number, number, number] }> = {
+  fire: { vfx: 'firePillar', ring: [1, 0.5, 0.15, 5] },
+  water: { vfx: 'geyser', ring: [0.3, 0.8, 1, 4] },
+};
 
 /** A special move: runs on the attack's clip events ('channel', 'release', 'impact') and each step. */
 export interface Special {
@@ -154,14 +162,16 @@ export class Boss extends Enemy {
     this.stop();
     this.stats.resetPoise();
     const at = this.position.clone();
-    this.ctx.vfx.burst('firePillar', at, Vector3.Up(), 1.6);
-    this.ctx.ground.shockwave(at, 9, [1, 0.5, 0.15, 5], 0.7);
+    const el = this.bossDef.element ?? 'fire';
+    const fx = ROAR_FX[el] ?? ROAR_FX.fire;
+    this.ctx.vfx.burst(fx.vfx, at, Vector3.Up(), 1.6);
+    this.ctx.ground.shockwave(at, 9, fx.ring, 0.7);
     // the roar's blast pushes the player out of melee range
     this.ctx.world.area(this, this.team, at.add(new Vector3(0, 1, 0)), 4.5, null, (v) => {
       const dir = v.position.subtract(at);
       dir.y = 0;
       dir.normalize();
-      return { amount: 8, poise: 60, element: 'fire', direction: dir, point: v.position.clone(), source: this, weight: 0.6, knockback: 2.5, knockdown: true, parryable: false, unblockable: true, ranged: true, tag: 'roar' };
+      return { amount: 8, poise: 60, element: el, direction: dir, point: v.position.clone(), source: this, weight: 0.6, knockback: 2.5, knockdown: true, parryable: false, unblockable: true, ranged: true, tag: 'roar' };
     });
     this.char.animator.play(this.clip('e_alert', 'stagger'), {
       fade: 0.15,

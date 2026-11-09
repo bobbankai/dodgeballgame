@@ -197,15 +197,18 @@ def temple(name='temple', seed=106):
     parts.append(ped)
     cella = box('cella', (W - 3, D - 5, 9), (0, 2.0, z0 + 4.5), BLOCK, bevel=0.04)
     boolean(cella, box('cellain', (W - 4.6, D - 6.6, 10), (0, 2.0, z0 + 5.5)))
-    boolean(cella, box('door', (3.2, 3, 6), (0, -D / 2 + 2.5, z0 + 3)))
+    # the doorway through the cella's front wall (which runs y = 2 - (D - 5) / 2 .. + 0.8)
+    door_y = 2.0 - (D - 5) / 2 + 0.4
+    boolean(cella, box('door', (3.2, 3, 6), (0, door_y, z0 + 3)))
     parts.append(cella)
     rng = np.random.default_rng(seed)
     dmg = [Vector((rng.uniform(-W / 2, W / 2), rng.uniform(-D / 2, D / 2), top + 2)) for _ in range(4)]
     cols = [box(f's{i}', (W + 2.4 - i * 0.8, D + 2.4 - i * 0.8, 0.45 * (i + 1)), (0, 0, 0.225 * (i + 1))) for i in range(3)]
     cols += [cylinder(f'c{i}', 0.55, 9, (-W / 2 + 1.2 + i * (W - 2.4) / 5, -D / 2 + 1.4, z0), sides=8) for i in range(6)]
     cols += [box('cw1', (0.8, D - 5, 9), (-(W - 3) / 2 + 0.4, 2, z0 + 4.5)), box('cw2', (0.8, D - 5, 9), ((W - 3) / 2 - 0.4, 2, z0 + 4.5)),
-             box('cw3', (W - 3, 0.8, 9), (0, 2 + (D - 5) / 2 - 0.4, z0 + 4.5)), box('cw4', (W / 2 - 3.1, 0.8, 9), (-(W / 2 - 3.1) / 2 - 1.6, -D / 2 + 2.9, z0 + 4.5)),
-             box('cw5', (W / 2 - 3.1, 0.8, 9), ((W / 2 - 3.1) / 2 + 1.6, -D / 2 + 2.9, z0 + 4.5))]
+             box('cw3', (W - 3, 0.8, 9), (0, 2 + (D - 5) / 2 - 0.4, z0 + 4.5)), box('cw4', (W / 2 - 3.1, 0.8, 9), (-(W / 2 - 3.1) / 2 - 1.6, door_y, z0 + 4.5)),
+             box('cw5', (W / 2 - 3.1, 0.8, 9), ((W / 2 - 3.1) / 2 + 1.6, door_y, z0 + 4.5)),
+             box('cw6', (3.2, 0.8, 9 - 6), (0, door_y, z0 + 6 + 1.5))]
     finish(name, parts, cols, dmg, seed)
 
 

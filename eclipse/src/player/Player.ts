@@ -84,6 +84,8 @@ export class Player implements Combatant {
   mods = { damage: 1, staminaCost: 1, parryWindow: 0.2, aetherGain: 1, poiseDamage: 1, flinchResist: 0, dodgeDistance: 1, executionHeal: 0, abilityCost: 1, abilityDamage: 1 };
   inputEnabled = true;
   /** Status build-up (0..100) and remaining seconds of each active status. */
+  /** How deep the water Kael is standing in (0 dry .. 1 waist-deep; set by the level): slows him. */
+  wade = 0;
   readonly statusBuild = { burn: 0, soak: 0, shock: 0, root: 0 };
   readonly statusTime = { burn: 0, soak: 0, shock: 0, root: 0 };
   private burnTick = 0;
@@ -163,6 +165,7 @@ export class Player implements Combatant {
   place(p: Vector3, yaw?: number): void {
     // settling onto the ground after a teleport is not "walking off a ledge"
     this.airGrace = 0.4;
+    this.wade = 0;
     this.ctrl.setPosition(p.add(new Vector3(0, this.height / 2, 0)));
     this.ctrl.setVelocity(Vector3.Zero());
     this.char.root.position.copyFrom(p);
@@ -338,6 +341,8 @@ export class Player implements Combatant {
       speed = mag < 0.55 || this.input.held('walk') ? mag * 1.6 / 0.55 * (mag < 0.55 ? 1 : 0.55) : 5.0 * mag;
       speed = Math.min(speed, 5.0);
     }
+    // wading: water drags at the legs (shin-deep 0 .. waist-deep 1)
+    speed *= 1 - 0.3 * this.wade;
     this.rig.fovKick = this.sprinting ? 0.08 : 0;
     // turning: face the movement direction, or the target when locked on
     if (locked && this.target) {

@@ -50,12 +50,12 @@ export class SurfaceLayerPlugin extends EcPlugin {
       ubo: [
         { name: 'ecLayerA', size: 4, type: 'vec4' }, // wetness, coverAmount, coverRoughness, coverScale
         { name: 'ecLayerB', size: 4, type: 'vec4' }, // porosity, allowPuddles, threshold, time
-        { name: 'ecCoverColor', size: 3, type: 'vec3' },
+        { name: 'ecCoverColor', size: 4, type: 'vec4' }, // cover colour, water level
       ],
       fragment: `#ifdef EC_LAYERS
 uniform vec4 ecLayerA;
 uniform vec4 ecLayerB;
-uniform vec3 ecCoverColor;
+uniform vec4 ecCoverColor;
 #endif`,
     };
   }
@@ -65,7 +65,7 @@ uniform vec3 ecCoverColor;
     const e = MatEnv;
     ubo.updateFloat4('ecLayerA', e.wetness, this.allowCover ? e.coverAmount * this.coverScale : 0, e.coverRoughness, e.coverScale, '');
     ubo.updateFloat4('ecLayerB', this.porosity, this.allowPuddles ? 1 : 0, e.coverThreshold, e.time, '');
-    ubo.updateColor3('ecCoverColor', e.coverColor, '');
+    ubo.updateFloat4('ecCoverColor', e.coverColor.r, e.coverColor.g, e.coverColor.b, e.waterLevel, '');
   }
 
   override getClassName(): string {
@@ -86,11 +86,14 @@ float ecCover = 0.0; float ecWet = 0.0; float ecPuddle = 0.0;
   float n = ecFbm(wp.xz * ecLayerA.w + wp.y * 0.3);
   ecCover = ecLayerA.y * smoothstep(ecLayerB.z, ecLayerB.z + 0.3, up + (n - 0.5) * 0.55);
   ecCover = clamp(ecCover * (0.6 + 0.8 * n), 0.0, 1.0);
-  surfaceAlbedo = mix(surfaceAlbedo, ecCoverColor * (0.82 + 0.36 * n), ecCover);
+  surfaceAlbedo = mix(surfaceAlbedo, ecCoverColor.rgb * (0.82 + 0.36 * n), ecCover);
   ecWet = ecLayerA.x * ecLayerB.x * (1.0 - ecCover * 0.7);
   float pn = ecFbm(wp.xz * 0.23 + 11.0);
-  ecPuddle = ecLayerB.y * ecLayerA.x * smoothstep(0.93, 0.985, up) * smoothstep(0.52, 0.62, pn + (ecLayerA.x - 0.5) * 0.25);
-  surfaceAlbedo *= mix(1.0, 0.55, ecWet);
+  float ecSub = 1.0 - smoothstep(ecCoverColor.w - 0.05, ecCoverColor.w + 0.05, wp.y);
+  ecPuddle = ecLayerB.y * ecLayerA.x * smoothstep(0.93, 0.985, up) * smoothstep(0.52, 0.62, pn + (ecLayerA.x - 0.5) * 0.25) * (1.0 - ecSub);
+  // soaked below the waterline (darker), but its gloss belongs to the water surface, not to it
+  surfaceAlbedo *= mix(1.0, 0.55, max(ecWet, ecSub * ecLayerB.x));
+  ecWet *= 1.0 - ecSub;
   surfaceAlbedo = mix(surfaceAlbedo, surfaceAlbedo * 0.35 + vec3(0.01, 0.012, 0.014), ecPuddle);
   vec3 flatN = vec3(0.0, 1.0, 0.0);
   normalW = normalize(mix(normalW, normalize(mix(normalW, flatN, 0.6)), ecCover * 0.7));
@@ -120,11 +123,13 @@ var ecCover: f32 = 0.0; var ecWet: f32 = 0.0; var ecPuddle: f32 = 0.0;
   let n = ecFbm(wp.xz * uniforms.ecLayerA.w + wp.y * 0.3);
   ecCover = uniforms.ecLayerA.y * smoothstep(uniforms.ecLayerB.z, uniforms.ecLayerB.z + 0.3, up + (n - 0.5) * 0.55);
   ecCover = clamp(ecCover * (0.6 + 0.8 * n), 0.0, 1.0);
-  surfaceAlbedo = mix(surfaceAlbedo, uniforms.ecCoverColor * (0.82 + 0.36 * n), ecCover);
+  surfaceAlbedo = mix(surfaceAlbedo, uniforms.ecCoverColor.rgb * (0.82 + 0.36 * n), ecCover);
   ecWet = uniforms.ecLayerA.x * uniforms.ecLayerB.x * (1.0 - ecCover * 0.7);
   let pn = ecFbm(wp.xz * 0.23 + 11.0);
-  ecPuddle = uniforms.ecLayerB.y * uniforms.ecLayerA.x * smoothstep(0.93, 0.985, up) * smoothstep(0.52, 0.62, pn + (uniforms.ecLayerA.x - 0.5) * 0.25);
-  surfaceAlbedo *= mix(1.0, 0.55, ecWet);
+  let ecSub = 1.0 - smoothstep(uniforms.ecCoverColor.w - 0.05, uniforms.ecCoverColor.w + 0.05, wp.y);
+  ecPuddle = uniforms.ecLayerB.y * uniforms.ecLayerA.x * smoothstep(0.93, 0.985, up) * smoothstep(0.52, 0.62, pn + (uniforms.ecLayerA.x - 0.5) * 0.25) * (1.0 - ecSub);
+  surfaceAlbedo *= mix(1.0, 0.55, max(ecWet, ecSub * uniforms.ecLayerB.x));
+  ecWet *= 1.0 - ecSub;
   surfaceAlbedo = mix(surfaceAlbedo, surfaceAlbedo * 0.35 + vec3f(0.01, 0.012, 0.014), ecPuddle);
   let flatN = vec3f(0.0, 1.0, 0.0);
   normalW = normalize(mix(normalW, normalize(mix(normalW, flatN, 0.6)), ecCover * 0.7));

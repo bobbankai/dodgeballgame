@@ -27,6 +27,7 @@ export const SPEAKERS: Record<string, Speaker> = {
   kael: { name: 'Kael' },
   ithra: { name: 'Ithra' },
   ignaroth: { name: 'Ignaroth', size: 'large' },
+  thaloryn: { name: 'Thaloryn', size: 'large' },
   mira: { name: 'Mira' },
   brannoc: { name: 'Brannoc' },
 };

@@ -35,7 +35,7 @@ def reaver(R, B, info):
 
     pieces.append(Piece('wraps', wraps_field, (np.array([-0.95, -0.35, -0.02]), np.array([0.95, 0.35, neck[2] + 0.06])),
                         lambda p: mat_ids(p, 'kelp', [(lambda q: sdf.fbm(q, 9, 3, 302) > 0.66, 'barnacle'),
-                                                      (lambda q: cracks(q, 16, 0.012, 303) & (sdf.fbm(q, 4, 2, 304) > 0.55), 'seaglow')]),
+                                                      (lambda q: cracks(q, 9, 0.012, 303) & (sdf.fbm(q, 2.5, 2, 304) > 0.62), 'seaglow')]),
                         skin='transfer', voxel=0.0034, budget=10000, inner=B))
 
     # lorica segmentata: overlapping bronze hoops round the torso, shoulder lames
@@ -98,6 +98,28 @@ def reaver(R, B, info):
     face = lambda p: np.maximum(np.abs(B(p) - 0.006) - 0.002, np.maximum((neck[2] + 0.02) - p[:, 2], p[:, 2] - (eyes[2] + 0.04)))  # noqa: E731
     pieces.append(Piece('face', face, (skull - np.array([0.13, 0.16, 0.2]), skull + np.array([0.13, 0.16, 0.1])),
                         lambda p: mat_ids(p, 'kelp', [(lambda q: sdf.fbm(q, 12, 2, 308) > 0.6, 'barnacle')]), skin='transfer', voxel=0.0022, budget=2200))
+
+    # a cavalry face-mask of bronze: the calm face of a young legionary, cast over the drowned one;
+    # almond eye-holes show the sea-glow behind, verdigris streaks run down from them like tears
+    def mask(p):
+        z = p[:, 2]
+        shell = np.abs(B(p) - 0.011) - 0.0026
+        region = np.maximum(p[:, 1] - (skull[1] - 0.03), np.maximum((neck[2] + 0.04) - z, z - (eyes[2] + 0.042)))
+        holes = np.full(len(p), 1.0)
+        for e in (L['eye_l'], L['eye_r']):
+            holes = np.minimum(holes, sdf.ellipsoid(e + np.array([0, -0.03, 0.001]), (0.016, 0.05, 0.0075))(p))
+        mouth = sdf.ellipsoid(np.array([0.0, eyes[1] - 0.03, eyes[2] - 0.085]), (0.018, 0.05, 0.0035))(p)
+        return np.maximum(np.maximum(shell, region), -np.minimum(holes, mouth))
+
+    def mask_mats(p):
+        tears = np.zeros(len(p), bool)
+        for e in (L['eye_l'], L['eye_r']):
+            tears |= (np.abs(p[:, 0] - e[0]) < 0.006 + 0.004 * sdf.fbm(p, 30, 2, 309)) & (p[:, 2] < e[2]) & (p[:, 2] > e[2] - 0.07)
+        return mat_ids(p, 'bronze', [(lambda q: (sdf.fbm(q, 14, 3, 310) > 0.58) | tears, 'verdigris'),
+                                     (lambda q: sdf.fbm(q, 16, 2, 311) > 0.74, 'barnacle')])
+
+    pieces.append(Piece('mask', mask, (skull - np.array([0.12, 0.17, 0.2]), skull + np.array([0.12, 0.02, 0.08])),
+                        mask_mats, skin={'bone': 'head'}, voxel=0.0016, budget=2600))
 
     zk = R.head('calf_l')[2]
     pieces.append(Piece('pteruges', skirt(L, zw - 0.06, zk + 0.18, sx * 0.92, 0.16, 0.06, 0.03, 309, slit=0.008, slit_from=zw - 0.07, folds=0.0),
@@ -217,7 +239,8 @@ def thaloryn(R, B, info):
         return np.abs(B(p) - 0.004 - scales) - 0.003
 
     pieces.append(Piece('skin', skin, (np.array([-1.0, -0.36, -0.03]), np.array([1.0, 0.36, L['top'] + 0.03])),
-                        lambda p: mat_ids(p, 'verdigris', [(lambda q: cracks(q, 9, 0.013, 401) | cracks(q, 22, 0.008, 402), 'seaglow'),
+                        lambda p: mat_ids(p, 'verdigris', [(lambda q: (cracks(q, 5, 0.013, 401) & (sdf.fbm(q, 2.2, 2, 405) > 0.52))
+                                                                      | (cracks(q, 11, 0.008, 402) & (sdf.fbm(q, 2.2, 2, 405) > 0.64)), 'seaglow'),
                                                            (lambda q: sdf.fbm(q, 7, 3, 403) > 0.68, 'barnacle')]),
                         skin='transfer', voxel=0.0034, budget=14000, inner=B))
     eye_f = lambda p: np.minimum(sdf.sphere(L['eye_l'] + np.array([0, -0.004, 0]), 0.013)(p), sdf.sphere(L['eye_r'] + np.array([0, -0.004, 0]), 0.013)(p))  # noqa: E731
@@ -308,7 +331,7 @@ def thaloryn(R, B, info):
     pieces.append(Piece('scales', skirt(L, zw - 0.04, 0.03, sx * 1.0, 0.17, 0.12, 0.03, 410, folds=0.01),
                         (np.array([-0.6, -0.5, -0.02]), np.array([0.6, 0.5, zw])),
                         lambda p: mat_ids(p, 'verdigris', [(lambda q: np.abs(np.mod(q[:, 2] * 18 + np.mod(np.arctan2(q[:, 1], q[:, 0]) * 8, 1) * 0.5, 1) - 0.5) < 0.08, 'bronze'),
-                                                           (lambda q: cracks(q, 12, 0.012, 411), 'seaglow')]),
+                                                           (lambda q: cracks(q, 7, 0.012, 411) & (sdf.fbm(q, 2, 2, 412) > 0.58), 'seaglow')]),
                         skin='transfer_skirt', voxel=0.0036, budget=6000))
     for s, side in ((1, 'l'), (-1, 'r')):
         la, lb = R.head(f'lowerarm_{side}'), R.tail(f'lowerarm_{side}')

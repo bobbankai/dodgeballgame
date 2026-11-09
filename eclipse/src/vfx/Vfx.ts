@@ -27,6 +27,8 @@ interface Layer {
   dead: [number, number, number, number];
   stretched?: boolean;
   spin?: number;
+  /** Fraction of the life spent fading in (smoke layers default to 0.15 so puffs never pop). */
+  fadeIn?: number;
   /** Continuous emitters: particles per second (0 = one burst). */
   rate?: number;
   capacity?: number;
@@ -194,6 +196,40 @@ export const PRESETS: Record<string, Preset> = {
       { tex: 'smoke', add: false, count: 0, rate: 5, capacity: 80, life: [10, 16], size: [4, 7], grow: [[0, 0.5], [1, 3]], power: [3, 5], shape: 'up', extent: 3, height: 2, gravity: 0.2, drag: 0.1, color: [0.1, 0.09, 0.085, 0.5], dead: [0.16, 0.15, 0.14, 0], spin: 0.15 },
     ],
   },
+  // the drowned come apart: brine streams off them and sea-glow motes rise into the rain
+  deathBrine: {
+    layers: [
+      { tex: 'soft', add: false, count: 0, rate: 70, capacity: 160, life: [0.5, 1.0], size: [0.03, 0.07], power: [0.2, 1], shape: 'box', extent: 0.3, height: 1.7, gravity: -9, drag: 0.4, color: [0.7, 0.85, 0.9, 0.7], dead: [0.6, 0.75, 0.8, 0] },
+      { tex: 'smoke', add: false, count: 0, rate: 18, capacity: 60, life: [1, 2], size: [0.3, 0.6], grow: [[0, 0.6], [1, 2.2]], power: [0.1, 0.4], shape: 'box', extent: 0.35, height: 1.6, gravity: 0.3, drag: 1, color: [0.55, 0.68, 0.72, 0.3], dead: [0.6, 0.7, 0.75, 0], spin: 0.4 },
+      { tex: 'soft', add: true, count: 0, rate: 40, capacity: 110, life: [1, 2], size: [0.02, 0.05], power: [0.3, 1], shape: 'box', extent: 0.3, height: 1.7, gravity: 1.2, drag: 0.6, color: [0.4, 1.8, 2.4, 1], dead: [0.05, 0.25, 0.35, 0] },
+    ],
+  },
+  // a wading footstep: a little crown of droplets (the ripple is a ground ring)
+  wade: {
+    layers: [
+      { tex: 'soft', add: false, count: 14, life: [0.3, 0.6], size: [0.03, 0.07], power: [1.2, 2.6], shape: 'up', extent: 0.15, gravity: -9.8, drag: 0.5, color: [0.8, 0.9, 0.95, 0.75], dead: [0.7, 0.85, 0.9, 0] },
+    ],
+  },
+  // water pouring from a height (a broken aqueduct): streaks falling in a sheet, mist shed on the way
+  pour: {
+    layers: [
+      { tex: 'soft', add: false, count: 0, rate: 260, capacity: 520, life: [1.6, 1.9], size: [0.12, 0.3], power: [0.8, 1.8], shape: 'down', extent: 0.55, height: 0.1, gravity: -9.8, drag: 0, color: [0.82, 0.88, 0.9, 0.55], dead: [0.85, 0.9, 0.92, 0.35], stretched: true },
+      { tex: 'smoke', add: false, count: 0, rate: 8, capacity: 40, life: [1.8, 2.6], size: [0.8, 1.4], grow: [[0, 0.6], [1, 2]], power: [2, 5], shape: 'down', extent: 0.6, gravity: -3, drag: 0.8, color: [0.78, 0.84, 0.87, 0.18], dead: [0.78, 0.84, 0.87, 0], spin: 0.3 },
+    ],
+  },
+  // a waterfall's foot: a churn of spray and drifting mist
+  falls: {
+    layers: [
+      { tex: 'smoke', add: false, count: 0, rate: 16, capacity: 120, life: [2.5, 4.5], size: [1.2, 2.4], grow: [[0, 0.5], [1, 2.2]], power: [0.6, 1.6], shape: 'up', extent: 1.6, height: 0.3, gravity: 0.15, drag: 0.6, color: [0.75, 0.82, 0.85, 0.28], dead: [0.75, 0.82, 0.85, 0], spin: 0.3 },
+      { tex: 'soft', add: false, count: 0, rate: 90, capacity: 200, life: [0.4, 0.9], size: [0.04, 0.1], power: [2, 5], shape: 'up', extent: 1.4, gravity: -9.8, drag: 0.5, color: [0.85, 0.92, 0.95, 0.7], dead: [0.8, 0.9, 0.95, 0] },
+    ],
+  },
+  // low sea-mist drifting through the flooded streets
+  seaMist: {
+    layers: [
+      { tex: 'smoke', add: false, count: 0, rate: 6, capacity: 120, life: [10, 16], size: [3, 6], grow: [[0, 0.6], [1, 1.6]], power: [0.1, 0.35], shape: 'box', extent: 24, height: 0.6, gravity: 0, drag: 0.1, color: [0.6, 0.68, 0.7, 0.13], dead: [0.6, 0.68, 0.7, 0], spin: 0.08 },
+    ],
+  },
   heal: {
     layers: [
       { tex: 'soft', add: true, count: 50, life: [0.8, 1.5], size: [0.03, 0.08], power: [0.5, 1.6], shape: 'box', extent: 0.4, height: 1.6, gravity: 1.2, drag: 1, color: [3.4, 2.2, 0.9, 1], dead: [1, 0.5, 0.1, 0] },
@@ -263,6 +299,14 @@ export class Vfx {
     ps.color1 = new Color4(...layer.color);
     ps.color2 = new Color4(...(layer.color2 ?? layer.color));
     ps.colorDead = new Color4(...layer.dead);
+    const fadeIn = layer.fadeIn ?? (layer.tex === 'smoke' ? 0.15 : 0);
+    if (fadeIn > 0) {
+      const c1 = new Color4(...layer.color);
+      const c2 = new Color4(...(layer.color2 ?? layer.color));
+      ps.addColorGradient(0, new Color4(c1.r, c1.g, c1.b, 0), new Color4(c2.r, c2.g, c2.b, 0));
+      ps.addColorGradient(fadeIn, c1, c2);
+      ps.addColorGradient(1, ps.colorDead.clone());
+    }
     if (layer.grow) for (const [t, k] of layer.grow) ps.addSizeGradient(t, k);
     if (layer.drag) {
       ps.addDragGradient(0, Math.min(1, layer.drag * 0.05));

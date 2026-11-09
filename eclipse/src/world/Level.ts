@@ -9,7 +9,7 @@ export interface Atmos {
   lighting: LightingProfile;
   sky: Partial<SkyParams>;
   look: Partial<LookParams>;
-  weather?: { wetness?: number; cover?: number; coverColor?: Color3; wind?: number; windDir?: [number, number] };
+  weather?: { wetness?: number; cover?: number; coverColor?: Color3; wind?: number; windDir?: [number, number]; waterLevel?: number };
   /** Music piece (audio/manifest.json) and ambient loop for the area. */
   music?: string;
   ambience?: string;
@@ -47,8 +47,13 @@ export abstract class Level {
   abstract atmosphere(): Atmos;
 
   /** What the ground is made of at a point (footstep sounds). */
-  surface(_at: Vector3): 'stone' | 'ash' | 'wood' {
+  surface(_at: Vector3): 'stone' | 'ash' | 'wood' | 'water' {
     return 'ash';
+  }
+
+  /** Height of standing water over a point, if any (wading ripples, splashes). */
+  waterHeight(_at: Vector3): number | null {
+    return null;
   }
 
   /** After the player is placed: opening cinematics and the like. */

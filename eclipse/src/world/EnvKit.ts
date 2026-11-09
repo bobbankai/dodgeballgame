@@ -128,6 +128,9 @@ export class EnvKit {
       m.rotationQuaternion = Quaternion.Identity();
       m.scaling.setAll(1);
       m.material = this.material(m.material?.name ?? 'env:ash_castle_slate');
+      // the baked AO travels in an RGBA colour attribute: its alpha is not opacity. Left set, the
+      // piece would be drawn as alpha-blended (no depth write, so fog, AO and SSR would see through it)
+      m.hasVertexAlpha = false;
       m.receiveShadows = true;
       m.isPickable = false;
       m.alwaysSelectAsActiveMesh = false;

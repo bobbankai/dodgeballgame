@@ -58,6 +58,9 @@ export class AssetManager {
     const e: InstantiatedEntries = c.instantiateModelsToScene((n) => `${name}:${n}`, false, { doNotInstantiate: true });
     const root = e.rootNodes[0] as TransformNode;
     const meshes = root.getChildMeshes(false);
+    // colour attributes in our assets carry baked AO or masks, never opacity: an RGBA accessor would
+    // otherwise put the mesh in the alpha-blended queue (no depth, sorted, seen through by post)
+    for (const m of meshes) m.hasVertexAlpha = false;
     return {
       root,
       meshes,

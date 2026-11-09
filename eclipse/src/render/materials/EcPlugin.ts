@@ -59,6 +59,8 @@ export class MaterialEnvironment {
   coverScale = 0.35;
   /** Upward-facing threshold (dot(normal, up)) above which coverage starts. */
   coverThreshold = 0.35;
+  /** Height of standing water (flooded levels): surfaces below it are soaked but hold no puddles. */
+  waterLevel = -1e4;
   wind = new Vector3(1, 0, 0.3);
   windStrength = 0.3;
   /** Sun direction (towards the sun) and colour*intensity, for custom lighting terms. */

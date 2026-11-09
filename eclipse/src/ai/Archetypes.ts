@@ -98,6 +98,10 @@ export interface EnemyArchetype {
   ranged?: boolean;
   /** Locomotion clips (defaults: idle/walk/run + guard strafes). */
   loco?: { idle?: string; walk?: string; run?: string; combatIdle?: string };
+  /** Sound for alerts and staggers (defaults by size: thrall groan, knight effort, giant roar). */
+  voice?: string;
+  /** How it leaves the world: particles, the dissolve edge colour and a sound (default: ash). */
+  death?: { vfx?: string; color?: [number, number, number]; sound?: string };
 }
 
 const SWORD: HitShape = { kind: 'weapon' };
@@ -149,6 +153,8 @@ export const ARCHETYPES: Record<string, EnemyArchetype> = {
 };
 
 const SPEAR: HitShape = { kind: 'weapon' };
+/** The drowned come apart into brine and sea-glow rather than ash. */
+const BRINE = { vfx: 'deathBrine', color: [0.2, 0.85, 1.0] as [number, number, number], sound: 'brine_dissolve' };
 
 /** Chapter Two, the Drowned Empire: Thaloryn's drowned legions. */
 Object.assign(ARCHETYPES, {
@@ -157,7 +163,7 @@ Object.assign(ARCHETYPES, {
     health: 140, poise: 45, stamina: 90, radius: 0.38, height: 1.95,
     walk: 1.5, run: 4.6, strafe: 1.6, sight: 20, fov: 2.2, hearing: 10,
     aggression: 0.7, block: 0.12, dodge: 0.18, holdRange: 3.8, heavy: false, executable: true,
-    xp: 45, aether: 9,
+    xp: 45, aether: 9, voice: 'drowned_groan', death: BRINE,
     attacks: [
       { id: 'jab', clip: 'riposte', speed: 1.1, damage: 20, poise: 16, weight: 0.35, knockback: 0.5, range: [0.5, 2.8], cooldown: 1.4, score: 1, parryable: true, track: 9, trackTime: 0.25, next: ['jab2'], chain: 0.5, hit: SPEAR, tell: 'glint', status: { soak: 20 } },
       { id: 'jab2', clip: 'riposte', speed: 1.2, damage: 22, poise: 18, weight: 0.4, knockback: 0.7, range: [0.5, 3.0], cooldown: 2, score: 0, parryable: true, track: 7, trackTime: 0.2, hit: SPEAR, status: { soak: 20 } },
@@ -171,7 +177,7 @@ Object.assign(ARCHETYPES, {
     health: 100, poise: 22, stamina: 60, radius: 0.34, height: 1.8,
     walk: 1.4, run: 4.0, strafe: 1.6, sight: 24, fov: 2.4, hearing: 10,
     aggression: 0.55, block: 0, dodge: 0.3, holdRange: 10, heavy: false, executable: true, ranged: true,
-    xp: 40, aether: 10,
+    xp: 40, aether: 10, voice: 'drowned_groan', death: BRINE,
     attacks: [
       { id: 'orb', clip: 'cast_push', damage: 20, poise: 16, weight: 0.35, knockback: 0.8, element: 'water', range: [3, 18], cooldown: 2.4, score: 1, parryable: false, track: 8, trackTime: 0.5, projectile: 'waterOrb', hit: { kind: 'none' }, status: { soak: 35 } },
       { id: 'ward', clip: 'cast_heal', damage: 0, poise: 0, weight: 0, knockback: 0, range: [0, 30], cooldown: 9, score: 1.3, parryable: false, track: 2, trackTime: 0.2, hit: { kind: 'none' }, ward: { amount: 90, range: 14 } },

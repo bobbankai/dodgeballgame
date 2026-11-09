@@ -16,12 +16,14 @@ import type { Combatant, DamageInfo } from '../../combat/Types';
 export const THALORYN: BossDef = {
   title: 'The Drowned King',
   kit: 'thaloryn',
+  element: 'water',
   archetype: {
     id: 'thaloryn', name: 'Thaloryn', model: 'thaloryn', weapon: 'trident', scale: 2.4,
     health: 3200, poise: 280, stamina: 999, radius: 0.5, height: 2.3,
     walk: 1.3, run: 4.2, strafe: 1.2, sight: 80, fov: 6.3, hearing: 80,
     aggression: 0.7, block: 0, dodge: 0, holdRange: 3, heavy: true, executable: false,
-    xp: 1900, aether: 70,
+    xp: 1900, aether: 70, voice: 'roar_tide',
+    death: { vfx: 'deathBrine', color: [0.2, 0.85, 1.0], sound: 'brine_dissolve' },
     resist: { water: 0.1, fire: 0.8, lightning: 1.5, physical: 0.9 },
     attacks: [
       { id: 'thrust', clip: 'sprint_attack', speed: 0.8, damage: 52, poise: 60, weight: 0.9, knockback: 2, element: 'water', range: [0, 6], cooldown: 3.5, score: 1, parryable: true, track: 4, trackTime: 0.45, lunge: 0.7, armour: true, hit: { kind: 'weapon' }, tell: 'glint', status: { soak: 40 } },
