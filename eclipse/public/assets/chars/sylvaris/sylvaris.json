@@ -1,0 +1,23 @@
+{
+ "name": "Sylvaris",
+ "height": 2.3011653423309326,
+ "parts": {
+  "sylvaris_gear": {
+   "kind": "gear",
+   "tex": "gear",
+   "emissive": 3.2,
+   "twoSided": true
+  }
+ },
+ "sockets": {
+  "weapon_r": "weapon_r",
+  "weapon_l": "weapon_l"
+ },
+ "morphs": [],
+ "cloth": [
+  "cloth_f",
+  "cloth_b",
+  "cloth_l",
+  "cloth_r"
+ ]
+}

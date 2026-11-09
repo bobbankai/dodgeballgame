@@ -67,10 +67,24 @@ export class Director {
     this.lineDurations = d;
   }
 
+  /** Resolves when the running script ends (scripts asked for meanwhile wait for it). */
+  private idle: Promise<void> = Promise.resolve();
+  private idleDone: (() => void) | null = null;
+
+  /**
+   * Runs a story script with the player's control and the HUD taken away. If another script is
+   * running, this one waits its turn (a boss intro asked for during a bark-filled arrival still
+   * plays); it is dropped if the level changes while it waits.
+   */
   async play(script: (d: Director) => Promise<void>): Promise<void> {
-    if (this.running) return;
     const g = this.game;
+    const level = g.level;
+    while (this.running) {
+      await this.idle;
+      if (g.level !== level) return;
+    }
     this.running = true;
+    this.idle = new Promise((r) => (this.idleDone = r));
     this.skipping = false;
     g.rig.cinematic = true;
     if (g.player) {
@@ -101,6 +115,8 @@ export class Director {
       g.hud.fade(false);
       this.running = false;
       this.skipping = false;
+      this.idleDone?.();
+      this.idleDone = null;
     }
   }
 

@@ -56,7 +56,8 @@ export class TouchControls {
       const e = document.createElement('div');
       e.className = `btn ${b.cls}`;
       e.textContent = b.label;
-      pad.appendChild(e);
+      // the pad is scaled on short screens, and a transform traps fixed children: pause lives outside it
+      (b.action === 'pause' ? this.root : pad).appendChild(e);
       const down = (ev: PointerEvent) => {
         ev.preventDefault();
         ev.stopPropagation();
