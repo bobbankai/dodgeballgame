@@ -52,5 +52,11 @@
   "lipsWide",
   "snarl",
   "mouthPart"
+ ],
+ "cloth": [
+  "cloth_f",
+  "cloth_b",
+  "cloth_l",
+  "cloth_r"
  ]
 }

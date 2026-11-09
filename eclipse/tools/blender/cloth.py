@@ -96,6 +96,9 @@ def reexport(cid):
     bpy.ops.wm.open_mainfile(filepath=os.path.join(WORK, f'{cid}.blend'))
     rig = next(o for o in bpy.data.objects if o.type == 'ARMATURE')
     gear = bpy.data.objects[f'{cid}_gear']
+    # everything skinned to the rig goes out again (Kael: skin with face morphs, hair, eyes, teeth)
+    parts = [o for o in bpy.data.objects if o.type == 'MESH' and o.parent == rig]
+    morphs = any(o.data.shape_keys for o in parts)
     had = 'cloth_f' in rig.data.bones
     names = add_cloth(rig, gear)
     out = os.path.join(ASSETS, 'chars', cid)
@@ -109,7 +112,7 @@ def reexport(cid):
     if had or not names:
         return
     select_only(rig)
-    export_glb(os.path.join(out, f'{cid}.glb'), [rig, gear], animations=False, morphs=False)
+    export_glb(os.path.join(out, f'{cid}.glb'), [rig, *parts], animations=False, morphs=morphs)
     bpy.ops.wm.save_as_mainfile(filepath=os.path.join(WORK, f'{cid}.blend'))
 
 
