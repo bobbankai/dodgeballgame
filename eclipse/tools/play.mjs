@@ -32,8 +32,11 @@ if (!url || !outDir) {
 fs.mkdirSync(outDir, { recursive: true });
 const steps = JSON.parse(script.startsWith('@') ? fs.readFileSync(script.slice(1), 'utf8') : script);
 const logLines = [];
+const logPath = path.join(outDir, 'log.txt');
+fs.writeFileSync(logPath, '');
 const logf = (s) => {
   logLines.push(s);
+  fs.appendFileSync(logPath, s + '\n');
   if (/error|fail/i.test(s)) console.log(s);
 };
 
@@ -84,12 +87,15 @@ for (const [i, s] of steps.entries()) {
   for (const k of s.keys ?? []) await page.keyboard.up(k);
   if (s.shot) {
     const file = path.join(outDir, `${s.shot}.png`);
-    await page.screenshot({ path: file });
-    logf(`[shot] ${file}`);
+    try {
+      await page.screenshot({ path: file, timeout: 300000 });
+      logf(`[shot] ${file} at ${((Date.now() - t0) / 1000).toFixed(1)}s`);
+    } catch (e) {
+      logf(`[shot error] ${s.shot}: ${e.message.split('\n')[0]}`);
+    }
   }
 }
 const errs = await page.evaluate(() => window.__errors ?? []);
 for (const e of errs) logf(`[game error] ${e}`);
-fs.writeFileSync(path.join(outDir, 'log.txt'), logLines.join('\n') + '\n');
 await browser.close();
 console.log(`done in ${((Date.now() - t0) / 1000).toFixed(1)}s, ${logLines.length} log lines -> ${outDir}/log.txt`);

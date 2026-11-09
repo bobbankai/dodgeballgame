@@ -8,6 +8,7 @@ import { Navigation } from '../ai/Navigation';
 import { IGNAROTH } from '../ai/bosses/Ignaroth';
 import type { Boss } from '../ai/Boss';
 import type { FxHandle } from '../vfx/Vfx';
+import { opening, HINTS, villageArrival, gateArrival, bossIntro, bossDeath, PHASE_LINES } from '../story/chapter1';
 
 /** The road through the chapter (XZ), from where Kael wakes to the castle bailey. */
 const ROAD: [number, number][] = [[0, -6], [3, 20], [-3, 45], [0, 72], [0, 100], [2, 138], [0, 156], [0, 175], [0, 212]];
@@ -76,6 +77,8 @@ export class AshenKingdom extends Level {
   private loops: import('../audio/Audio').LoopHandle[] = [];
   boss: Boss | null = null;
   private bossStarted = false;
+  private hint = 0;
+  private beats = new Set<string>();
 
   async load(checkpoint?: string): Promise<void> {
     const g = this.game;
@@ -122,6 +125,7 @@ export class AshenKingdom extends Level {
     fire(-27, 3.0, 76, 2);
     for (const [x, z] of [[-6, 98], [6, 98], [-6, 111], [6, 111]]) fire(x, 1.38, z, 1);
     for (let i = 0; i < 8; i++) {
+      if (i === 4) continue;
       const a = (i / 8) * Math.PI * 2;
       fire(ARENA.x + Math.sin(a) * (ARENA_R - 2.5), 1.38, ARENA.z + Math.cos(a) * (ARENA_R - 2.5), 1.2);
     }
@@ -167,7 +171,9 @@ export class AshenKingdom extends Level {
     if (!this.lavaMat) {
       const m = g.mats.surface({ set: 'ash_dark_rock', tile: 1 / 3 }).clone('lava') as PBRMaterial;
       m.roughness = 0.9;
-      new LavaPlugin(m);
+      const lava = new LavaPlugin(m);
+      lava.molten = 0.16;
+      lava.intensity = 2.6;
       this.lavaMat = this.own(m);
     }
     const y = this.height(x, z);
@@ -265,6 +271,7 @@ export class AshenKingdom extends Level {
       put(i % 3 === 0 ? 'wall_breach' : 'wall', ARENA.x + Math.sin(a) * (ARENA_R + 6), ARENA.z + Math.cos(a) * (ARENA_R + 6), a + Math.PI / 2, 1.1);
     }
     for (let i = 0; i < 8; i++) {
+      if (i === 4) continue; // the way in
       const a = (i / 8) * Math.PI * 2;
       put('brazier', ARENA.x + Math.sin(a) * (ARENA_R - 2.5), ARENA.z + Math.cos(a) * (ARENA_R - 2.5));
     }
@@ -288,9 +295,9 @@ export class AshenKingdom extends Level {
     return {
       lighting: {
         // the eclipsed sun gives a low, dim, orange-red key; the sky itself carries the light
-        sunColor: new Color3(1.0, 0.55, 0.3), sunIntensity: 2.6, sunElevation: 0.32, sunAzimuth: 2.6,
-        skyFill: new Color3(0.55, 0.38, 0.3), groundFill: new Color3(0.2, 0.12, 0.08), fillIntensity: 0.16,
-        environmentIntensity: 0.8, exposure: 1.05, contrast: 1.1, shadowDarkness: 0.1,
+        sunColor: new Color3(1.0, 0.58, 0.32), sunIntensity: 3.8, sunElevation: 0.36, sunAzimuth: 2.6,
+        skyFill: new Color3(0.5, 0.36, 0.3), groundFill: new Color3(0.18, 0.1, 0.07), fillIntensity: 0.12,
+        environmentIntensity: 0.7, exposure: 1.0, contrast: 1.15, shadowDarkness: 0.05,
       },
       sky: {
         zenith: new Color3(0.16, 0.09, 0.08), horizon: new Color3(0.75, 0.38, 0.2), ground: new Color3(0.12, 0.08, 0.06),
@@ -299,8 +306,8 @@ export class AshenKingdom extends Level {
         horizonGlow: new Color3(0.5, 0.18, 0.06),
       },
       look: {
-        fog: { color: new Color3(0.45, 0.3, 0.22), density: 0.0045, heightFalloff: 0.05, sunScatter: 0.8, volumeDensity: 0.02,
-          volumeColor: new Color3(0.55, 0.42, 0.36), maxDistance: 90, shaftDensity: 0.003 },
+        fog: { color: new Color3(0.42, 0.28, 0.2), density: 0.0016, heightFalloff: 0.06, sunScatter: 0.7, skyAmount: 0.3, volumeDensity: 0.007,
+          volumeColor: new Color3(0.5, 0.4, 0.35), volumeHeight: 6, maxDistance: 80, shaftDensity: 0.0025 },
         grade: {
           temperature: 0.25, tint: 0.05, slope: [1.04, 0.98, 0.92], offset: [0.004, 0, -0.004], power: [1, 1, 1.04],
           contrast: 1.12, saturation: 0.9, shadowSaturation: 0.8, highlightSaturation: 1.05,
@@ -311,6 +318,12 @@ export class AshenKingdom extends Level {
       music: 'ashen',
       ambience: 'wind_loop',
     };
+  }
+
+  override start(checkpoint?: string): void {
+    const g = this.game;
+    if (!checkpoint && !g.params.has('nointro')) void g.cine.play((d) => opening(d, g));
+    if (checkpoint) this.hint = HINTS.length;
   }
 
   override surface(at: Vector3): 'stone' | 'ash' | 'wood' {
@@ -326,6 +339,24 @@ export class AshenKingdom extends Level {
     this.ash?.move(new Vector3(cam.x, cam.y + 6, cam.z));
     this.embers?.move(new Vector3(cam.x, cam.y - 1, cam.z));
     this.encounters.update(p.position);
+    if (!g.cine.running) {
+      // tutorial hints along the road, one after another
+      const h = HINTS[this.hint];
+      if (h && p.position.z > h.z) {
+        g.hud.showHint(h.title, h.body);
+        this.hint++;
+        const shown = this.hint;
+        g.hazards.after(9, () => { if (this.hint === shown) g.hud.showHint(null); });
+      }
+      const beat = (id: string, cond: boolean, fn: () => Promise<void>) => {
+        if (cond && !this.beats.has(id)) {
+          this.beats.add(id);
+          void fn();
+        }
+      };
+      beat('village', p.position.z > 78, () => villageArrival(g.cine));
+      beat('gate', p.position.z > 150, () => gateArrival(g.cine));
+    }
     if (!this.bossStarted && Vector3.Distance(p.position, ARENA) < ARENA_R - 3) void this.startBoss();
     void dt;
   }
@@ -335,12 +366,16 @@ export class AshenKingdom extends Level {
     const g = this.game;
     const b = await g.enemies.spawnBoss(IGNAROTH, new Vector3(ARENA.x, this.height(ARENA.x, ARENA.z + 12), ARENA.z + 12), Math.PI);
     this.boss = b;
+    b.dormant = true;
     void g.audio.music('ignaroth');
+    if (!g.params.has('nointro')) await g.cine.play((d) => bossIntro(d, g, b));
+    b.dormant = false;
     g.audio.play('banner_boom');
     g.hud.showBanner('Ignaroth', 'The Burning King');
     g.hud.showBoss({ name: b.name, title: b.title, stats: b.stats, phases: b.phases });
     const p = g.player;
     if (p) b.alert(b.position, p);
+    b.onPhase = (i) => void g.cine.barks(PHASE_LINES[i] ?? []);
     b.spawnAdds = (at, n) => {
       for (let i = 0; i < n; i++) {
         const a = (i / n) * Math.PI * 2;
@@ -352,8 +387,7 @@ export class AshenKingdom extends Level {
     b.events.on('died', () => {
       g.hud.showBoss(null);
       void g.audio.music('ashen');
-      g.audio.play('banner_boom');
-      g.hud.showBanner('Godspark Claimed', 'Ignaroth has fallen');
+      g.hazards.after(2.4, () => void g.cine.play((d) => bossDeath(d, g, b)));
     });
     g.hazards.after(3.5, () => g.hud.showBanner(null));
   }

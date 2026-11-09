@@ -139,7 +139,7 @@ export const PRESETS: Record<string, Preset> = {
   // ambient: grey flakes drifting down in a wide box that follows the camera
   ashfall: {
     layers: [
-      { tex: 'soft', add: false, count: 0, rate: 220, capacity: 1600, life: [5, 8], size: [0.025, 0.06], power: [0.2, 0.6], shape: 'box', extent: 22, height: 14, gravity: -0.35, drag: 0.4, color: [0.62, 0.6, 0.58, 0.75], dead: [0.5, 0.48, 0.46, 0], spin: 2 },
+      { tex: 'soft', add: false, count: 0, rate: 140, capacity: 1100, life: [5, 8], size: [0.02, 0.05], power: [0.2, 0.6], shape: 'box', extent: 22, height: 14, gravity: -0.35, drag: 0.4, color: [0.55, 0.53, 0.5, 0.5], dead: [0.45, 0.43, 0.41, 0], spin: 2 },
     ],
   },
   emberDrift: {

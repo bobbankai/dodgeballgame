@@ -157,7 +157,7 @@ def main():
     export_glb(os.path.join(OUT, f'{ID}.glb'), [rig, gear], animations=False, morphs=False)
     manifest = {
         'name': SPEC['name'], 'height': info['top'],
-        'parts': {f'{ID}_gear': {'kind': 'gear', 'tex': 'gear', 'emissive': SPEC['emissive']}},
+        'parts': {f'{ID}_gear': {'kind': 'gear', 'tex': 'gear', 'emissive': SPEC['emissive'], 'twoSided': True}},
         'sockets': {'weapon_r': 'weapon_r', 'weapon_l': 'weapon_l'},
         'morphs': [],
     }
@@ -170,10 +170,12 @@ def main():
 
 def previews(gear):
     setup_preview_material(gear, 'gear', os.path.join(OUT, 'gear'), emissive=True)
-    h = SPEC['phenotype'].get('height', 0.6)
-    preview(os.path.join(WORK, f'{ID}_pv_front.png'), size=(900, 1300), cam_loc=(1.3, -3.9, 1.35), target=(0, 0, 1.0), lens=55, samples=48)
-    preview(os.path.join(WORK, f'{ID}_pv_back.png'), size=(900, 1300), cam_loc=(-1.6, 3.7, 1.5), target=(0, 0, 1.05), lens=55, samples=48)
-    preview(os.path.join(WORK, f'{ID}_pv_head.png'), size=(900, 900), cam_loc=(0.5, -1.2, 1.6 + 0.1 * h), target=(0, 0, 1.55 + 0.1 * h), lens=70, samples=48)
+    from common import verts_np as _v
+    top = float(_v(gear)[:, 2].max())
+    k = top / 1.9
+    preview(os.path.join(WORK, f'{ID}_pv_front.png'), size=(900, 1300), cam_loc=(1.3 * k, -3.9 * k, 1.35 * k), target=(0, 0, 1.0 * k), lens=55, samples=48)
+    preview(os.path.join(WORK, f'{ID}_pv_back.png'), size=(900, 1300), cam_loc=(-1.6 * k, 3.7 * k, 1.5 * k), target=(0, 0, 1.05 * k), lens=55, samples=48)
+    preview(os.path.join(WORK, f'{ID}_pv_head.png'), size=(900, 900), cam_loc=(0.5 * k, -1.2 * k, top - 0.25 * k), target=(0, 0, top - 0.32 * k), lens=70, samples=48)
     log('previews rendered')
 
 

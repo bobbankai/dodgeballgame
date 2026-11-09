@@ -71,7 +71,7 @@
 .ec-hint.on { opacity: 1; transform: none; }
 .ec-hint b { font-family: var(--ec-title); color: var(--ec-gold); font-weight: 400; display: block; font-size: 13px; letter-spacing: 0.1em; margin-bottom: 3px; }
 
-.ec-subtitle { position: absolute; left: 50%; bottom: 13%; transform: translateX(-50%); max-width: min(900px, 86vw); text-align: center; font-size: 22px; line-height: 1.35; text-shadow: 0 2px 6px #000, 0 0 2px #000; opacity: 0; transition: opacity 0.2s; }
+.ec-subtitle { position: absolute; left: 50%; bottom: 20%; transform: translateX(-50%); max-width: min(900px, 86vw); text-align: center; font-size: 22px; line-height: 1.35; text-shadow: 0 2px 6px #000, 0 0 2px #000; opacity: 0; transition: opacity 0.2s; }
 .ec-subtitle.on { opacity: 1; }
 .ec-subtitle .who { font-family: var(--ec-title); color: var(--ec-gold); font-size: 15px; letter-spacing: 0.1em; margin-right: 8px; }
 .ec-subtitle.small { font-size: 18px; }

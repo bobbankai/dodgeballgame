@@ -57,10 +57,11 @@ export async function buildTerrain(scene: Scene, name: string, hf: HeightField, 
       const c = a + nx;
       const d = c + 1;
       // alternate the diagonal so slopes do not show a directional grain
+      // counter-clockwise seen from above (front faces in Babylon's right-handed mode)
       if ((i + j) & 1) {
-        idx.set([a, c, b, b, c, d], n);
+        idx.set([a, b, c, b, d, c], n);
       } else {
-        idx.set([a, c, d, a, d, b], n);
+        idx.set([a, d, c, a, b, d], n);
       }
       n += 6;
     }

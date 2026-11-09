@@ -5,7 +5,8 @@
   "thrall_gear": {
    "kind": "gear",
    "tex": "gear",
-   "emissive": 2.2
+   "emissive": 2.2,
+   "twoSided": true
   }
  },
  "sockets": {

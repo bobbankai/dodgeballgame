@@ -52,7 +52,7 @@ export const DEFAULT_FOG: FogParams = {
 const PARAMS = [
   'uInvViewProj', 'uCamPos', 'uCamFwd', 'uFogColor', 'uSunColor', 'uSunDir', 'uDensity', 'uFalloff', 'uBase', 'uSunScatter',
   'uAniso', 'uSkyAmount', 'uVolDensity', 'uVolScale', 'uVolHeight', 'uVolColor', 'uWind', 'uMaxDist', 'uTime', 'uSteps', 'uFrame',
-  'uSunViewProj', 'uSunView', 'uShadowOn', 'uShaft', 'uDebug',
+  'uSunViewProj', 'uSunView', 'uShadowOn', 'uShaft', 'uDebug', 'uTexel',
 ];
 
 const FRAG_GLSL = /* glsl */ `
@@ -86,9 +86,21 @@ float heightOD(float t0, float t1, vec3 dir) {
   if (abs(k) < 1e-5) return a * (t1 - t0);
   return a * (exp(-k * t0) - exp(-k * t1)) / k;
 }
+uniform vec2 uTexel;
+// nearest depth of the pixel and its four neighbours: the colour buffer is anti-aliased but the
+// depth is not, so silhouette pixels take the foreground's fog instead of the far background's
+float ecNearDepth(vec2 uv) {
+  float best = 1e9;
+  for (int i = 0; i < 5; i++) {
+    vec2 o = i == 0 ? vec2(0.0) : i == 1 ? vec2(1.0, 0.0) : i == 2 ? vec2(-1.0, 0.0) : i == 3 ? vec2(0.0, 1.0) : vec2(0.0, -1.0);
+    float s = abs(texture2D(depthSampler, uv + o * uTexel).r);
+    if (s > 1e-4) best = min(best, s);
+  }
+  return best > 1e8 ? 0.0 : best;
+}
 void main(void) {
   vec4 scene = texture2D(textureSampler, vUV);
-  float vz = abs(texture2D(depthSampler, vUV).r);
+  float vz = ecNearDepth(vUV);
   vec4 far = uInvViewProj * vec4(vUV * 2.0 - 1.0, 0.5, 1.0);
   vec3 dir = normalize(far.xyz / far.w - uCamPos);
   bool sky = vz < 1e-4;
@@ -166,10 +178,21 @@ fn heightOD(t0: f32, t1: f32, dir: vec3f) -> f32 {
   if (abs(k) < 1e-5) { return a * (t1 - t0); }
   return a * (exp(-k * t0) - exp(-k * t1)) / k;
 }
+uniform uTexel: vec2f;
+fn ecNearDepth(uv: vec2f) -> f32 {
+  var best = 1e9;
+  let offs = array<vec2f, 5>(vec2f(0.0), vec2f(1.0, 0.0), vec2f(-1.0, 0.0), vec2f(0.0, 1.0), vec2f(0.0, -1.0));
+  for (var i = 0; i < 5; i++) {
+    let s = abs(textureSampleLevel(depthSampler, depthSamplerSampler, uv + offs[i] * uniforms.uTexel, 0.0).r);
+    if (s > 1e-4) { best = min(best, s); }
+  }
+  if (best > 1e8) { return 0.0; }
+  return best;
+}
 @fragment
 fn main(input: FragmentInputs) -> FragmentOutputs {
   let scene = textureSampleLevel(textureSampler, textureSamplerSampler, input.vUV, 0.0);
-  let vz = abs(textureSampleLevel(depthSampler, depthSamplerSampler, input.vUV, 0.0).r);
+  let vz = ecNearDepth(input.vUV);
   let far = uniforms.uInvViewProj * vec4f(input.vUV * 2.0 - 1.0, 0.5, 1.0);
   let dir = normalize(far.xyz / far.w - uniforms.uCamPos);
   let sky = vz < 1e-4;
@@ -281,6 +304,8 @@ export class Atmosphere {
     this.post.onApplyObservable.add((effect) => {
       const p = this.params;
       effect.setTexture('depthSampler', depth.getDepthMap());
+      const dm = depth.getDepthMap();
+      effect.setFloat2('uTexel', 1 / Math.max(1, dm.getSize().width), 1 / Math.max(1, dm.getSize().height));
       effect.setTexture('noiseSampler', this.noise);
       const sd = this.sun;
       if (sd) {

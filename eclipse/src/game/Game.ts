@@ -36,6 +36,7 @@ import { AiDirector } from '../ai/AiDirector';
 import type { Navigation } from '../ai/Navigation';
 import type { AiContext } from '../ai/Enemy';
 import { Enemies } from '../ai/Enemies';
+import { Director } from '../story/Director';
 import type { HitEvent } from '../combat/CombatWorld';
 
 /**
@@ -74,6 +75,8 @@ export class Game {
   nav: Navigation | null = null;
   enemies!: Enemies;
   private trail: BladeTrail | null = null;
+  /** Cinematics and story scripts. */
+  readonly cine: Director;
   humanAnims!: AnimLibrary;
   player: Player | null = null;
   level: Level | null = null;
@@ -115,6 +118,7 @@ export class Game {
     this.audio = new Audio(settings.data.audio);
     if (params.has('test')) this.audio.enabled = false;
     this.vfx.onBurst = (name, at, k) => this.burstSound(name, at, k);
+    this.cine = new Director(this);
     this.ground = new GroundFx(scene);
     this.projectiles = new Projectiles(scene, this.combat, physics, this.vfx);
     this.hazards = new Hazards(this.combat, this.vfx, this.ground);
@@ -234,6 +238,11 @@ export class Game {
     this.enemies = new Enemies(this.ai, this.assets, this.charMats, this.humanAnims, this.lighting);
     this.enemies.onSpawn = (e) => this.watchEnemy(e);
     await this.audio.load();
+    try {
+      this.cine.setVoiceDurations(await this.assets.loadJson<Record<string, number>>('audio/voices/durations.json'));
+    } catch {
+      // no recordings yet: subtitles fall back to reading speed
+    }
     const level = this.params.get('level') ?? 'playground';
     if (level === 'sandbox' || level === 'viewer') {
       await this.applyAtmos(DEV_ATMOS);
@@ -299,6 +308,7 @@ export class Game {
     const s = level.spawn(checkpoint);
     this.player!.place(s.position, s.yaw);
     this.rig.snapBehind(s.yaw);
+    level.start(checkpoint);
     (window as unknown as { __level: unknown }).__level = level;
   }
 

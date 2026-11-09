@@ -10,6 +10,8 @@ export interface PartSpec {
   tex?: string;
   clearcoat?: number;
   emissive?: number;
+  /** Render both sides (gear whose shells are single-walled). */
+  twoSided?: boolean;
 }
 
 export interface CharacterManifest {
@@ -80,10 +82,12 @@ export class CharacterMaterials {
       }
       case 'gear': {
         withMaps(spec.tex ?? 'gear');
-        // cloth and plate shells are single-walled (their hidden inner walls are dropped at build
-        // time): render both sides, lit correctly from behind
-        m.backFaceCulling = false;
-        m.twoSidedLighting = true;
+        // gear built with single-walled shells (inner walls dropped at build time) renders both
+        // sides; double-walled gear must not (the walls a few millimetres apart would z-fight)
+        if (spec.twoSided) {
+          m.backFaceCulling = false;
+          m.twoSidedLighting = true;
+        }
         m.emissiveTexture = this.tex(dir, `${spec.tex ?? 'gear'}_e`, true);
         m.emissiveColor = new Color3(1, 1, 1).scale(spec.emissive ?? 1.5);
         const fx = new EmissiveFxPlugin(m);

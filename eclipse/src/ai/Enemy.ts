@@ -86,6 +86,8 @@ export class Enemy implements Combatant, Tactical {
   /** Patrol route (walked in a loop with pauses); empty = guard the spawn point. */
   patrol: Vector3[] = [];
   removed = false;
+  /** Ignores the player until woken (bosses waiting through their introduction). */
+  dormant = false;
   protected tactic: Tactic = 'approach';
   private agent: CrowdAgent | null = null;
   protected cooldowns = new Map<string, number>();
@@ -294,7 +296,7 @@ export class Enemy implements Combatant, Tactical {
   }
 
   private perceive(): void {
-    if (this.time < this.perceiveAt) return;
+    if (this.dormant || this.time < this.perceiveAt) return;
     this.perceiveAt = this.time + 0.15 + Math.random() * 0.1;
     const p = this.ctx.player();
     if (!p || !p.alive) {

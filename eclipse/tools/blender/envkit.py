@@ -170,21 +170,55 @@ def metric_uv(obj, jitter=True, seed=0):
     return obj
 
 
-def bake_ao(obj, samples=32, distance=1.5):
-    """Ambient occlusion baked into an `AO` point colour attribute (Cycles)."""
-    sc = bpy.context.scene
-    sc.render.engine = 'CYCLES'
-    sc.cycles.samples = samples
-    sc.cycles.device = 'CPU'
-    world = sc.world or bpy.data.worlds.new('w')
-    sc.world = world
-    world.light_settings.distance = distance
-    attr = obj.data.color_attributes.get('AO') or obj.data.color_attributes.new('AO', 'FLOAT_COLOR', 'POINT')
-    obj.data.color_attributes.active_color = attr
-    select_only(obj)
-    bpy.context.view_layer.objects.active = obj
-    sc.render.bake.target = 'VERTEX_COLORS'
-    bpy.ops.object.bake(type='AO')
+def bake_ao(obj, samples=16, distance=1.6, ground=True):
+    """Per-vertex ambient occlusion into an `AO` point colour attribute: cosine-weighted hemisphere
+    rays against a BVH of the piece (plus the ground plane it stands on), cut off at `distance`."""
+    from mathutils.bvhtree import BVHTree
+    me = obj.data
+    me.calc_loop_triangles()
+    co = np.empty(len(me.vertices) * 3)
+    me.vertices.foreach_get('co', co)
+    co = co.reshape(-1, 3)
+    nrm = np.empty(len(me.vertices) * 3)
+    me.vertices.foreach_get('normal', nrm)
+    nrm = nrm.reshape(-1, 3)
+    verts = [tuple(v) for v in co]
+    polys = [tuple(t.vertices) for t in me.loop_triangles]
+    if ground:
+        lo, hi = co.min(0) - 20, co.max(0) + 20
+        base = len(verts)
+        verts += [(lo[0], lo[1], 0.0), (hi[0], lo[1], 0.0), (hi[0], hi[1], 0.0), (lo[0], hi[1], 0.0)]
+        polys += [(base, base + 1, base + 2), (base, base + 2, base + 3)]
+    bvh = BVHTree.FromPolygons(verts, polys, epsilon=0.0)
+    # a fixed cosine-weighted set, rotated randomly per vertex (no banding)
+    rng = np.random.default_rng(5)
+    u1, u2 = (np.arange(samples) + 0.5) / samples, rng.random(samples)
+    r = np.sqrt(u1)
+    phi = 2 * np.pi * u2
+    local = np.stack([r * np.cos(phi), r * np.sin(phi), np.sqrt(1 - u1)], 1)
+    ao = np.ones(len(co))
+    for i in range(len(co)):
+        n = nrm[i]
+        t = np.cross(n, (1, 0, 0) if abs(n[0]) < 0.9 else (0, 1, 0))
+        t /= np.linalg.norm(t)
+        b = np.cross(n, t)
+        a = rng.random() * 2 * np.pi
+        ca, sa = np.cos(a), np.sin(a)
+        t2, b2 = t * ca + b * sa, -t * sa + b * ca
+        dirs = local[:, :1] * t2 + local[:, 1:2] * b2 + local[:, 2:3] * n
+        o = Vector(co[i] + n * 0.01)
+        occ = 0.0
+        for d in dirs:
+            hit = bvh.ray_cast(o, Vector(d), distance)
+            if hit[0] is not None:
+                occ += 1.0 - (hit[3] / distance) ** 0.5
+        ao[i] = 1.0 - occ / samples
+    ao = np.clip(ao, 0.15, 1.0) ** 1.2
+    attr = me.color_attributes.get('AO') or me.color_attributes.new('AO', 'FLOAT_COLOR', 'POINT')
+    rgba = np.repeat(ao[:, None], 4, 1)
+    rgba[:, 3] = 1
+    attr.data.foreach_set('color', rgba.ravel())
+    me.color_attributes.active_color = attr
     return obj
 
 

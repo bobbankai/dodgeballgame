@@ -32,7 +32,7 @@ const SETS: Record<string, EnvSet> = {
   ash_burned_ground: { size: 4, porosity: 1 },
   ash_mud: { size: 4, porosity: 1 },
   'wood_bark#charred': { size: 1.5, tint: new Color3(0.2, 0.17, 0.15), porosity: 1 },
-  'sun_marble#ash': { size: 2, tint: new Color3(0.62, 0.58, 0.55), porosity: 0.5 },
+  'sun_marble#ash': { size: 2, tint: new Color3(0.34, 0.31, 0.29), porosity: 0.5 },
   cloth_rust: { size: 0.8, porosity: 0.4 },
   cloth_leather_red: { size: 1.0, tint: new Color3(0.55, 0.2, 0.15), porosity: 1 },
 };

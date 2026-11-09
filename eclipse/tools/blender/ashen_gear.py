@@ -362,13 +362,16 @@ def cinder_knight(R, B, info):
     # ------------------------------------------------ scorched tabard panels front and back
     def tabard_field(p):
         z = p[:, 2]
-        env = smin(B(p) - 0.075, hip_ell(p) - 0.05, 0.08)
-        width = np.abs(p[:, 0]) - (0.13 - 0.02 * np.clip((zw - z) / 0.4, 0, 1))
-        hem = (zk + 0.1) + 0.08 * (sdf.fbm(np.column_stack([p[:, 0] * 3, p[:, 1], np.zeros_like(z)]), 4, 3, 77) - 0.5)
+        k = np.clip((zw - z) / (zw - zk), 0, 1.2)
+        # two sheets hanging from the belt, swinging a little forward / back as they fall
+        sheet = np.minimum(np.abs(p[:, 1] - (-0.2 - 0.04 * k)), np.abs(p[:, 1] - (0.19 + 0.04 * k))) - 0.003
+        sheet -= 0.004 * np.sin(p[:, 0] * 45) * k
+        width = np.abs(p[:, 0]) - (0.15 - 0.025 * k)
+        hem = (zk - 0.04) + 0.09 * (sdf.fbm(np.column_stack([p[:, 0] * 3, p[:, 1], np.zeros_like(z)]), 4, 3, 77) - 0.5)
         region = np.maximum(np.maximum(width, hem - z), z - (zw + 0.0))
-        return np.maximum(np.abs(env) - 0.003, region)
+        return np.maximum(sheet, region)
 
-    pieces.append(Piece('tabard', tabard_field, (np.array([-0.2, -0.34, zk - 0.05]), np.array([0.2, 0.34, zw + 0.02])),
+    pieces.append(Piece('tabard', tabard_field, (np.array([-0.2, -0.34, zk - 0.16]), np.array([0.2, 0.34, zw + 0.02])),
                         lambda p: mat_ids(p, 'cloth_red', [(lambda q: q[:, 2] < zk + 0.2 + 0.08 * sdf.fbm(q, 7, 2, 78), 'char'),
                                                           (lambda q: (q[:, 2] < zk + 0.22) & cracks(q, 14, 0.03, 79), 'ember')]),
                         skin='transfer_skirt', voxel=0.003, budget=2400))
@@ -511,7 +514,7 @@ def acolyte(R, B, info):
         return np.maximum(np.maximum(np.abs(env) - 0.0032, region), -opening)
 
     pieces.append(Piece('hood', hood_field, (np.array([-0.3, -0.3, zc - 0.08]), np.array([0.3, 0.38, L['top'] + 0.2])),
-                        lambda p: mat_ids(p, 'cloth_red', [(lambda q: np.abs(np.hypot(q[:, 0] / 0.075, (q[:, 2] - (eyes[2] - 0.025)) / 0.1) - 1.05) < 0.08, 'gold')]),
+                        lambda p: mat_ids(p, 'cloth_red', [(lambda q: (np.abs(np.hypot(q[:, 0] / 0.075, (q[:, 2] - (eyes[2] - 0.025)) / 0.1) - 1.05) < 0.08) & (q[:, 1] < skull[1] - 0.04), 'gold')]),
                         skin='transfer', voxel=0.003, budget=4200))
 
     def mask_field(p):
@@ -529,7 +532,7 @@ def acolyte(R, B, info):
                         skin={'bone': 'head'}, voxel=0.0018, budget=2400))
 
     def eyes_field(p):
-        return np.minimum(sdf.sphere(L['eye_l'] + np.array([0, 0.006, 0]), 0.012)(p), sdf.sphere(L['eye_r'] + np.array([0, 0.006, 0]), 0.012)(p))
+        return np.minimum(sdf.sphere(L['eye_l'] + np.array([0, -0.025, 0]), 0.014)(p), sdf.sphere(L['eye_r'] + np.array([0, -0.025, 0]), 0.014)(p))
 
     pieces.append(Piece('eyes', eyes_field, (eyes - 0.08, eyes + 0.08), 'ember', skin={'bone': 'head'}, voxel=0.0015, budget=300))
 
@@ -584,7 +587,7 @@ def ignaroth(R, B, info):
         return np.abs(B(p) - 0.004 - crust) - 0.003
 
     def skin_mats(p):
-        veins = cracks(p, 9, 0.028, 202) | cracks(p, 23, 0.016, 203)
+        veins = cracks(p, 8, 0.016, 202) | cracks(p, 21, 0.009, 203)
         return mat_ids(p, 'obsidian', [(lambda q: veins, 'ember')])
 
     pieces.append(Piece('magma', skin_field, (np.array([-1.0, -0.36, -0.03]), np.array([1.0, 0.36, L['top'] + 0.03])), skin_mats,
@@ -722,28 +725,37 @@ def ignaroth(R, B, info):
 
     def tabard_field(p):
         z = p[:, 2]
-        env = hip_ell(p) - 0.07 - 0.01 * np.clip((zw - z) / 0.6, 0, 1)
-        width = np.abs(p[:, 0]) - 0.12
-        hem = 0.12 + 0.1 * (sdf.fbm(np.column_stack([p[:, 0] * 3, np.zeros_like(z), np.zeros_like(z)]), 4, 3, 233) - 0.5)
-        region = np.maximum(np.maximum(width, hem - z), np.maximum(z - (zw - 0.06), p[:, 1] - (-0.1)))
-        return np.maximum(np.abs(env) - 0.003, region)
+        k = np.clip((zw - 0.06 - z) / (zw - 0.06), 0, 1.2)
+        sheet = np.abs(p[:, 1] - (-0.24 - 0.06 * k)) - 0.0035 - 0.004 * np.sin(p[:, 0] * 40) * k
+        width = np.abs(p[:, 0]) - (0.13 - 0.02 * k)
+        hem = 0.14 + 0.1 * (sdf.fbm(np.column_stack([p[:, 0] * 3, np.zeros_like(z), np.zeros_like(z)]), 4, 3, 233) - 0.5)
+        region = np.maximum(np.maximum(width, hem - z), z - (zw - 0.06))
+        return np.maximum(sheet, region)
 
-    pieces.append(Piece('tabard', tabard_field, (np.array([-0.2, -0.45, 0.0]), np.array([0.2, 0.0, zw])),
+    pieces.append(Piece('tabard', tabard_field, (np.array([-0.2, -0.45, 0.0]), np.array([0.2, -0.1, zw])),
                         lambda p: mat_ids(p, 'cloth_red', [(lambda q: q[:, 2] < 0.3 + 0.1 * sdf.fbm(q, 6, 2, 234), 'char'),
                                                           (lambda q: (q[:, 2] < 0.32) & cracks(q, 12, 0.03, 235), 'ember'),
                                                           (lambda q: np.abs(np.abs(q[:, 0]) - 0.1) < 0.012, 'gold')]),
                         skin='transfer_skirt', voxel=0.003, budget=2600))
 
+    back_y = float(R.head('spine_03')[1]) + 0.2
+
     def cape_field(p):
         z = p[:, 2]
-        env = B(p) - 0.06 - 0.01 * np.sin(p[:, 0] * 30) * np.clip((zc - z) / 0.6, 0, 1)
-        hem = 0.06 + 0.12 * (sdf.fbm(np.column_stack([p[:, 0] * 4, np.zeros_like(z), np.zeros_like(z)]), 3, 3, 241) - 0.5)
-        width = np.abs(p[:, 0]) - (sx * 0.95 + 0.25 * np.clip((zc - z) / 1.2, 0, 1))
-        region = np.maximum(np.maximum(hem - z, z - (zc + 0.06)), np.maximum(width, 0.04 - p[:, 1]))
+        # hangs from the shoulders as one sheet, falling away from the body toward the hem
+        k = np.clip((zc - z) / zc, 0, 1)
+        y0 = back_y + 0.02 + 0.22 * k ** 1.3
+        sheet = np.abs(p[:, 1] - y0 - 0.012 * np.sin(p[:, 0] * 22 + 1.0) * k) - 0.004
+        width = np.abs(p[:, 0]) - (sx * 0.9 + 0.32 * k)
+        hem = 0.08 + 0.12 * (sdf.fbm(np.column_stack([p[:, 0] * 4, np.zeros_like(z), np.zeros_like(z)]), 3, 3, 241) - 0.5)
+        region = np.maximum(np.maximum(hem - z, z - (zc + 0.04)), width)
         holes = (sdf.fbm(p, 6, 3, 242) - 0.76) * 0.06
-        return np.maximum(np.maximum(np.abs(env) - 0.0035, region), holes)
+        # wrap over the shoulders: the top edge curls forward onto the spaulders
+        top = np.maximum(np.abs(B(p) - 0.09) - 0.004, np.maximum(zc - 0.02 - z, np.abs(p[:, 0]) - sx * 0.95))
+        top = np.maximum(top, -(p[:, 1] - 0.0))
+        return np.minimum(np.maximum(np.maximum(sheet, region), holes), top)
 
-    pieces.append(Piece('cape', cape_field, (np.array([-0.7, 0.0, 0.0]), np.array([0.7, 0.55, zc + 0.08])),
+    pieces.append(Piece('cape', cape_field, (np.array([-0.75, -0.05, 0.0]), np.array([0.75, 0.75, zc + 0.12])),
                         lambda p: mat_ids(p, 'cloth_red', [(lambda q: q[:, 2] < 0.35 + 0.15 * sdf.fbm(q, 6, 2, 243), 'char'),
                                                           (lambda q: (q[:, 2] < 0.4) & cracks(q, 11, 0.03, 244), 'ember'),
                                                           (lambda q: q[:, 2] > zc - 0.05, 'gold')]),

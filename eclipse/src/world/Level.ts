@@ -51,6 +51,9 @@ export abstract class Level {
     return 'ash';
   }
 
+  /** After the player is placed: opening cinematics and the like. */
+  start(_checkpoint?: string): void {}
+
   /** Called every fixed step while the level is active. */
   update(_dt: number): void {}
 

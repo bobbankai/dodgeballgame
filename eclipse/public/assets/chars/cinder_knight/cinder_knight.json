@@ -1,0 +1,17 @@
+{
+ "name": "Cinder Knight",
+ "height": 2.207366943359375,
+ "parts": {
+  "cinder_knight_gear": {
+   "kind": "gear",
+   "tex": "gear",
+   "emissive": 3.0,
+   "twoSided": true
+  }
+ },
+ "sockets": {
+  "weapon_r": "weapon_r",
+  "weapon_l": "weapon_l"
+ },
+ "morphs": []
+}

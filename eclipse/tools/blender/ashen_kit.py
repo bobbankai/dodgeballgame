@@ -61,10 +61,8 @@ def finish(name, parts, cols, dmg=None, seed=0, uv=True):
     if uv:
         metric_uv(obj, seed=seed + 1)
     if AO:
-        subdivide_long_edges(obj, 1.2)
-        ground = box('ao_ground', (60, 60, 0.2), (0, 0, -0.1))
+        subdivide_long_edges(obj, 1.8)
         bake_ao(obj)
-        bpy.data.objects.remove(ground, do_unlink=True)
     col = collision(name, cols) if cols else None
     export_piece(os.path.join(OUT, f'{name}.glb'), obj, col, ao=AO)
 

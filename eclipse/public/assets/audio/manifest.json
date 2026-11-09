@@ -303,6 +303,142 @@
    "volume": 0.8,
    "pitch": 0,
    "bus": "ui"
+  },
+  "line:ithra_n61zr4": {
+   "files": [
+    "voices/ithra_n61zr4.ogg"
+   ],
+   "volume": 1.0,
+   "pitch": 0,
+   "bus": "voice"
+  },
+  "line:ithra_1dg9crg": {
+   "files": [
+    "voices/ithra_1dg9crg.ogg"
+   ],
+   "volume": 1.0,
+   "pitch": 0,
+   "bus": "voice"
+  },
+  "line:ithra_12h8niy": {
+   "files": [
+    "voices/ithra_12h8niy.ogg"
+   ],
+   "volume": 1.0,
+   "pitch": 0,
+   "bus": "voice"
+  },
+  "line:ithra_1zrii9": {
+   "files": [
+    "voices/ithra_1zrii9.ogg"
+   ],
+   "volume": 1.0,
+   "pitch": 0,
+   "bus": "voice"
+  },
+  "line:kael_3qdmdv": {
+   "files": [
+    "voices/kael_3qdmdv.ogg"
+   ],
+   "volume": 1.0,
+   "pitch": 0,
+   "bus": "voice"
+  },
+  "line:ithra_1310x8h": {
+   "files": [
+    "voices/ithra_1310x8h.ogg"
+   ],
+   "volume": 1.0,
+   "pitch": 0,
+   "bus": "voice"
+  },
+  "line:ignaroth_113z2yn": {
+   "files": [
+    "voices/ignaroth_113z2yn.ogg"
+   ],
+   "volume": 1.0,
+   "pitch": 0,
+   "bus": "voice"
+  },
+  "line:ignaroth_81vsw9": {
+   "files": [
+    "voices/ignaroth_81vsw9.ogg"
+   ],
+   "volume": 1.0,
+   "pitch": 0,
+   "bus": "voice"
+  },
+  "line:ignaroth_1g64oxz": {
+   "files": [
+    "voices/ignaroth_1g64oxz.ogg"
+   ],
+   "volume": 1.0,
+   "pitch": 0,
+   "bus": "voice"
+  },
+  "line:ignaroth_w0tilf": {
+   "files": [
+    "voices/ignaroth_w0tilf.ogg"
+   ],
+   "volume": 1.0,
+   "pitch": 0,
+   "bus": "voice"
+  },
+  "line:kael_62y3tc": {
+   "files": [
+    "voices/kael_62y3tc.ogg"
+   ],
+   "volume": 1.0,
+   "pitch": 0,
+   "bus": "voice"
+  },
+  "line:ithra_4epd5z": {
+   "files": [
+    "voices/ithra_4epd5z.ogg"
+   ],
+   "volume": 1.0,
+   "pitch": 0,
+   "bus": "voice"
+  },
+  "line:ithra_1drrpbx": {
+   "files": [
+    "voices/ithra_1drrpbx.ogg"
+   ],
+   "volume": 1.0,
+   "pitch": 0,
+   "bus": "voice"
+  },
+  "line:kael_1tsyfzz": {
+   "files": [
+    "voices/kael_1tsyfzz.ogg"
+   ],
+   "volume": 1.0,
+   "pitch": 0,
+   "bus": "voice"
+  },
+  "line:ithra_1b0chzz": {
+   "files": [
+    "voices/ithra_1b0chzz.ogg"
+   ],
+   "volume": 1.0,
+   "pitch": 0,
+   "bus": "voice"
+  },
+  "line:ignaroth_rvtaol": {
+   "files": [
+    "voices/ignaroth_rvtaol.ogg"
+   ],
+   "volume": 1.0,
+   "pitch": 0,
+   "bus": "voice"
+  },
+  "line:ignaroth_18ocx4m": {
+   "files": [
+    "voices/ignaroth_18ocx4m.ogg"
+   ],
+   "volume": 1.0,
+   "pitch": 0,
+   "bus": "voice"
   }
  },
  "music": {

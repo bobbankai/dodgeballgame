@@ -1,0 +1,17 @@
+{
+ "name": "Ignaroth",
+ "height": 2.4059040546417236,
+ "parts": {
+  "ignaroth_gear": {
+   "kind": "gear",
+   "tex": "gear",
+   "emissive": 3.4,
+   "twoSided": true
+  }
+ },
+ "sockets": {
+  "weapon_r": "weapon_r",
+  "weapon_l": "weapon_l"
+ },
+ "morphs": []
+}
