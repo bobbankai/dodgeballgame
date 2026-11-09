@@ -3,6 +3,7 @@ import { Level, type Atmos } from '../world/Level';
 import { TrainingDummy } from '../combat/Dummy';
 import { withLayers } from '../render/materials/SurfaceLayers';
 import { Navigation } from '../ai/Navigation';
+import { Water } from '../render/Water';
 import { IGNAROTH } from '../ai/bosses/Ignaroth';
 import type { BossDef } from '../ai/Boss';
 import type { AbstractMesh } from '@babylonjs/core';
@@ -54,6 +55,16 @@ export class Playground extends Level {
       this.dummies.push(d);
     }
     for (const m of walk) this.own(m);
+    // `?water` floods a basin in the yard (water shader test): a sunken pit and the plane over it
+    if (g.params.has('water')) {
+      const pit = CreateBox('pit', { width: 10, depth: 10, height: 2 }, scene);
+      pit.position.set(-8, -1.2, 8);
+      pit.material = g.mats.surface({ set: 'sea_mossy_cobble', tile: 4 });
+      this.own(pit);
+      const w = new Water(scene, g.pipe, new Vector3(-6, 0.35, 8), [16, 14], { rain: g.params.has('rain') ? 1 : 0 });
+      this.own(w);
+      g.updaters.push(() => w.update(1 / 60, g.lighting.toSun, g.lighting.sun.diffuse.scale(g.lighting.sun.intensity)));
+    }
     // `?enemies=thrall,thrall,cinder_knight` spawns a test group across the yard
     const list = g.params.get('enemies');
     const bossId = g.params.get('boss');

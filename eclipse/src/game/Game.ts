@@ -38,6 +38,7 @@ import type { AiContext } from '../ai/Enemy';
 import { Enemies } from '../ai/Enemies';
 import { Director } from '../story/Director';
 import { Flow } from './Flow';
+import { TouchControls } from '../ui/TouchControls';
 import type { HitEvent } from '../combat/CombatWorld';
 
 /**
@@ -80,6 +81,7 @@ export class Game {
   readonly cine: Director;
   /** Title, menus, saves and progression. */
   readonly flow: Flow;
+  readonly touch: TouchControls;
   humanAnims!: AnimLibrary;
   player: Player | null = null;
   level: Level | null = null;
@@ -123,6 +125,7 @@ export class Game {
     this.vfx.onBurst = (name, at, k) => this.burstSound(name, at, k);
     this.cine = new Director(this);
     this.flow = new Flow(this);
+    this.touch = new TouchControls(document.getElementById('ui')!, this.input);
     this.ground = new GroundFx(scene);
     this.projectiles = new Projectiles(scene, this.combat, physics, this.vfx);
     this.hazards = new Hazards(this.combat, this.vfx, this.ground);

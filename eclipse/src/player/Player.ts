@@ -152,6 +152,8 @@ export class Player implements Combatant {
 
   /** Teleport (checkpoints, level loads). */
   place(p: Vector3, yaw?: number): void {
+    // settling onto the ground after a teleport is not "walking off a ledge"
+    this.airGrace = 0.4;
     this.ctrl.setPosition(p.add(new Vector3(0, this.height / 2, 0)));
     this.ctrl.setVelocity(Vector3.Zero());
     this.char.root.position.copyFrom(p);
@@ -379,6 +381,18 @@ export class Player implements Combatant {
   }
 
   private supported = true;
+  private airGrace = 0;
+
+  /** A cinematic has the player: no input, no state changes, animations are the director's. */
+  setCinematic(on: boolean): void {
+    if (on) {
+      this.state = 'cinematic';
+      this.vel.setAll(0);
+    } else if (this.state === 'cinematic') {
+      this.state = 'move';
+      this.toMove();
+    }
+  }
 
   private physicsStep(dt: number): void {
     const ctrl = this.ctrl;
@@ -386,6 +400,7 @@ export class Player implements Combatant {
     const surface = ctrl.checkSupport(dt, down);
     const wasSupported = this.supported;
     this.supported = surface.supportedState === CharacterSupportedState.SUPPORTED;
+    if (this.airGrace > 0) this.airGrace -= dt;
     const gravity = this.scene.getPhysicsEngine()?.gravity ?? new Vector3(0, -19.6, 0);
     let desired = new Vector3(this.vel.x, 0, this.vel.z);
     // actions move by root motion (authored lunges, dodges, knockbacks)
@@ -409,7 +424,7 @@ export class Player implements Combatant {
       if (this.state === 'air' && this.stateTime > 0.05) this.landed();
     } else {
       out = new Vector3(desired.x, cur.y, desired.z).addInPlace(gravity.scale(dt));
-      if (wasSupported && this.state === 'move' && cur.y <= 0.5) {
+      if (wasSupported && this.state === 'move' && cur.y <= 0.5 && this.airGrace <= 0) {
         // walked off a ledge
         this.toAir(false);
       }

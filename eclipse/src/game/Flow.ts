@@ -312,6 +312,7 @@ export class Flow {
   /** Every rendered frame: menus, the title flight, pause. */
   update(dt: number): void {
     const g = this.g;
+    g.touch.setVisible(!this.menus.open && !this.onTitle && !g.cine.running);
     if (this.menus.open) {
       g.input.update(performance.now() / 1000);
       this.menus.update(dt);

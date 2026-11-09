@@ -69,8 +69,12 @@ export class Director {
     this.running = true;
     this.skipping = false;
     g.rig.cinematic = true;
-    if (g.player) g.player.inputEnabled = false;
+    if (g.player) {
+      g.player.inputEnabled = false;
+      g.player.setCinematic(true);
+    }
     g.hud.setVisible(false);
+    g.touch.setVisible(false);
     document.getElementById('ui')?.classList.add('ec-letterbox');
     try {
       await script(this);
@@ -82,10 +86,14 @@ export class Director {
       this.letterbox(false);
       g.hud.showSubtitle(null, null);
       g.hud.setVisible(true);
+      g.touch.setVisible(true);
       g.rig.cinematic = false;
       g.rig.blendFromCurrent();
       g.pipe.setFocus(0);
-      if (g.player) g.player.inputEnabled = true;
+      if (g.player) {
+        g.player.setCinematic(false);
+        g.player.inputEnabled = true;
+      }
       g.hud.fade(false);
       this.running = false;
       this.skipping = false;

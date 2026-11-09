@@ -143,3 +143,26 @@
 .ec-menu.screen-death .item { justify-content: center; }
 .ec-credits { white-space: pre-line; text-align: center; line-height: 1.7; color: var(--ec-text); }
 @media (max-width: 720px) { .ec-menu .columns { grid-template-columns: 1fr; } .ec-menu.clear { padding-left: 6vw; } }
+
+/* ---------------------------------------------------------------- touch controls */
+.ec-touch { position: absolute; inset: 0; display: none; z-index: 8; touch-action: none; user-select: none; -webkit-user-select: none; }
+.ec-touch.on { display: block; }
+.ec-touch.hidden { opacity: 0; pointer-events: none; }
+.ec-touch .zone { position: absolute; inset: 0; pointer-events: auto; }
+.ec-touch .stick { position: absolute; width: 120px; height: 120px; margin: -60px 0 0 -60px; border-radius: 50%; border: 2px solid rgba(217,181,106,0.45); background: rgba(10,8,14,0.25); opacity: 0; transition: opacity 0.15s; pointer-events: none; }
+.ec-touch .stick.on { opacity: 1; }
+.ec-touch .knob { position: absolute; left: 50%; top: 50%; width: 52px; height: 52px; margin: -26px 0 0 -26px; border-radius: 50%; background: radial-gradient(circle at 40% 35%, rgba(255,240,210,0.55), rgba(217,181,106,0.35)); border: 1px solid var(--ec-gold); }
+.ec-touch .pad { position: absolute; right: max(14px, env(safe-area-inset-right)); bottom: max(14px, env(safe-area-inset-bottom)); width: 300px; height: 280px; pointer-events: none; }
+.ec-touch .btn { position: absolute; display: flex; align-items: center; justify-content: center; border-radius: 50%; border: 1px solid rgba(217,181,106,0.6); background: rgba(10,8,14,0.45); color: var(--ec-parchment); font-family: var(--ec-title); font-size: 11px; letter-spacing: 0.06em; pointer-events: auto; backdrop-filter: blur(2px); }
+.ec-touch .btn.down { background: rgba(217,181,106,0.45); color: #fff; }
+.ec-touch .b-light { width: 84px; height: 84px; right: 20px; bottom: 30px; font-size: 13px; }
+.ec-touch .b-heavy { width: 62px; height: 62px; right: 118px; bottom: 18px; }
+.ec-touch .b-dodge { width: 62px; height: 62px; right: 30px; bottom: 128px; }
+.ec-touch .b-block { width: 58px; height: 58px; right: 112px; bottom: 98px; }
+.ec-touch .b-jump { width: 50px; height: 50px; right: 190px; bottom: 28px; }
+.ec-touch .b-lock { width: 46px; height: 46px; right: 104px; bottom: 176px; }
+.ec-touch .b-heal { width: 46px; height: 46px; right: 182px; bottom: 112px; }
+.ec-touch .b-ab1 { width: 46px; height: 46px; right: 30px; bottom: 210px; }
+.ec-touch .b-ab2 { width: 46px; height: 46px; right: 166px; bottom: 182px; }
+.ec-touch .b-pause { position: fixed; top: max(12px, env(safe-area-inset-top)); right: max(12px, env(safe-area-inset-right)); width: 40px; height: 40px; bottom: auto; }
+@media (max-height: 500px) { .ec-touch .pad { transform: scale(0.8); transform-origin: right bottom; } }

@@ -12,7 +12,7 @@ from bake import tile_texture, noise2, decode_ids, blend_normals, load_rgb
 
 # name: (detail set, tile metres, tint (linear-ish sRGB multiplier), base roughness, metal, edge wear colour, wear amount, detail normal strength)
 LOOKS = {
-    'steel':       ('gen_forged_steel', 0.6, (0.86, 0.87, 0.9), 0.3, 1.0, (0.97, 0.97, 0.98), 0.9, 0.5),
+    'steel':       ('gen_forged_steel', 0.6, (0.64, 0.65, 0.68), 0.32, 1.0, (0.86, 0.86, 0.88), 0.8, 0.5),
     'darksteel':   ('gen_forged_steel', 0.6, (0.30, 0.31, 0.34), 0.42, 1.0, (0.7, 0.7, 0.72), 0.7, 0.5),
     'gold':        ('gen_forged_steel', 0.5, (1.0, 0.74, 0.36), 0.3, 1.0, (1.0, 0.86, 0.55), 0.6, 0.3),
     'bronze':      ('gen_forged_steel', 0.5, (0.72, 0.46, 0.26), 0.38, 1.0, (0.9, 0.7, 0.45), 0.6, 0.4),
