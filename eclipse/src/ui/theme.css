@@ -173,4 +173,6 @@
 .ec-status span i { position: absolute; left: 0; top: 0; bottom: 0; background: rgba(255,255,255,0.12); }
 .ec-status span.burn.on { color: #ffd0a0; border-color: #e0672a; background: rgba(120,40,10,0.6); }
 .ec-status span.soak.on { color: #c8ecff; border-color: #4aa8d8; background: rgba(10,50,80,0.6); }
+.ec-status span.shock.on { color: #e4dcff; border-color: #9a86ff; background: rgba(40,30,90,0.6); }
+.ec-status span.root.on { color: #e2f6c4; border-color: #7cb342; background: rgba(30,60,15,0.6); }
 .ec-status span.ward.on { color: #d8f6ff; border-color: #7fe0ff; background: rgba(20,70,90,0.6); }

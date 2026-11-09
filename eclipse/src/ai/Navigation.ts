@@ -61,11 +61,7 @@ export class Navigation {
         Vector3.TransformCoordinatesFromFloatsToRef(p[i], p[i + 1], p[i + 2], wm, v);
         pos.push(v.x, v.y, v.z);
       }
-      // Babylon's mesh builders and glTF import keep Babylon's clockwise front-face convention in the
-      // index buffer (right-handed scenes flip culling at draw time, not the data); Recast computes a
-      // triangle's normal from counter-clockwise winding, so floors would read as ceilings. Flip,
-      // unless the world matrix mirrors the mesh (which flips it already).
-      const flip = wm.determinant() > 0;
+      const flip = Navigation.facesInward(pos, ind, base);
       for (let i = 0; i < ind.length; i += 3) {
         if (flip) idx.push(base + ind[i], base + ind[i + 2], base + ind[i + 1]);
         else idx.push(base + ind[i], base + ind[i + 1], base + ind[i + 2]);
@@ -95,6 +91,46 @@ export class Navigation {
     }
     log.info(`navmesh: ${idx.length / 3} tris in`);
     return new Navigation(res.navMesh);
+  }
+
+  /**
+   * Recast takes a triangle's normal as (v1 - v0) x (v2 - v0) and walks on those facing up. Meshes
+   * arrive wound both ways (Babylon's builders and the terrain one way, glTF collision the other), so
+   * each mesh's winding is read from its own (world-space) geometry: an open sheet (ground, terrain)
+   * must face up on the whole; a closed solid (blocks, merged kit collision) must enclose a positive
+   * volume, i.e. face outwards.
+   */
+  private static facesInward(pos: number[], ind: ArrayLike<number>, base: number): boolean {
+    let sumY = 0;
+    let absY = 0;
+    let cx = 0;
+    let cy = 0;
+    let cz = 0;
+    const n = pos.length / 3 - base;
+    for (let i = base; i < base + n; i++) {
+      cx += pos[i * 3];
+      cy += pos[i * 3 + 1];
+      cz += pos[i * 3 + 2];
+    }
+    cx /= Math.max(n, 1);
+    cy /= Math.max(n, 1);
+    cz /= Math.max(n, 1);
+    let vol = 0;
+    for (let i = 0; i < ind.length; i += 3) {
+      const a = (base + ind[i]) * 3;
+      const b = (base + ind[i + 1]) * 3;
+      const c = (base + ind[i + 2]) * 3;
+      const ax = pos[a] - cx, ay = pos[a + 1] - cy, az = pos[a + 2] - cz;
+      const bx = pos[b] - cx, by = pos[b + 1] - cy, bz = pos[b + 2] - cz;
+      const qx = pos[c] - cx, qy = pos[c + 1] - cy, qz = pos[c + 2] - cz;
+      const e0x = bx - ax, e0z = bz - az, e1x = qx - ax, e1z = qz - az;
+      const ny = e0z * e1x - e0x * e1z;
+      sumY += ny;
+      absY += Math.abs(ny);
+      vol += ax * (by * qz - bz * qy) + ay * (bz * qx - bx * qz) + az * (bx * qy - by * qx);
+    }
+    if (absY > 0 && Math.abs(sumY) > 0.5 * absY) return sumY < 0;
+    return vol < 0;
   }
 
   addAgent(at: Vector3, p: NavAgentParams): CrowdAgent {

@@ -17,6 +17,8 @@ const KITS: Record<string, string[]> = {
     'ph_weed_plant_02', 'ph_dry_branches_medium_01', 'ph_pine_roots'],
   sky: ['island_a', 'island_b', 'island_c', 'arena', 'tower', 'hall', 'cloister', 'shrine', 'bridge', 'stairs', 'wall_ruin', 'pillar_flags',
     'bell', 'spire', 'statue_vaeltris', 'debris_a', 'debris_b'],
+  sun: ['gate', 'colonnade', 'obelisk', 'stairs', 'brazier', 'pillar_broken', 'mirror', 'statue_pentarch', 'wall', 'plinth_block', 'shards'],
+  sundais: ['dais', 'halo'],
 };
 
 /**
@@ -40,7 +42,7 @@ export class KitView extends Level {
     ground.material = gm;
     g.lighting.addStatic(ground, false);
     g.physics.addStaticMesh(ground);
-    const env = new EnvKit(g.scene, g.assets, g.mats, g.lighting, `env/${kit === 'photoscans' || kit === 'trees' ? 'forest' : kit}`, this.scope);
+    const env = new EnvKit(g.scene, g.assets, g.mats, g.lighting, `env/${kit === 'photoscans' || kit === 'trees' ? 'forest' : kit === 'sundais' ? 'sun' : kit}`, this.scope);
     const P: Placement[] = [];
     const spacing = Number(g.params.get('spacing') ?? 34);
     names.forEach((n, i) => {

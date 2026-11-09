@@ -119,11 +119,11 @@ export class HUD {
       });
       const st = player.statusTime;
       const bd = player.statusBuild;
-      const key = (['burn', 'soak'] as const).map((k) => `${k}${st[k] > 0 ? 1 : 0}${Math.round(bd[k] / 10)}`).join() + (player.wardHp > 0 ? 'w' : '');
+      const key = (['burn', 'soak', 'shock', 'root'] as const).map((k) => `${k}${st[k] > 0 ? 1 : 0}${Math.round(bd[k] / 10)}`).join() + (player.wardHp > 0 ? 'w' : '');
       if (key !== this.statusKey) {
         this.statusKey = key;
-        const chip = (k: 'burn' | 'soak', name: string) => (st[k] > 0 ? `<span class="on ${k}">${name}</span>` : bd[k] > 5 ? `<span class="${k}"><i style="width:${Math.min(100, bd[k])}%"></i>${name}</span>` : '');
-        this.status.innerHTML = chip('burn', 'Burning') + chip('soak', 'Soaked') + (player.wardHp > 0 ? '<span class="on ward">Warded</span>' : '');
+        const chip = (k: 'burn' | 'soak' | 'shock' | 'root', name: string) => (st[k] > 0 ? `<span class="on ${k}">${name}</span>` : bd[k] > 5 ? `<span class="${k}"><i style="width:${Math.min(100, bd[k])}%"></i>${name}</span>` : '');
+        this.status.innerHTML = chip('burn', 'Burning') + chip('soak', 'Soaked') + chip('shock', 'Shocked') + chip('root', 'Rooted') + (player.wardHp > 0 ? '<span class="on ward">Warded</span>' : '');
       }
       this.hurt.style.opacity = s.sinceHit < 0.5 ? String((0.5 - s.sinceHit) * 1.6) : s.health / s.maxHealth < 0.2 ? '0.35' : '0';
       this.updateReticle(player.target);
