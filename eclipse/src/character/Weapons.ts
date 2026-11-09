@@ -21,6 +21,8 @@ export const WEAPONS: Record<string, WeaponSpec> = {
   ashblade: { id: 'ashblade', base: 0.05, tip: 0.83, radius: 0.05 },
   cinder_greatsword: { id: 'cinder_greatsword', base: 0.12, tip: 1.46, radius: 0.07, emissive: 2.6 },
   cinderfall: { id: 'cinderfall', base: 0.12, tip: 1.46, radius: 0.07, emissive: 4 },
+  reaver_spear: { id: 'reaver_spear', base: 0.9, tip: 1.78, radius: 0.05 },
+  trident: { id: 'trident', base: 1.1, tip: 2.2, radius: 0.1, emissive: 2.5 },
 };
 
 const matCache = new Map<string, PBRMaterial>();

@@ -34,6 +34,15 @@ const SETS: Record<string, EnvSet> = {
   'wood_bark#charred': { size: 1.5, tint: new Color3(0.2, 0.17, 0.15), porosity: 1 },
   'sun_marble#ash': { size: 2, tint: new Color3(0.34, 0.31, 0.29), porosity: 0.5 },
   cloth_rust: { size: 0.8, porosity: 0.4 },
+  'cloth_rust#verdigris': { size: 0.8, tint: new Color3(0.42, 0.68, 0.58), porosity: 0.4 },
+  'sun_marble#sea': { size: 2.2, tint: new Color3(0.62, 0.68, 0.66), porosity: 0.6 },
+  'ash_wood#wet': { size: 1.6, tint: new Color3(0.4, 0.38, 0.34), porosity: 1 },
+  sea_sandstone_blocks: { size: 2.6, porosity: 0.8 },
+  sea_seaworn_brick: { size: 2.2, porosity: 0.8 },
+  sea_mossy_wall: { size: 2.6, porosity: 0.9 },
+  sea_mossy_cobble: { size: 2.6, porosity: 0.9 },
+  sea_pitted_rock: { size: 3.5, porosity: 0.7 },
+  sea_coral_wall: { size: 1.2, porosity: 0.6 },
   cloth_leather_red: { size: 1.0, tint: new Color3(0.55, 0.2, 0.15), porosity: 1 },
 };
 

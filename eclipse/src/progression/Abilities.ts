@@ -67,3 +67,53 @@ export function equipAbilities(g: Game, p: Player, sparks: string[]): void {
     p.abilities[i] = a.make(g);
   });
 }
+
+function water(p: Player, base: number, poise: number, victim: Combatant, point: Vector3, extra: Partial<DamageInfo> = {}): DamageInfo {
+  return { ...fire(p, base, poise, victim, point, extra), element: 'water', status: { soak: 50 } };
+}
+
+Object.assign(ABILITIES, {
+  riptide_dash: {
+    id: 'riptide_dash', name: 'Riptide Dash', spark: 'thaloryn',
+    desc: 'Become the undertow: surge forward through attacks, striking everything you pass.',
+    make: (g: Game) => ({
+      name: 'Riptide Dash', clip: 'dodge_f', cost: 20, cooldown: 3, ready: 0,
+      onRelease: () => undefined,
+      instant: (p: Player) => {
+        const dir = p.target ? p.target.position.subtract(p.position) : p.char.forward.clone();
+        dir.y = 0;
+        dir.normalize();
+        p.char.yaw = Math.atan2(dir.x, dir.z);
+        const hit = new Set<number>();
+        const trail = g.vfx.attach('waterTrail', p.position.add(new Vector3(0, 1, 0)), 2);
+        g.audio.play('dodge', { at: p.position, pitch: -4 });
+        let t = 0.38;
+        const step = (dt: number): void => {
+          t -= dt;
+          p.push(dir.scale(17));
+          trail.move(p.position.add(new Vector3(0, 0.9, 0)));
+          g.combat.area(p, p.team, p.position.add(new Vector3(0, 1, 0)), 1.4, hit, (v) => water(p, 45, 40, v, v.position.clone(), { knockback: 1.2 }));
+          if (t <= 0) {
+            g.updaters.splice(g.updaters.indexOf(step), 1);
+            trail.stop();
+            g.vfx.burst('splash', p.position.add(new Vector3(0, 0.6, 0)), dir);
+          }
+        };
+        g.updaters.push(step);
+      },
+    }),
+  },
+  tidal_ward: {
+    id: 'tidal_ward', name: 'Tidal Ward', spark: 'thaloryn',
+    desc: 'Wrap yourself in the tide: a ward of water takes the next blows for you, for a while.',
+    make: (g: Game) => ({
+      name: 'Tidal Ward', clip: 'cast_heal', cost: 40, cooldown: 14, ready: 0,
+      onRelease: (p: Player) => {
+        p.wardHp = 140 * p.mods.abilityDamage;
+        g.vfx.burst('ward', p.position.add(new Vector3(0, 1, 0)), Vector3.Up(), 1.4);
+        g.audio.play('aether', { at: p.position, pitch: -5 });
+        g.hazards.after(10, () => { p.wardHp = 0; });
+      },
+    }),
+  },
+} satisfies Record<string, AbilityDef>);

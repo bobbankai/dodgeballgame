@@ -28,6 +28,8 @@ export class HUD {
   readonly root: HTMLElement;
   private bars: Record<string, { bar: HTMLElement; fill: HTMLElement; chip?: HTMLElement }> = {};
   private flasks: HTMLElement;
+  private status: HTMLElement;
+  private statusKey = '';
   private slots: { el: HTMLElement; ico: HTMLElement; cd: HTMLElement }[] = [];
   private boss: HTMLElement;
   private bossName: HTMLElement;
@@ -53,6 +55,7 @@ export class HUD {
       this.bars[k] = { bar, fill, chip };
     }
     this.flasks = el('div', 'ec-flasks', v);
+    this.status = el('div', 'ec-status', v);
     const ab = el('div', 'ec-abilities', this.root);
     ['1', '2', '3', '4', 'R'].forEach((key) => {
       const s = el('div', 'ec-slot empty', ab);
@@ -114,6 +117,14 @@ export class HUD {
         slot.cd.style.transform = `scaleY(${a.cooldown > 0 ? left / a.cooldown : 0})`;
         slot.el.classList.toggle('ready', left <= 0 && s.aether >= a.cost);
       });
+      const st = player.statusTime;
+      const bd = player.statusBuild;
+      const key = (['burn', 'soak'] as const).map((k) => `${k}${st[k] > 0 ? 1 : 0}${Math.round(bd[k] / 10)}`).join() + (player.wardHp > 0 ? 'w' : '');
+      if (key !== this.statusKey) {
+        this.statusKey = key;
+        const chip = (k: 'burn' | 'soak', name: string) => (st[k] > 0 ? `<span class="on ${k}">${name}</span>` : bd[k] > 5 ? `<span class="${k}"><i style="width:${Math.min(100, bd[k])}%"></i>${name}</span>` : '');
+        this.status.innerHTML = chip('burn', 'Burning') + chip('soak', 'Soaked') + (player.wardHp > 0 ? '<span class="on ward">Warded</span>' : '');
+      }
       this.hurt.style.opacity = s.sinceHit < 0.5 ? String((0.5 - s.sinceHit) * 1.6) : s.health / s.maxHealth < 0.2 ? '0.35' : '0';
       this.updateReticle(player.target);
     }

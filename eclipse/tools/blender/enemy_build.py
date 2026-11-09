@@ -30,6 +30,7 @@ from armor import Rig, low_poly
 from preview_mat import setup_preview_material
 from character import skin_rigid, skin_transfer, skin_skirt, normalize_weights, parent_to_rig
 import ashen_gear
+import drowned_gear
 
 A = args()
 ID = A[0] if A and not A[0].startswith('--') else 'thrall'
@@ -54,6 +55,21 @@ SPECS = {
         'name': 'Pyre Acolyte', 'gear': ashen_gear.acolyte, 'grime': 0.5, 'ash': 0.4, 'emissive': 2.6,
         'phenotype': {'gender': 0.15, 'age': 0.45, 'muscle': 0.4, 'weight': 0.35, 'height': 0.55, 'proportions': 0.8},
         'targets': [],
+    },
+    'reaver': {
+        'name': 'Drowned Reaver', 'gear': drowned_gear.reaver, 'grime': 0.55, 'ash': 0.0, 'emissive': 2.4,
+        'phenotype': {'gender': 1.0, 'age': 0.5, 'muscle': 0.55, 'weight': 0.35, 'height': 0.7, 'proportions': 0.8},
+        'targets': [],
+    },
+    'tidecaller': {
+        'name': 'Tidecaller', 'gear': drowned_gear.tidecaller, 'grime': 0.45, 'ash': 0.0, 'emissive': 2.8,
+        'phenotype': {'gender': 0.0, 'age': 0.4, 'muscle': 0.35, 'weight': 0.35, 'height': 0.6, 'proportions': 0.85},
+        'targets': [],
+    },
+    'thaloryn': {
+        'name': 'Thaloryn', 'gear': drowned_gear.thaloryn, 'grime': 0.45, 'ash': 0.0, 'emissive': 3.2,
+        'phenotype': {'gender': 1.0, 'age': 0.75, 'muscle': 0.85, 'weight': 0.7, 'height': 0.95, 'proportions': 1.0},
+        'targets': [('torso-vshape-incr', 0.4), ('chin-width-incr', 0.4)],
     },
     'ignaroth': {
         'name': 'Ignaroth', 'gear': ashen_gear.ignaroth, 'grime': 0.45, 'ash': 0.35, 'emissive': 3.4,

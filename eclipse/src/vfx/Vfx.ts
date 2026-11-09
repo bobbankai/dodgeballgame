@@ -15,7 +15,7 @@ interface Layer {
   grow?: [number, number][];
   power: [number, number];
   /** Emission directions: 'burst' (all round), 'up', 'ring' (outward on the ground), 'cone' (along dir). */
-  shape: 'burst' | 'up' | 'ring' | 'cone' | 'box';
+  shape: 'burst' | 'up' | 'ring' | 'cone' | 'box' | 'down';
   spread?: number;
   /** Emission volume half-size (box) or radius (ring/up). */
   extent?: number;
@@ -135,6 +135,40 @@ export const PRESETS: Record<string, Preset> = {
       { tex: 'soft', add: true, count: 1, life: [0.45, 0.45], size: [0.35, 0.35], power: [0, 0], shape: 'box', color: [3, 0.3, 0.12, 1], dead: [0.5, 0, 0, 0] },
     ],
     light: { color: [1, 0.15, 0.05], intensity: 15, range: 4, time: 0.45 },
+  },
+  splash: {
+    layers: [
+      { tex: 'soft', add: false, count: 40, life: [0.4, 0.9], size: [0.05, 0.14], power: [3, 7], shape: 'burst', gravity: -9.8, drag: 0.8, color: [0.85, 0.95, 1, 0.8], dead: [0.7, 0.85, 0.95, 0] },
+      { tex: 'smoke', add: false, count: 8, life: [0.5, 1.0], size: [0.4, 0.8], grow: [[0, 0.6], [1, 2]], power: [1, 3], shape: 'burst', gravity: -1, drag: 2, color: [0.8, 0.9, 0.95, 0.35], dead: [0.8, 0.9, 0.95, 0], spin: 0.5 },
+    ],
+    light: { color: [0.4, 0.8, 1], intensity: 12, range: 4, time: 0.2 },
+  },
+  geyser: {
+    layers: [
+      { tex: 'soft', add: false, count: 120, life: [0.8, 1.6], size: [0.08, 0.22], power: [9, 16], shape: 'up', extent: 0.9, gravity: -9.8, drag: 0.4, color: [0.85, 0.95, 1, 0.85], dead: [0.7, 0.85, 0.95, 0] },
+      { tex: 'smoke', add: false, count: 24, life: [1.2, 2.2], size: [0.8, 1.6], grow: [[0, 0.5], [1, 2.5]], power: [4, 9], shape: 'up', extent: 1.0, gravity: -2, drag: 1, color: [0.85, 0.92, 0.96, 0.4], dead: [0.85, 0.92, 0.96, 0], spin: 0.4 },
+      { tex: 'ring', add: true, count: 1, life: [0.5, 0.5], size: [1.2, 1.2], grow: [[0, 0.3], [1, 4]], power: [0, 0], shape: 'box', color: [0.6, 1.4, 2, 1], dead: [0.1, 0.3, 0.5, 0] },
+    ],
+    light: { color: [0.3, 0.75, 1], intensity: 40, range: 8, time: 0.4 },
+  },
+  waterTrail: {
+    layers: [
+      { tex: 'soft', add: true, count: 0, rate: 60, capacity: 80, life: [0.25, 0.45], size: [0.15, 0.3], grow: [[0, 1], [1, 0.3]], power: [0.2, 0.6], shape: 'burst', gravity: 0, drag: 2, color: [0.6, 2, 2.6, 1], dead: [0.05, 0.2, 0.3, 0] },
+      { tex: 'soft', add: false, count: 0, rate: 30, capacity: 60, life: [0.4, 0.8], size: [0.03, 0.06], power: [0.5, 1.5], shape: 'burst', gravity: -6, drag: 0.5, color: [0.85, 0.95, 1, 0.8], dead: [0.8, 0.9, 1, 0] },
+    ],
+  },
+  ward: {
+    layers: [
+      { tex: 'ring', add: true, count: 2, life: [0.5, 0.5], size: [1.6, 1.6], grow: [[0, 0.4], [1, 1.4]], power: [0, 0], shape: 'box', color: [0.5, 1.6, 2.4, 1], dead: [0.1, 0.3, 0.5, 0] },
+      { tex: 'soft', add: true, count: 30, life: [0.5, 1.0], size: [0.04, 0.09], power: [0.5, 2], shape: 'box', extent: 0.4, height: 1.8, gravity: 1, drag: 1, color: [0.6, 2, 2.6, 1], dead: [0.1, 0.3, 0.5, 0] },
+    ],
+    light: { color: [0.3, 0.8, 1], intensity: 15, range: 5, time: 0.4 },
+  },
+  // ambient rain: long streaks falling fast in a box round the camera
+  rain: {
+    layers: [
+      { tex: 'spark', add: false, count: 0, rate: 900, capacity: 1800, life: [0.6, 0.9], size: [0.012, 0.02], power: [16, 20], shape: 'down', extent: 16, height: 1, gravity: -20, drag: 0, color: [0.75, 0.8, 0.85, 0.35], dead: [0.75, 0.8, 0.85, 0.25], stretched: true },
+    ],
   },
   // ambient: grey flakes drifting down in a wide box that follows the camera
   ashfall: {
@@ -276,6 +310,10 @@ export class Vfx {
       case 'box':
         ps.direction1.set(-0.05, 0.1, -0.05);
         ps.direction2.set(0.05, 0.2, 0.05);
+        break;
+      case 'down':
+        ps.direction1.set(0.04, -1, 0.02);
+        ps.direction2.set(0.08, -1, 0.06);
         break;
     }
     const e = (layer.extent ?? 0.05) * scale;

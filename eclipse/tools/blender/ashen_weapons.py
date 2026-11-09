@@ -156,7 +156,64 @@ def cinderfall():
     return pc
 
 
-BUILDERS = {'ashblade': ashblade, 'cinder_greatsword': cinder_greatsword, 'cinderfall': cinderfall}
+def polearm(name, shaft, grip_at, head, mats_extra=None, budget=4000):
+    """A long shaft held a third of the way up; `head(p, top)` sculpts the business end."""
+    top = shaft - grip_at
+
+    def field(p):
+        z = p[:, 2]
+        r = np.hypot(p[:, 0], p[:, 1])
+        pole = np.maximum(r - (0.02 + 0.002 * np.sin(z * 120)), np.maximum(z - top, -grip_at - z))
+        butt = sdf.capsule((0, 0, -grip_at - 0.02), (0, 0, -grip_at + 0.06), 0.028)(p)
+        return np.minimum(np.minimum(pole, butt), head(p, top))
+
+    def mats(p):
+        z = p[:, 2]
+        m = np.full(len(p), MAT_INDEX['wood'])
+        m[z > top - 0.02] = MAT_INDEX['verdigris']
+        m[(z < -grip_at + 0.08)] = MAT_INDEX['bronze']
+        m[(z > -0.25) & (z < 0.2)] = MAT_INDEX['darkleather']
+        if mats_extra:
+            mats_extra(p, m, top)
+        return m
+
+    return Piece(name, field, (np.array([-0.2, -0.06, -grip_at - 0.06]), np.array([0.2, 0.06, top + 0.75])), mats, skin=None, voxel=0.0018, budget=budget)
+
+
+def reaver_spear():
+    def head(p, top):
+        z = p[:, 2] - top
+        t = np.clip(z / 0.42, 0, 1)
+        half = 0.045 * np.sin(np.pi * np.clip(t * 1.1, 0, 1)) ** 0.7 + 0.003
+        blade = np.maximum(np.maximum(np.abs(p[:, 0]) - half, np.abs(p[:, 1]) - 0.006 * (1 - t) - 0.002), np.maximum(-z, z - 0.44))
+        socket = sdf.capsule((0, 0, top - 0.05), (0, 0, top + 0.04), 0.026, 0.02)(p)
+        return np.minimum(blade, socket)
+    return polearm('reaver_spear', 2.1, 0.75, head)
+
+
+def trident():
+    def head(p, top):
+        z = p[:, 2] - top
+        cross = sdf.capsule((-0.17, 0, top + 0.04), (0.17, 0, top + 0.04), 0.022)(p)
+        prongs = np.full(len(p), 1.0)
+        for x, ln in ((-0.16, 0.5), (0.0, 0.62), (0.16, 0.5)):
+            a = np.array([x, 0.0, top + 0.04])
+            b = a + np.array([x * 0.15, 0, ln])
+            prongs = np.minimum(prongs, sdf.capsule(a, b, 0.018, 0.004)(p))
+            barb = np.array([x - 0.035 * np.sign(x if x else 1), 0, top + 0.04 + ln * 0.8])
+            prongs = np.minimum(prongs, sdf.capsule(b - np.array([0, 0, 0.12]), barb, 0.01, 0.003)(p))
+        collar = sdf.cylinder((0, 0, top - 0.06), (0, 0, top + 0.05), 0.04)(p)
+        return np.minimum(np.minimum(cross, prongs), collar)
+
+    def extra(p, m, top):
+        z = p[:, 2]
+        m[(z > top - 0.06) & (z < top + 0.07)] = MAT_INDEX['bronze']
+        glow = (np.abs(p[:, 0]) < 0.006) & (z > top + 0.1) & (z < top + 0.55)
+        m[glow] = MAT_INDEX['seaglow']
+    return polearm('trident', 2.4, 0.8, head, extra, budget=5000)
+
+
+BUILDERS = {'ashblade': ashblade, 'cinder_greatsword': cinder_greatsword, 'cinderfall': cinderfall, 'reaver_spear': reaver_spear, 'trident': trident}
 
 
 def build(name, res=1024):

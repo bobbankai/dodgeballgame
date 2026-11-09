@@ -33,6 +33,9 @@ export interface PlayerEvents {
   ability: { name: string; phase: 'channel' | 'release' };
   death: Record<string, never>;
   heal: Record<string, never>;
+  status: { status: 'burn' | 'soak' | 'shock' | 'root' };
+  statusTick: { status: 'burn' };
+  wardHit: { left: number };
 }
 
 /** Abilities register here (divine powers); the player calls them on input. */
@@ -44,6 +47,8 @@ export interface AbilitySlot {
   ready: number;
   onRelease: (p: Player) => void;
   onChannel?: (p: Player) => void;
+  /** Runs the moment the ability is used (dashes), in addition to the clip's events. */
+  instant?: (p: Player) => void;
   upper?: boolean;
 }
 
@@ -78,6 +83,10 @@ export class Player implements Combatant {
   /** Multipliers from skills and equipment. */
   mods = { damage: 1, staminaCost: 1, parryWindow: 0.2, aetherGain: 1, poiseDamage: 1, flinchResist: 0, dodgeDistance: 1, executionHeal: 0, abilityCost: 1, abilityDamage: 1 };
   inputEnabled = true;
+  /** Status build-up (0..100) and remaining seconds of each active status. */
+  readonly statusBuild = { burn: 0, soak: 0, shock: 0, root: 0 };
+  readonly statusTime = { burn: 0, soak: 0, shock: 0, root: 0 };
+  private burnTick = 0;
   /** Scripted walking (cinematics / tests): when set and input is disabled the player walks here. */
   goal: Vector3 | null = null;
   private vel = new Vector3();
@@ -179,7 +188,8 @@ export class Player implements Combatant {
     this.stateTime += dt;
     if (this.iframes > 0) this.iframes -= dt;
     const blocking = this.state === 'block' || this.state === 'blockHit';
-    this.stats.update(dt, blocking ? 0.35 : this.sprinting ? 0 : 1);
+    this.updateStatus(dt);
+    this.stats.update(dt, (blocking ? 0.35 : this.sprinting ? 0 : 1) * (this.statusTime.soak > 0 ? 0.5 : 1));
     if (this.alive && this.state !== 'cinematic') this.handleInput(dt);
     this.updateLockOn();
     this.physicsStep(dt);
@@ -382,6 +392,14 @@ export class Player implements Combatant {
 
   private supported = true;
   private airGrace = 0;
+  /** Hit points of a protective ward (Tidal Ward); damage goes to it first. */
+  wardHp = 0;
+  /** Velocity added by the world this step (currents, whirlpools), cleared after use. */
+  private external = new Vector3();
+
+  push(v: Vector3): void {
+    this.external.addInPlace(v);
+  }
 
   /** A cinematic has the player: no input, no state changes, animations are the director's. */
   setCinematic(on: boolean): void {
@@ -417,6 +435,8 @@ export class Player implements Combatant {
       desired.addInPlace(this.vel.scale(0.3));
       desired.addInPlace(this.attackWarp(dt));
     }
+    desired.addInPlace(this.external);
+    this.external.setAll(0);
     const cur = ctrl.getVelocity();
     let out: Vector3;
     if (this.supported) {
@@ -809,6 +829,7 @@ export class Player implements Combatant {
       this.char.yaw = Math.atan2(to.x, to.z);
     }
     this.char.animator.play(slot.clip, { fade: 0.08, onEvent: (e) => this.onClipEvent(e), onEnd: () => { if (this.state === 'cast') this.toMove(); } });
+    slot.instant?.(this);
   }
 
   toMove(): void {
@@ -825,6 +846,39 @@ export class Player implements Combatant {
     if (this.input.held('block') && this.state === 'move') {
       this.state = 'block';
       this.char.animator.play('block_idle', { fade: 0.12 });
+    }
+  }
+
+  // -------------------------------------------------------------------------- statuses
+  private updateStatus(dt: number): void {
+    for (const k of ['burn', 'soak', 'shock', 'root'] as const) {
+      this.statusBuild[k] = Math.max(0, this.statusBuild[k] - 12 * dt);
+      if (this.statusTime[k] > 0) this.statusTime[k] = Math.max(0, this.statusTime[k] - dt);
+    }
+    if (this.statusTime.burn > 0 && this.alive) {
+      this.stats.health = Math.max(1, this.stats.health - 6 * dt);
+      this.burnTick -= dt;
+      if (this.burnTick <= 0) {
+        this.burnTick = 0.35;
+        this.events.emit('statusTick', { status: 'burn' });
+      }
+    }
+  }
+
+  private buildStatus(st: NonNullable<DamageInfo['status']>): void {
+    const dur = { burn: 4, soak: 7, shock: 1.2, root: 1.5 };
+    for (const k of ['burn', 'soak', 'shock', 'root'] as const) {
+      const v = st[k];
+      if (!v) continue;
+      // water puts fire out and fire dries you off
+      if (k === 'soak') this.statusTime.burn = 0;
+      if (k === 'burn' && this.statusTime.soak > 0) continue;
+      this.statusBuild[k] += v;
+      if (this.statusBuild[k] >= 100) {
+        this.statusBuild[k] = 0;
+        this.statusTime[k] = dur[k];
+        this.events.emit('status', { status: k });
+      }
     }
   }
 
@@ -870,6 +924,18 @@ export class Player implements Combatant {
       return 'blocked';
     }
     // a hit lands
+    if (this.statusTime.soak > 0) {
+      if (hit.element === 'fire') hit.amount *= 0.6;
+      if (hit.element === 'lightning') hit.amount *= 1.5;
+    }
+    if (this.wardHp > 0) {
+      const absorbed = Math.min(this.wardHp, hit.amount);
+      this.wardHp -= absorbed;
+      hit.amount -= absorbed;
+      this.events.emit('wardHit', { left: this.wardHp });
+      if (hit.amount <= 0) return 'blocked';
+    }
+    if (hit.status) this.buildStatus(hit.status);
     this.stats.damage(hit.amount);
     this.rig.shake(0.18 + hit.weight * 0.4);
     this.input.rumble(0.6, 0.6, 160);

@@ -33,6 +33,12 @@ MATERIALS = [
     ('rust', (0.45, 0.25, 0.15)),
     ('charcloth', (0.12, 0.1, 0.09)),
     ('char', (0.08, 0.06, 0.05)),
+    ('verdigris', (0.3, 0.5, 0.42)),
+    ('kelp', (0.15, 0.2, 0.08)),
+    ('barnacle', (0.7, 0.68, 0.6)),
+    ('seaglow', (0.2, 0.85, 1.0)),
+    ('cloth_teal', (0.06, 0.25, 0.27)),
+    ('pearl', (0.9, 0.92, 0.95)),
 ]
 MAT_INDEX = {n: i for i, (n, _) in enumerate(MATERIALS)}
 

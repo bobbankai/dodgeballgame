@@ -1,4 +1,4 @@
-import { Quaternion, Vector3, type Scene } from '@babylonjs/core';
+import { Color3, FresnelParameters, MeshBuilder, Quaternion, StandardMaterial, Vector3, type Mesh, type Scene } from '@babylonjs/core';
 import type { CrowdAgent } from '@recast-navigation/core';
 import type { Character } from '../character/Character';
 import type { CombatWorld, HitEvent } from '../combat/CombatWorld';
@@ -73,7 +73,11 @@ export class Enemy implements Combatant, Tactical {
   readonly radius: number;
   readonly height: number;
   readonly heavy: boolean;
-  readonly targetable = true;
+  /** Out of reach (a god beneath the water): untargetable and immune. */
+  hidden = false;
+  get targetable(): boolean {
+    return !this.hidden && this.alive;
+  }
   readonly boss: boolean;
   readonly ranged: boolean;
   readonly stats: Stats;
@@ -609,6 +613,9 @@ export class Enemy implements Combatant, Tactical {
       case 'release':
         if (a?.projectile) this.fireProjectile(a);
         if (a?.eruption) this.erupt(a);
+        if (a?.ward) this.castWard(a);
+        // casts without an authored impact frame land their area on release
+        if (a?.impact && !this.char.animator.actionClip?.events.some((x) => x.name === 'impact')) this.impact(a);
         break;
       case 'iframes_on':
         this.iframesUntil = this.time + 0.3;
@@ -756,11 +763,75 @@ export class Enemy implements Combatant, Tactical {
   }
 
   // ------------------------------------------------------------------ being hit
+  // ------------------------------------------------------------------ wards
+  /** Shield hit points from a Tidecaller's ward; damage goes to it first. */
+  ward = 0;
+  private wardMesh: Mesh | null = null;
+  private static wardMat: StandardMaterial | null = null;
+
+  /** Puts a ward on the most wounded ally in range (or on itself). */
+  private castWard(a: EnemyAttack): void {
+    const w = a.ward!;
+    let best: Enemy | null = null;
+    let worst = 2;
+    for (const c of this.ctx.world.list) {
+      const e = c as Enemy;
+      if (!(e instanceof Enemy) || !e.alive || e.team !== this.team || e.ward > 0) continue;
+      if (Vector3.Distance(e.position, this.position) > w.range) continue;
+      const f = e.stats.healthFrac - (e === this ? 0.3 : 0);
+      if (f < worst) {
+        worst = f;
+        best = e;
+      }
+    }
+    best?.applyWard(w.amount);
+  }
+
+  applyWard(amount: number): void {
+    this.ward = amount;
+    this.ctx.vfx.burst('ward', this.position.add(new Vector3(0, this.height * 0.5, 0)), Vector3.Up(), this.scale);
+    if (!Enemy.wardMat || Enemy.wardMat.getScene() !== this.ctx.scene) {
+      const m = new StandardMaterial('ward', this.ctx.scene);
+      m.diffuseColor = new Color3(0, 0, 0);
+      m.emissiveColor = new Color3(0.25, 0.75, 1.0);
+      m.alpha = 0.22;
+      m.backFaceCulling = false;
+      m.disableLighting = true;
+      m.emissiveFresnelParameters = new FresnelParameters();
+      m.emissiveFresnelParameters.leftColor = new Color3(0.6, 1.6, 2.2);
+      m.emissiveFresnelParameters.rightColor = new Color3(0.02, 0.1, 0.15);
+      m.emissiveFresnelParameters.power = 2.2;
+      Enemy.wardMat = m;
+    }
+    this.wardMesh?.dispose();
+    const s = MeshBuilder.CreateSphere('wardBubble', { diameter: 1, segments: 16 }, this.ctx.scene);
+    s.scaling.set(this.radius * 3.2, this.height * 1.15, this.radius * 3.2);
+    s.position.set(0, this.height * 0.52 / this.scale, 0);
+    s.parent = this.char.root;
+    s.material = Enemy.wardMat;
+    s.isPickable = false;
+    this.wardMesh = s;
+  }
+
+  private breakWard(): void {
+    this.ward = 0;
+    this.wardMesh?.dispose();
+    this.wardMesh = null;
+    this.ctx.vfx.burst('splash', this.position.add(new Vector3(0, this.height * 0.5, 0)), Vector3.Up(), 1.5);
+  }
+
   receive(hit: DamageInfo, part: HurtCapsule | null): HitResult {
-    if (!this.alive || this.removed) return 'immune';
+    if (!this.alive || this.removed || this.hidden) return 'immune';
     if (this.state === 'executed' && hit.source !== this.executioner) return 'immune';
     if (this.time < this.iframesUntil) return 'dodged';
     if (!this.target && hit.source && hit.source.team !== this.team) this.engage(hit.source, true);
+    if (this.ward > 0) {
+      // fire and heavy blows cut through water faster
+      this.ward -= hit.amount * (hit.element === 'fire' ? 0.6 : hit.element === 'lightning' ? 2 : 1) * (1 + hit.weight * 0.5);
+      if (this.ward <= 0) this.breakWard();
+      else this.ctx.vfx.burst('ward', hit.point, hit.direction.scale(-1), 0.5);
+      return 'blocked';
+    }
     const toSource = hit.direction.scale(-1);
     const fromFront = Vector3.Dot(toSource, this.char.forward) > 0.2;
     if (this.state === 'block' && fromFront && !hit.unblockable) {
@@ -916,11 +987,18 @@ export class Enemy implements Combatant, Tactical {
     if (t > 4.2 && !this.removed) this.remove();
   }
 
+  /** Moves instantly (a god resurfacing elsewhere). */
+  teleport(p: Vector3): void {
+    this.position.copyFrom(p);
+    this.agent?.teleport(p);
+  }
+
   /** Takes the enemy out of the world (after death or when its level unloads). */
   remove(): void {
     if (this.removed) return;
     this.removed = true;
     this.deathFx?.stop();
+    this.wardMesh?.dispose();
     this.ctx.world.remove(this);
     this.ctx.director.remove(this);
     if (this.agent && this.ctx.nav) this.ctx.nav.removeAgent(this.agent);

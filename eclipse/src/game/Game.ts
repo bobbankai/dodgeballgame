@@ -128,7 +128,9 @@ export class Game {
     this.touch = new TouchControls(document.getElementById('ui')!, this.input);
     this.ground = new GroundFx(scene);
     this.projectiles = new Projectiles(scene, this.combat, physics, this.vfx);
-    this.hazards = new Hazards(this.combat, this.vfx, this.ground);
+    this.hazards = new Hazards(this.combat, this.vfx, this.ground, scene);
+    this.hazards.pushPlayer = (v) => this.player?.push(v);
+    this.hazards.playerPos = () => this.player?.position ?? null;
     // eslint-disable-next-line @typescript-eslint/no-this-alias
     const game = this;
     this.ai = {
@@ -342,6 +344,11 @@ export class Game {
       this.vfx.burst('heal', player.position);
     });
     player.events.on('perfectDodge', () => this.vfx.burst('aether', player.aimPoint(new Vector3())));
+    player.events.on('statusTick', () => this.vfx.burst('embers', player.position.add(new Vector3(0, 0.6, 0)), Vector3.Up(), 0.4));
+    player.events.on('status', ({ status }) => {
+      if (status === 'burn') this.audio.play('fire_burst', { at: player.position, volume: 0.5 });
+      if (status === 'soak') this.vfx.burst('splash', player.position.add(new Vector3(0, 1, 0)));
+    });
     this.trail = new BladeTrail(this.scene, 'kaelTrail');
     this.combat.events.on('hit', (h) => {
       if (h.attacker === this.player && (h.result === 'hit' || h.result === 'staggered' || h.result === 'killed')) {
