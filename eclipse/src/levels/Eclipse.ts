@@ -222,8 +222,9 @@ export class Eclipse extends Level {
     return {
       lighting: {
         // the black sun hangs ahead over the summit: a cold rim of corona light, gold bounce off marble
-        sunColor: new Color3(1.0, 0.72, 0.45), sunIntensity: 2.6, sunElevation: 0.3, sunAzimuth: 3.14,
-        skyFill: new Color3(0.4, 0.36, 0.5), groundFill: new Color3(0.42, 0.36, 0.3), fillIntensity: 0.16,
+        // (azimuth 0 is +Z, the way the climb faces: every story camera looks up the terraces at it)
+        sunColor: new Color3(1.0, 0.72, 0.45), sunIntensity: 2.6, sunElevation: 0.3, sunAzimuth: 0,
+        skyFill: new Color3(0.42, 0.38, 0.56), groundFill: new Color3(0.42, 0.36, 0.3), fillIntensity: 0.22,
         environmentIntensity: 0.95, exposure: 1.0, contrast: 1.14, shadowDarkness: 0.08,
       },
       sky: {
