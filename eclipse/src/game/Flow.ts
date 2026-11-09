@@ -10,6 +10,7 @@ const CHAPTERS: { id: string; name: string; sub: string }[] = [
   { id: 'ashen', name: 'The Ashen Kingdom', sub: 'Chapter One' },
   { id: 'drowned', name: 'The Drowned Empire', sub: 'Chapter Two' },
   { id: 'sky', name: 'The Shattered Sky', sub: 'Chapter Three' },
+  { id: 'forest', name: 'The Forgotten Sanctuary', sub: 'Chapter Four' },
 ];
 
 const CREDITS = `ECLIPSE: FALLEN GODS

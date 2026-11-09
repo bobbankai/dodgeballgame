@@ -17,6 +17,8 @@ interface EnvSet {
   /** 0 metal .. 1 earth/cloth: how much wetness and ash the surface takes. */
   porosity?: number;
   metallic?: number;
+  /** Self-lit (glowing fungus, runes): emissive colour, scaled by the albedo texture's light. */
+  emissive?: Color3;
 }
 
 const SETS: Record<string, EnvSet> = {
@@ -53,6 +55,17 @@ const SETS: Record<string, EnvSet> = {
   sky_snow: { size: 4, porosity: 0.3 },
   sun_marble: { size: 2, porosity: 0.4 },
   cloth_denim: { size: 0.6, tint: new Color3(0.35, 0.45, 0.75), porosity: 0.9 },
+  wood_bark: { size: 2.0, porosity: 0.9 },
+  wood_root_bark: { size: 1.6, porosity: 0.9 },
+  wood_moss_wood: { size: 2.0, porosity: 0.95 },
+  wood_mossy_brick: { size: 2.4, porosity: 0.85 },
+  wood_mossy_plaster: { size: 2.4, porosity: 0.9 },
+  wood_mossy_rock: { size: 3.5, porosity: 0.8 },
+  wood_forest_ground: { size: 4, porosity: 1 },
+  wood_leaves: { size: 1.6, porosity: 0.8, tint: new Color3(0.75, 0.85, 0.7) },
+  'wood_leaves#blight': { size: 1.6, porosity: 0.8, tint: new Color3(0.65, 0.5, 0.42) },
+  'sun_marble#glow': { size: 1.0, tint: new Color3(0.55, 0.95, 0.75), porosity: 0.3, emissive: new Color3(0.45, 1.4, 0.95) },
+  'sun_marble#moss': { size: 2.2, tint: new Color3(0.55, 0.62, 0.5), porosity: 0.7 },
   cloth_jacquard: { size: 0.6, tint: new Color3(0.9, 0.75, 0.35), porosity: 0.9 },
 };
 
@@ -97,6 +110,10 @@ export class EnvKit {
     const s = SETS[key] ?? SETS[set] ?? { size: 2 };
     const pm: PBRMaterial = this.mats.surface({ set, tile: 1 / s.size, tint: s.tint, roughness: s.roughness, normalStrength: s.normal, metallic: s.metallic }).clone(`env_${key}`);
     withLayers(pm, { porosity: s.porosity ?? 0.8, allowCover: true });
+    if (s.emissive) {
+      pm.emissiveColor = s.emissive;
+      pm.emissiveTexture = pm.albedoTexture;
+    }
     m = pm;
     this.materials.set(name, m);
     this.owned.push(pm);
@@ -137,7 +154,18 @@ export class EnvKit {
       m.position.setAll(0);
       m.rotationQuaternion = Quaternion.Identity();
       m.scaling.setAll(1);
-      m.material = this.material(m.material?.name ?? 'env:ash_castle_slate');
+      const own = m.material?.name ?? '';
+      if (own.startsWith('ph:') && m.material) {
+        // a downloaded photoscan keeps its own textures (alpha-tested and two-sided as authored);
+        // it still takes the weather (wetness, ash or snow cover)
+        if (!this.materials.has(own)) {
+          withLayers(m.material, { porosity: 0.9, allowCover: true });
+          this.materials.set(own, m.material);
+        }
+        m.material = this.materials.get(own)!;
+      } else {
+        m.material = this.material(own || 'env:ash_castle_slate');
+      }
       // the baked AO travels in an RGBA colour attribute: its alpha is not opacity. Left set, the
       // piece would be drawn as alpha-blended (no depth write, so fog, AO and SSR would see through it)
       m.hasVertexAlpha = false;
@@ -189,9 +217,11 @@ export class EnvKit {
           m.setEnabled(false);
           continue;
         }
+        // small ground cover (ferns, moss, weeds) receives shadows but does not cast them
+        const r = m.getBoundingInfo().boundingSphere.radius;
         m.thinInstanceBufferUpdated('matrix');
         m.thinInstanceRefreshBoundingInfo(false);
-        this.lighting.addStatic(m, true);
+        this.lighting.addStatic(m, r > 1.2 || !name.startsWith('ph_'));
         this.owned.push(m);
       }
       if (t.placed === 0) log.info(`env piece ${name} loaded but never placed`);

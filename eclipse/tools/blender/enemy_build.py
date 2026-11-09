@@ -32,6 +32,7 @@ from character import skin_rigid, skin_transfer, skin_skirt, normalize_weights, 
 import ashen_gear
 import drowned_gear
 import sky_gear
+import forest_gear
 
 A = args()
 ID = A[0] if A and not A[0].startswith('--') else 'thrall'
@@ -85,6 +86,21 @@ SPECS = {
     'vaeltris': {
         'name': 'Vaeltris', 'gear': sky_gear.vaeltris, 'grime': 0.25, 'ash': 0.0, 'emissive': 3.4,
         'phenotype': {'gender': 0.0, 'age': 0.45, 'muscle': 0.55, 'weight': 0.3, 'height': 1.0, 'proportions': 1.0},
+        'targets': [],
+    },
+    'thornbound': {
+        'name': 'Thornbound', 'gear': forest_gear.thornbound, 'grime': 0.5, 'ash': 0.0, 'emissive': 2.6,
+        'phenotype': {'gender': 1.0, 'age': 0.6, 'muscle': 0.8, 'weight': 0.6, 'height': 0.8, 'proportions': 0.8},
+        'targets': [],
+    },
+    'bloomcaller': {
+        'name': 'Bloomcaller', 'gear': forest_gear.bloomcaller, 'grime': 0.3, 'ash': 0.0, 'emissive': 2.8,
+        'phenotype': {'gender': 0.0, 'age': 0.35, 'muscle': 0.3, 'weight': 0.3, 'height': 0.6, 'proportions': 0.9},
+        'targets': [],
+    },
+    'sylvaris': {
+        'name': 'Sylvaris', 'gear': forest_gear.sylvaris, 'grime': 0.3, 'ash': 0.0, 'emissive': 3.2,
+        'phenotype': {'gender': 0.0, 'age': 0.5, 'muscle': 0.5, 'weight': 0.35, 'height': 1.0, 'proportions': 1.0},
         'targets': [],
     },
     'ignaroth': {

@@ -41,9 +41,15 @@ LOOKS = {
     'stormglow':   ('gen_forged_steel', 0.5, (0.3, 0.28, 0.4), 0.4, 0.0, (0.6, 0.55, 0.8), 0.0, 0.2),
     'feather':     ('cloth_weave', 0.06, (1.25, 1.24, 1.2), 0.75, 0.0, (0.7, 0.7, 0.68), 0.3, 1.0),
     'copper':      ('gen_forged_steel', 0.5, (0.95, 0.55, 0.36), 0.36, 1.0, (1.0, 0.75, 0.55), 0.55, 0.4),
+    'silver':      ('gen_forged_steel', 0.6, (0.95, 0.95, 1.0), 0.2, 1.0, (1.0, 1.0, 1.0), 0.45, 0.35),
+    'bark':        ('wood_bark', 0.5, (0.85, 0.78, 0.7), 0.85, 0.0, (0.45, 0.38, 0.3), 0.3, 1.0),
+    'moss':        ('wood_moss_wood', 0.4, (0.8, 0.95, 0.7), 0.9, 0.0, (0.3, 0.4, 0.2), 0.2, 1.0),
+    'petal':       ('cloth_weave', 0.15, (0.62, 0.3, 0.48), 0.75, 0.0, (0.8, 0.55, 0.7), 0.2, 0.6),
+    'sapglow':     ('gen_forged_steel', 0.5, (0.35, 0.4, 0.1), 0.4, 0.0, (0.6, 0.7, 0.2), 0.0, 0.2),
+    'leaf':        ('wood_leaves', 0.3, (0.8, 0.95, 0.7), 0.7, 0.0, (0.4, 0.5, 0.25), 0.2, 1.0),
 }
 
-EMISSIVE = {'glow': (1.0, 0.72, 0.35), 'ember': (1.0, 0.38, 0.08), 'seaglow': (0.25, 0.85, 1.0), 'stormglow': (0.7, 0.65, 1.0)}
+EMISSIVE = {'glow': (1.0, 0.72, 0.35), 'ember': (1.0, 0.38, 0.08), 'seaglow': (0.25, 0.85, 1.0), 'stormglow': (0.7, 0.65, 1.0), 'sapglow': (0.75, 1.0, 0.3)}
 
 
 def smooth(e0, e1, x):
@@ -98,7 +104,7 @@ def composite(maps, ids, res, texels_per_m, covered, grime=0.5, ash=0.35, ash_co
         lum = c.mean(-1, keepdims=True)
         if m0 > 0.5:
             base = (c * 0.35 + lum * 0.65) * np.array(tint, np.float32) * 1.25
-        elif name in ('wool', 'linen', 'rope', 'cloth_red', 'mail', 'cloth_teal', 'kelp', 'cloth_storm', 'feather'):
+        elif name in ('wool', 'linen', 'rope', 'cloth_red', 'mail', 'cloth_teal', 'kelp', 'cloth_storm', 'feather', 'petal'):
             # dyed cloth: keep the weave's light and shade, not its printed colours
             base = (lum / max(float(lum.mean()), 1e-3) * 0.5 + 0.5) * np.array(tint, np.float32)
         else:

@@ -31,6 +31,8 @@ export const PROJECTILES: Record<string, ProjectileDef> = {
   cinderArc: { speed: 24, radius: 0.9, gravity: 0, homing: 0.6, homingCutoff: 3, life: 1.1, core: [7, 3, 0.9], coreSize: 0.55, trail: 'fireTrail', impact: 'fireBurst', splash: 1.8, scorch: true },
   stormBolt: { speed: 30, radius: 0.2, gravity: 0, homing: 1.2, homingCutoff: 5, life: 1.6, core: [2.4, 2.2, 6.5], coreSize: 0.22, trail: 'stormTrail', impact: 'shockBurst', splash: 1.2 },
   featherBlade: { speed: 24, radius: 0.18, gravity: 0, homing: 0.5, homingCutoff: 6, life: 2.2, core: [3.0, 2.9, 4.2], coreSize: 0.18, trail: 'stormTrail', impact: 'shockBurst', splash: 0 },
+  sporePod: { speed: 13, radius: 0.24, gravity: -5, homing: 0.8, homingCutoff: 4, life: 3, core: [1.4, 2.2, 0.5], coreSize: 0.26, trail: 'sporeTrail', impact: 'sporeBurst', splash: 1.8 },
+  thornDart: { speed: 26, radius: 0.15, gravity: -2, homing: 0.4, homingCutoff: 5, life: 2, core: [1.6, 2.4, 0.6], coreSize: 0.14, trail: 'sporeTrail', impact: 'sporeBurst', splash: 0 },
   aetherBolt: { speed: 26, radius: 0.24, gravity: 0, homing: 3, homingCutoff: 1.5, life: 2, core: [1.6, 2.6, 6], coreSize: 0.26, trail: 'aether', impact: 'aether', splash: 1.6 },
 };
 

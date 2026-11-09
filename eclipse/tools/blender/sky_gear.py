@@ -44,29 +44,76 @@ def glow_eyes(L, forward=0.021):
 
 
 def wings_field(root_l, root_r, span, seed, feathers=9):
-    """Two wings of long flattened feathers fanned from the shoulder blades, swept up and back."""
-    def f(p):
+    """Two great wings: an armoured leading edge (shoulder, elbow, wrist, tip), long primaries fanned
+    out like fingers from the wrist, secondaries hanging from the forearm, a row of coverts over
+    them. Every feather is a thin tapering blade, so the silhouette reads feather by feather.
+    Returns (feathers field, bones field)."""
+    rng = np.random.default_rng(seed)
+    wings = []
+    for s, root in ((1, root_l), (-1, root_r)):
+        sh = root
+        el = root + np.array([s * 0.42, 0.22, 0.32]) * span
+        wr = root + np.array([s * 0.8, 0.36, 0.66]) * span
+        tip = root + np.array([s * 1.02, 0.46, 0.98]) * span
+        bones = [(sh, el, 0.05 * span, 0.04 * span), (el, wr, 0.04 * span, 0.03 * span), (wr, tip, 0.03 * span, 0.012 * span)]
+        blades = []
+
+        def feather(base, d, length, width, t):
+            d = d / np.linalg.norm(d)
+            blades.append((base, d, length, width, t))
+
+        back_down = np.array([0.0, 0.35, -1.0])
+        # secondaries along the forearm (shoulder -> wrist), hanging back and down, growing outward
+        for k in range(10):
+            u = (k + 0.5) / 10
+            base = sh + (wr - sh) * u if u > 0.5 else sh + (el - sh) * (u * 2)
+            out = np.array([s * (0.25 + 0.5 * u), 0.0, 0.0])
+            feather(base, back_down + out, span * (0.42 + 0.22 * u), 0.055 * span, 0.008)
+        # primaries from the wrist to the tip, splaying out like fingers
+        for k in range(7):
+            u = k / 6
+            base = wr + (tip - wr) * (0.15 + 0.85 * u)
+            ang = np.radians(-60 + 85 * u)
+            d = np.array([s * np.cos(ang) * 0.9, 0.3, np.sin(ang) - 0.25])
+            feather(base, d, span * (0.62 + 0.18 * np.sin(np.pi * (0.25 + 0.6 * u))), 0.05 * span, 0.007)
+        # coverts: short and overlapping, laid along the top of the arm
+        for k in range(12):
+            u = (k + 0.5) / 12
+            base = sh + (tip - sh) * u * 0.92 + np.array([0, 0.02, 0.02]) * span
+            feather(base, back_down + np.array([s * 0.35, 0.0, 0.0]), span * (0.18 + 0.08 * rng.random()), 0.05 * span, 0.009)
+        wings.append((bones, blades))
+
+    def blade_d(p, base, d, length, width, thick):
+        q = p - base
+        along = q @ d
+        t = np.clip(along / length, 0, 1)
+        # the feather's plane: across = d x up-ish; its normal points roughly up/back
+        side = np.cross(d, np.array([0.0, 0.0, 1.0]))
+        if np.linalg.norm(side) < 1e-3:
+            side = np.array([1.0, 0, 0])
+        side /= np.linalg.norm(side)
+        nrm = np.cross(side, d)
+        w = width * (0.35 + 0.65 * np.sin(np.pi * np.clip(t * 0.92 + 0.08, 0, 1)) ** 0.6) * (1 - 0.6 * t ** 3)
+        across = np.abs(q @ side) - w
+        flat = np.abs(q @ nrm - 0.02 * length * np.sin(np.pi * t)) - thick * (1 - 0.5 * t)
+        ends = np.maximum(-along, along - length)
+        return np.maximum(np.maximum(across, flat), ends)
+
+    def feathers_f(p):
         out = np.full(len(p), 1e3)
-        for s, root in ((1, root_l), (-1, root_r)):
-            fe = np.full(len(p), 1e3)
-            for k in range(feathers):
-                t = k / (feathers - 1)
-                ang = np.radians(-8 + 78 * t)
-                ln = span * (0.55 + 0.45 * np.sin(np.pi * (0.2 + 0.65 * t)))
-                d = np.array([s * np.cos(ang), 0.45 + 0.3 * t, np.sin(ang) + 0.1])
-                d /= np.linalg.norm(d)
-                a = root + d * 0.05
-                b = root + d * ln
-                cap = sdf.capsule(a, b, 0.045 * span / 1.2, 0.012)(p)
-                n = np.array([0.0, 1.0, -0.3])
-                n /= np.linalg.norm(n)
-                blade = np.abs((p - a) @ n) - 0.012
-                fe = np.minimum(fe, np.maximum(cap, blade))
-            cov = sdf.ellipsoid(root + np.array([s * 0.24 * span, 0.12 * span, 0.16 * span]), (0.3 * span, 0.06 * span, 0.2 * span))(p)
-            barbs = 0.003 * np.sin(np.arctan2(p[:, 2] - root[2], (p[:, 0] - root[0]) * s) * 60)
-            out = np.minimum(out, smin(fe, cov, 0.03) + barbs)
+        for bones, blades in wings:
+            for base, d, length, width, thick in blades:
+                out = np.minimum(out, blade_d(p, base, d, length, width, thick))
         return out
-    return f
+
+    def bones_f(p):
+        out = np.full(len(p), 1e3)
+        for bones, _ in wings:
+            for a, b, r0, r1 in bones:
+                out = np.minimum(out, sdf.capsule(a, b, r0, r1)(p))
+        return out
+
+    return feathers_f, bones_f
 
 
 # =============================================================================================
@@ -264,7 +311,7 @@ def vaeltris(R, B, info):
         return np.maximum(np.abs(env - chase) - 0.003, region)
 
     pieces.append(Piece('plate', plate, (np.array([-sx * 1.2, -0.26, zw - 0.08]), np.array([sx * 1.2, 0.26, zc + 0.08])),
-                        lambda p: mat_ids(p, 'steel', [(lambda q: np.abs(q[:, 0]) < 0.012, 'gold'), (lambda q: q[:, 2] < zw - 0.02, 'gold')]),
+                        lambda p: mat_ids(p, 'silver', [(lambda q: np.abs(q[:, 0]) < 0.012, 'gold'), (lambda q: q[:, 2] < zw - 0.02, 'gold')]),
                         skin={'bone': 'spine_03', 'blend': [('spine_02', zw + 0.06, zw)]}, voxel=0.0028, budget=5000, inner=B))
     for s, side in ((1, 'l'), (-1, 'r')):
         a = R.head(f'upperarm_{side}')
@@ -278,7 +325,7 @@ def vaeltris(R, B, info):
                 layers = np.minimum(layers, np.maximum(np.abs(e) - 0.004, -q[:, 2] - 0.03 - 0.035 * k - 0.04))
             return np.maximum(layers, -(q[:, 0] * s) - 0.03)
 
-        pieces.append(Piece(f'pauldron_{side}', pauldron, (a - 0.2, a + 0.2), lambda p: mat_ids(p, 'feather', [(lambda q: q[:, 2] > a[2] + 0.05, 'steel')]),
+        pieces.append(Piece(f'pauldron_{side}', pauldron, (a - 0.2, a + 0.2), lambda p: mat_ids(p, 'feather', [(lambda q: q[:, 2] > a[2] + 0.05, 'silver')]),
                             skin={'bone': f'upperarm_{side}', 'blend': [(f'clavicle_{side}', None, None)]}, budget=2200))
         knee, ankle = R.head(f'calf_{side}'), R.head(f'foot_{side}')
 
@@ -287,13 +334,13 @@ def vaeltris(R, B, info):
             env = smin(B(p) - 0.02, rad - 0.055 - 0.012 * (1 - t), 0.03)
             return np.maximum(np.abs(env) - 0.003, np.maximum(-0.08 - t, t - 0.9))
 
-        pieces.append(Piece(f'greave_{side}', greave, ((knee + ankle) / 2 - 0.3, (knee + ankle) / 2 + 0.3), 'steel', skin={'bone': f'calf_{side}'}, budget=1400))
+        pieces.append(Piece(f'greave_{side}', greave, ((knee + ankle) / 2 - 0.3, (knee + ankle) / 2 + 0.3), 'silver', skin={'bone': f'calf_{side}'}, budget=1400))
     zk = R.head('calf_l')[2]
     pieces.append(Piece('skirt', skirt(L, zw - 0.02, zk - 0.1, sx * 0.9, 0.15, 0.16, 0.05, 611, slit=0.05, slit_from=zw - 0.06, folds=0.014),
                         (np.array([-0.6, -0.5, zk - 0.2]), np.array([0.6, 0.5, zw + 0.02])),
                         lambda p: mat_ids(p, 'cloth_storm', [(lambda q: q[:, 2] < zk - 0.04, 'stormglow')]), skin='transfer_skirt', voxel=0.0034, budget=5000))
     pieces.append(Piece('mask', face_mask(L, B, skull, eyes, neck, 0.011), (skull - np.array([0.12, 0.17, 0.2]), skull + np.array([0.12, 0.02, 0.08])),
-                        lambda p: mat_ids(p, 'steel', [(lambda q: q[:, 2] > eyes[2] + 0.03, 'gold')]), skin={'bone': 'head'}, voxel=0.0015, budget=2800))
+                        lambda p: mat_ids(p, 'silver', [(lambda q: q[:, 2] > eyes[2] + 0.03, 'gold')]), skin={'bone': 'head'}, voxel=0.0015, budget=2800))
     pieces.append(Piece('eyes', glow_eyes(L), (eyes - 0.08, eyes + 0.08), 'stormglow', skin={'bone': 'head'}, voxel=0.0012, budget=400))
     hc = skull + np.array([0, 0.0, 0.03])
 
@@ -313,15 +360,17 @@ def vaeltris(R, B, info):
         return out
 
     pieces.append(Piece('helm', helm, (hc - np.array([0.25, 0.22, 0.2]), hc + np.array([0.25, 0.3, 0.3])),
-                        lambda p: mat_ids(p, 'steel', [(lambda q: np.abs(q[:, 0]) > 0.11, 'feather'), (lambda q: np.abs(q[:, 2] - (eyes[2] + 0.045)) < 0.008, 'gold')]),
+                        lambda p: mat_ids(p, 'silver', [(lambda q: np.abs(q[:, 0]) > 0.11, 'feather'), (lambda q: np.abs(q[:, 2] - (eyes[2] + 0.045)) < 0.008, 'gold')]),
                         skin={'bone': 'head'}, voxel=0.0018, budget=3200))
     # the wings: rooted at the shoulder blades, carried by the upper spine
-    blade_z = zc - 0.08
-    root_l = np.array([0.1, 0.14, blade_z])
-    root_r = np.array([-0.1, 0.14, blade_z])
-    span = 1.25
-    wf = wings_field(root_l, root_r, span, 621)
-    pieces.append(Piece('wings', wf, (np.array([-1.5, -0.1, zw - 0.6]), np.array([1.5, 1.2, zc + 1.4])),
-                        lambda p: mat_ids(p, 'feather', [(lambda q: np.linalg.norm(q[:, :3] - np.where(q[:, :1] > 0, root_l, root_r), axis=1) > span * 0.92, 'stormglow')]),
-                        skin={'bone': 'spine_03'}, voxel=0.0075, budget=9000))
+    blade_z = zc - 0.06
+    root_l = np.array([0.09, 0.14, blade_z])
+    root_r = np.array([-0.09, 0.14, blade_z])
+    span = 1.3
+    fe, bo = wings_field(root_l, root_r, span, 621)
+    wf = lambda p: np.minimum(fe(p), bo(p))  # noqa: E731
+    pieces.append(Piece('wings', wf, (np.array([-1.65, -0.15, zw - 0.9]), np.array([1.65, 1.1, zc + 1.45])),
+                        lambda p: mat_ids(p, 'feather', [(lambda q: bo(q) < 0.012, 'silver'),
+                                                        (lambda q: (fe(q) < 0.01) & (np.abs(q[:, 0]) > 1.12), 'stormglow')]),
+                        skin={'bone': 'spine_03'}, voxel=0.0055, budget=14000))
     return pieces

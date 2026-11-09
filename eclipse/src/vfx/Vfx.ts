@@ -204,6 +204,48 @@ export const PRESETS: Record<string, Preset> = {
       { tex: 'soft', add: true, count: 0, rate: 40, capacity: 110, life: [1, 2], size: [0.02, 0.05], power: [0.3, 1], shape: 'box', extent: 0.3, height: 1.7, gravity: 1.2, drag: 0.6, color: [0.4, 1.8, 2.4, 1], dead: [0.05, 0.25, 0.35, 0] },
     ],
   },
+  // the forest's dead come apart: petals and leaves loosed, sap-light rising
+  deathBloom: {
+    layers: [
+      { tex: 'soft', add: false, count: 0, rate: 30, capacity: 80, life: [1.5, 3], size: [0.05, 0.1], power: [0.4, 1.4], shape: 'box', extent: 0.3, height: 1.7, gravity: -0.5, drag: 1.2, color: [0.82, 0.45, 0.62, 0.9], color2: [0.45, 0.62, 0.25, 0.9], dead: [0.6, 0.4, 0.45, 0], spin: 3 },
+      { tex: 'soft', add: true, count: 0, rate: 40, capacity: 110, life: [1, 2], size: [0.02, 0.05], power: [0.3, 1], shape: 'box', extent: 0.3, height: 1.7, gravity: 1.2, drag: 0.6, color: [1.6, 2.4, 0.6, 1], dead: [0.15, 0.3, 0.05, 0] },
+    ],
+  },
+  // roots bursting out of the ground: splinters, soil, a ring of green light
+  rootBurst: {
+    layers: [
+      { tex: 'spark', add: false, count: 40, life: [0.4, 0.9], size: [0.04, 0.09], power: [5, 11], shape: 'up', extent: 0.8, gravity: -9.8, drag: 0.8, color: [0.3, 0.22, 0.15, 1], dead: [0.25, 0.2, 0.15, 0], stretched: true },
+      { tex: 'smoke', add: false, count: 12, life: [0.8, 1.6], size: [0.6, 1.2], grow: [[0, 0.5], [1, 2]], power: [1, 3], shape: 'up', extent: 0.8, gravity: -0.6, drag: 1.5, color: [0.28, 0.24, 0.18, 0.45], dead: [0.3, 0.27, 0.22, 0], spin: 0.5 },
+      { tex: 'ring', add: true, count: 1, life: [0.45, 0.45], size: [1, 1], grow: [[0, 0.3], [1, 3.6]], power: [0, 0], shape: 'box', color: [0.8, 1.6, 0.4, 1], dead: [0.1, 0.25, 0.05, 0] },
+    ],
+    light: { color: [0.6, 1, 0.35], intensity: 30, range: 7, time: 0.3 },
+  },
+  sporeBurst: {
+    layers: [
+      { tex: 'smoke', add: false, count: 18, life: [1.2, 2.4], size: [0.6, 1.2], grow: [[0, 0.4], [1, 2.4]], power: [1, 3], shape: 'burst', gravity: 0.2, drag: 1.6, color: [0.62, 0.7, 0.3, 0.42], dead: [0.55, 0.6, 0.3, 0], spin: 0.4 },
+      { tex: 'soft', add: true, count: 30, life: [0.8, 1.6], size: [0.02, 0.05], power: [1, 4], shape: 'burst', gravity: 0, drag: 1.2, color: [1.6, 2.2, 0.5, 1], dead: [0.2, 0.3, 0.05, 0] },
+    ],
+    light: { color: [0.7, 1, 0.3], intensity: 14, range: 4, time: 0.2 },
+  },
+  sporeTrail: {
+    layers: [
+      { tex: 'smoke', add: false, count: 0, rate: 30, capacity: 50, life: [0.5, 1], size: [0.18, 0.35], grow: [[0, 0.6], [1, 2]], power: [0.1, 0.3], shape: 'burst', gravity: 0.2, drag: 2, color: [0.6, 0.7, 0.3, 0.35], dead: [0.55, 0.6, 0.3, 0], spin: 0.5 },
+      { tex: 'soft', add: true, count: 0, rate: 30, capacity: 40, life: [0.3, 0.6], size: [0.03, 0.06], power: [0.2, 0.6], shape: 'burst', gravity: 0, drag: 2, color: [1.4, 2, 0.5, 1], dead: [0.2, 0.3, 0.05, 0] },
+    ],
+  },
+  // ambient: pollen and spore-light drifting in the shafts of the forest
+  pollen: {
+    layers: [
+      { tex: 'soft', add: true, count: 0, rate: 30, capacity: 260, life: [5, 9], size: [0.012, 0.03], power: [0.1, 0.4], shape: 'box', extent: 18, height: 7, gravity: 0.05, drag: 0.3, color: [1.4, 1.6, 0.6, 1], dead: [0.2, 0.25, 0.05, 0] },
+      { tex: 'soft', add: false, count: 0, rate: 4, capacity: 40, life: [6, 10], size: [0.04, 0.08], power: [0.2, 0.5], shape: 'box', extent: 16, height: 8, gravity: -0.15, drag: 0.8, color: [0.75, 0.5, 0.55, 0.8], dead: [0.6, 0.4, 0.45, 0], spin: 2 },
+    ],
+  },
+  // petals torn loose (Sylvaris's blooms)
+  petals: {
+    layers: [
+      { tex: 'soft', add: false, count: 50, life: [1.5, 3], size: [0.06, 0.12], power: [2, 6], shape: 'burst', gravity: -0.5, drag: 1.4, color: [0.92, 0.55, 0.72, 0.95], color2: [0.98, 0.85, 0.9, 0.95], dead: [0.8, 0.5, 0.6, 0], spin: 4 },
+    ],
+  },
   // a fire in a bowl or brazier: licking tongues, a few sparks, a thread of smoke
   brazier: {
     layers: [

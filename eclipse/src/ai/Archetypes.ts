@@ -223,6 +223,42 @@ Object.assign(ARCHETYPES, {
   },
 } satisfies Record<string, EnemyArchetype>);
 
+const MAUL: HitShape = { kind: 'weapon' };
+/** The forest's own fall apart into petals, leaves and sap-light. */
+const BLOSSOM = { vfx: 'deathBloom', color: [0.75, 1.0, 0.35] as [number, number, number], sound: 'bloom_dissolve' };
+const ROOTS = { radius: 1.8, delay: 1.1, vfx: 'rootBurst', color: [0.55, 0.9, 0.25, 3] as [number, number, number, number], scorch: false, zone: 0 };
+
+/** Chapter Four, the Forgotten Sanctuary: Sylvaris's overgrown pilgrims and her keepers. */
+Object.assign(ARCHETYPES, {
+  thornbound: {
+    id: 'thornbound', name: 'Thornbound', model: 'thornbound', weapon: 'thorn_maul', scale: 1.1,
+    health: 210, poise: 70, stamina: 120, radius: 0.42, height: 2.0,
+    walk: 1.2, run: 3.6, strafe: 1.2, sight: 18, fov: 2.2, hearing: 10,
+    aggression: 0.7, block: 0, dodge: 0, holdRange: 3.0, heavy: true, executable: true,
+    xp: 70, aether: 12, voice: 'thorn_groan', death: BLOSSOM,
+    loco: { walk: 'e_shamble' },
+    attacks: [
+      { id: 'smash', clip: 'e_overhead', fallback: 'heavy_1', speed: 0.85, damage: 34, poise: 40, weight: 0.75, knockback: 1.6, element: 'life', range: [0, 2.6], cooldown: 2.6, score: 1, parryable: true, track: 6, trackTime: 0.4, armour: true, hit: MAUL, tell: 'glint', status: { root: 30 } },
+      { id: 'swing', clip: 'heavy_2', speed: 0.85, damage: 30, poise: 34, weight: 0.65, knockback: 2.0, range: [0, 2.8], cooldown: 3.2, score: 0.9, parryable: false, knockdown: true, track: 4, trackTime: 0.35, armour: true, hit: MAUL, tell: 'red' },
+      { id: 'roots', clip: 'cast_slam', speed: 0.9, damage: 26, poise: 30, weight: 0.5, knockback: 0.6, element: 'life', range: [3, 12], cooldown: 7, score: 1.1, parryable: false, unblockable: true, track: 3, trackTime: 0.3, armour: true, eruption: ROOTS, hit: { kind: 'none' }, tell: 'red', status: { root: 70 } },
+    ],
+    resist: { fire: 1.6, life: 0.3, lightning: 0.8, physical: 0.85 },
+  },
+  bloomcaller: {
+    id: 'bloomcaller', name: 'Bloomcaller', model: 'bloomcaller', scale: 1,
+    health: 95, poise: 20, stamina: 60, radius: 0.34, height: 1.8,
+    walk: 1.4, run: 4.2, strafe: 1.7, sight: 26, fov: 2.4, hearing: 12,
+    aggression: 0.5, block: 0, dodge: 0.32, holdRange: 11, heavy: false, executable: true, ranged: true,
+    xp: 48, aether: 12, voice: 'bloom_sigh', death: BLOSSOM,
+    attacks: [
+      { id: 'spore', clip: 'cast_push', damage: 18, poise: 12, weight: 0.3, knockback: 0.5, element: 'life', range: [3, 18], cooldown: 2.4, score: 1, parryable: false, track: 7, trackTime: 0.45, projectile: 'sporePod', hit: { kind: 'none' }, status: { root: 25 } },
+      { id: 'bloom', clip: 'cast_heal', damage: 0, poise: 0, weight: 0, knockback: 0, range: [0, 30], cooldown: 9, score: 1.3, parryable: false, track: 2, trackTime: 0.2, hit: { kind: 'none' }, ward: { amount: 100, range: 14 } },
+      { id: 'grasp', clip: 'cast_slam', damage: 22, poise: 26, weight: 0.45, knockback: 0.4, element: 'life', range: [4, 16], cooldown: 6, score: 1.1, parryable: false, unblockable: true, track: 3, trackTime: 0.3, eruption: ROOTS, hit: { kind: 'none' }, tell: 'red', status: { root: 70 } },
+    ],
+    resist: { fire: 1.5, life: 0.2 },
+  },
+} satisfies Record<string, EnemyArchetype>);
+
 export function archetype(id: string): EnemyArchetype {
   const a = ARCHETYPES[id];
   if (!a) throw new Error(`unknown enemy ${id}`);

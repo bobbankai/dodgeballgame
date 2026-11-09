@@ -8,6 +8,7 @@ has a voice (a blend of Kokoro voice styles), a speed and a treatment applied wi
   kael      bm_george + bm_fable, a little slow and low: a tired knight
   ithra     bf_emma + af_heart: warm, close; a faint shimmer (she speaks from the lantern)
   ignaroth  am_onyx, pitched down ~7 semitones with formants, saturated, in a huge stone hall
+  sylvaris  bf_emma + af_nicole + af_heart, lowered, a slow phaser, a wooden hall
   vaeltris  af_sky + bf_isabella, lowered a little, chorused, a long airy echo
   thaloryn  am_onyx + am_michael, pitched down ~6 semitones, a slow flanger (moving water), a drowned hall
   mira      bf_isabella; brannoc bm_lewis (older, slower)
@@ -56,6 +57,11 @@ VOICES = {
                  'fx': 'asetrate=24000*0.9,aresample=24000,atempo=1/0.9,equalizer=f=3500:t=q:w=1:g=3,'
                        'chorus=0.6:0.9:40|60:0.25|0.2:0.3|0.25:2|1.5,'
                        'aecho=0.8:0.7:180|410|700:0.3|0.2|0.12,highshelf=f=7000:g=2'},
+    # warm and low, unhurried, with something creaking under it: an old voice in a wooden hall
+    'sylvaris': {'blend': [('bf_emma', 0.45), ('af_nicole', 0.3), ('af_heart', 0.25)], 'speed': 0.82, 'lang': 'en-gb',
+                 'fx': 'asetrate=24000*0.86,aresample=24000,atempo=1/0.86,equalizer=f=220:t=q:w=1:g=3,'
+                       'aphaser=in_gain=0.6:out_gain=0.8:delay=3:decay=0.4:speed=0.3,'
+                       'aecho=0.8:0.75:70|160|260:0.3|0.2|0.12,lowpass=f=7000'},
     'mira': {'blend': [('bf_isabella', 1.0)], 'speed': 1.0, 'lang': 'en-gb', 'fx': 'aecho=0.8:0.5:30:0.05'},
     'brannoc': {'blend': [('bm_lewis', 1.0)], 'speed': 0.86, 'lang': 'en-gb', 'fx': 'aecho=0.8:0.5:30:0.05'},
 }

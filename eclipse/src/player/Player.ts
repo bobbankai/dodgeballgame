@@ -34,7 +34,7 @@ export interface PlayerEvents {
   death: Record<string, never>;
   heal: Record<string, never>;
   status: { status: 'burn' | 'soak' | 'shock' | 'root' };
-  statusTick: { status: 'burn' };
+  statusTick: { status: 'burn' | 'root' };
   wardHit: { left: number };
 }
 
@@ -345,6 +345,8 @@ export class Player implements Combatant {
     speed *= 1 - 0.3 * this.wade;
     // shocked: the muscles lock and jump; slower until it passes
     if (this.statusTime.shock > 0) speed *= 0.6;
+    // rooted: roots hold the feet (a dodge tears free)
+    if (this.statusTime.root > 0) speed = 0;
     this.rig.fovKick = this.sprinting ? 0.08 : 0;
     // turning: face the movement direction, or the target when locked on
     if (locked && this.target) {
@@ -803,6 +805,10 @@ export class Player implements Combatant {
     this.hitWindow = false;
     this.armour = false;
     this.char.animator.play(clip, { fade: 0.05, onEvent: (e) => this.onClipEvent(e), onEnd: () => { if (this.state === 'dodge') this.toMove(); } });
+    if (this.statusTime.root > 0) {
+      this.statusTime.root = 0;
+      this.events.emit('statusTick', { status: 'root' });
+    }
     this.events.emit('dodge', { dir });
   }
 

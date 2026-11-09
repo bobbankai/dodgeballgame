@@ -564,6 +564,84 @@ def storm_voices():
         write(f'roar_storm_{i}', norm(fade(reverb(x, 2.6, 0.4, 0.7))), volume=1.0, pitch=0.5, ref=20, bus='voice')
 
 
+# ============================================================================== forest (Chapter Four)
+def creak(d, f0, f1, rough=0.5):
+    """Wood under strain: a slow stick-slip buzz whose pitch drifts, through a hollow resonance."""
+    t = t_axis(d)
+    f = f0 + (f1 - f0) * t / d + 6 * np.sin(2 * np.pi * 0.7 * t)
+    ph = np.cumsum(f) / SR
+    pulses = (np.mod(ph, 1.0) < 0.08 + 0.05 * rough * rng.random(len(t))).astype(float)
+    x = bp(pulses - pulses.mean(), 150, 2400)
+    return formants(x, [380, 900, 1900], [120, 200, 300], [1, 0.6, 0.3])
+
+
+def forest():
+    for i in range(4):
+        d = rng.uniform(1.1, 1.5)
+        groan = glottal(d, lambda t, d=d: 70 + 12 * np.sin(np.pi * np.clip(t / d, 0, 1)), jitter=0.12, shimmer=0.5)
+        v = formants(groan + 0.3 * noise(d), [330, 650, 1800], [180, 240, 380], [1, 0.5, 0.2])
+        x = 0.6 * np.tanh(1.5 * v / (np.abs(v).max() + 1e-9)) + 0.7 * creak(d, 18, 9) / 3
+        write(f'thorn_groan_{i}', norm(fade(x * env(d, 0.15, 3, hold=d * 0.4))), volume=0.65, pitch=1.2, ref=7, bus='voice')
+    for i in range(4):
+        d = rng.uniform(0.9, 1.2)
+        breath = bp(noise(d), 600, 4500) * env(d, 0.3, 3, hold=0.2)
+        v = formants(glottal(d, lambda t: 230 - 40 * t, jitter=0.02) * 0.3 + noise(d) * 0.4, [800, 1300, 2800], [200, 260, 380], [1, 0.6, 0.3])
+        write(f'bloom_sigh_{i}', norm(fade(reverb(breath + 0.4 * v * env(d, 0.25, 4), 1.0, 0.3, 0.8))), volume=0.5, pitch=1.2, ref=6, bus='voice')
+    for i in range(2):
+        d = 3.2
+        t = t_axis(d)
+        f = lambda t: 42 + 16 * np.sin(np.pi * np.clip(t / 2.6, 0, 1)) + 4 * i  # noqa: E731
+        src = glottal(d, f, jitter=0.05, shimmer=0.35)
+        v = formants(src, [360, 700, 1600, 2500], [150, 200, 280, 380], [1, 0.8, 0.4, 0.2])
+        v /= np.abs(v).max() + 1e-9
+        choir = sum(np.sin(2 * np.pi * f0 * t) for f0 in (196, 247, 294)) * 0.1 * env(d, 0.5, 3, hold=1.2)
+        x = np.tanh(1.3 * v) * env(d, 0.3, 5, hold=1.3) + 0.6 * creak(d, 14, 6) / 3 * env(d, 0.2, 2) + choir
+        x += 0.4 * lp(brown(d), 90) * env(d, 0.3, 3)
+        write(f'roar_bloom_{i}', norm(fade(reverb(x, 2.4, 0.35, 0.5))), volume=1.0, pitch=0.5, ref=20, bus='voice')
+    for i in range(3):
+        d = 1.3
+        t = t_axis(d)
+        crack = bp(noise(d), 600, 6000) * np.exp(-t * 18) * (1 + 2 * (rng.random(len(t)) > 0.97))
+        thump = np.sin(2 * np.pi * (70 * np.exp(-t * 4) + 40) * t) * np.exp(-t * 7)
+        soil = bp(noise(d), 200, 1800) * env(d, 0.02, 6) * 0.6
+        write(f'root_burst_{i}', norm(fade(crack + 0.9 * thump + soil + 0.5 * creak(d, 30, 12) / 3 * np.exp(-t * 3))), volume=0.9, pitch=1.4, ref=9)
+    for i in range(3):
+        d = 1.0
+        x = bp(noise(d), 300, 3000) * env(d, 0.01, 5) + 0.3 * hp(noise(d), 4000) * env(d, 0.15, 4)
+        write(f'spore_burst_{i}', norm(fade(reverb(x, 0.7, 0.2))), volume=0.6, pitch=1.5, ref=6)
+    for i in range(3):
+        d = 1.2
+        t = t_axis(d)
+        notes = [rng.choice([523, 587, 659, 784, 880]) for _ in range(4)]
+        chime = sum(np.sin(2 * np.pi * f * t) * np.exp(-np.clip(t - k * 0.12, 0, None) * 4) * (t > k * 0.12) for k, f in enumerate(notes))
+        rustle = bp(noise(d), 2000, 8000) * env(d, 0.3, 3) * (0.6 + 0.4 * (rng.random(len(t)) > 0.6))
+        write(f'bloom_cast_{i}', norm(fade(reverb(0.4 * chime + 0.5 * rustle, 1.2, 0.35, 0.9))), volume=0.6, pitch=1, ref=6)
+    d = 2.0
+    t = t_axis(d)
+    rustle = bp(noise(d), 1500, 9000) * env(d, 0.1, 3) * (0.5 + 0.5 * (rng.random(len(t)) > 0.7))
+    chime = sum(np.sin(2 * np.pi * f * t) * np.exp(-t * 2.5) for f in (659, 988, 1318)) * 0.2
+    write('bloom_dissolve', norm(fade(reverb(rustle + chime, 1.4, 0.3, 0.9))), volume=0.55, pitch=1, ref=5)
+    # the forest itself: leaves in the wind, wood creaking, insects, a far chime and a strange bird
+    d = 16.0
+    t = t_axis(d)
+    gust = 0.5 + 0.5 * lp(rng.standard_normal(len(t)), 0.25) * 70
+    leaves = bp(noise(d), 1200, 7000) * np.clip(gust, 0.1, 1.4) * (0.7 + 0.3 * (rng.random(len(t)) > 0.5))
+    insects = np.sin(2 * np.pi * 4200 * t) * (0.5 + 0.5 * np.sin(2 * np.pi * 23 * t)) * (0.5 + 0.5 * np.sin(2 * np.pi * 0.13 * t)) * 0.05
+    x = 0.5 * leaves / np.abs(leaves).max() + insects
+    for _ in range(4):
+        k = int(rng.uniform(0.5, d - 3) * SR)
+        c = creak(2.0, rng.uniform(10, 22), rng.uniform(6, 12), 0.7)
+        x[k:k + len(c)] += 0.25 * c / (np.abs(c).max() + 1e-9) * np.hanning(len(c))
+    for _ in range(3):
+        k = int(rng.uniform(0.5, d - 2) * SR)
+        L = int(0.9 * SR)
+        tt = np.arange(L) / SR
+        f = rng.uniform(1800, 2600) * (1 + 0.3 * np.sin(2 * np.pi * 7 * tt))
+        call = np.sin(2 * np.pi * np.cumsum(f) / SR) * np.exp(-tt * 3) * (np.mod(tt, 0.3) < 0.18)
+        x[k:k + L] += 0.12 * call
+    write('forest_loop', norm(loopify(reverb(x, 1.6, 0.3, 0.7), 1.0), 0.6), volume=0.6, ref=12, bus='ambience', pitch=0)
+
+
 swings()
 impacts()
 movement()
@@ -574,6 +652,7 @@ water()
 drowned_voices()
 storm()
 storm_voices()
+forest()
 man_path = os.path.join(ROOT, 'manifest.json')
 man = json.load(open(man_path)) if os.path.exists(man_path) else {'sounds': {}, 'music': {}}
 # keep the recorded voice lines (tools/voices/record.py registers them in the same table)

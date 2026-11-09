@@ -262,7 +262,51 @@ def storm_spear():
     return polearm('storm_spear', 2.6, 0.85, head, extra, budget=5000)
 
 
-BUILDERS = {'ashblade': ashblade, 'cinder_greatsword': cinder_greatsword, 'cinderfall': cinderfall, 'reaver_spear': reaver_spear, 'trident': trident,
+def thorn_maul():
+    """A thornbound's maul: a gnarled root-club studded with thorns, sap seeping from its splits."""
+    def head(p, top):
+        z = p[:, 2] - top
+        club = sdf.capsule((0, 0, top - 0.05), (0.02, 0.0, top + 0.42), 0.05, 0.11)(p)
+        knots = sdf.sphere((0.04, 0.02, top + 0.38), 0.12)(p)
+        thorns = np.full(len(p), 1.0)
+        for k in range(12):
+            a = k * 2.399
+            zz = top + 0.12 + 0.025 * k
+            c = np.array([np.cos(a) * 0.09, np.sin(a) * 0.09, zz])
+            thorns = np.minimum(thorns, sdf.capsule(c, c + np.array([np.cos(a) * 0.08, np.sin(a) * 0.08, 0.03]), 0.012, 0.002)(p))
+        return np.minimum(np.minimum(club, knots), thorns) - 0.006 * (sdf.fbm(p, 30, 2, 761) - 0.5)
+
+    def extra(p, m, top):
+        z = p[:, 2]
+        m[:] = MAT_INDEX['bark']
+        m[(z > top) & (sdf.fbm(p, 12, 2, 762) > 0.62)] = MAT_INDEX['moss']
+        m[(z > top + 0.1) & (np.abs(sdf.fbm(p, 18, 3, 763) - 0.5) < 0.03)] = MAT_INDEX['sapglow']
+    return polearm('thorn_maul', 1.1, 0.35, head, extra, budget=4500)
+
+
+def briar_staff():
+    """Sylvaris's staff: a living branch, a crook of twisted wood cradling a glowing seed."""
+    def head(p, top):
+        z = p[:, 2] - top
+        out = np.full(len(p), 1.0)
+        for k in range(3):
+            a = k * 2.094
+            pts = [np.array([np.cos(a) * 0.02, np.sin(a) * 0.02, top]), np.array([np.cos(a) * 0.09, np.sin(a) * 0.09, top + 0.18]),
+                   np.array([np.cos(a + 0.6) * 0.07, np.sin(a + 0.6) * 0.07, top + 0.34]), np.array([np.cos(a + 1.2) * 0.02, np.sin(a + 1.2) * 0.02, top + 0.42])]
+            for i in range(3):
+                out = np.minimum(out, sdf.capsule(pts[i], pts[i + 1], 0.018, 0.012)(p))
+        seed = sdf.sphere((0, 0, top + 0.22), 0.055)(p)
+        return np.minimum(out, seed)
+
+    def extra(p, m, top):
+        z = p[:, 2]
+        m[:] = MAT_INDEX['bark']
+        m[np.linalg.norm(p - np.array([0, 0, top + 0.22]), axis=1) < 0.062] = MAT_INDEX['sapglow']
+        m[(z < top) & (sdf.fbm(p, 10, 2, 764) > 0.66)] = MAT_INDEX['moss']
+    return polearm('briar_staff', 2.3, 0.8, head, extra, budget=4500)
+
+
+BUILDERS = {'thorn_maul': thorn_maul, 'briar_staff': briar_staff, 'ashblade': ashblade, 'cinder_greatsword': cinder_greatsword, 'cinderfall': cinderfall, 'reaver_spear': reaver_spear, 'trident': trident,
             'storm_glaive': storm_glaive, 'storm_spear': storm_spear}
 
 

@@ -43,6 +43,12 @@ MATERIALS = [
     ('stormglow', (0.75, 0.7, 1.0)),
     ('feather', (0.86, 0.86, 0.84)),
     ('copper', (0.72, 0.4, 0.25)),
+    ('silver', (0.92, 0.92, 0.96)),
+    ('bark', (0.35, 0.27, 0.2)),
+    ('moss', (0.3, 0.42, 0.15)),
+    ('petal', (0.6, 0.3, 0.48)),
+    ('sapglow', (0.75, 1.0, 0.35)),
+    ('leaf', (0.3, 0.45, 0.2)),
 ]
 MAT_INDEX = {n: i for i, (n, _) in enumerate(MATERIALS)}
 
@@ -50,7 +56,8 @@ MAT_INDEX = {n: i for i, (n, _) in enumerate(MATERIALS)}
 def mat_color(name):
     """ID-map colour for a material: evenly spaced, unambiguous after texture filtering."""
     i = MAT_INDEX[name]
-    return ((i % 4) / 3.0, ((i // 4) % 4) / 3.0, (i // 16) / 1.0 if i >= 16 else 0.0)
+    # four levels of blue: room for 64 materials, every channel step 1/3 apart
+    return ((i % 4) / 3.0, ((i // 4) % 4) / 3.0, min(i // 16, 3) / 3.0)
 
 
 class Rig:

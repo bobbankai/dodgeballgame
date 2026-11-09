@@ -1,0 +1,17 @@
+{
+ "name": "Tempest Warden",
+ "height": 2.1445353031158447,
+ "parts": {
+  "warden_gear": {
+   "kind": "gear",
+   "tex": "gear",
+   "emissive": 3.0,
+   "twoSided": true
+  }
+ },
+ "sockets": {
+  "weapon_r": "weapon_r",
+  "weapon_l": "weapon_l"
+ },
+ "morphs": []
+}
