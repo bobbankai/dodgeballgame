@@ -31,6 +31,8 @@ interface Pull {
   radius: number;
   strength: number;
   until: number;
+  /** A fixed push (wind) instead of a pull toward the centre. */
+  push?: Vector3;
 }
 
 interface Zone {
@@ -103,7 +105,7 @@ export class Hazards {
     // profile: [along, up] in units of the height, from the back slope round to the curling lip
     const prof: [number, number][] = [[-2.2, 0], [-1.6, 0.18], [-1.0, 0.5], [-0.5, 0.82], [-0.1, 0.98], [0.25, 1.0], [0.55, 0.9],
       [0.75, 0.7], [0.78, 0.5], [0.66, 0.36], [0.5, 0.32]];
-    const cols = 28;
+    const cols = 40;
     const pos: number[] = [];
     const col: number[] = [];
     const idx: number[] = [];
@@ -111,7 +113,7 @@ export class Hazards {
       const u = i / cols;
       const x = (u - 0.5) * width;
       // taper toward the ends, with a little irregularity along the crest
-      const taper = Math.pow(Math.sin(Math.PI * u), 0.6) * (0.85 + 0.15 * Math.sin(u * 17.0));
+      const taper = Math.pow(Math.sin(Math.PI * u), 0.6) * (0.92 + 0.08 * Math.sin(u * 9.0));
       for (let k = 0; k < prof.length; k++) {
         const [a, v] = prof[k];
         pos.push(x, v * height * taper, a * height * (0.6 + 0.4 * taper));
@@ -147,6 +149,11 @@ export class Hazards {
   pull(center: Vector3, radius: number, strength: number, duration: number): void {
     this.pulls.push({ center: center.clone(), radius, strength, until: this.time + duration });
     this.sound?.('whirlpool', center);
+  }
+
+  /** A steady push on the player inside `radius` of `center` (wind gusts). */
+  wind(center: Vector3, radius: number, push: Vector3, duration: number): void {
+    this.pulls.push({ center: center.clone(), radius, strength: 0, until: this.time + duration, push: push.clone() });
   }
 
   after(seconds: number, fn: () => void): void {
@@ -209,6 +216,12 @@ export class Hazards {
     const pp = this.playerPos?.();
     if (pp && this.pushPlayer) {
       for (const p of this.pulls) {
+        if (p.push) {
+          const dx = pp.x - p.center.x;
+          const dz = pp.z - p.center.z;
+          if (dx * dx + dz * dz < p.radius * p.radius) this.pushPlayer(p.push);
+          continue;
+        }
         const to = p.center.subtract(pp);
         to.y = 0;
         const d = to.length();

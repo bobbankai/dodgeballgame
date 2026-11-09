@@ -1,3 +1,4 @@
+import { Lightning } from '../vfx/Lightning';
 import { Color3, Color4, Scene, UniversalCamera, Vector3, type Camera } from '@babylonjs/core';
 import { EngineHost, type Backend } from '../core/EngineHost';
 import { Clock } from '../core/Clock';
@@ -64,6 +65,7 @@ export class Game {
   readonly charMats: CharacterMaterials;
   readonly hud: HUD;
   readonly vfx: Vfx;
+  readonly lightning: Lightning;
   readonly lights: LocalLights;
   readonly audio: Audio;
   private ambience: LoopHandle | null = null;
@@ -92,6 +94,8 @@ export class Game {
   fps = 0;
   /** Per-step updates registered by levels and systems (fixed timestep). */
   readonly updaters: ((dt: number) => void)[] = [];
+  /** True while a level is being built: the fixed-step simulation does not run. */
+  loading = false;
   paused = false;
 
   private constructor(host: EngineHost, scene: Scene, physics: Physics, settings: Settings, params: URLSearchParams) {
@@ -122,7 +126,18 @@ export class Game {
     this.vfx = new Vfx(scene, this.lights);
     this.audio = new Audio(settings.data.audio);
     if (params.has('test')) this.audio.enabled = false;
-    this.vfx.onBurst = (name, at, k) => this.burstSound(name, at, k);
+    this.vfx.onBurst = (name, at, k) => {
+      if (name === 'lightningStrike') this.lightning.strike(at);
+      this.burstSound(name, at, k);
+    };
+    this.lightning = new Lightning(scene);
+    this.lightning.onStrike = (at, distant) => {
+      this.sky.flash = Math.max(this.sky.flash, distant ? 0.45 : 1);
+      // thunder follows at the speed of sound
+      const d = Vector3.Distance(at, this.activeCamera.globalPosition);
+      this.audio.play(d > 60 ? 'thunder_far' : 'thunder', { at, delay: Math.min(4, d / 343), volume: distant ? 0.8 : 1 });
+      if (!distant) this.rig.shake(Math.max(0, 0.5 - d * 0.02));
+    };
     this.cine = new Director(this);
     this.flow = new Flow(this);
     this.touch = new TouchControls(document.getElementById('ui')!, this.input);
@@ -154,6 +169,9 @@ export class Game {
       case 'tellRed': a.play('fire_cast', { at, pitch: -6, volume: 0.6 }); break;
       case 'splash': a.play('splash', { at, volume: Math.min(1, 0.45 + 0.25 * k) }); break;
       case 'geyser': a.play('geyser', { at, volume: Math.min(1, 0.6 + 0.2 * k) }); break;
+      case 'lightningStrike': a.play('lightning_crack', { at }); break;
+      case 'shockBurst': a.play('shock', { at, volume: Math.min(1, 0.5 + 0.2 * k) }); break;
+      case 'gust': a.play('gust', { at }); break;
       default: break;
     }
   }
@@ -188,7 +206,8 @@ export class Game {
       const heavy = attack.weight >= 0.7 || e.heavy;
       if (attack.hit?.kind === 'none') {
         // spells: a gathering sound in the caster's element instead of a weapon swing
-        a.play(attack.element === 'water' ? 'water_cast' : 'fire_cast', { at: e.position, pitch: big ? -5 : 0 });
+        const cast = attack.element === 'water' ? 'water_cast' : attack.element === 'lightning' ? 'storm_cast' : 'fire_cast';
+        a.play(cast, { at: e.position, pitch: big ? -5 : 0 });
         return;
       }
       a.play(big ? 'swing_great' : heavy ? 'swing_heavy' : 'swing_light', { at: e.position, delay: 0.25 / (attack.speed ?? 1), pitch: big ? -4 : 0 });
@@ -312,11 +331,21 @@ export class Game {
   }
 
   async loadLevel(id: string, checkpoint?: string, _reload = false): Promise<void> {
+    this.loading = true;
+    try {
+      await this.swapLevel(id, checkpoint);
+    } finally {
+      this.loading = false;
+    }
+  }
+
+  private async swapLevel(id: string, checkpoint?: string): Promise<void> {
     if (this.level) {
       this.enemies.clear();
       this.projectiles.clear();
       this.hazards.clear();
       this.ground.clear();
+      this.lightning.clear();
       this.director.clear();
       this.nav?.dispose();
       this.nav = null;
@@ -369,6 +398,7 @@ export class Game {
     player.events.on('status', ({ status }) => {
       if (status === 'burn') this.audio.play('fire_burst', { at: player.position, volume: 0.5 });
       if (status === 'soak') this.vfx.burst('splash', player.position.add(new Vector3(0, 1, 0)));
+      if (status === 'shock') this.vfx.burst('shockBurst', player.position.add(new Vector3(0, 1, 0)), Vector3.Up(), 1.4);
     });
     this.trail = new BladeTrail(this.scene, 'kaelTrail');
     this.combat.events.on('hit', (h) => {
@@ -409,7 +439,8 @@ export class Game {
 
   /** One real frame: run the fixed steps that fit, then render once. */
   frame(realDt: number): void {
-    const n = this.paused ? 0 : this.clock.accumulate(realDt);
+    // the world holds still while a level is being built (the screen is faded out meanwhile)
+    const n = this.paused || this.loading ? 0 : this.clock.accumulate(realDt);
     for (let i = 0; i < n; i++) this.step(Clock.STEP);
     this.fps = this.fps * 0.95 + (realDt > 0 ? 1 / realDt : 0) * 0.05;
     this.flow.update(realDt);
@@ -444,6 +475,7 @@ export class Game {
     const cam = this.activeCamera;
     this.audio.setListener(cam.globalPosition, cam.getDirection(Vector3.Forward(this.scene.useRightHandedSystem)), cam.upVector);
     this.vfx.update(gameDt);
+    this.lightning.update(gameDt);
     this.lights.update(gameDt);
     this.ground.update(gameDt);
     this.trail?.update();
@@ -464,8 +496,9 @@ export class Game {
 
   /** Test hook: advance game time by `seconds` in fixed steps and render one frame. */
   advance(seconds: number): void {
-    const steps = Math.round(seconds / Clock.STEP);
+    const steps = this.loading ? 0 : Math.round(seconds / Clock.STEP);
     for (let i = 0; i < steps; i++) this.step(Clock.STEP);
+    this.flow.update(seconds);
     // Outside runRenderLoop the engine's frame must be opened and closed by hand (WebGPU submits
     // its command buffers in endFrame).
     const engine = this.host.engine;

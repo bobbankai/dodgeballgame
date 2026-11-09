@@ -49,6 +49,8 @@ export interface Special {
  */
 export class Boss extends Enemy {
   static specials: Record<string, Record<string, Special>> = {};
+  /** Per-boss behaviour that runs every step (hovering, auras), by kit name. */
+  static passives: Record<string, (b: Boss, dt: number) => void> = {};
   readonly bossDef: BossDef;
   phase = 0;
   transitioning = false;
@@ -61,6 +63,11 @@ export class Boss extends Enemy {
     super(ctx, def.archetype, char, at, yaw, def.archetype.name, true);
     this.bossDef = def;
     this.stats.poiseDelay = 4;
+  }
+
+  override update(dt: number): void {
+    super.update(dt);
+    if (this.alive) Boss.passives[this.bossDef.kit]?.(this, dt);
   }
 
   get title(): string {

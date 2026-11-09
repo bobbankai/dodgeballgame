@@ -31,6 +31,7 @@ from preview_mat import setup_preview_material
 from character import skin_rigid, skin_transfer, skin_skirt, normalize_weights, parent_to_rig
 import ashen_gear
 import drowned_gear
+import sky_gear
 
 A = args()
 ID = A[0] if A and not A[0].startswith('--') else 'thrall'
@@ -70,6 +71,21 @@ SPECS = {
         'name': 'Thaloryn', 'gear': drowned_gear.thaloryn, 'grime': 0.45, 'ash': 0.0, 'emissive': 3.2,
         'phenotype': {'gender': 1.0, 'age': 0.75, 'muscle': 0.85, 'weight': 0.7, 'height': 0.95, 'proportions': 1.0},
         'targets': [('torso-vshape-incr', 0.4), ('chin-width-incr', 0.4)],
+    },
+    'monk': {
+        'name': 'Stormbound Monk', 'gear': sky_gear.monk, 'grime': 0.4, 'ash': 0.0, 'emissive': 2.6,
+        'phenotype': {'gender': 1.0, 'age': 0.4, 'muscle': 0.6, 'weight': 0.25, 'height': 0.6, 'proportions': 0.85},
+        'targets': [],
+    },
+    'warden': {
+        'name': 'Tempest Warden', 'gear': sky_gear.warden, 'grime': 0.35, 'ash': 0.0, 'emissive': 3.0,
+        'phenotype': {'gender': 0.6, 'age': 0.6, 'muscle': 0.35, 'weight': 0.3, 'height': 0.85, 'proportions': 0.9},
+        'targets': [],
+    },
+    'vaeltris': {
+        'name': 'Vaeltris', 'gear': sky_gear.vaeltris, 'grime': 0.25, 'ash': 0.0, 'emissive': 3.4,
+        'phenotype': {'gender': 0.0, 'age': 0.45, 'muscle': 0.55, 'weight': 0.3, 'height': 1.0, 'proportions': 1.0},
+        'targets': [],
     },
     'ignaroth': {
         'name': 'Ignaroth', 'gear': ashen_gear.ignaroth, 'grime': 0.45, 'ash': 0.35, 'emissive': 3.4,

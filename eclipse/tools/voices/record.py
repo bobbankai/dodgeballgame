@@ -8,6 +8,7 @@ has a voice (a blend of Kokoro voice styles), a speed and a treatment applied wi
   kael      bm_george + bm_fable, a little slow and low: a tired knight
   ithra     bf_emma + af_heart: warm, close; a faint shimmer (she speaks from the lantern)
   ignaroth  am_onyx, pitched down ~7 semitones with formants, saturated, in a huge stone hall
+  vaeltris  af_sky + bf_isabella, lowered a little, chorused, a long airy echo
   thaloryn  am_onyx + am_michael, pitched down ~6 semitones, a slow flanger (moving water), a drowned hall
   mira      bf_isabella; brannoc bm_lewis (older, slower)
 
@@ -50,13 +51,18 @@ VOICES = {
                        'flanger=delay=3:depth=4:speed=0.25:width=60,'
                        'acompressor=threshold=-18dB:ratio=4:attack=5:release=120,'
                        'aecho=0.8:0.8:90|210|380:0.3|0.22|0.16,lowpass=f=5200'},
+    # high, clear and cold, carried on the wind: a little lower, a long airy echo, a faint shimmer
+    'vaeltris': {'blend': [('af_sky', 0.5), ('bf_isabella', 0.3), ('af_nicole', 0.2)], 'speed': 0.86, 'lang': 'en-gb',
+                 'fx': 'asetrate=24000*0.9,aresample=24000,atempo=1/0.9,equalizer=f=3500:t=q:w=1:g=3,'
+                       'chorus=0.6:0.9:40|60:0.25|0.2:0.3|0.25:2|1.5,'
+                       'aecho=0.8:0.7:180|410|700:0.3|0.2|0.12,highshelf=f=7000:g=2'},
     'mira': {'blend': [('bf_isabella', 1.0)], 'speed': 1.0, 'lang': 'en-gb', 'fx': 'aecho=0.8:0.5:30:0.05'},
     'brannoc': {'blend': [('bm_lewis', 1.0)], 'speed': 0.86, 'lang': 'en-gb', 'fx': 'aecho=0.8:0.5:30:0.05'},
 }
 
 # respellings for words the model reads wrongly
 FIX = {'Varn Keld': 'Varn Kelld', 'Ignaroth': 'Igg-na-roth', 'Ithra': 'Ith-ra', 'Aurelion': 'Aw-ree-lee-on', 'Pentarchs': 'Pen-tarks',
-       'Thaloryn': 'Tha-lor-in', 'Vaeltris': 'Vale-tris', 'Sylvaris': 'Sil-var-is', 'Aetheris': 'Ay-thair-is'}
+       'Thaloryn': 'Tha-lor-in', 'Vaeltris': 'Vale-tris', 'Aethel': 'Eh-thel', 'Sylvaris': 'Sil-var-is', 'Aetheris': 'Ay-thair-is'}
 
 
 def line_key(who, text):

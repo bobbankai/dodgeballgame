@@ -1,0 +1,17 @@
+{
+ "name": "Drowned Reaver",
+ "height": 2.001193046569824,
+ "parts": {
+  "reaver_gear": {
+   "kind": "gear",
+   "tex": "gear",
+   "emissive": 2.4,
+   "twoSided": true
+  }
+ },
+ "sockets": {
+  "weapon_r": "weapon_r",
+  "weapon_l": "weapon_l"
+ },
+ "morphs": []
+}

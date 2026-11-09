@@ -1,5 +1,509 @@
 {
  "sounds": {
+  "line:ithra_n61zr4": {
+   "files": [
+    "voices/ithra_n61zr4.ogg"
+   ],
+   "volume": 1.0,
+   "pitch": 0,
+   "bus": "voice"
+  },
+  "line:ithra_1dg9crg": {
+   "files": [
+    "voices/ithra_1dg9crg.ogg"
+   ],
+   "volume": 1.0,
+   "pitch": 0,
+   "bus": "voice"
+  },
+  "line:ithra_12h8niy": {
+   "files": [
+    "voices/ithra_12h8niy.ogg"
+   ],
+   "volume": 1.0,
+   "pitch": 0,
+   "bus": "voice"
+  },
+  "line:ithra_1zrii9": {
+   "files": [
+    "voices/ithra_1zrii9.ogg"
+   ],
+   "volume": 1.0,
+   "pitch": 0,
+   "bus": "voice"
+  },
+  "line:kael_3qdmdv": {
+   "files": [
+    "voices/kael_3qdmdv.ogg"
+   ],
+   "volume": 1.0,
+   "pitch": 0,
+   "bus": "voice"
+  },
+  "line:ithra_1310x8h": {
+   "files": [
+    "voices/ithra_1310x8h.ogg"
+   ],
+   "volume": 1.0,
+   "pitch": 0,
+   "bus": "voice"
+  },
+  "line:ignaroth_113z2yn": {
+   "files": [
+    "voices/ignaroth_113z2yn.ogg"
+   ],
+   "volume": 1.0,
+   "pitch": 0,
+   "bus": "voice"
+  },
+  "line:ignaroth_81vsw9": {
+   "files": [
+    "voices/ignaroth_81vsw9.ogg"
+   ],
+   "volume": 1.0,
+   "pitch": 0,
+   "bus": "voice"
+  },
+  "line:ignaroth_1g64oxz": {
+   "files": [
+    "voices/ignaroth_1g64oxz.ogg"
+   ],
+   "volume": 1.0,
+   "pitch": 0,
+   "bus": "voice"
+  },
+  "line:ignaroth_w0tilf": {
+   "files": [
+    "voices/ignaroth_w0tilf.ogg"
+   ],
+   "volume": 1.0,
+   "pitch": 0,
+   "bus": "voice"
+  },
+  "line:kael_62y3tc": {
+   "files": [
+    "voices/kael_62y3tc.ogg"
+   ],
+   "volume": 1.0,
+   "pitch": 0,
+   "bus": "voice"
+  },
+  "line:ithra_4epd5z": {
+   "files": [
+    "voices/ithra_4epd5z.ogg"
+   ],
+   "volume": 1.0,
+   "pitch": 0,
+   "bus": "voice"
+  },
+  "line:ithra_1efjgee": {
+   "files": [
+    "voices/ithra_1efjgee.ogg"
+   ],
+   "volume": 1.0,
+   "pitch": 0,
+   "bus": "voice"
+  },
+  "line:ithra_1drrpbx": {
+   "files": [
+    "voices/ithra_1drrpbx.ogg"
+   ],
+   "volume": 1.0,
+   "pitch": 0,
+   "bus": "voice"
+  },
+  "line:kael_1tsyfzz": {
+   "files": [
+    "voices/kael_1tsyfzz.ogg"
+   ],
+   "volume": 1.0,
+   "pitch": 0,
+   "bus": "voice"
+  },
+  "line:ithra_1b0chzz": {
+   "files": [
+    "voices/ithra_1b0chzz.ogg"
+   ],
+   "volume": 1.0,
+   "pitch": 0,
+   "bus": "voice"
+  },
+  "line:ignaroth_rvtaol": {
+   "files": [
+    "voices/ignaroth_rvtaol.ogg"
+   ],
+   "volume": 1.0,
+   "pitch": 0,
+   "bus": "voice"
+  },
+  "line:ignaroth_18ocx4m": {
+   "files": [
+    "voices/ignaroth_18ocx4m.ogg"
+   ],
+   "volume": 1.0,
+   "pitch": 0,
+   "bus": "voice"
+  },
+  "line:ithra_14zrdaw": {
+   "files": [
+    "voices/ithra_14zrdaw.ogg"
+   ],
+   "volume": 1.0,
+   "pitch": 0,
+   "bus": "voice"
+  },
+  "line:ithra_179lnri": {
+   "files": [
+    "voices/ithra_179lnri.ogg"
+   ],
+   "volume": 1.0,
+   "pitch": 0,
+   "bus": "voice"
+  },
+  "line:kael_1e34jc1": {
+   "files": [
+    "voices/kael_1e34jc1.ogg"
+   ],
+   "volume": 1.0,
+   "pitch": 0,
+   "bus": "voice"
+  },
+  "line:ithra_cmsvhc": {
+   "files": [
+    "voices/ithra_cmsvhc.ogg"
+   ],
+   "volume": 1.0,
+   "pitch": 0,
+   "bus": "voice"
+  },
+  "line:thaloryn_1935sjp": {
+   "files": [
+    "voices/thaloryn_1935sjp.ogg"
+   ],
+   "volume": 1.0,
+   "pitch": 0,
+   "bus": "voice"
+  },
+  "line:thaloryn_16suhkh": {
+   "files": [
+    "voices/thaloryn_16suhkh.ogg"
+   ],
+   "volume": 1.0,
+   "pitch": 0,
+   "bus": "voice"
+  },
+  "line:kael_1ybn6hc": {
+   "files": [
+    "voices/kael_1ybn6hc.ogg"
+   ],
+   "volume": 1.0,
+   "pitch": 0,
+   "bus": "voice"
+  },
+  "line:thaloryn_5wobcx": {
+   "files": [
+    "voices/thaloryn_5wobcx.ogg"
+   ],
+   "volume": 1.0,
+   "pitch": 0,
+   "bus": "voice"
+  },
+  "line:thaloryn_1lxa3w7": {
+   "files": [
+    "voices/thaloryn_1lxa3w7.ogg"
+   ],
+   "volume": 1.0,
+   "pitch": 0,
+   "bus": "voice"
+  },
+  "line:thaloryn_1qecje0": {
+   "files": [
+    "voices/thaloryn_1qecje0.ogg"
+   ],
+   "volume": 1.0,
+   "pitch": 0,
+   "bus": "voice"
+  },
+  "line:kael_3wl4uq": {
+   "files": [
+    "voices/kael_3wl4uq.ogg"
+   ],
+   "volume": 1.0,
+   "pitch": 0,
+   "bus": "voice"
+  },
+  "line:ithra_1rnq7hg": {
+   "files": [
+    "voices/ithra_1rnq7hg.ogg"
+   ],
+   "volume": 1.0,
+   "pitch": 0,
+   "bus": "voice"
+  },
+  "line:ithra_1xmjjl2": {
+   "files": [
+    "voices/ithra_1xmjjl2.ogg"
+   ],
+   "volume": 1.0,
+   "pitch": 0,
+   "bus": "voice"
+  },
+  "line:ithra_1w4zl9d": {
+   "files": [
+    "voices/ithra_1w4zl9d.ogg"
+   ],
+   "volume": 1.0,
+   "pitch": 0,
+   "bus": "voice"
+  },
+  "line:kael_17m4j49": {
+   "files": [
+    "voices/kael_17m4j49.ogg"
+   ],
+   "volume": 1.0,
+   "pitch": 0,
+   "bus": "voice"
+  },
+  "line:ithra_1nyqtp0": {
+   "files": [
+    "voices/ithra_1nyqtp0.ogg"
+   ],
+   "volume": 1.0,
+   "pitch": 0,
+   "bus": "voice"
+  },
+  "line:ithra_ri6u62": {
+   "files": [
+    "voices/ithra_ri6u62.ogg"
+   ],
+   "volume": 1.0,
+   "pitch": 0,
+   "bus": "voice"
+  },
+  "line:ithra_c4hw8e": {
+   "files": [
+    "voices/ithra_c4hw8e.ogg"
+   ],
+   "volume": 1.0,
+   "pitch": 0,
+   "bus": "voice"
+  },
+  "line:kael_u6tu4f": {
+   "files": [
+    "voices/kael_u6tu4f.ogg"
+   ],
+   "volume": 1.0,
+   "pitch": 0,
+   "bus": "voice"
+  },
+  "line:ithra_rmmi35": {
+   "files": [
+    "voices/ithra_rmmi35.ogg"
+   ],
+   "volume": 1.0,
+   "pitch": 0,
+   "bus": "voice"
+  },
+  "line:ithra_n9mcnb": {
+   "files": [
+    "voices/ithra_n9mcnb.ogg"
+   ],
+   "volume": 1.0,
+   "pitch": 0,
+   "bus": "voice"
+  },
+  "line:thaloryn_jo5rgg": {
+   "files": [
+    "voices/thaloryn_jo5rgg.ogg"
+   ],
+   "volume": 1.0,
+   "pitch": 0,
+   "bus": "voice"
+  },
+  "line:thaloryn_1k52v8s": {
+   "files": [
+    "voices/thaloryn_1k52v8s.ogg"
+   ],
+   "volume": 1.0,
+   "pitch": 0,
+   "bus": "voice"
+  },
+  "line:ithra_1mzv14m": {
+   "files": [
+    "voices/ithra_1mzv14m.ogg"
+   ],
+   "volume": 1.0,
+   "pitch": 0,
+   "bus": "voice"
+  },
+  "line:ithra_19ofjyq": {
+   "files": [
+    "voices/ithra_19ofjyq.ogg"
+   ],
+   "volume": 1.0,
+   "pitch": 0,
+   "bus": "voice"
+  },
+  "line:kael_1pi0teg": {
+   "files": [
+    "voices/kael_1pi0teg.ogg"
+   ],
+   "volume": 1.0,
+   "pitch": 0,
+   "bus": "voice"
+  },
+  "line:kael_xg2es4": {
+   "files": [
+    "voices/kael_xg2es4.ogg"
+   ],
+   "volume": 1.0,
+   "pitch": 0,
+   "bus": "voice"
+  },
+  "line:ithra_1s5d0bd": {
+   "files": [
+    "voices/ithra_1s5d0bd.ogg"
+   ],
+   "volume": 1.0,
+   "pitch": 0,
+   "bus": "voice"
+  },
+  "line:vaeltris_11vch29": {
+   "files": [
+    "voices/vaeltris_11vch29.ogg"
+   ],
+   "volume": 1.0,
+   "pitch": 0,
+   "bus": "voice"
+  },
+  "line:vaeltris_m1o2wn": {
+   "files": [
+    "voices/vaeltris_m1o2wn.ogg"
+   ],
+   "volume": 1.0,
+   "pitch": 0,
+   "bus": "voice"
+  },
+  "line:kael_94e892": {
+   "files": [
+    "voices/kael_94e892.ogg"
+   ],
+   "volume": 1.0,
+   "pitch": 0,
+   "bus": "voice"
+  },
+  "line:vaeltris_ahcyfu": {
+   "files": [
+    "voices/vaeltris_ahcyfu.ogg"
+   ],
+   "volume": 1.0,
+   "pitch": 0,
+   "bus": "voice"
+  },
+  "line:vaeltris_10n1d5g": {
+   "files": [
+    "voices/vaeltris_10n1d5g.ogg"
+   ],
+   "volume": 1.0,
+   "pitch": 0,
+   "bus": "voice"
+  },
+  "line:vaeltris_y4ezt7": {
+   "files": [
+    "voices/vaeltris_y4ezt7.ogg"
+   ],
+   "volume": 1.0,
+   "pitch": 0,
+   "bus": "voice"
+  },
+  "line:kael_1nnsena": {
+   "files": [
+    "voices/kael_1nnsena.ogg"
+   ],
+   "volume": 1.0,
+   "pitch": 0,
+   "bus": "voice"
+  },
+  "line:ithra_twwktu": {
+   "files": [
+    "voices/ithra_twwktu.ogg"
+   ],
+   "volume": 1.0,
+   "pitch": 0,
+   "bus": "voice"
+  },
+  "line:kael_y868o0": {
+   "files": [
+    "voices/kael_y868o0.ogg"
+   ],
+   "volume": 1.0,
+   "pitch": 0,
+   "bus": "voice"
+  },
+  "line:ithra_1x4w4pk": {
+   "files": [
+    "voices/ithra_1x4w4pk.ogg"
+   ],
+   "volume": 1.0,
+   "pitch": 0,
+   "bus": "voice"
+  },
+  "line:ithra_1j2ucbg": {
+   "files": [
+    "voices/ithra_1j2ucbg.ogg"
+   ],
+   "volume": 1.0,
+   "pitch": 0,
+   "bus": "voice"
+  },
+  "line:kael_1wqkrem": {
+   "files": [
+    "voices/kael_1wqkrem.ogg"
+   ],
+   "volume": 1.0,
+   "pitch": 0,
+   "bus": "voice"
+  },
+  "line:ithra_k5k7nh": {
+   "files": [
+    "voices/ithra_k5k7nh.ogg"
+   ],
+   "volume": 1.0,
+   "pitch": 0,
+   "bus": "voice"
+  },
+  "line:ithra_1f8c3q": {
+   "files": [
+    "voices/ithra_1f8c3q.ogg"
+   ],
+   "volume": 1.0,
+   "pitch": 0,
+   "bus": "voice"
+  },
+  "line:ithra_5nscrq": {
+   "files": [
+    "voices/ithra_5nscrq.ogg"
+   ],
+   "volume": 1.0,
+   "pitch": 0,
+   "bus": "voice"
+  },
+  "line:vaeltris_ipal22": {
+   "files": [
+    "voices/vaeltris_ipal22.ogg"
+   ],
+   "volume": 1.0,
+   "pitch": 0,
+   "bus": "voice"
+  },
+  "line:vaeltris_y5ybi2": {
+   "files": [
+    "voices/vaeltris_y5ybi2.ogg"
+   ],
+   "volume": 1.0,
+   "pitch": 0,
+   "bus": "voice"
+  },
   "swing_light": {
    "files": [
     "sfx/swing_light_0.ogg",
@@ -418,332 +922,96 @@
    "ref": 20,
    "bus": "voice"
   },
-  "line:ithra_n61zr4": {
+  "thunder": {
    "files": [
-    "voices/ithra_n61zr4.ogg"
+    "sfx/thunder_0.ogg",
+    "sfx/thunder_1.ogg",
+    "sfx/thunder_2.ogg"
    ],
    "volume": 1.0,
-   "pitch": 0,
+   "pitch": 1.5,
+   "ref": 60,
+   "bus": "ambience"
+  },
+  "thunder_far": {
+   "files": [
+    "sfx/thunder_far_0.ogg",
+    "sfx/thunder_far_1.ogg",
+    "sfx/thunder_far_2.ogg"
+   ],
+   "volume": 0.8,
+   "pitch": 2,
+   "ref": 200,
+   "bus": "ambience"
+  },
+  "lightning_crack": {
+   "files": [
+    "sfx/lightning_crack_0.ogg",
+    "sfx/lightning_crack_1.ogg",
+    "sfx/lightning_crack_2.ogg"
+   ],
+   "volume": 1.0,
+   "pitch": 1.5,
+   "ref": 12
+  },
+  "shock": {
+   "files": [
+    "sfx/shock_0.ogg",
+    "sfx/shock_1.ogg",
+    "sfx/shock_2.ogg"
+   ],
+   "volume": 0.7,
+   "pitch": 2,
+   "ref": 5
+  },
+  "gust": {
+   "files": [
+    "sfx/gust_0.ogg",
+    "sfx/gust_1.ogg",
+    "sfx/gust_2.ogg"
+   ],
+   "volume": 0.8,
+   "pitch": 1,
+   "ref": 8
+  },
+  "storm_cast": {
+   "files": [
+    "sfx/storm_cast_0.ogg",
+    "sfx/storm_cast_1.ogg",
+    "sfx/storm_cast_2.ogg"
+   ],
+   "volume": 0.7,
+   "pitch": 1.4,
+   "ref": 6
+  },
+  "storm_dissolve": {
+   "files": [
+    "sfx/storm_dissolve.ogg"
+   ],
+   "volume": 0.55,
+   "pitch": 1,
+   "ref": 5
+  },
+  "monk_kiai": {
+   "files": [
+    "sfx/monk_kiai_0.ogg",
+    "sfx/monk_kiai_1.ogg",
+    "sfx/monk_kiai_2.ogg",
+    "sfx/monk_kiai_3.ogg"
+   ],
+   "volume": 0.5,
+   "pitch": 1.2,
+   "ref": 6,
    "bus": "voice"
   },
-  "line:ithra_1dg9crg": {
+  "roar_storm": {
    "files": [
-    "voices/ithra_1dg9crg.ogg"
+    "sfx/roar_storm_0.ogg",
+    "sfx/roar_storm_1.ogg"
    ],
    "volume": 1.0,
-   "pitch": 0,
-   "bus": "voice"
-  },
-  "line:ithra_12h8niy": {
-   "files": [
-    "voices/ithra_12h8niy.ogg"
-   ],
-   "volume": 1.0,
-   "pitch": 0,
-   "bus": "voice"
-  },
-  "line:ithra_1zrii9": {
-   "files": [
-    "voices/ithra_1zrii9.ogg"
-   ],
-   "volume": 1.0,
-   "pitch": 0,
-   "bus": "voice"
-  },
-  "line:kael_3qdmdv": {
-   "files": [
-    "voices/kael_3qdmdv.ogg"
-   ],
-   "volume": 1.0,
-   "pitch": 0,
-   "bus": "voice"
-  },
-  "line:ithra_1310x8h": {
-   "files": [
-    "voices/ithra_1310x8h.ogg"
-   ],
-   "volume": 1.0,
-   "pitch": 0,
-   "bus": "voice"
-  },
-  "line:ignaroth_113z2yn": {
-   "files": [
-    "voices/ignaroth_113z2yn.ogg"
-   ],
-   "volume": 1.0,
-   "pitch": 0,
-   "bus": "voice"
-  },
-  "line:ignaroth_81vsw9": {
-   "files": [
-    "voices/ignaroth_81vsw9.ogg"
-   ],
-   "volume": 1.0,
-   "pitch": 0,
-   "bus": "voice"
-  },
-  "line:ignaroth_1g64oxz": {
-   "files": [
-    "voices/ignaroth_1g64oxz.ogg"
-   ],
-   "volume": 1.0,
-   "pitch": 0,
-   "bus": "voice"
-  },
-  "line:ignaroth_w0tilf": {
-   "files": [
-    "voices/ignaroth_w0tilf.ogg"
-   ],
-   "volume": 1.0,
-   "pitch": 0,
-   "bus": "voice"
-  },
-  "line:kael_62y3tc": {
-   "files": [
-    "voices/kael_62y3tc.ogg"
-   ],
-   "volume": 1.0,
-   "pitch": 0,
-   "bus": "voice"
-  },
-  "line:ithra_4epd5z": {
-   "files": [
-    "voices/ithra_4epd5z.ogg"
-   ],
-   "volume": 1.0,
-   "pitch": 0,
-   "bus": "voice"
-  },
-  "line:ithra_1efjgee": {
-   "files": [
-    "voices/ithra_1efjgee.ogg"
-   ],
-   "volume": 1.0,
-   "pitch": 0,
-   "bus": "voice"
-  },
-  "line:ithra_1drrpbx": {
-   "files": [
-    "voices/ithra_1drrpbx.ogg"
-   ],
-   "volume": 1.0,
-   "pitch": 0,
-   "bus": "voice"
-  },
-  "line:kael_1tsyfzz": {
-   "files": [
-    "voices/kael_1tsyfzz.ogg"
-   ],
-   "volume": 1.0,
-   "pitch": 0,
-   "bus": "voice"
-  },
-  "line:ithra_1b0chzz": {
-   "files": [
-    "voices/ithra_1b0chzz.ogg"
-   ],
-   "volume": 1.0,
-   "pitch": 0,
-   "bus": "voice"
-  },
-  "line:ignaroth_rvtaol": {
-   "files": [
-    "voices/ignaroth_rvtaol.ogg"
-   ],
-   "volume": 1.0,
-   "pitch": 0,
-   "bus": "voice"
-  },
-  "line:ignaroth_18ocx4m": {
-   "files": [
-    "voices/ignaroth_18ocx4m.ogg"
-   ],
-   "volume": 1.0,
-   "pitch": 0,
-   "bus": "voice"
-  },
-  "line:ithra_14zrdaw": {
-   "files": [
-    "voices/ithra_14zrdaw.ogg"
-   ],
-   "volume": 1.0,
-   "pitch": 0,
-   "bus": "voice"
-  },
-  "line:ithra_179lnri": {
-   "files": [
-    "voices/ithra_179lnri.ogg"
-   ],
-   "volume": 1.0,
-   "pitch": 0,
-   "bus": "voice"
-  },
-  "line:kael_1e34jc1": {
-   "files": [
-    "voices/kael_1e34jc1.ogg"
-   ],
-   "volume": 1.0,
-   "pitch": 0,
-   "bus": "voice"
-  },
-  "line:ithra_cmsvhc": {
-   "files": [
-    "voices/ithra_cmsvhc.ogg"
-   ],
-   "volume": 1.0,
-   "pitch": 0,
-   "bus": "voice"
-  },
-  "line:thaloryn_1935sjp": {
-   "files": [
-    "voices/thaloryn_1935sjp.ogg"
-   ],
-   "volume": 1.0,
-   "pitch": 0,
-   "bus": "voice"
-  },
-  "line:thaloryn_16suhkh": {
-   "files": [
-    "voices/thaloryn_16suhkh.ogg"
-   ],
-   "volume": 1.0,
-   "pitch": 0,
-   "bus": "voice"
-  },
-  "line:kael_1ybn6hc": {
-   "files": [
-    "voices/kael_1ybn6hc.ogg"
-   ],
-   "volume": 1.0,
-   "pitch": 0,
-   "bus": "voice"
-  },
-  "line:thaloryn_5wobcx": {
-   "files": [
-    "voices/thaloryn_5wobcx.ogg"
-   ],
-   "volume": 1.0,
-   "pitch": 0,
-   "bus": "voice"
-  },
-  "line:thaloryn_1lxa3w7": {
-   "files": [
-    "voices/thaloryn_1lxa3w7.ogg"
-   ],
-   "volume": 1.0,
-   "pitch": 0,
-   "bus": "voice"
-  },
-  "line:thaloryn_1qecje0": {
-   "files": [
-    "voices/thaloryn_1qecje0.ogg"
-   ],
-   "volume": 1.0,
-   "pitch": 0,
-   "bus": "voice"
-  },
-  "line:kael_3wl4uq": {
-   "files": [
-    "voices/kael_3wl4uq.ogg"
-   ],
-   "volume": 1.0,
-   "pitch": 0,
-   "bus": "voice"
-  },
-  "line:ithra_1rnq7hg": {
-   "files": [
-    "voices/ithra_1rnq7hg.ogg"
-   ],
-   "volume": 1.0,
-   "pitch": 0,
-   "bus": "voice"
-  },
-  "line:ithra_1xmjjl2": {
-   "files": [
-    "voices/ithra_1xmjjl2.ogg"
-   ],
-   "volume": 1.0,
-   "pitch": 0,
-   "bus": "voice"
-  },
-  "line:ithra_1w4zl9d": {
-   "files": [
-    "voices/ithra_1w4zl9d.ogg"
-   ],
-   "volume": 1.0,
-   "pitch": 0,
-   "bus": "voice"
-  },
-  "line:kael_17m4j49": {
-   "files": [
-    "voices/kael_17m4j49.ogg"
-   ],
-   "volume": 1.0,
-   "pitch": 0,
-   "bus": "voice"
-  },
-  "line:ithra_1nyqtp0": {
-   "files": [
-    "voices/ithra_1nyqtp0.ogg"
-   ],
-   "volume": 1.0,
-   "pitch": 0,
-   "bus": "voice"
-  },
-  "line:ithra_ri6u62": {
-   "files": [
-    "voices/ithra_ri6u62.ogg"
-   ],
-   "volume": 1.0,
-   "pitch": 0,
-   "bus": "voice"
-  },
-  "line:ithra_c4hw8e": {
-   "files": [
-    "voices/ithra_c4hw8e.ogg"
-   ],
-   "volume": 1.0,
-   "pitch": 0,
-   "bus": "voice"
-  },
-  "line:kael_u6tu4f": {
-   "files": [
-    "voices/kael_u6tu4f.ogg"
-   ],
-   "volume": 1.0,
-   "pitch": 0,
-   "bus": "voice"
-  },
-  "line:ithra_rmmi35": {
-   "files": [
-    "voices/ithra_rmmi35.ogg"
-   ],
-   "volume": 1.0,
-   "pitch": 0,
-   "bus": "voice"
-  },
-  "line:ithra_n9mcnb": {
-   "files": [
-    "voices/ithra_n9mcnb.ogg"
-   ],
-   "volume": 1.0,
-   "pitch": 0,
-   "bus": "voice"
-  },
-  "line:thaloryn_jo5rgg": {
-   "files": [
-    "voices/thaloryn_jo5rgg.ogg"
-   ],
-   "volume": 1.0,
-   "pitch": 0,
-   "bus": "voice"
-  },
-  "line:thaloryn_1k52v8s": {
-   "files": [
-    "voices/thaloryn_1k52v8s.ogg"
-   ],
-   "volume": 1.0,
-   "pitch": 0,
+   "pitch": 0.5,
+   "ref": 20,
    "bus": "voice"
   }
  },
@@ -782,6 +1050,24 @@
     "boss_choir": "music/thaloryn_choir.ogg"
    },
    "bpm": 84,
+   "bars": 32
+  },
+  "sky": {
+   "stems": {
+    "explore_pad": "music/sky_explore_pad.ogg",
+    "explore_theme": "music/sky_explore_theme.ogg",
+    "combat_drums": "music/sky_combat_drums.ogg",
+    "combat_brass": "music/sky_combat_brass.ogg"
+   },
+   "bpm": 76,
+   "bars": 24
+  },
+  "vaeltris": {
+   "stems": {
+    "boss_orch": "music/vaeltris_orch.ogg",
+    "boss_choir": "music/vaeltris_choir.ogg"
+   },
+   "bpm": 120,
    "bars": 32
   }
  }

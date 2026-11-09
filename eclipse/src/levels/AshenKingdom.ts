@@ -114,7 +114,7 @@ export class AshenKingdom extends Level {
     this.embers = g.vfx.attach('emberDrift', new Vector3(0, 2, 0));
     const fire = (x: number, y: number, z: number, big = 1) => {
       const at = new Vector3(x, this.height(x, z) + y, z);
-      this.fires.push(g.vfx.attach(big > 1.5 ? 'bonfire' : 'fireTrail', at, big));
+      this.fires.push(g.vfx.attach(big > 1.5 ? 'bonfire' : 'brazier', at, big));
       const l = g.lights.add(at.add(new Vector3(0, 0.6, 0)), { color: [1, 0.48, 0.16], intensity: 30 * big, range: 7 + 4 * big, flicker: 0.6, speed: 1 });
       if (l) this.lamps.push(l);
       this.loops.push(g.audio.loop('fire_loop', at, Math.min(1, 0.5 + 0.25 * big)));
@@ -309,9 +309,11 @@ export class AshenKingdom extends Level {
       look: {
         fog: { color: new Color3(0.42, 0.28, 0.2), density: 0.0016, heightFalloff: 0.06, sunScatter: 0.7, skyAmount: 0.3, volumeDensity: 0.007,
           volumeColor: new Color3(0.5, 0.4, 0.35), volumeHeight: 6, maxDistance: 80, shaftDensity: 0.0025 },
+        // the ground is properly lit now: hold exposure down so fires and lava carry the frame
+        exposure: { compensation: -0.45 },
         grade: {
           temperature: 0.25, tint: 0.05, slope: [1.04, 0.98, 0.92], offset: [0.004, 0, -0.004], power: [1, 1, 1.04],
-          contrast: 1.12, saturation: 0.9, shadowSaturation: 0.8, highlightSaturation: 1.05,
+          contrast: 1.18, saturation: 0.96, shadowSaturation: 0.85, highlightSaturation: 1.08,
           shadowTint: [0.02, 0.0, -0.01], highlightTint: [0.04, 0.015, -0.02], splitBalance: 0.45, gain: 1,
         },
       },

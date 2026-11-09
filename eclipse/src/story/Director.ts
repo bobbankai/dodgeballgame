@@ -28,6 +28,7 @@ export const SPEAKERS: Record<string, Speaker> = {
   ithra: { name: 'Ithra' },
   ignaroth: { name: 'Ignaroth', size: 'large' },
   thaloryn: { name: 'Thaloryn', size: 'large' },
+  vaeltris: { name: 'Vaeltris', size: 'large' },
   mira: { name: 'Mira' },
   brannoc: { name: 'Brannoc' },
 };
@@ -146,8 +147,10 @@ export class Director {
   }
 
   /** Circles a point (angles in radians round Y, starting from +Z). */
-  orbit(center: Vector3, radius: number, height: number, a0: number, a1: number, seconds: number, ease = easeInOut): Promise<void> {
-    const at = (a: number): Shot => ({ pos: center.add(new Vector3(Math.sin(a) * radius, height, Math.cos(a) * radius)), target: center });
+  /** Circles `center` at `radius` and `height`, looking at the point `look` metres above it. */
+  orbit(center: Vector3, radius: number, height: number, a0: number, a1: number, seconds: number, ease = easeInOut, look = 0): Promise<void> {
+    const target = center.add(new Vector3(0, look, 0));
+    const at = (a: number): Shot => ({ pos: center.add(new Vector3(Math.sin(a) * radius, height, Math.cos(a) * radius)), target });
     return this.rail(at(a0), at(a1), seconds, ease);
   }
 

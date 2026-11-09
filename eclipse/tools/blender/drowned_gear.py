@@ -93,8 +93,10 @@ def reaver(R, B, info):
     pieces.append(Piece('galea', galea, (hc - np.array([0.2, 0.22, 0.22]), hc + np.array([0.2, 0.22, 0.26])),
                         lambda p: mat_ids(p, 'verdigris', [(lambda q: q[:, 2] > hc[2] + 0.11, 'kelp'), (lambda q: sdf.fbm(q, 10, 3, 307) > 0.7, 'barnacle')]),
                         skin={'bone': 'head'}, voxel=0.0022, budget=3000))
-    eye_f = lambda p: np.minimum(sdf.sphere(L['eye_l'] + np.array([0, -0.01, 0]), 0.014)(p), sdf.sphere(L['eye_r'] + np.array([0, -0.01, 0]), 0.014)(p))  # noqa: E731
-    pieces.append(Piece('eyes', eye_f, (eyes - 0.08, eyes + 0.08), 'seaglow', skin={'bone': 'head'}, voxel=0.0015, budget=300))
+    # the eyes sit forward so they glow through the mask's eye-holes
+    eye_f = lambda p: np.minimum(sdf.ellipsoid(L['eye_l'] + np.array([0, -0.021, 0.001]), (0.012, 0.012, 0.006))(p),  # noqa: E731
+                                 sdf.ellipsoid(L['eye_r'] + np.array([0, -0.021, 0.001]), (0.012, 0.012, 0.006))(p))
+    pieces.append(Piece('eyes', eye_f, (eyes - 0.08, eyes + 0.08), 'seaglow', skin={'bone': 'head'}, voxel=0.0012, budget=400))
     face = lambda p: np.maximum(np.abs(B(p) - 0.006) - 0.002, np.maximum((neck[2] + 0.02) - p[:, 2], p[:, 2] - (eyes[2] + 0.04)))  # noqa: E731
     pieces.append(Piece('face', face, (skull - np.array([0.13, 0.16, 0.2]), skull + np.array([0.13, 0.16, 0.1])),
                         lambda p: mat_ids(p, 'kelp', [(lambda q: sdf.fbm(q, 12, 2, 308) > 0.6, 'barnacle')]), skin='transfer', voxel=0.0022, budget=2200))
@@ -114,7 +116,8 @@ def reaver(R, B, info):
     def mask_mats(p):
         tears = np.zeros(len(p), bool)
         for e in (L['eye_l'], L['eye_r']):
-            tears |= (np.abs(p[:, 0] - e[0]) < 0.006 + 0.004 * sdf.fbm(p, 30, 2, 309)) & (p[:, 2] < e[2]) & (p[:, 2] > e[2] - 0.07)
+            wob = 0.003 * np.sin(p[:, 2] * 180 + e[0] * 50)
+            tears |= (np.abs(p[:, 0] - e[0] - wob) < 0.0018 + 0.0018 * sdf.fbm(p, 40, 2, 309)) & (p[:, 2] < e[2] - 0.006) & (p[:, 2] > e[2] - 0.055 - 0.015 * sdf.fbm(p, 9, 2, 313))
         return mat_ids(p, 'bronze', [(lambda q: (sdf.fbm(q, 14, 3, 310) > 0.58) | tears, 'verdigris'),
                                      (lambda q: sdf.fbm(q, 16, 2, 311) > 0.74, 'barnacle')])
 

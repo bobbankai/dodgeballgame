@@ -9,6 +9,7 @@ import { presetGraphics, type QualityPreset } from '../core/Settings';
 const CHAPTERS: { id: string; name: string; sub: string }[] = [
   { id: 'ashen', name: 'The Ashen Kingdom', sub: 'Chapter One' },
   { id: 'drowned', name: 'The Drowned Empire', sub: 'Chapter Two' },
+  { id: 'sky', name: 'The Shattered Sky', sub: 'Chapter Three' },
 ];
 
 const CREDITS = `ECLIPSE: FALLEN GODS

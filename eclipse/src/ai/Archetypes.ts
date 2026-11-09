@@ -44,7 +44,7 @@ export interface EnemyAttack {
   /** Projectile spawned at the clip's `release` event. */
   projectile?: string;
   /** Spell that erupts under the target at `release` (after a telegraph). */
-  eruption?: { radius: number; delay: number; vfx: string };
+  eruption?: { radius: number; delay: number; vfx: string; color?: [number, number, number, number]; scorch?: boolean; zone?: number };
   hit?: HitShape;
   /** Super armour through the swing (light hits do not interrupt). */
   armour?: boolean;
@@ -184,6 +184,42 @@ Object.assign(ARCHETYPES, {
       { id: 'surge', clip: 'cast_arc', damage: 12, poise: 30, weight: 0.4, knockback: 3, element: 'water', range: [0, 2.4], cooldown: 5, score: 1.2, parryable: false, track: 8, trackTime: 0.3, impact: { radius: 2.8, ahead: 0.5, vfx: 'splash' }, hit: { kind: 'none' } },
     ],
     resist: { water: 0.2, lightning: 1.6 },
+  },
+} satisfies Record<string, EnemyArchetype>);
+
+const GLAIVE: HitShape = { kind: 'weapon' };
+/** The storm-touched burn out into motes of lightning. */
+const STORMLIT = { vfx: 'deathStorm', color: [0.7, 0.65, 1.0] as [number, number, number], sound: 'storm_dissolve' };
+const STRIKE = { radius: 1.6, delay: 1.0, vfx: 'lightningStrike', color: [0.65, 0.6, 1, 4] as [number, number, number, number], scorch: false, zone: 0 };
+
+/** Chapter Three, the Shattered Sky: Vaeltris's storm-bound monks and their wardens. */
+Object.assign(ARCHETYPES, {
+  monk: {
+    id: 'monk', name: 'Stormbound Monk', model: 'monk', weapon: 'storm_glaive', scale: 1,
+    health: 130, poise: 34, stamina: 110, radius: 0.36, height: 1.85,
+    walk: 1.6, run: 5.0, strafe: 2.2, sight: 22, fov: 2.4, hearing: 12,
+    aggression: 0.75, block: 0.1, dodge: 0.38, holdRange: 3.6, heavy: false, executable: true,
+    xp: 55, aether: 10, voice: 'monk_kiai', death: STORMLIT,
+    attacks: [
+      { id: 'cut', clip: 'light_1', speed: 1.15, damage: 18, poise: 14, weight: 0.32, knockback: 0.5, element: 'lightning', range: [0, 2.8], cooldown: 1.2, score: 1, parryable: true, track: 9, trackTime: 0.25, next: ['cut2'], chain: 0.6, hit: GLAIVE, tell: 'glint', status: { shock: 18 } },
+      { id: 'cut2', clip: 'light_2', speed: 1.2, damage: 18, poise: 14, weight: 0.32, knockback: 0.5, element: 'lightning', range: [0, 3.0], cooldown: 1.4, score: 0, parryable: true, track: 7, trackTime: 0.2, next: ['spin'], chain: 0.45, hit: GLAIVE, status: { shock: 18 } },
+      { id: 'spin', clip: 'light_3', speed: 1.1, damage: 24, poise: 22, weight: 0.45, knockback: 1.2, element: 'lightning', range: [0, 3.2], cooldown: 3, score: 0, parryable: false, track: 4, trackTime: 0.2, hit: GLAIVE, tell: 'red', status: { shock: 30 } },
+      { id: 'vault', clip: 'sprint_attack', speed: 1.05, damage: 26, poise: 26, weight: 0.5, knockback: 1.0, element: 'lightning', range: [3, 8], cooldown: 4, score: 0.9, parryable: true, track: 7, trackTime: 0.35, lunge: 1.3, hit: GLAIVE, tell: 'glint', status: { shock: 25 } },
+    ],
+    resist: { lightning: 0.3, water: 1.3, fire: 1.0 },
+  },
+  warden: {
+    id: 'warden', name: 'Tempest Warden', model: 'warden', scale: 1.05,
+    health: 115, poise: 26, stamina: 60, radius: 0.36, height: 1.95,
+    walk: 1.3, run: 3.8, strafe: 1.5, sight: 28, fov: 2.4, hearing: 12,
+    aggression: 0.5, block: 0, dodge: 0.2, holdRange: 12, heavy: false, executable: true, ranged: true,
+    xp: 50, aether: 12, voice: 'monk_kiai', death: STORMLIT,
+    attacks: [
+      { id: 'bolt', clip: 'cast_push', damage: 22, poise: 16, weight: 0.35, knockback: 0.6, element: 'lightning', range: [3, 22], cooldown: 2.2, score: 1, parryable: false, track: 8, trackTime: 0.45, projectile: 'stormBolt', hit: { kind: 'none' }, status: { shock: 30 } },
+      { id: 'strike', clip: 'cast_slam', damage: 30, poise: 30, weight: 0.5, knockback: 1.2, element: 'lightning', range: [4, 20], cooldown: 5.5, score: 1.2, parryable: false, unblockable: true, track: 3, trackTime: 0.3, eruption: STRIKE, hit: { kind: 'none' }, tell: 'red', status: { shock: 45 } },
+      { id: 'ward', clip: 'cast_heal', damage: 0, poise: 0, weight: 0, knockback: 0, range: [0, 30], cooldown: 10, score: 1.1, parryable: false, track: 2, trackTime: 0.2, hit: { kind: 'none' }, ward: { amount: 80, range: 14 } },
+    ],
+    resist: { lightning: 0.2, water: 1.4 },
   },
 } satisfies Record<string, EnemyArchetype>);
 

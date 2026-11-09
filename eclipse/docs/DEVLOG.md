@@ -18,6 +18,55 @@ WebGL 2 screenshots, or tests), not just compiled.
 
 ## Log
 
+### Session 4 — Chapter Two: the Drowned Empire; two rendering bugs found and fixed
+
+Built:
+- **Level `drowned`** (`levels/Drowned.ts`, `?level=drowned[&at=forum|temple|arena]`): Vael Maris
+  under knee-deep water in the rain. Harbour quay and triumphal arch → flooded Forum (colonnades,
+  the Emperor's statue on a dry island, apartment blocks) → the aqueduct pouring from its broken
+  ends → the canal bridge with stairs → the Temple of Tides (enterable cella with a lore beat) → the
+  causeway → the flooded amphitheatre (eleven seating wedges, open to the south). Drowned kit:
+  18 pieces (`tools/blender/drowned_kit.py`). One water plane to the horizon over a seabed so far
+  water has depth for fog; invisible quay walls along the canal; falling into deep water washes
+  Kael back to the last firm ground (fade, 8 % damage).
+- **Enemies**: Drowned Reaver (spear; now a bronze cavalry face-mask with sea-glow eyes) and
+  Tidecaller (water orbs, wards, surge). Per-archetype voices and deaths (brine and sea-glow
+  instead of ash). **Thaloryn** (trident, scale 2.4, 3200 HP): thrust, sweep, two-hit combo, tidal
+  wave, whirlpools that pull, submerge-and-geyser, twin crossing waves, summons; element-coloured
+  phase blasts. Waves are now a curling crest mesh with a foam lip.
+- **Wading**: speed −30 % at waist depth, water footsteps with droplets and a ripple ring; the
+  camera rides above the surface. Surface layers know the water level (soaked, glossless,
+  puddle-free below it).
+- **Audio**: synthesized water set (wading, splash, geyser, wave roll, whirlpool, water cast,
+  brine dissolve, rain / lapping / waterfall loops), drowned groans, Thaloryn's roar; score
+  `drowned` (E dorian/aeolian, rolling triplets; four stems) and `thaloryn` (E phrygian, two stems).
+- **Story**: `story/chapter2.ts` (opening flight over the city, forum / aqueduct / bridge /
+  temple / arena beats, Thaloryn's rise, phase lines, his death — he knows Ithra). 24 new recorded
+  lines; Thaloryn's voice is pitched down with a slow flanger in a drowned hall.
+- **Chapter flow**: `Flow.chapterComplete()` loads the next chapter after the god's death scene;
+  chapter select lists Chapter Two.
+
+Fixed (both affected Chapter One too):
+- Every environment-kit piece was being drawn **alpha-blended**: the baked AO travels in an RGBA
+  colour attribute, so Babylon flagged the meshes `hasVertexAlpha`. They never reached the depth
+  texture, so fog, SSAO and SSR treated buildings as sky (washed-out, see-through silhouettes;
+  statues against the sky vanished). Assets never use vertex alpha now (`AssetManager`, `EnvKit`).
+- **Terrain normals pointed down** (computed from a winding flipped in session 3), so the ground
+  was lit from below and near-black. Normals now come from the heightfield.
+- `sfx.py` wiped the recorded voice lines from the audio manifest; it keeps them now, and
+  `record.py` re-registers lines it skips.
+- Smoke particles faded in from full opacity (pops); every smoke layer now fades in.
+
+Verified (headless WebGPU, 960×540 / 1280×720): the level loads (navmesh 246k tris), every area
+renders, encounters spawn, the Thaloryn fight starts (banner, bar, attacks land, soak status),
+tidal and twin waves and whirlpools play; Chapter One re-checked after the fixes.
+
+Not done yet / honest gaps:
+- Thaloryn's intro and death cinematics, the full fight to the end and the Ashen → Drowned
+  transition have not been played through headless yet.
+- Enemies are not slowed by water; no swimming (deep water is a wash-back by design).
+- Chapters III–V, the camp interlude, the ending.
+
 ### Sessions 2–3 — shaders, Kael, combat, enemies, Ignaroth, Varn Keld (in progress)
 
 Built:

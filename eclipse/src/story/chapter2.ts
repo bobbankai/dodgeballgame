@@ -87,8 +87,8 @@ export async function bossIntro(d: Director, g: Game, boss: Boss): Promise<void>
   g.rig.shake(0.5);
   for (let k = 0; k < 4; k++) g.hazards.after(k * 0.5, () => g.vfx.burst('splash', b.add(new Vector3(Math.sin(k * 2.3) * 3, 0, Math.cos(k * 2.3) * 3)), Vector3.Up(), 2));
   // he rises: the camera low by the water, looking up
-  void d.rail({ pos: b.add(new Vector3(7, 1.0, -12)), target: b.add(new Vector3(0, 3, 0)), fov: 0.75 },
-    { pos: b.add(new Vector3(5, 0.8, -9)), target: b.add(new Vector3(0, 5, 0)), fov: 0.65 }, 5, easeInOut);
+  void d.rail({ pos: b.add(new Vector3(8, 1.6, -15)), target: b.add(new Vector3(0, 2.4, 0)), fov: 0.8 },
+    { pos: b.add(new Vector3(6, 1.4, -12)), target: b.add(new Vector3(0, 3.6, 0)), fov: 0.8 }, 5, easeInOut);
   const rise = { t: 0 };
   const lift = (): void => {
     rise.t += 1 / 60;
@@ -101,7 +101,7 @@ export async function bossIntro(d: Director, g: Game, boss: Boss): Promise<void>
   g.audio.play('roar_tide', { at: b, volume: 0.6 });
   await d.wait(1.2);
   await d.say('thaloryn', 'Another Vessel, wading into my city. The last one drowned on the steps outside.');
-  void d.orbit(b, 13, 4, Math.PI * 1.2, Math.PI * 0.82, 6, easeInOut);
+  void d.orbit(b, 14, 2.6, Math.PI * 1.2, Math.PI * 0.82, 6, easeInOut, 3.4);
   await d.say('thaloryn', 'Turn back, little knight. You carry the thing that ended us, and you cannot even feel its weight.');
   await d.say('kael', 'Then tell me what it is.');
   await d.say('thaloryn', 'Ask your lantern.');

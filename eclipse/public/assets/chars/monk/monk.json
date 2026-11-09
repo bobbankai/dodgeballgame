@@ -1,0 +1,17 @@
+{
+ "name": "Stormbound Monk",
+ "height": 1.7262643575668335,
+ "parts": {
+  "monk_gear": {
+   "kind": "gear",
+   "tex": "gear",
+   "emissive": 2.6,
+   "twoSided": true
+  }
+ },
+ "sockets": {
+  "weapon_r": "weapon_r",
+  "weapon_l": "weapon_l"
+ },
+ "morphs": []
+}

@@ -493,6 +493,77 @@ def drowned_voices():
         write(f'roar_tide_{i}', norm(fade(reverb(x, 2.4, 0.35, 0.4))), volume=1.0, pitch=0.5, ref=20, bus='voice')
 
 
+# ============================================================================== storm (Chapter Three)
+def storm():
+    # thunder close by: a ripping crack, then the rolling boom in a long tail
+    for i in range(3):
+        d = 5.0
+        t = t_axis(d)
+        crack = bp(noise(d), 1500, 12000) * np.exp(-t * 30) * 1.2
+        rip = bp(noise(d), 300, 4000) * np.clip(t / 0.02, 0, 1) * np.exp(-t * 6)
+        roll_env = np.exp(-np.clip(t - 0.15, 0, None) * 0.9) * np.clip(t / 0.12, 0, 1)
+        roll = lp(brown(d), 160) * (0.6 + 0.4 * lp(rng.standard_normal(len(t)), 2.5) * 25) * roll_env
+        x = 0.9 * crack + 0.7 * rip + 1.4 * roll
+        write(f'thunder_{i}', norm(fade(reverb(x, 2.6, 0.35, 0.3), 0.001, 0.4)), volume=1.0, pitch=1.5, ref=60, bus='ambience')
+    # thunder far off: only the low roll survives the distance
+    for i in range(3):
+        d = 6.0
+        t = t_axis(d)
+        swell = np.clip(t / rng.uniform(0.4, 0.9), 0, 1) ** 1.5 * np.exp(-np.clip(t - 1.0, 0, None) * 0.7)
+        roll = lp(brown(d), 110) * (0.55 + 0.45 * lp(rng.standard_normal(len(t)), 1.8) * 25) * swell
+        write(f'thunder_far_{i}', norm(fade(reverb(roll, 3.0, 0.4, 0.2), 0.05, 0.6), 0.7), volume=0.8, pitch=2, ref=200, bus='ambience')
+    # the strike itself where it lands: a hard electric snap with a fizzing tail
+    for i in range(3):
+        d = 1.2
+        t = t_axis(d)
+        snap = noise(d) * np.exp(-t * 60) + 0.6 * bp(noise(d), 2000, 14000) * np.exp(-t * 9)
+        buzz = np.sign(np.sin(2 * np.pi * rng.uniform(90, 140) * t)) * np.exp(-t * 7) * 0.15
+        write(f'lightning_crack_{i}', norm(fade(snap + buzz)), volume=1.0, pitch=1.5, ref=12)
+    for i in range(3):
+        d = 0.45
+        t = t_axis(d)
+        x = bp(noise(d), 2500, 12000) * np.exp(-t * 14) * (0.6 + 0.4 * (rng.random(len(t)) > 0.92))
+        x += np.sign(np.sin(2 * np.pi * 120 * t)) * np.exp(-t * 20) * 0.1
+        write(f'shock_{i}', norm(fade(x)), volume=0.7, pitch=2, ref=5)
+    # a gust: a whoosh of air driven past
+    for i in range(3):
+        d = 1.6
+        x = band_sweep(d, 250, 1200, 0.8, 0.6) * env(d, 0.35, 3) + 0.4 * lp(brown(d), 300) * env(d, 0.3, 3)
+        write(f'gust_{i}', norm(fade(x)), volume=0.8, pitch=1, ref=8)
+    # storm magic gathering: a rising crackle and hum
+    for i in range(3):
+        d = 1.0
+        t = t_axis(d)
+        hum = np.sin(2 * np.pi * (110 + 80 * t) * t) * np.clip(t / 0.6, 0, 1) * 0.3
+        crackle = bp(noise(d), 3000, 12000) * (rng.random(len(t)) > 0.985) * 3 * np.clip(t / 0.5, 0, 1)
+        write(f'storm_cast_{i}', norm(fade(reverb(hum + lp(crackle, 9000), 0.6, 0.2, 0.8))), volume=0.7, pitch=1.4, ref=6)
+    d = 1.8
+    t = t_axis(d)
+    x = bp(noise(d), 3000, 12000) * (rng.random(len(t)) > 0.97) * 2 * np.exp(-t * 1.5) + 0.3 * hp(noise(d), 5000) * env(d, 0.05, 4)
+    write('storm_dissolve', norm(fade(lp(x, 11000))), volume=0.55, pitch=1, ref=5)
+
+
+def storm_voices():
+    # the monks' kiai: a short sharp shout
+    for i in range(4):
+        d = 0.38
+        src = glottal(d, lambda t: 170 - 60 * t / 0.38 + 10 * i, jitter=0.02)
+        v = formants(src, [750, 1200, 2600], [130, 180, 300], [1, 0.7, 0.3]) + 0.25 * bp(noise(d), 700, 4000)
+        write(f'monk_kiai_{i}', norm(fade(np.tanh(1.8 * v) * env(d, 0.012, 6))), volume=0.5, pitch=1.2, ref=6, bus='voice')
+    # Vaeltris: a vast cry, half a hawk's scream, half a choir, torn by wind
+    for i in range(2):
+        d = 2.8
+        t = t_axis(d)
+        f = lambda t: 300 + 260 * np.sin(np.pi * np.clip(t / 1.4, 0, 1)) - 120 * np.clip((t - 1.4) / 1.2, 0, 1) + 20 * i  # noqa: E731
+        src = glottal(d, f, jitter=0.03, shimmer=0.25)
+        v = formants(src, [800, 1400, 2900, 3800], [120, 160, 260, 400], [1, 0.8, 0.5, 0.3])
+        v /= np.abs(v).max() + 1e-9
+        choir = sum(np.sin(2 * np.pi * f0 * t) for f0 in (220, 277, 330)) * 0.12 * env(d, 0.4, 3, hold=1.0)
+        wind = band_sweep(d, 400, 2000, 0.9, 0.5) * 0.4 * env(d, 0.3, 3)
+        x = np.tanh(1.3 * v) * env(d, 0.15, 5, hold=1.0) + choir + wind
+        write(f'roar_storm_{i}', norm(fade(reverb(x, 2.6, 0.4, 0.7))), volume=1.0, pitch=0.5, ref=20, bus='voice')
+
+
 swings()
 impacts()
 movement()
@@ -501,6 +572,8 @@ voices()
 ui()
 water()
 drowned_voices()
+storm()
+storm_voices()
 man_path = os.path.join(ROOT, 'manifest.json')
 man = json.load(open(man_path)) if os.path.exists(man_path) else {'sounds': {}, 'music': {}}
 # keep the recorded voice lines (tools/voices/record.py registers them in the same table)

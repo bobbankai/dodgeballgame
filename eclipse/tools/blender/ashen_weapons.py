@@ -213,7 +213,57 @@ def trident():
     return polearm('trident', 2.4, 0.8, head, extra, budget=5000)
 
 
-BUILDERS = {'ashblade': ashblade, 'cinder_greatsword': cinder_greatsword, 'cinderfall': cinderfall, 'reaver_spear': reaver_spear, 'trident': trident}
+def storm_glaive():
+    """The Stormbound monks' glaive: a long curved blade on an ash shaft, copper-bound, a storm sigil."""
+    def head(p, top):
+        z = p[:, 2] - top
+        t = np.clip(z / 0.62, 0, 1)
+        # the edge sweeps forward (+x) as it rises; the back is straight with a hooked spur
+        spine = 0.02 + 0.07 * np.sin(np.pi * np.clip(t * 0.95, 0, 1)) ** 0.8
+        cx = 0.03 * t ** 2
+        blade = np.maximum(np.maximum(p[:, 0] - (cx + spine), -(p[:, 0] - cx + 0.02)),
+                           np.maximum(np.abs(p[:, 1]) - (0.007 * (1 - t) + 0.0015), np.maximum(-z, z - 0.64)))
+        spur = sdf.capsule((-0.015, 0, top + 0.1), (-0.075, 0, top + 0.17), 0.012, 0.003)(p)
+        collar = sdf.cylinder((0, 0, top - 0.09), (0, 0, top + 0.03), 0.032)(p)
+        return np.minimum(np.minimum(blade, spur), collar)
+
+    def extra(p, m, top):
+        z = p[:, 2]
+        m[z > top - 0.02] = MAT_INDEX['steel']
+        m[(z > top - 0.09) & (z < top + 0.035)] = MAT_INDEX['copper']
+        m[(z < 0.5) & (z > 0.42)] = MAT_INDEX['copper']
+        sig = (np.abs(p[:, 0] - 0.04) < 0.005) & (z > top + 0.12) & (z < top + 0.36)
+        m[sig] = MAT_INDEX['stormglow']
+    return polearm('storm_glaive', 2.0, 0.7, head, extra, budget=4500)
+
+
+def storm_spear():
+    """Vaeltris's spear: a long leaf blade between two swept copper wings, a lightning channel down it."""
+    def head(p, top):
+        z = p[:, 2] - top
+        t = np.clip(z / 0.7, 0, 1)
+        half = 0.06 * np.sin(np.pi * np.clip(t * 1.05, 0, 1)) ** 0.6 + 0.003
+        blade = np.maximum(np.maximum(np.abs(p[:, 0]) - half, np.abs(p[:, 1]) - 0.008 * (1 - t) - 0.002), np.maximum(-z, z - 0.72))
+        wings = np.full(len(p), 1.0)
+        for sx in (-1, 1):
+            a = np.array([0.0, 0.0, top + 0.02])
+            b = np.array([sx * 0.2, 0.0, top + 0.16])
+            c = np.array([sx * 0.26, 0.0, top + 0.3])
+            wings = np.minimum(wings, np.maximum(np.minimum(sdf.capsule(a, b, 0.02, 0.012)(p), sdf.capsule(b, c, 0.012, 0.003)(p)), np.abs(p[:, 1]) - 0.008))
+        collar = sdf.cylinder((0, 0, top - 0.1), (0, 0, top + 0.04), 0.034)(p)
+        return np.minimum(np.minimum(blade, wings), collar)
+
+    def extra(p, m, top):
+        z = p[:, 2]
+        m[z > top - 0.02] = MAT_INDEX['steel']
+        m[(np.abs(p[:, 0]) > 0.07) & (z > top)] = MAT_INDEX['copper']
+        m[(z > top - 0.1) & (z < top + 0.045)] = MAT_INDEX['gold']
+        m[(np.abs(p[:, 0]) < 0.006) & (z > top + 0.08) & (z < top + 0.62)] = MAT_INDEX['stormglow']
+    return polearm('storm_spear', 2.6, 0.85, head, extra, budget=5000)
+
+
+BUILDERS = {'ashblade': ashblade, 'cinder_greatsword': cinder_greatsword, 'cinderfall': cinderfall, 'reaver_spear': reaver_spear, 'trident': trident,
+            'storm_glaive': storm_glaive, 'storm_spear': storm_spear}
 
 
 def build(name, res=1024):

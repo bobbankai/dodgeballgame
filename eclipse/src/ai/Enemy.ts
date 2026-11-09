@@ -720,7 +720,7 @@ export class Enemy implements Combatant, Tactical {
     const at = t.position.clone();
     if (lead) at.addInPlace(lead.scale(e.delay * 0.5));
     if (this.ctx.nav) this.ctx.nav.closest(at, at);
-    this.ctx.hazards.eruption(at, e.radius, e.delay, e.vfx, this, this.team, (v) => this.makeDamage(a, v, v.position), { zone: 3 });
+    this.ctx.hazards.eruption(at, e.radius, e.delay, e.vfx, this, this.team, (v) => this.makeDamage(a, v, v.position), { zone: e.zone ?? 3, color: e.color, scorch: e.scorch });
   }
 
   // ------------------------------------------------------------------ defence

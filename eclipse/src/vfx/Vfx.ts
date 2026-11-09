@@ -204,6 +204,71 @@ export const PRESETS: Record<string, Preset> = {
       { tex: 'soft', add: true, count: 0, rate: 40, capacity: 110, life: [1, 2], size: [0.02, 0.05], power: [0.3, 1], shape: 'box', extent: 0.3, height: 1.7, gravity: 1.2, drag: 0.6, color: [0.4, 1.8, 2.4, 1], dead: [0.05, 0.25, 0.35, 0] },
     ],
   },
+  // a fire in a bowl or brazier: licking tongues, a few sparks, a thread of smoke
+  brazier: {
+    layers: [
+      { tex: 'flame', add: true, count: 0, rate: 34, capacity: 60, life: [0.35, 0.7], size: [0.22, 0.42], grow: [[0, 0.5], [0.35, 1], [1, 0.25]], power: [0.6, 1.4], shape: 'up', extent: 0.16, height: 0.05, gravity: 1.2, drag: 1, color: [2.6, 1.15, 0.32, 0.9], color2: [2.2, 0.75, 0.15, 0.85], dead: [0.3, 0.04, 0, 0], spin: 1.5 },
+      { tex: 'soft', add: true, count: 0, rate: 6, capacity: 24, life: [0.8, 1.8], size: [0.012, 0.03], power: [1, 2.5], shape: 'up', extent: 0.15, gravity: 0.5, drag: 0.4, color: [3.2, 1.2, 0.3, 1], dead: [0.6, 0.06, 0, 0] },
+      { tex: 'smoke', add: false, count: 0, rate: 3, capacity: 20, life: [2.5, 4], size: [0.3, 0.6], grow: [[0, 0.5], [1, 2.5]], power: [0.8, 1.4], shape: 'up', extent: 0.1, height: 0.6, gravity: 0.3, drag: 0.4, color: [0.1, 0.09, 0.085, 0.3], dead: [0.15, 0.14, 0.13, 0], spin: 0.3 },
+    ],
+  },
+  // the storm-touched burn out: violet-white motes climbing, a few crackling sparks
+  deathStorm: {
+    layers: [
+      { tex: 'soft', add: true, count: 0, rate: 60, capacity: 140, life: [0.8, 1.8], size: [0.02, 0.06], power: [0.4, 1.4], shape: 'box', extent: 0.3, height: 1.7, gravity: 1.6, drag: 0.6, color: [1.6, 1.5, 3.2, 1], dead: [0.15, 0.1, 0.4, 0] },
+      { tex: 'spark', add: true, count: 0, rate: 14, capacity: 40, life: [0.08, 0.2], size: [0.03, 0.06], power: [2, 5], shape: 'burst', extent: 0.3, height: 1.6, gravity: 0, drag: 2, color: [3, 3, 5, 1], dead: [0.5, 0.4, 1, 0], stretched: true },
+      { tex: 'smoke', add: false, count: 0, rate: 10, capacity: 40, life: [1, 2], size: [0.3, 0.6], grow: [[0, 0.6], [1, 2]], power: [0.1, 0.4], shape: 'box', extent: 0.35, height: 1.6, gravity: 0.6, drag: 1, color: [0.45, 0.45, 0.55, 0.25], dead: [0.5, 0.5, 0.6, 0], spin: 0.4 },
+    ],
+  },
+  // a lightning strike's ground burst: a blinding flash, sparks thrown out low, a ring of light
+  lightningStrike: {
+    layers: [
+      { tex: 'soft', add: true, count: 2, life: [0.12, 0.18], size: [3.5, 4.5], power: [0, 0], shape: 'box', color: [6, 6, 10, 1], dead: [0.5, 0.4, 1.2, 0] },
+      { tex: 'spark', add: true, count: 60, life: [0.15, 0.5], size: [0.03, 0.07], power: [6, 16], shape: 'ring', gravity: -9.8, drag: 1.2, color: [4, 4, 7, 1], dead: [0.6, 0.4, 1.5, 0], stretched: true },
+      { tex: 'ring', add: true, count: 1, life: [0.4, 0.4], size: [1, 1], grow: [[0, 0.3], [1, 4.5]], power: [0, 0], shape: 'box', color: [1.6, 1.5, 3.4, 1], dead: [0.1, 0.1, 0.4, 0] },
+      { tex: 'smoke', add: false, count: 10, life: [1, 2], size: [0.8, 1.6], grow: [[0, 0.5], [1, 2.2]], power: [1, 3], shape: 'up', extent: 0.8, gravity: 0.5, drag: 1.5, color: [0.35, 0.35, 0.42, 0.4], dead: [0.4, 0.4, 0.45, 0], spin: 0.4 },
+    ],
+    light: { color: [0.75, 0.75, 1], intensity: 140, range: 22, time: 0.25 },
+  },
+  shockBurst: {
+    layers: [
+      { tex: 'spark', add: true, count: 30, life: [0.08, 0.3], size: [0.025, 0.05], power: [4, 10], shape: 'burst', gravity: -4, drag: 2, color: [3.5, 3.5, 6, 1], dead: [0.4, 0.3, 1, 0], stretched: true },
+      { tex: 'soft', add: true, count: 1, life: [0.1, 0.1], size: [1.2, 1.2], power: [0, 0], shape: 'box', color: [3, 3, 6, 1], dead: [0.3, 0.3, 0.8, 0] },
+    ],
+    light: { color: [0.7, 0.7, 1], intensity: 30, range: 6, time: 0.15 },
+  },
+  stormTrail: {
+    layers: [
+      { tex: 'soft', add: true, count: 0, rate: 80, capacity: 100, life: [0.15, 0.3], size: [0.12, 0.25], grow: [[0, 1], [1, 0.2]], power: [0.1, 0.4], shape: 'burst', gravity: 0, drag: 2, color: [2, 2, 4.5, 1], dead: [0.2, 0.15, 0.6, 0] },
+      { tex: 'spark', add: true, count: 0, rate: 40, capacity: 60, life: [0.06, 0.15], size: [0.02, 0.04], power: [2, 5], shape: 'burst', gravity: 0, drag: 2, color: [3, 3, 6, 1], dead: [0.4, 0.3, 1, 0], stretched: true },
+    ],
+  },
+  // a gust: streaks of air and grit driven along `dir`
+  gust: {
+    layers: [
+      { tex: 'soft', add: false, count: 50, life: [0.4, 0.8], size: [0.02, 0.05], power: [10, 18], shape: 'cone', spread: 0.35, gravity: 0, drag: 0.8, color: [0.85, 0.85, 0.9, 0.5], dead: [0.8, 0.8, 0.85, 0], stretched: true },
+      { tex: 'smoke', add: false, count: 12, life: [0.6, 1.1], size: [0.8, 1.6], grow: [[0, 0.5], [1, 2.4]], power: [6, 11], shape: 'cone', spread: 0.3, gravity: 0, drag: 1.5, color: [0.8, 0.82, 0.86, 0.22], dead: [0.8, 0.82, 0.86, 0], spin: 0.6 },
+    ],
+  },
+  // white feathers loosed in a burst (Vaeltris taking wing, a feather barrage)
+  feathers: {
+    layers: [
+      { tex: 'soft', add: false, count: 40, life: [1.5, 3], size: [0.06, 0.12], power: [2, 6], shape: 'burst', gravity: -0.6, drag: 1.4, color: [0.95, 0.95, 0.98, 0.9], dead: [0.9, 0.9, 0.95, 0], spin: 4 },
+    ],
+  },
+  // ambient: faint violet motes in the charged air
+  stormMotes: {
+    layers: [
+      { tex: 'soft', add: true, count: 0, rate: 25, capacity: 220, life: [4, 7], size: [0.015, 0.035], power: [0.2, 0.6], shape: 'box', extent: 20, height: 8, gravity: 0.1, drag: 0.3, color: [1.2, 1.1, 2.4, 1], dead: [0.1, 0.1, 0.3, 0] },
+    ],
+  },
+  // a drowned lamp: a cold sea-glow flame flickering in its bronze cage, a few motes drifting up
+  seaLamp: {
+    layers: [
+      { tex: 'flame', add: true, count: 0, rate: 16, capacity: 24, life: [0.45, 0.8], size: [0.16, 0.26], grow: [[0, 0.6], [0.4, 1], [1, 0.3]], power: [0.1, 0.3], shape: 'up', extent: 0.04, gravity: 0.6, drag: 1, color: [0.35, 1.5, 1.4, 0.8], color2: [0.2, 1.0, 1.2, 0.7], dead: [0.02, 0.15, 0.2, 0], spin: 1 },
+      { tex: 'soft', add: true, count: 0, rate: 3, capacity: 12, life: [1.5, 3], size: [0.015, 0.03], power: [0.2, 0.5], shape: 'up', extent: 0.1, gravity: 0.4, drag: 0.6, color: [0.4, 1.6, 1.6, 1], dead: [0.05, 0.2, 0.25, 0] },
+    ],
+  },
   // a wading footstep: a little crown of droplets (the ripple is a ground ring)
   wade: {
     layers: [

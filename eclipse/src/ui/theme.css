@@ -108,6 +108,7 @@
   .ec-abilities { bottom: 150px; right: 14px; transform: scale(0.85); transform-origin: right bottom; }
   .ec-boss { bottom: auto; top: calc(var(--ec-safe-t) + 52px); width: 86vw; }
   .ec-subtitle { font-size: 17px; bottom: 34%; }
+  .ec-subtitle.large { font-size: 20px; }
 }
 
 /* ---------------------------------------------------------------- menus */

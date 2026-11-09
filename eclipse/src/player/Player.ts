@@ -192,7 +192,7 @@ export class Player implements Combatant {
     if (this.iframes > 0) this.iframes -= dt;
     const blocking = this.state === 'block' || this.state === 'blockHit';
     this.updateStatus(dt);
-    this.stats.update(dt, (blocking ? 0.35 : this.sprinting ? 0 : 1) * (this.statusTime.soak > 0 ? 0.5 : 1));
+    this.stats.update(dt, (blocking ? 0.35 : this.sprinting ? 0 : 1) * (this.statusTime.soak > 0 ? 0.5 : 1) * (this.statusTime.shock > 0 ? 0 : 1));
     if (this.alive && this.state !== 'cinematic') this.handleInput(dt);
     this.updateLockOn();
     this.physicsStep(dt);
@@ -343,6 +343,8 @@ export class Player implements Combatant {
     }
     // wading: water drags at the legs (shin-deep 0 .. waist-deep 1)
     speed *= 1 - 0.3 * this.wade;
+    // shocked: the muscles lock and jump; slower until it passes
+    if (this.statusTime.shock > 0) speed *= 0.6;
     this.rig.fovKick = this.sprinting ? 0.08 : 0;
     // turning: face the movement direction, or the target when locked on
     if (locked && this.target) {

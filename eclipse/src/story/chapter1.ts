@@ -80,7 +80,7 @@ export async function bossIntro(d: Director, g: Game, boss: Boss): Promise<void>
     { pos: p.position.add(new Vector3(-1.5, 1.8, -1.5)), target: b.add(new Vector3(0, 4, 0)), fov: 0.55 }, 3, easeInOut);
   await d.say('ignaroth', 'Another Vessel. Crawling up to my throne with his little lantern.');
   boss.char.animator.play('getup', { fade: 0.3, speed: 0.6 });
-  void d.orbit(b, 11, 3.5, Math.PI * 1.15, Math.PI * 0.85, 5, easeInOut);
+  void d.orbit(b, 12, 2.4, Math.PI * 1.15, Math.PI * 0.85, 5, easeInOut, 2.8);
   await d.wait(1.6);
   await d.say('ignaroth', 'Come, then. Let me see if the Vigil\'s light still burns in you.');
   boss.char.animator.play('e_alert', { fade: 0.2, speed: 0.75 });

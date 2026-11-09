@@ -44,6 +44,16 @@ const SETS: Record<string, EnvSet> = {
   sea_pitted_rock: { size: 3.5, porosity: 0.7 },
   sea_coral_wall: { size: 1.2, porosity: 0.6 },
   cloth_leather_red: { size: 1.0, tint: new Color3(0.55, 0.2, 0.15), porosity: 1 },
+  sky_old_stone: { size: 2.4, porosity: 0.7 },
+  sky_monastery_floor: { size: 2.2, porosity: 0.6 },
+  sky_slate_tiles: { size: 1.8, porosity: 0.5 },
+  sky_planks: { size: 1.6, porosity: 0.9 },
+  sky_cliff_side: { size: 6, porosity: 0.6 },
+  sky_grass_rock: { size: 4, porosity: 0.9 },
+  sky_snow: { size: 4, porosity: 0.3 },
+  sun_marble: { size: 2, porosity: 0.4 },
+  cloth_denim: { size: 0.6, tint: new Color3(0.35, 0.45, 0.75), porosity: 0.9 },
+  cloth_jacquard: { size: 0.6, tint: new Color3(0.9, 0.75, 0.35), porosity: 0.9 },
 };
 
 interface Template {

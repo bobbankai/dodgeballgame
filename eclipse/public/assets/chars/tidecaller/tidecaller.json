@@ -1,0 +1,17 @@
+{
+ "name": "Tidecaller",
+ "height": 1.6122995615005493,
+ "parts": {
+  "tidecaller_gear": {
+   "kind": "gear",
+   "tex": "gear",
+   "emissive": 2.8,
+   "twoSided": true
+  }
+ },
+ "sockets": {
+  "weapon_r": "weapon_r",
+  "weapon_l": "weapon_l"
+ },
+ "morphs": []
+}

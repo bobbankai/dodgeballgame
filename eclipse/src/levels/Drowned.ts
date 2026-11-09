@@ -74,6 +74,7 @@ export class Drowned extends Level {
   private loops: LoopHandle[] = [];
   private walls: Mesh[] = [];
   boss: Boss | null = null;
+  private bossKey: Light | null = null;
   private bossStarted = false;
   private beats = new Set<string>();
   /** Last place Kael stood on firm, shallow ground (the canal's current carries him back here). */
@@ -138,7 +139,7 @@ export class Drowned extends Level {
     // one plane to the horizon: its swell is kept small (the ripples are in the normals) so the
     // coarse far tessellation never shows
     this.water = this.own(new Water(scene, g.pipe, new Vector3(0, WATER, 100), [1600, 1600], {
-      shallow: new Color3(0.2, 0.3, 0.27), deep: new Color3(0.035, 0.08, 0.085), absorption: 0.55, foam: 0.8,
+      shallow: new Color3(0.2, 0.3, 0.27), deep: new Color3(0.035, 0.08, 0.085), absorption: 0.8, foam: 0.8,
       wave: [0.02, 12, 0.8], flow: [0.03, 0.05], rain: 1, envIntensity: 1.25, brightness: 1.9, glint: 0.12, normalFade: 60,
     }));
     g.rig.waterLevel = WATER;
@@ -151,7 +152,7 @@ export class Drowned extends Level {
       const at = new Vector3(x + Math.cos(yaw) * 0.8, base + 2.95, z - Math.sin(yaw) * 0.8);
       const l = g.lights.add(at, { color: [0.35, 0.95, 0.85], intensity: 22, range: 10, flicker: 0.35, speed: 0.7 });
       if (l) this.lamps.push(l);
-      this.fx.push(g.vfx.attach('waterTrail', at, 0.6));
+      this.fx.push(g.vfx.attach('seaLamp', at.add(new Vector3(0, -0.12, 0))));
     };
     for (const [x, z, yaw, y] of this.lampSpots()) lamp(x, z, yaw, y);
     // water pouring from the broken ends of the aqueduct's channel
@@ -376,8 +377,8 @@ export class Drowned extends Level {
           volumeColor: new Color3(0.42, 0.48, 0.5), volumeHeight: 3, maxDistance: 90, shaftDensity: 0.001 },
         exposure: { compensation: -0.65, minLog: -2.4 },
         grade: {
-          temperature: -0.28, tint: -0.03, slope: [0.96, 1.0, 1.03], offset: [-0.003, 0.002, 0.004], power: [1.02, 1, 0.98],
-          contrast: 1.1, saturation: 0.8, shadowSaturation: 0.7, highlightSaturation: 0.95,
+          temperature: -0.16, tint: -0.02, slope: [0.98, 1.0, 1.02], offset: [-0.002, 0.001, 0.003], power: [1.02, 1, 0.98],
+          contrast: 1.12, saturation: 0.92, shadowSaturation: 0.8, highlightSaturation: 1.0,
           shadowTint: [-0.01, 0.01, 0.02], highlightTint: [0.0, 0.01, 0.015], splitBalance: 0.5, gain: 1,
         },
       },
@@ -430,6 +431,10 @@ export class Drowned extends Level {
       beat('templeIn', Math.abs(p.position.x) < 4 && z > TEMPLE.z - 1 && z < TEMPLE.z + 9 && p.position.y > STREET + 1, () => templeLore(g.cine));
       beat('arena', z > ARENA.z - ARENA_R - 12, () => arenaApproach(g.cine));
     }
+    if (this.bossKey && this.boss) {
+      const bp = this.boss.position;
+      (this.bossKey as unknown as { position: Vector3 }).position.set(bp.x, bp.y + 7, bp.z - 3);
+    }
     if (!this.bossStarted && Vector3.Distance(new Vector3(p.position.x, 0, p.position.z), ARENA) < ARENA_R - 6) void this.startBoss();
   }
 
@@ -465,6 +470,8 @@ export class Drowned extends Level {
     const at = new Vector3(ARENA.x, this.height(ARENA.x, ARENA.z + 4), ARENA.z + 4);
     const b = await g.enemies.spawnBoss(THALORYN, at, Math.PI);
     this.boss = b;
+    // a cold key light rides above him so the god reads against the storm
+    this.bossKey = g.lights.add(at.add(new Vector3(0, 7, -3)), { color: [0.7, 0.88, 1], intensity: 55, range: 18 });
     b.dormant = true;
     void g.audio.music('thaloryn');
     if (!g.params.has('nointro')) await g.cine.play((d) => bossIntro(d, g, b));
@@ -490,6 +497,8 @@ export class Drowned extends Level {
     b.events.on('died', () => {
       g.hud.showBoss(null);
       void g.audio.music('drowned');
+      if (this.bossKey) g.lights.remove(this.bossKey);
+      this.bossKey = null;
       g.hazards.after(2.4, () => void g.cine.play((d) => bossDeath(d, g, b)).then(() => {
         g.flow.claimSpark('thaloryn');
         g.flow.checkpoint(this.id, 'arena', 'thaloryn');
@@ -503,6 +512,7 @@ export class Drowned extends Level {
     this.rain?.stop();
     for (const f of this.fx) f.stop();
     for (const l of this.lamps) this.game.lights.remove(l);
+    if (this.bossKey) this.game.lights.remove(this.bossKey);
     for (const l of this.loops) l.stop(1);
     this.game.rig.waterLevel = null;
     super.dispose();
