@@ -1,0 +1,23 @@
+{
+ "name": "Eclipse Priest",
+ "height": 1.9084094762802124,
+ "parts": {
+  "priest_gear": {
+   "kind": "gear",
+   "tex": "gear",
+   "emissive": 2.8,
+   "twoSided": true
+  }
+ },
+ "sockets": {
+  "weapon_r": "weapon_r",
+  "weapon_l": "weapon_l"
+ },
+ "morphs": [],
+ "cloth": [
+  "cloth_f",
+  "cloth_b",
+  "cloth_l",
+  "cloth_r"
+ ]
+}
