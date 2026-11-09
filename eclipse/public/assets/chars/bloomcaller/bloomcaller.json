@@ -1,0 +1,23 @@
+{
+ "name": "Bloomcaller",
+ "height": 1.5605472326278687,
+ "parts": {
+  "bloomcaller_gear": {
+   "kind": "gear",
+   "tex": "gear",
+   "emissive": 2.8,
+   "twoSided": true
+  }
+ },
+ "sockets": {
+  "weapon_r": "weapon_r",
+  "weapon_l": "weapon_l"
+ },
+ "morphs": [],
+ "cloth": [
+  "cloth_f",
+  "cloth_b",
+  "cloth_l",
+  "cloth_r"
+ ]
+}
