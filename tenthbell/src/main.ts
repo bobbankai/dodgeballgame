@@ -1,7 +1,10 @@
 import { Color3, LoadAssetContainerAsync, MeshBuilder, PBRMaterial, Vector3 } from '@babylonjs/core';
-import { aimKey, createGfx, Quality, setEnvironment } from './engine/gfx';
+import { aimKey, createGfx, Gfx, Quality, setEnvironment } from './engine/gfx';
 import { applyLibrary } from './engine/matlib';
 import { surfaceGlobals } from './engine/surface';
+import { Fighter } from './game/fight';
+import { Game } from './game/game';
+import { Match } from './game/match';
 
 const q = new URLSearchParams(location.search);
 const test = q.has('test');
@@ -11,17 +14,26 @@ async function boot() {
   const g = await createGfx(canvas, (q.get('quality') as Quality) ?? 'high', q.has('gl'));
   const { scene, engine } = g;
   let update: (dt: number) => void = () => {};
-  if (q.has('view')) update = await viewer(g, q.get('view')!);
-  // WebGPU acquires and submits the swap chain in begin/endFrame: every manual frame needs both
-  const frame = () => { engine.beginFrame(); scene.render(); engine.endFrame(); };
   const w = window as any;
   w.__g = g;
+  if (q.has('view')) update = await viewer(g, q.get('view')!);
+  else {
+    const game = new Game(g);
+    w.__game = game;
+    update = (dt) => game.update(dt);
+    game.ui.loading(true);
+    if (q.has('fight')) await quickFight(game, q.get('fight')!.split(','), q.get('stage') ?? 'test');
+  }
+  // WebGPU acquires and submits the swap chain in begin/endFrame: every manual frame needs both
+  const frame = () => { engine.beginFrame(); scene.render(); engine.endFrame(); };
   if (test) {
     scene.useConstantAnimationDeltaTime = true;
-    w.__advance = async (t: number) => {
+    // a macrotask between frames lets story scripts (promise chains) run as they would in a real frame loop
+    const ch = new MessageChannel();
+    const breathe = () => new Promise<void>((r) => { ch.port1.onmessage = () => r(); ch.port2.postMessage(0); });
+    w.__advance = async (t: number, draw = true) => {
       const n = Math.max(1, Math.round(t * 60));
-      for (let i = 0; i < n; i++) { update(1 / 60); frame(); }
-      await new Promise((r) => requestAnimationFrame(r));
+      for (let i = 0; i < n; i++) { update(1 / 60); if (draw || i === n - 1) frame(); await breathe(); }
     };
     // shaders and textures arrive asynchronously: draw until everything in view is ready
     w.__settle = async () => {
@@ -41,8 +53,20 @@ async function boot() {
   w.__ready = true;
 }
 
-/** Look-dev: ?view=chars/kessa[&clip=name] shows one model under the game's lighting. */
-async function viewer(g: Awaited<ReturnType<typeof createGfx>>, name: string) {
+/** ?fight=kessa,rook[&stage=roof_rain][&demo]: straight into one match (development) */
+async function quickFight(game: Game, names: string[], stage: string) {
+  await game.setStage(stage);
+  const [ma, mb] = await Promise.all(names.map((n) => game.spawn(n)));
+  const a = new Fighter(ma, names[0]), b = new Fighter(mb, names[1]);
+  const m = new Match(game, a, b, { need: 2, time: 60, level: +(q.get('level') ?? 0.5), demo: q.has('demo') });
+  (window as any).__match = m;
+  game.ui.loading(false);
+  game.sound.setMood('fight');
+  void m.run().then((w) => console.log('match won by', w.name));
+}
+
+/** Look-dev: ?view=chars/kessa shows one model under plain studio light. */
+async function viewer(g: Gfx, name: string) {
   const { scene } = g;
   await setEnvironment(g, 'assets/env/studio.hdr', 0.9);
   aimKey(g, new Vector3(-0.45, -1, -0.6), new Vector3(0, 1, 0), 2.5);
@@ -55,8 +79,6 @@ async function viewer(g: Awaited<ReturnType<typeof createGfx>>, name: string) {
   c.addAllToScene();
   for (const m of c.meshes) { g.shadow.addShadowCaster(m); m.receiveShadows = true; m.alwaysSelectAsActiveMesh = true; }
   c.animationGroups.forEach((a) => a.stop());
-  const clip = c.animationGroups.find((a) => a.name === q.get('clip'));
-  clip?.start(true);
   const w = window as any;
   w.__c = c;
   w.__sg = surfaceGlobals;

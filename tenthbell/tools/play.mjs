@@ -1,7 +1,7 @@
 // node tenthbell/tools/play.mjs <url> <outDir> '<script json>' [width] [height]
 // Steps the game deterministically (url must include ?test) on headless WebGPU (SwiftShader), holding keys
 // and taking screenshots. script: [{ "keys": ["KeyD"], "t": 1.0, "shot": "name", "eval": "js" }, ...]
-// A step's eval runs before its wait. Add &gl to the url to test the WebGL2 fallback.
+// A step's eval runs before its wait. Only the last frame of a wait is drawn unless the step has "draw": true. Add &gl to the url to test the WebGL2 fallback.
 import { createRequire } from 'module';
 import fs from 'fs';
 const require = createRequire(import.meta.url);
@@ -33,7 +33,7 @@ for (const step of JSON.parse(script)) {
   for (const k of keys) if (!held.has(k)) { await page.keyboard.down(k); held.add(k); }
   if (step.eval) logs.push('[eval] ' + JSON.stringify(await page.evaluate(step.eval)));
   if (step.t) {
-    const err = await page.evaluate(async ([t]) => { try { await window.__advance(t); } catch (e) { return String(e.stack || e); } return null; }, [step.t]);
+    const err = await page.evaluate(async ([t, draw]) => { try { await window.__advance(t, draw); } catch (e) { return String(e.stack || e); } return null; }, [step.t, step.draw ?? false]);
     if (err) logs.push('[error] ' + err);
   }
   if (step.shot) { await page.evaluate(() => window.__settle()); await page.screenshot({ path: `${outDir}/${step.shot}.png`, timeout: 300000 }); }

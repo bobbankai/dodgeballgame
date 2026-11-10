@@ -7,9 +7,9 @@ import '@babylonjs/loaders/glTF';
 
 export type Quality = 'low' | 'medium' | 'high';
 const TIERS = {
-  low: { scale: 1.6, shadow: 1024, msaa: 1, ssao: false, mirror: 384, pcss: false },
-  medium: { scale: 1.2, shadow: 2048, msaa: 4, ssao: false, mirror: 640, pcss: false },
-  high: { scale: 1.0, shadow: 2048, msaa: 4, ssao: true, mirror: 1024, pcss: true },
+  low: { scale: 1.6, shadow: 1024, msaa: 1, ssao: false, mirror: 0, pcss: false, dof: false, rain: 1200 },
+  medium: { scale: 1.2, shadow: 2048, msaa: 4, ssao: false, mirror: 512, pcss: false, dof: true, rain: 2600 },
+  high: { scale: 1.0, shadow: 2048, msaa: 4, ssao: true, mirror: 1024, pcss: true, dof: true, rain: 5000 },
 };
 
 export interface Gfx {

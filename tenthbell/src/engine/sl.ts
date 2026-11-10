@@ -49,3 +49,26 @@ fn tbNoise(p: V2) -> F {
 }
 fn tbFbm(p: V2) -> F { return tbNoise(p) * 0.5 + tbNoise(p * 2.03 + 17.0) * 0.3 + tbNoise(p * 4.1 + 51.0) * 0.2; }
 `;
+
+import { Camera, PostProcess, Scene, ShaderLanguage, ShaderMaterial, ShaderStore, Texture } from '@babylonjs/core';
+
+/** A material from a vertex and a fragment program in the neutral dialect, built for the engine in use. */
+export function effectMaterial(scene: Scene, name: string, vertex: string, fragment: string, uniforms: string[], samplers: string[] = [], alpha = true): ShaderMaterial {
+  const wgsl = scene.getEngine().isWebGPU;
+  const store = wgsl ? ShaderStore.ShadersStoreWGSL : ShaderStore.ShadersStore;
+  const head = wgsl ? '' : 'precision highp float;\n#define saturate(x) clamp(x, 0.0, 1.0)\n';
+  store[name + 'VertexShader'] = head + sl(vertex, wgsl);
+  store[name + 'FragmentShader'] = head + sl(fragment, wgsl);
+  return new ShaderMaterial(name, scene, { vertex: name, fragment: name }, {
+    attributes: ['position', 'normal', 'uv'], uniforms: ['world', 'worldViewProjection', 'viewProjection', ...uniforms], samplers,
+    needAlphaBlending: alpha, shaderLanguage: wgsl ? ShaderLanguage.WGSL : ShaderLanguage.GLSL,
+  });
+}
+
+/** A full-screen pass over the finished frame, from a fragment program in the neutral dialect. */
+export function effectPass(camera: Camera, name: string, fragment: string, uniforms: string[]): PostProcess {
+  const wgsl = camera.getEngine().isWebGPU;
+  const store = wgsl ? ShaderStore.ShadersStoreWGSL : ShaderStore.ShadersStore;
+  store[name + 'FragmentShader'] = (wgsl ? '' : 'precision highp float;\n') + sl(fragment, wgsl);
+  return new PostProcess(name, name, { uniforms, camera, samplingMode: Texture.BILINEAR_SAMPLINGMODE, shaderLanguage: wgsl ? ShaderLanguage.WGSL : ShaderLanguage.GLSL });
+}

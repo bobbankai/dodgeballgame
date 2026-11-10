@@ -314,9 +314,9 @@ def paint(body, rig_rest, spec, box, pad, name):
                 lmask = lmask * spec.get('liner', 1)
                 alb = alb * (1 - lmask[..., None]) + np.array([0.012, 0.009, 0.008], np.float32) * lmask[..., None]
             for sc_ in spec.get('scars', []):  # [(x, z) ...] polyline on the face, width in mm
-                pts = [painter.project(x, z) for x, z in sc_['line']]
+                pts = [q for q in (painter.project(x, z) for x, z in sc_['line']) if q is not None]   # a point off the face is dropped
                 dense = [list(np.array(a) + (np.array(b) - np.array(a)) * q) for a, b in zip(pts, pts[1:]) for q in np.linspace(0, 1, 8)]
-                dense = [painter.project(q[0], q[2]) for q in dense]
+                dense = [q for q in (painter.project(q[0], q[2]) for q in dense) if q is not None]
                 sm_ = painter.strokes([dense], size, sc_.get('width', 2.5) * 1.6)
                 sm_ = np.clip(blur(sm_, 1) * 1.4, 0, 1) * (0.75 + 0.25 * vnoise(p, 900, seed + 51))
                 alb = alb * (1 - sm_[..., None] * 0.75) + tex.hexc(sc_.get('color', '#c98f84')) * sm_[..., None] * 0.75

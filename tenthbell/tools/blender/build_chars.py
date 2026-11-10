@@ -220,7 +220,7 @@ SPECS = {
                   targets=[('head-diamond', 0.3), ('nose-hump-incr', 0.5), ('chin-prominent-incr', 0.3), ('l-cheek-bones-incr', 0.4), ('r-cheek-bones-incr', 0.4)],
                   skin=dict(tone='#b98568', lips='#8e5650', palm='#cf9f88'), hair_color='#8f8f8c', scalp=0.92, scalp_style='sleek', stubble=0.4,
                   brows=dict(thick=1.25, arch=0.6), eyes=dict(color='#7f909c'), wrinkles=1.0,
-                  scars=[dict(line=[(0.026, -0.018), (0.036, -0.04), (0.05, -0.062)], width=3.0, rel='eyeR')],
+                  scars=[dict(line=[(0.016, -0.018), (0.024, -0.038), (0.032, -0.058)], width=3.0, rel='eyeR')],
                   tattoos=[dict(bone='lowerarm01.L', end='wrist.L', t=(0.12, 0.92), angle=-70, span=70, image=bells())],
                   outfit=crane_outfit, hair=lambda body, rig, R, spec: []),
 }
