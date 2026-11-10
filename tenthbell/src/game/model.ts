@@ -109,13 +109,18 @@ export class Model {
       for (const l of this.layers) if (l !== top) { l.w *= 1 - k; if (l.w < 0.01) l.w = 0; rest += l.w; }
       top.w = 1 - rest;
       for (let i = this.layers.length - 2; i >= 0; i--) if (this.layers[i].w === 0) { this.layers[i].g.stop(); this.layers.splice(i, 1); }
-      for (const l of this.layers) {
-        const t = l.meta.loop ? l.t % l.meta.dur : Math.min(l.t, l.meta.dur);
-        l.g.setWeightForAllAnimatables(l.w);
-        l.g.goToFrame(l.g.from + t * 60, true);
-      }
     }
     this.updateFace(wall);
+  }
+
+  /** Pose the skeleton from the layers. Must run once per drawn frame, just before the scene animates: the engine
+   *  sums weighted poses per frame, and posing twice between two frames would count everything twice. */
+  apply() {
+    for (const l of this.layers) {
+      const t = l.meta.loop ? l.t % l.meta.dur : Math.min(l.t, l.meta.dur);
+      l.g.setWeightForAllAnimatables(l.w);
+      l.g.goToFrame(l.g.from + t * 60, true);
+    }
   }
 
   /** world position of a bone as of the last rendered frame */

@@ -29,6 +29,7 @@ export class Game {
     this.cam = new Cam(g);
     this.ui = new UI(this.input);
     this.vfx = new Vfx(g);
+    g.scene.onBeforeAnimationsObservable.add(() => { for (const m of this.models) m.apply(); });
     g.scene.onAfterAnimationsObservable.add(() => { for (const m of this.models) m.swing(this.dt); });
     const wake = () => this.sound.start();
     window.addEventListener('pointerdown', wake); window.addEventListener('keydown', wake);
