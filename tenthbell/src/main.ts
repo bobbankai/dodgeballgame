@@ -5,13 +5,16 @@ import { surfaceGlobals } from './engine/surface';
 import { Fighter } from './game/fight';
 import { Game } from './game/game';
 import { Match } from './game/match';
+import { loadSave, Story } from './story/story';
 
 const q = new URLSearchParams(location.search);
 const test = q.has('test');
 const canvas = document.getElementById('game') as HTMLCanvasElement;
 
 async function boot() {
-  const g = await createGfx(canvas, (q.get('quality') as Quality) ?? 'high', q.has('gl'));
+  // phones start a tier down: the picture scales with the device, and Options can change it
+  const auto: Quality = /Mobi|Android|iPhone|iPad/.test(navigator.userAgent) ? 'medium' : 'high';
+  const g = await createGfx(canvas, (q.get('quality') || loadSave().quality || auto) as Quality, q.has('gl'));
   const { scene, engine } = g;
   let update: (dt: number) => void = () => {};
   const w = window as any;
@@ -23,6 +26,7 @@ async function boot() {
     update = (dt) => game.update(dt);
     game.ui.loading(true);
     if (q.has('fight')) await quickFight(game, q.get('fight')!.split(','), q.get('stage') ?? 'test');
+    else { const story = new Story(game); w.__story = story; void story.run(q.has('ch') ? +q.get('ch')! : undefined); }
   }
   // WebGPU acquires and submits the swap chain in begin/endFrame: every manual frame needs both
   const frame = () => { engine.beginFrame(); scene.render(); engine.endFrame(); };

@@ -1,8 +1,8 @@
 // A stage: the arena model, its sky and image-based light, lamps, fog, weather and reflections.
 // Arenas are built by tools/blender/build_stages.py; lighting moods for them are listed in STAGES.
 import {
-  AbstractMesh, AssetContainer, Color3, HemisphericLight, Light, LoadAssetContainerAsync, Mesh, MeshBuilder, MirrorTexture, PBRMaterial, Plane, PointLight,
-  SpotLight, Texture, Vector3,
+  AbstractMesh, AssetContainer, Color3, DynamicTexture, HemisphericLight, Light, LoadAssetContainerAsync, Mesh, MeshBuilder, MirrorTexture, PBRMaterial, Plane, PointLight,
+  SpotLight, StandardMaterial, Texture, Vector3, Vector4,
 } from '@babylonjs/core';
 import { aimKey, Gfx, setEnvironment } from './gfx';
 import { hex, libTexture, plugin, useSet } from './matlib';
@@ -84,7 +84,7 @@ uniform time: F;
 @fragment {
   let v: V3 = normalize(U.eye - IN.vP);
   let facing: F = abs(dot(normalize(IN.vN), v));
-  let fall: F = pow(1.0 - IN.vUV.y, 1.6);
+  let fall: F = pow(saturate(1.0 - IN.vUV.y), 1.6);
   let dustn: F = 0.65 + 0.35 * tbFbm(IN.vP.xy * 1.4 + V2(U.time * 0.05, -U.time * 0.11) + IN.vP.z);
   let a: F = pow(facing, 2.2) * fall * dustn * U.tint.a;
   COLOR = V4(U.tint.rgb * a, a);
@@ -124,6 +124,7 @@ export class Stage {
   private plugins: SurfacePlugin[] = [];
   private sky: Mesh | null = null;
   /** lightning: 1 at the strike, decays */ bolt = 0;
+  /** the crowd jumps: set to 1 on a big hit */ cheer = 0;
   /** 0 the stage's own sky .. 1 the second sky (see dawn()) */ skyMix = 0;
   private skyLevels = [1, 1];
   private time = 0;
@@ -149,6 +150,7 @@ export class Stage {
       for (const m of c.meshes) {
         m.receiveShadows = true;
         m.freezeWorldMatrix();
+        if (m.name === 'sky') continue;
         if (m.material && plugin(m.material)?.kind === 'ground') this.ground.push(m);
       }
       c.addAllToScene();
@@ -191,9 +193,12 @@ export class Stage {
     const raw = m.metadata?.gltf?.extras?.tb;
     const tag = raw ? JSON.parse(raw) : { k: 'pbr' };
     if (tag.k === 'beam') { this.beam(m, tag); return; }
-    if (tag.t) useSet(m, scene, tag.t, tag.s ?? 1, tag.c ? hex(tag.c) : Color3.White(), tag.r ?? 1, tag.m ?? 0);
+    if (tag.k === 'crowd') { this.crowd(m); return; }
+    if (tag.img) { m.albedoTexture = libTexture(scene, tag.img, tag.s ?? 1); m.albedoTexture.hasAlpha = !!tag.cut; m.roughness = tag.r ?? 0.6; m.metallic = tag.m ?? 0; }
+    if (tag.eimg) { m.emissiveTexture = libTexture(scene, tag.eimg, tag.s ?? 1); m.emissiveColor = Color3.White().scale(tag.ei ?? 2); m.albedoColor = hex(tag.c ?? '#050505'); m.roughness = 0.8; m.metallic = 0; }
+    else if (tag.t) useSet(m, scene, tag.t, tag.s ?? 1, tag.c ? hex(tag.c) : Color3.White(), tag.r ?? 1, tag.m ?? 0);
     else { if (tag.c) m.albedoColor = hex(tag.c); m.roughness = tag.r ?? 0.6; m.metallic = tag.m ?? 0; }
-    if (tag.e) { m.emissiveColor = hex(tag.e).scale(tag.ei ?? 4); m.emissiveIntensity = 1; }
+    if (tag.e) { m.emissiveColor = hex(tag.e).scale(tag.ei ?? 4); m.emissiveIntensity = 1; if (tag.c) m.albedoColor = hex(tag.c); }
     else if (!tag.noao) { m.ambientTexture = ao; m.ambientTextureStrength = 1.0; m.useAmbientInGrayScale = true; }
     if (tag.alpha) { m.alpha = tag.alpha; m.transparencyMode = PBRMaterial.PBRMATERIAL_ALPHABLEND; }
     if (tag.cut) { m.transparencyMode = PBRMaterial.PBRMATERIAL_ALPHATEST; m.alphaCutOff = 0.5; m.useAlphaFromAlbedoTexture = true; m.backFaceCulling = false; }
@@ -203,12 +208,41 @@ export class Stage {
     this.plugins.push(p);
   }
 
+  /** the crowd: rows of dark heads and shoulders behind the fence, a few phones alight, swaying a little */
+  private crowd(m: PBRMaterial) {
+    const scene = this.g.scene;
+    const t = new DynamicTexture('crowd', { width: 1024, height: 256 }, scene, true);
+    const c = t.getContext() as unknown as CanvasRenderingContext2D;
+    c.clearRect(0, 0, 1024, 256);
+    let seed = 7;
+    const rnd = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
+    for (let row = 0; row < 2; row++) for (let i = 0; i < 26; i++) {
+      const x = (i + rnd() * 0.7) * 40 + row * 20, h = 150 + rnd() * 60 - row * 30, w = 30 + rnd() * 12;
+      const shade = 10 + Math.floor(rnd() * 14) + row * 8;
+      c.fillStyle = `rgb(${shade},${shade},${shade + 3})`;
+      c.beginPath(); c.ellipse(x, 256 - h, w * 0.36, w * 0.44, 0, 0, 7); c.fill();                 // head
+      c.beginPath(); c.moveTo(x - w * 0.95, 256); c.quadraticCurveTo(x - w * 0.9, 256 - h + w * 0.55, x, 256 - h + w * 0.42);
+      c.quadraticCurveTo(x + w * 0.9, 256 - h + w * 0.55, x + w * 0.95, 256); c.fill();           // shoulders
+      if (rnd() < 0.12) { c.fillStyle = 'rgb(190,215,255)'; c.fillRect(x + w * 0.5, 256 - h - 10 - rnd() * 30, 5, 9); }
+    }
+    t.update(false);
+    t.hasAlpha = true;
+    t.wrapU = Texture.WRAP_ADDRESSMODE;
+    const mat = new StandardMaterial('crowd', scene);
+    mat.diffuseTexture = t; mat.emissiveTexture = t; mat.emissiveColor = new Color3(0.9, 0.9, 0.9);
+    mat.disableLighting = true; mat.useAlphaFromDiffuseTexture = true; mat.backFaceCulling = false;
+    mat.transparencyMode = 1; mat.alphaCutOff = 0.5;
+    for (const mesh of this.c!.meshes) if (mesh.material === m) { mesh.material = mat; mesh.receiveShadows = false; mesh.unfreezeWorldMatrix(); this.swayers.push(mesh); }
+    this.extra.push(mat, t);
+  }
+  private swayers: AbstractMesh[] = [];
+
   private beam(m: PBRMaterial, tag: { c?: string; a?: number }) {
     const mat = effectMaterial(this.g.scene, 'tbBeam' + this.beams.length, BEAM_V, BEAM_F, ['eye', 'tint', 'time']);
     mat.alphaMode = 1; // additive
     mat.backFaceCulling = false; mat.disableDepthWrite = true;
     const col = hex(tag.c ?? '#ffffff');
-    const b = { tint: [col.r, col.g, col.b, tag.a ?? 0.5] as [number, number, number, number], set: (t: number, eye: Vector3) => { mat.setFloat('time', t); mat.setVector3('eye', eye); mat.setFloats('tint', b.tint); } };
+    const b = { tint: [col.r, col.g, col.b, tag.a ?? 0.5] as [number, number, number, number], set: (t: number, eye: Vector3) => { mat.setFloat('time', t); mat.setVector3('eye', eye); mat.setVector4('tint', new Vector4(...b.tint)); } };
     b.set(0, Vector3.Zero());
     this.beams.push(b);
     for (const mesh of this.c!.meshes) if (mesh.material === m) { mesh.material = mat; mesh.receiveShadows = false; }
@@ -283,9 +317,11 @@ export class Stage {
     const flash = this.bolt * this.bolt;
     g.key.intensity = this.def.key.level * (1 + 9 * flash);
     if (this.sky) {
-      (this.sky.material as ReturnType<typeof effectMaterial>).setFloats('mixv', [this.skyMix, this.skyLevels[0], this.skyLevels[1], flash]);
+      (this.sky.material as ReturnType<typeof effectMaterial>).setVector4('mixv', new Vector4(this.skyMix, this.skyLevels[0], this.skyLevels[1], flash));
     }
     for (const b of this.beams) b.set(this.time, g.camera.position);
+    this.swayers.forEach((m, i) => { m.position.y = 0.035 * Math.sin(this.time * (1.7 + i * 0.37) + i * 2.1) + this.cheer * 0.12 * Math.abs(Math.sin(this.time * 9 + i)); });
+    this.cheer = Math.max(0, this.cheer - dt * 1.2);
   }
 
   dispose() {

@@ -21,6 +21,11 @@ SETS = {
     'bi_stretch': (512, True), 'crepe_satin': (512, True), 'cotton_jersey': (512, True), 'rough_linen': (512, True),
     'poly_wool_herringbone': (512, True), 'stretch_poplin': (512, True), 'denim_fabric_04': (512, True),
     'brown_leather': (512, True), 'fabric_leather_02': (512, True),
+    # arenas: real colour kept
+    'bitumen': (1024, False), 'concrete_wall_003': (1024, False), 'brick_wall_006': (1024, False), 'metal_plate': (512, False),
+    'rusty_metal_04': (512, False), 'corrugated_iron': (512, False), 'painted_metal_shutter': (512, False),
+    'plank_flooring_02': (1024, False), 'brick_wall_001': (1024, False), 'beige_wall_001': (512, False), 'blue_metal_plate': (512, False),
+    'concrete_floor_worn_001': (1024, False), 'concrete_wall_001': (1024, False), 'chipped_concrete': (512, False), 'rusty_metal_03': (512, False),
 }
 
 
@@ -88,11 +93,45 @@ def generated():
     n = np.asarray(normal_from(p, 7.0), np.float32) / 255
     img = np.stack([0.5 + 0.25 * (p - p.mean()), n[..., 1], 0.5 - 0.35 * (p - p.mean()), n[..., 0]], -1)
     Image.fromarray((np.clip(img, 0, 1) * 255).astype(np.uint8), 'RGBA').save(os.path.join(OUT, 'pores.png'))
+    # chain-link fence: wire diamonds, everything else cut away
+    s3, ss = 256, 4
+    from PIL import ImageDraw
+    im = Image.new('L', (s3 * ss, s3 * ss), 0)
+    dr = ImageDraw.Draw(im)
+    n = 4
+    for k in range(-n, 2 * n + 1):
+        o = k * s3 * ss / n
+        dr.line([(o, 0), (o + s3 * ss, s3 * ss)], fill=255, width=5 * ss // 2)
+        dr.line([(o + s3 * ss, 0), (o, s3 * ss)], fill=255, width=5 * ss // 2)
+    a = np.asarray(im.resize((s3, s3), Image.LANCZOS))
+    Image.fromarray(np.dstack([np.full((s3, s3, 3), 150, np.uint8), a]), 'RGBA').save(os.path.join(OUT, 'fence.png'))
+    # a city at night seen from far off: dark fronts with a scatter of lit windows
+    w = np.zeros((256, 256, 3), np.uint8)
+    w[:] = (5, 6, 9)
+    for r in range(16):
+        for c in range(16):
+            if rng.random() < 0.3:
+                col = (255, 200, 120) if rng.random() < 0.7 else (150, 200, 255)
+                b = 0.35 + 0.65 * rng.random()
+                w[r * 16 + 4:r * 16 + 12, c * 16 + 3:c * 16 + 12] = [int(v * b) for v in col]
+    Image.fromarray(w).save(os.path.join(OUT, 'windows.png'))
+    # the Pit's mark: a bell in a ring
+    bn = Image.new('RGB', (256, 512), (14, 10, 10))
+    dr = ImageDraw.Draw(bn)
+    dr.rectangle([10, 10, 245, 501], outline=(120, 20, 20), width=6)
+    dr.ellipse([48, 150, 208, 310], outline=(200, 190, 170), width=7)
+    dr.pieslice([88, 180, 168, 270], 180, 360, fill=(200, 190, 170))
+    dr.polygon([(88, 225), (168, 225), (180, 262), (76, 262)], fill=(200, 190, 170))
+    dr.ellipse([118, 262, 138, 284], fill=(200, 190, 170))
+    for i in range(10):   # ten tally strokes; the tenth is struck through nothing: it is missing
+        if i < 9:
+            dr.line([(52 + i * 17, 360), (52 + i * 17, 410)], fill=(200, 190, 170), width=5)
+    Image.fromarray(np.asarray(bn)).save(os.path.join(OUT, 'banner.png'))
     print('generated tiles', flush=True)
 
 
 if __name__ == '__main__':
     for i, (size, tint) in SETS.items():
         build_set(i, size, tint)
-    if not os.path.exists(os.path.join(OUT, 'pores.png')) or '--gen' in sys.argv:
+    if not os.path.exists(os.path.join(OUT, 'banner.png')) or '--gen' in sys.argv:
         generated()

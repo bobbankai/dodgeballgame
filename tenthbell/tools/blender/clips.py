@@ -168,6 +168,75 @@ CLIPS = {
 }
 
 
+# ---- acting, for the cutscenes (built on the relaxed standing pose)
+REST = dict(STAND, hand_L=(0.27, -0.04, 0.85), hand_R=(-0.27, -0.04, 0.85))
+KNEEL = dict(STAND, hips=(0.0, 0.1, -0.5), hip_rot=(6, 0, 0), spine=(16, 0, 0), head=(18, 0, 0), foot_L=(0.12, -0.22, 0), toe_L=4, foot_R=(-0.13, 0.42, 0.0), heel_R=62, toe_R=-6,
+             knee_R=(-0.1, -0.6, -1), knee_L=(0.1, -1, 0.3), hand_L=(0.2, -0.3, 0.62), hand_R=(-0.22, -0.02, 0.36), elbow_L=(0.6, 0.6, -0.4), elbow_R=(-0.7, 0.7, 0.0), fist_L=0.3, fist_R=0.6)
+CRADLE = dict(KNEEL, hips=(0.0, 0.12, -0.52), spine=(26, 0, 0), head=(34, 6, 0), hand_L=(0.22, -0.42, 0.42), hand_R=(-0.2, -0.46, 0.34), elbow_L=(1, 0.4, -0.2), elbow_R=(-1, 0.4, -0.2),
+              pron_L=-70, pron_R=-70, fist_L=0.25, fist_R=0.25)
+CROSSED = dict(REST, spine=(-3, 0, 0), head=(-4, 0, 0), hand_L=(-0.12, -0.24, 1.22), hand_R=(0.13, -0.21, 1.16), elbow_L=(1, -0.2, -0.6), elbow_R=(-1, -0.2, -0.6), pron_L=60, pron_R=60,
+               fist_L=0.5, fist_R=0.5, foot_L=(0.15, -0.1, 0), foot_R=(-0.15, -0.1, 0), toe_L=14, toe_R=-14)
+
+
+def breathe(base, period=3.6, amount=1.0):
+    h = np.array(base['hips'], float)
+    return [K(0), K(period / 2, 'io', hips=tuple(h + np.array([0, 0, -0.006 * amount])), spine=tuple(np.array(base['spine'], float) + np.array([1.2 * amount, 0, 0])),
+                  shrug_L=(2.5 * amount, 0), shrug_R=(2.5 * amount, 0)), K(period)]
+
+
+def held(pose, period=3.6, amount=1.0):
+    """a pose held and breathing, as a looping clip"""
+    return dict(base=pose, loop=True, keys=breathe(pose, period, amount))
+
+
+def stride(period=1.0, d=0.62, lift=0.09):
+    """an ordinary walk in place: opposite arm and leg, the hips riding over each step"""
+    keys = []
+    for ph in (0, 0.125, 0.25, 0.375, 0.5, 0.625, 0.75, 0.875, 1.0):
+        def foot(p, sx):
+            p = p % 1.0
+            if p < 0.5:
+                return (sx * 0.1, -0.1 - d / 2 + d * (p / 0.5), 0), 0
+            q = (p - 0.5) / 0.5
+            return (sx * 0.1, -0.1 + d / 2 - d * q, lift * math.sin(q * math.pi)), 30 * math.sin(q * math.pi) * (1 - q)
+        (fl, hl), (fr, hr) = foot(ph + 0.5, 1), foot(ph, -1)
+        sw = math.sin(ph * math.tau)
+        keys.append((ph * period, dict(foot_L=fl, foot_R=fr, heel_L=hl, heel_R=hr, toe_L=6, toe_R=-6,
+                                       hips=(0.012 * sw, 0, -0.03 + 0.016 * math.cos(ph * 2 * math.tau)), hip_rot=(3, 5 * sw, 0), spine=(3, -8 * sw, 0),
+                                       hand_L=(0.26, -0.04 + 0.16 * sw, 0.87), hand_R=(-0.26, -0.04 - 0.16 * sw, 0.87)), 'lin'))
+    return keys
+
+
+CLIPS.update({
+    'stand': dict(base=REST, loop=True, keys=breathe(REST)),
+    'tough': dict(base=CROSSED, loop=True, keys=breathe(CROSSED, 4.2, 0.7)),
+    'talk': dict(base=REST, loop=True, keys=[K(0), K(0.7, 'io', hand_R=(-0.3, -0.26, 1.02), elbow_R=(-0.6, 0.8, -0.3), pron_R=-50, fist_R=0.15, head=(-2, 5, 0), spine=(1, 3, 0)),
+                                             K(1.5, 'io', hand_R=(-0.34, -0.2, 0.98), elbow_R=(-0.6, 0.8, -0.3), pron_R=-30, fist_R=0.2, head=(2, -3, 0)), K(2.4, 'io')]),
+    'sad': held(dict(REST, spine=(9, 0, 0), head=(24, 4, 3), shrug_L=(-3, 6), shrug_R=(-3, 6), hips=(0, 0, -0.012)), 4.4, 0.6),
+    'hurt': held(dict(REST, hips=(0.03, 0, -0.04), hip_rot=(6, 0, 3), spine=(16, 0, 7), head=(12, -6, -4), hand_R=(0.1, -0.2, 1.08), elbow_R=(-1, 0.3, -0.3),
+                      pron_R=40, fist_R=0.2, shrug_R=(8, 6), foot_L=(0.16, -0.1, 0)), 2.6, 1.4),
+    'walk': dict(base=REST, loop=True, speed=1.24, keys=stride()),
+    'kneel': dict(base=KNEEL, loop=True, keys=breathe(KNEEL, 2.8, 1.5)),
+    'kneel_down': dict(base=REST, keys=[K(0), K(0.9, 'io', **{k: v for k, v in KNEEL.items() if k not in STAND or KNEEL[k] != REST.get(k)})]),
+    'cradle': dict(base=CRADLE, loop=True, keys=breathe(CRADLE, 3.2, 1.0)),
+    'lying': dict(base=dict(FIGHT, **DOWN), loop=True, keys=breathe(dict(FIGHT, **DOWN), 3.4, 0.4)),
+    'reach': dict(base=REST, keys=[K(0), K(0.8, 'io', hips=(0, -0.04, -0.06), spine=(18, 0, 0), head=(14, 0, 0), hand_R=(-0.12, -0.62, 0.86), elbow_R=(-0.7, 0.4, -0.6), pron_R=-20, fist_R=0.1),
+                                   K(2.4, 'io', hips=(0, -0.04, -0.06), spine=(19, 0, 0), head=(14, 0, 0), hand_R=(-0.12, -0.63, 0.86), elbow_R=(-0.7, 0.4, -0.6), pron_R=-20, fist_R=0.1)]),
+    'hands_out': held(dict(REST, hand_L=(0.1, -0.4, 1.08), hand_R=(-0.1, -0.4, 1.08), elbow_L=(0.6, 0.6, -0.6), elbow_R=(-0.6, 0.6, -0.6),
+                           pron_L=80, pron_R=80, fist_L=0.1, fist_R=0.1, head=(14, 0, 0)), 3.2, 0.6),
+    'wrap': dict(base=REST, loop=True, keys=[
+        K(0, hand_L=(0.07, -0.44, 1.1), hand_R=(-0.1, -0.5, 1.16), elbow_L=(0.7, 0.5, -0.5), elbow_R=(-0.7, 0.5, -0.5), pron_L=-40, pron_R=70, fist_L=0.4, fist_R=0.6, head=(20, 0, 0), spine=(6, 0, 0)),
+        K(0.45, 'io', hand_L=(0.07, -0.44, 1.1), hand_R=(-0.02, -0.47, 1.04), elbow_L=(0.7, 0.5, -0.5), elbow_R=(-0.7, 0.5, -0.5), pron_L=-40, pron_R=110, fist_L=0.4, fist_R=0.6, head=(20, 0, 0), spine=(6, 0, 0)),
+        K(0.9, 'io', hand_L=(0.07, -0.44, 1.1), hand_R=(-0.1, -0.5, 1.16), elbow_L=(0.7, 0.5, -0.5), elbow_R=(-0.7, 0.5, -0.5), pron_L=-40, pron_R=70, fist_L=0.4, fist_R=0.6, head=(20, 0, 0), spine=(6, 0, 0))]),
+    'show_arm': dict(base=CROSSED, keys=[K(0), K(0.9, 'io', hand_L=(0.2, -0.36, 1.36), elbow_L=(0.9, 0.3, -0.5), pron_L=-90, fist_L=1, head=(2, 10, 0), hand_R=(-0.27, -0.04, 0.86),
+                                                elbow_R=(-0.5, 0.9, -0.2), pron_R=0), K(3.0, 'io', hand_L=(0.2, -0.36, 1.37), elbow_L=(0.9, 0.3, -0.5), pron_L=-90, fist_L=1, head=(2, 10, 0),
+                                                hand_R=(-0.27, -0.04, 0.86), elbow_R=(-0.5, 0.9, -0.2), pron_R=0)]),
+    'ring_bell': dict(base=REST, keys=[K(0), K(0.7, 'io', hand_R=(-0.2, -0.2, 1.24), elbow_R=(-0.8, 0.6, -0.3), fist_R=0.8, spine=(2, 6, 0)),
+                                       K(0.95, 'snap', hand_R=(-0.06, -0.56, 1.28), elbow_R=(-0.7, 0.2, -0.7), fist_R=0.8, pron_R=40, spine=(6, 14, 0), hips=(0, -0.03, -0.01)),
+                                       K(1.5, 'io', hand_R=(-0.16, -0.3, 1.2), elbow_R=(-0.8, 0.5, -0.4), fist_R=0.6, spine=(3, 8, 0)), K(2.6, 'io')]),
+})
+
+
 def build(name, rig):
     """-> (frames of controls, clip dict)"""
     c = CLIPS[name]
