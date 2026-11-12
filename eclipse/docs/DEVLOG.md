@@ -60,6 +60,11 @@ Playability pass (finishing the game):
 - `eclipse/README.md`: how to run and build, controls (keyboard, gamepad, touch), combat basics, options.
 - The local light probe no longer runs while a level loads (a WebGPU validation warning appeared in
   overlapping level swaps; the probe sampled scenery that was being created and disposed).
+- **The whole game, end to end, on the production bundle** (headless, software rendering, low quality): the title
+  screen, New Game, then Chapter One -> Two -> Three -> Four -> Five by the real `chapterComplete` hand-off
+  (load times 69 / 80 / 32 / 52 / 98 s, zero errors at every stage, Kael at full health in each), and the credits
+  screen after Chapter Five. This proves the flow and the loads; it does not play the fights (the bosses were
+  fought separately in the playground and, for Aurelion, the death scene and ending were captured).
 - A test-harness lesson: game time is frozen while a level loads, so waits in a test script must be real-time
   conditions (`__game.loading`), not `t:` seconds; the first chain run fired five chapter transitions at once.
 
