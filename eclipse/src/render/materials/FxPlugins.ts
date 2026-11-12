@@ -173,9 +173,11 @@ uniform vec4 ecFxRim;
  * Use with a low clear-coat for the second, sharper "oily" specular lobe.
  */
 export class SkinPlugin extends EcPlugin {
-  scatter = 0.85;
-  wrap = 0.55;
-  transmission = 0.35;
+  // Added in HDR times the sun's colour*intensity (4+), so these are small: at 0.85 / 0.55 / 0.35 the face
+  // washed to flat red plastic. (Tuned by A/B on Kael from the front, side and three-quarter.)
+  scatter = 0.12;
+  wrap = 0.5;
+  transmission = 0.06;
   tint = new Color3(0.95, 0.28, 0.16);
 
   constructor(material: Material) {

@@ -79,7 +79,7 @@ export class CharacterMaterials {
         m.clearCoat.intensity = spec.clearcoat ?? 0.12;
         m.clearCoat.roughness = 0.32;
         m.subSurface.isTranslucencyEnabled = true;
-        m.subSurface.translucencyIntensity = 0.35;
+        m.subSurface.translucencyIntensity = 0.08;
         m.subSurface.tintColor = new Color3(1.0, 0.35, 0.25);
         m.subSurface.maximumThickness = 0.6;
         new SkinPlugin(m);
