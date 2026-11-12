@@ -47,6 +47,7 @@ export class Input {
   enabled = true;
   private padPrev: boolean[] = [];
   private listeners: (() => void)[] = [];
+  private capture: ((code: string | null) => void) | null = null;
 
   constructor(private canvas: HTMLCanvasElement, private settings: Settings) {
     for (const a of ACTIONS) this.states.set(a, { down: false, pressedAt: -1e9, pressedFrame: -1, releasedFrame: -1 });
@@ -56,6 +57,12 @@ export class Input {
     };
     on('keydown', (e) => {
       if (e.repeat) return;
+      if (this.capture) {
+        this.finishCapture(e.code === 'Escape' ? null : e.code);
+        e.preventDefault();
+        e.stopImmediatePropagation(); // the menu must not also act on the key it was just given
+        return;
+      }
       if (['Tab', 'Space', 'ArrowUp', 'ArrowDown'].includes(e.code)) e.preventDefault();
       this.keys.add(e.code);
       this.usingGamepad = false;
@@ -63,6 +70,14 @@ export class Input {
     on('keyup', (e) => this.keys.delete(e.code));
     on('blur', () => this.keys.clear());
     on('mousedown', (e) => {
+      if (this.capture) {
+        // a click on the menu row that started the capture has already finished (it is the click event);
+        // this is the next press
+        this.finishCapture(`Mouse${e.button}`);
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        return;
+      }
       this.keys.add(`Mouse${e.button}`);
       this.usingGamepad = false;
     });
@@ -79,6 +94,24 @@ export class Input {
     document.addEventListener('pointerlockchange', () => {
       this.pointerLocked = document.pointerLockElement === canvas;
     });
+  }
+
+  /** True while the next key or mouse button is being read for a rebinding (menus stay out of its way). */
+  get capturing(): boolean {
+    return this.capture !== null;
+  }
+
+  /** The next key or mouse button pressed goes to `cb` instead of acting (Escape cancels with null). */
+  captureNext(cb: (code: string | null) => void): void {
+    this.keys.clear();
+    this.capture = cb;
+  }
+
+  private finishCapture(code: string | null): void {
+    const cb = this.capture;
+    this.capture = null;
+    this.keys.clear();
+    cb?.(code);
   }
 
   requestPointerLock(): void {

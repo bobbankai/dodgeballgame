@@ -500,7 +500,8 @@ export class Game {
     }
     const focus = this.player ? this.player.position : this.camera.position;
     this.pipe.update(dt, { center: focus, toSun: this.lighting.toSun });
-    void this.lighting.updateLocal(dt, focus);
+    // never while a level is being built or swapped: its scenery is being created and disposed under the capture
+    if (!this.loading) void this.lighting.updateLocal(dt, focus);
     this.scene.render();
     this.hud.update(this.player);
   }

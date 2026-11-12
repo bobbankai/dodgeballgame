@@ -300,6 +300,63 @@ export class Flow {
     };
   }
 
+  // ------------------------------------------------------------------ controls
+  /** Rebinding: pick an action, press the new key or mouse button. A key another action had swaps over to it. */
+  private controlsScreen(): Screen {
+    const g = this.g;
+    const s = g.settings;
+    const ROWS: [string, string][] = [
+      ['forward', 'Move forward'], ['back', 'Move back'], ['left', 'Move left'], ['right', 'Move right'],
+      ['light', 'Light attack'], ['heavy', 'Heavy attack'], ['dodge', 'Dodge'], ['block', 'Block and parry'], ['jump', 'Jump'],
+      ['sprint', 'Sprint'], ['lockOn', 'Lock on'], ['interact', 'Interact'], ['heal', 'Flask'],
+      ['ability1', 'Ability 1'], ['ability2', 'Ability 2'], ['ability3', 'Ability 3'], ['ability4', 'Ability 4'], ['ultimate', 'Ultimate'],
+      ['walk', 'Walk'], ['skills', 'Skills'], ['journal', 'Journal'], ['map', 'Map'], ['inventory', 'Inventory'],
+    ];
+    const NAMES: Record<string, string> = { Mouse0: 'Left click', Mouse1: 'Middle click', Mouse2: 'Right click', Space: 'Space', Escape: 'Esc',
+      ShiftLeft: 'Left Shift', ShiftRight: 'Right Shift', ControlLeft: 'Left Ctrl', ControlRight: 'Right Ctrl', ArrowUp: 'Up', ArrowDown: 'Down',
+      ArrowLeft: 'Left', ArrowRight: 'Right' };
+    const name = (code: string) => NAMES[code] ?? code.replace(/^(Key|Digit|Numpad)/, (m) => (m === 'Numpad' ? 'Num ' : '')).replace(/([a-z])([A-Z])/g, '$1 $2');
+    let waiting: string | null = null;
+    const bindings = () => s.data.controls.bindings;
+    /**
+     * The new key takes this action's primary slot (its secondary stays). If another action was using that
+     * key it gets this action's old primary in return, so nothing is left unbound or doubled up.
+     */
+    const rebind = (action: string, code: string): void => {
+      const b = bindings();
+      const old = b[action] ?? [];
+      const give = old[0];
+      for (const [other, keys] of Object.entries(b)) {
+        if (other === action || !keys.includes(code)) continue;
+        const rest = keys.filter((k) => k !== code);
+        b[other] = give && !rest.includes(give) ? [...rest, give].slice(0, 2) : rest;
+      }
+      b[action] = [code, ...old.slice(1).filter((k) => k !== code)].slice(0, 2);
+      s.save();
+    };
+    return {
+      id: 'controls', title: 'Controls', subtitle: 'Pick an action, then press the new key (Esc cancels)',
+      items: () => [
+        ...ROWS.map(([action, label]): MenuItem => ({
+          label,
+          detail: waiting === action ? 'Press a key...' : (bindings()[action] ?? []).map(name).join(' / ') || 'Unbound',
+          action: () => {
+            waiting = action;
+            this.menus.refresh();
+            // after the key that confirmed this row has been released
+            setTimeout(() => g.input.captureNext((code) => {
+              if (code) rebind(action, code);
+              waiting = null;
+              this.menus.refresh();
+            }), 0);
+          },
+        })),
+        { label: 'Reset to defaults', action: () => { s.resetControls(); this.menus.refresh(); } },
+        { label: 'Back', action: () => this.menus.pop() },
+      ],
+    };
+  }
+
   // ------------------------------------------------------------------ settings
   private settingsScreen(): Screen {
     const g = this.g;
@@ -326,6 +383,7 @@ export class Flow {
         toggle(() => s.data.controls.invertY, (v) => { s.data.controls.invertY = v; }, 'Invert camera Y'),
         toggle(() => s.data.access.subtitles, (v) => { s.data.access.subtitles = v; }, 'Subtitles'),
         { label: 'Camera shake', value: { get: () => pct(s.data.access.cameraShake), step: (d) => { s.data.access.cameraShake = Math.min(1, Math.max(0, Math.round((s.data.access.cameraShake + d * 0.25) * 4) / 4)); g.rig.shakeScale = s.data.access.cameraShake; s.save(); } } },
+        { label: 'Controls', detail: 'Rebind keys', action: () => this.menus.push(this.controlsScreen()) },
         { label: 'Difficulty', value: { get: () => s.data.access.difficulty, step: (d) => { s.data.access.difficulty = cycle<'story' | 'normal' | 'hard'>(['story', 'normal', 'hard'], s.data.access.difficulty, d); s.save(); } } },
         { label: 'Back', action: () => this.menus.pop() },
       ],

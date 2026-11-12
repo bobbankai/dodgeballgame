@@ -234,13 +234,14 @@ export class Lighting {
       probe.refreshRate = RenderTargetTexture.REFRESHRATE_RENDER_ONCE;
       const list = probe.renderList!;
       list.push(this.sky.mesh);
-      for (const m of this.statics) if (m.isEnabled() && m.isVisible && !m.isDisposed()) list.push(m);
+      for (const m of this.statics) if (m.isEnabled() && m.isVisible && !m.isDisposed() && m.getTotalVertices() > 0) list.push(m);
       const tex = probe.cubeTexture;
       const sky = this.sky;
       await new Promise<void>((resolve) => {
         tex.onAfterRenderObservable.addOnce(() => resolve());
         if (now) sky.withSteps(Math.min(sky.cloudSteps, 12), () => tex.render(false));
       });
+      probe.renderList!.length = 0; // rendered once: release the scenery so nothing keeps a reference to a mesh that is later disposed
       const localSH = await CubeMapToSphericalPolynomialTools.ConvertCubeMapTextureToSphericalPolynomial(tex);
       this.localFilter ??= new HDRFiltering(scene.getEngine(), { hdrScale: 1, quality: cfg.filterSamples });
       await this.localFilter.prefilter(tex);

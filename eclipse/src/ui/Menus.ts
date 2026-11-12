@@ -54,7 +54,7 @@ export class Menus {
     this.root = el('div', 'ec-menu', host);
     this.panel = el('div', 'panel', this.root);
     window.addEventListener('keydown', (e) => {
-      if (!this.open) return;
+      if (!this.open || this.input.capturing) return; // a rebinding is waiting for this key
       if (e.key === 'ArrowDown' || e.key === 's') this.move(1);
       else if (e.key === 'ArrowUp' || e.key === 'w') this.move(-1);
       else if (e.key === 'ArrowLeft' || e.key === 'a') this.change(-1);
