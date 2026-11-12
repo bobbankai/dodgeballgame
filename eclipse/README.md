@@ -27,6 +27,23 @@ The first load fetches about 290 MB of models, textures, music and voices; later
 Progress saves at every checkpoint (browser storage): *Continue* on the title screen resumes it, and finished
 chapters unlock in *Chapters*.
 
+## On your phone
+
+Any recent phone works (Android Chrome and iPhone Safari 26+ support WebGPU; others use the WebGL 2 fallback).
+The first load downloads about 290 MB, so use Wi-Fi. Hold the phone sideways.
+
+- **A web address** (once the repo's Pages site is published, see below): open
+  `https://<owner>.github.io/<repo>/eclipse/` on the phone. Then **Add to Home Screen** (iPhone: Share >
+  Add to Home Screen; Android: the browser menu > Install app / Add to Home screen): it opens full screen and
+  sideways, like an app, with its own icon.
+- **From your computer, same Wi-Fi:** run `npm run eclipse`, and open the *Network* address it prints
+  (for example `http://192.168.1.20:5180`) in the phone's browser. That address is plain `http`, which browsers
+  do not treat as secure, so the phone uses WebGL 2 rather than WebGPU: it looks the same, a little slower.
+
+Publishing: `.github/workflows/pages.yml` builds the repo's other game and Eclipse and publishes both, Eclipse
+under `/eclipse/`. It runs on pushes to the default branch (or "Run workflow" in the Actions tab), and Pages
+must be set to deploy from GitHub Actions (Settings > Pages). Eclipse has to be on that branch to be published.
+
 ## Controls
 
 | | Keyboard and mouse | Gamepad | Touch |
