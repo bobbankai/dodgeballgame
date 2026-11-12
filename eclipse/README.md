@@ -50,11 +50,12 @@ Controls can be rebound in the pause menu. Touch controls appear on touch device
 
 ## Combat in one paragraph
 
-Enemies telegraph their strikes: a red glint means a strike you cannot block, so dodge it; a gold glint means you
-can parry it with a well-timed block, which breaks their poise and opens an execution. Every god changes the
-fight at each health threshold (their phases), calls reinforcements and has hazards on the ground: the glowing
-sigils on the floor mark where a strike is about to land. Spend skill points (`Y`) after each chapter; every god
-you fell grants a spark and a new power.
+Enemies telegraph their strikes with a flash on the weapon. A red flash marks a strike you cannot parry: dodge it
+(a dodge gives a brief window where nothing can hurt you). A plain glint can be parried: block just before it lands
+to turn it aside, break the enemy's poise and open an execution. Some attacks (sun rays, flares, novas) cannot be
+blocked at all. The gods change their fight at each health threshold, call reinforcements and mark the ground
+before a strike lands: the glowing sigils are where it will hit. Every god you fell grants a spark (a new
+ability) and two skill points to spend in the skill tree (`Y`); skill points also come from levelling.
 
 ## Quality and options
 
