@@ -1,5 +1,5 @@
 import {
-  Color3, Matrix, Mesh, Quaternion, Vector3, VertexBuffer, VertexData, type AbstractMesh, type Material, type PBRMaterial, type Scene,
+  Color3, Matrix, Mesh, PBRMaterial, Quaternion, Vector3, VertexBuffer, VertexData, type AbstractMesh, type Material, type Scene,
 } from '@babylonjs/core';
 import type { AssetManager } from '../assets/AssetManager';
 import type { MaterialLibrary } from '../render/Materials';
@@ -220,9 +220,18 @@ export class EnvKit {
         // it still takes the weather (wetness, ash or snow cover)
         if (!this.materials.has(own)) {
           withLayers(m.material, { porosity: 0.9, allowCover: true });
-          // leaves and fronds (alpha-tested cards) let the sun through from behind
+          // Foliage cards arrive alpha-BLENDED (the Blender round trip turns the scan's cutout into a blend).
+          // Blended leaves write no depth (so fog, AO and contact shadows cannot see them), sort badly
+          // against each other and cost fill rate; as cutouts they look the same and do all of that
+          // properly, and cast cutout shadows. They also let the sun through from behind.
+          const pbr = m.material as PBRMaterial;
+          if (pbr.transparencyMode === PBRMaterial.PBRMATERIAL_ALPHABLEND && pbr.albedoTexture?.hasAlpha) {
+            pbr.transparencyMode = PBRMaterial.PBRMATERIAL_ALPHATEST;
+            pbr.alphaCutOff = 0.42;
+            pbr.useAlphaFromAlbedoTexture = true;
+          }
           const sh = ShadingPlugin.of(m.material);
-          if (sh && m.material.needAlphaTesting()) sh.leaf = 0.9;
+          if (sh && pbr.transparencyMode === PBRMaterial.PBRMATERIAL_ALPHATEST) sh.leaf = 0.4;
           this.materials.set(own, m.material);
         }
         m.material = this.materials.get(own)!;
