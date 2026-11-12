@@ -263,9 +263,11 @@ export class HairPlugin extends EcPlugin {
   shift2 = 0.12;
   exp1 = 180;
   exp2 = 40;
-  strength1 = 0.35;
-  strength2 = 0.6;
-  scatter = 0.6;
+  // The terms are added in HDR and multiplied by the sun's colour * intensity (4 and more), so the
+  // strengths are small: 0.35 / 0.6 blew the crown out to white speckle.
+  strength1 = 0.03;
+  strength2 = 0.2;
+  scatter = 0.3;
 
   constructor(material: Material) {
     super(material, 'EcHair', 150, { EC_HAIR: false });
