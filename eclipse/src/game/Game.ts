@@ -142,6 +142,9 @@ export class Game {
     this.cine = new Director(this);
     this.flow = new Flow(this);
     this.touch = new TouchControls(document.getElementById('ui')!, this.input);
+    this.touch.onPortrait = (portrait) => {
+      if (portrait) this.flow?.pauseForRotation();
+    };
     this.ground = new GroundFx(scene);
     this.projectiles = new Projectiles(scene, this.combat, physics, this.vfx);
     this.hazards = new Hazards(this.combat, this.vfx, this.ground, scene);
@@ -451,6 +454,7 @@ export class Game {
   frame(realDt: number): void {
     // the world holds still while a level is being built (the screen is faded out meanwhile)
     const n = this.paused || this.loading ? 0 : this.clock.accumulate(realDt);
+    this.input.beginFrame();
     for (let i = 0; i < n; i++) this.step(Clock.STEP);
     this.fps = this.fps * 0.95 + (realDt > 0 ? 1 / realDt : 0) * 0.05;
     this.flow.update(realDt);
@@ -509,6 +513,7 @@ export class Game {
   /** Test hook: advance game time by `seconds` in fixed steps and render one frame. */
   advance(seconds: number): void {
     const steps = this.loading ? 0 : Math.round(seconds / Clock.STEP);
+    this.input.beginFrame();
     for (let i = 0; i < steps; i++) this.step(Clock.STEP);
     this.flow.update(seconds);
     // Outside runRenderLoop the engine's frame must be opened and closed by hand (WebGPU submits

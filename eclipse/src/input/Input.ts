@@ -219,6 +219,22 @@ export class Input {
     return this.states.get(a)!.pressedFrame === this.frame;
   }
 
+  private frameMark = 0;
+
+  /**
+   * Call once at the start of each rendered frame, before its simulation steps. `pressed()` is only true
+   * during the one step the press landed in, so code that runs once per frame (after however many steps
+   * that frame had: two or more below 60 fps) would miss it; `pressedThisFrame()` is true if the press
+   * landed in any step since this call.
+   */
+  beginFrame(): void {
+    this.frameMark = this.frame;
+  }
+
+  pressedThisFrame(a: Action): boolean {
+    return this.states.get(a)!.pressedFrame > this.frameMark;
+  }
+
   released(a: Action): boolean {
     return this.states.get(a)!.releasedFrame === this.frame;
   }
@@ -250,7 +266,12 @@ export class Input {
     if (!this.settings.data.controls.vibration) return;
     const pad = (navigator.getGamepads?.() ?? []).find((p) => p?.connected);
     const act = (pad as (Gamepad & { vibrationActuator?: { playEffect?: (t: string, p: object) => Promise<unknown> } }) | undefined)?.vibrationActuator;
-    act?.playEffect?.('dual-rumble', { duration: ms, strongMagnitude: strong, weakMagnitude: weak }).catch(() => undefined);
+    if (act?.playEffect) {
+      act.playEffect('dual-rumble', { duration: ms, strongMagnitude: strong, weakMagnitude: weak }).catch(() => undefined);
+    } else if (navigator.vibrate && matchMedia('(pointer: coarse)').matches) {
+      // a phone: the same hit, felt in the hand (short: long buzzes tire and some browsers cap them)
+      navigator.vibrate(Math.max(10, Math.min(Math.round(ms * (0.4 + 0.6 * Math.max(strong, weak))), 110)));
+    }
   }
 
   dispose(): void {

@@ -38,15 +38,15 @@ chapters unlock in *Chapters*.
 | Dodge (brief invulnerability) | `Space` | B | Dodge |
 | Block / parry (tap just before a hit) | `Q` / `L` | LB | Guard |
 | Jump | `F` | A | Jump |
-| Sprint | `Shift` | L3 | |
+| Sprint | `Shift` | L3 | push the stick to its edge |
 | Lock on | middle click / `Tab` | R3 | Lock |
-| Interact | `E` | X | prompt button |
+| Interact | `E` | X | (not used in the story yet) |
 | Flask (heal) | `H` | Y | Flask |
-| Abilities | `1` `2` `3` `4` | d-pad | the round buttons |
-| Ultimate | `R` | LT | |
+| Abilities | `1` `2` `3` `4` | d-pad | the diamonds at bottom centre (one appears per spark you earn) |
+| Ultimate | `R` | LT | the last diamond |
 | Pause, skills, journal, map, inventory | `Esc`, `Y`, `N`, `M`, `I` | | pause button |
 
-Keys and mouse buttons can be rebound in Settings > Controls (from the title screen or the pause menu). Touch controls appear on touch devices (or add `?touch`).
+Keys and mouse buttons can be rebound in Settings > Controls (from the title screen or the pause menu). Touch controls appear on touch devices (or add `?touch`). Play with the phone held sideways: upright, the game pauses behind a "turn your device" note. Hits vibrate the phone (Settings turns this off), and Settings > Fullscreen hides the browser bar.
 
 ## Combat in one paragraph
 

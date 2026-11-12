@@ -14,8 +14,6 @@ const BUTTONS: Btn[] = [
   { action: 'jump', label: 'Jump', cls: 'b-jump' },
   { action: 'lockOn', label: 'Lock', cls: 'b-lock' },
   { action: 'heal', label: 'Flask', cls: 'b-heal' },
-  { action: 'ability1', label: '1', cls: 'b-ab1' },
-  { action: 'ability2', label: '2', cls: 'b-ab2' },
   { action: 'pause', label: '❚❚', cls: 'b-pause' },
 ];
 
@@ -35,8 +33,14 @@ export class TouchControls {
   private lookLast = { x: 0, y: 0 };
   /** Look speed in radians per pixel. */
   sensitivity = 0.006;
+  /** Called when a touch device is turned upright (true) or sideways (false). */
+  onPortrait: ((portrait: boolean) => void) | null = null;
+  private rotate: HTMLElement;
+  private isTouch = false;
+  private wasPortrait = false;
 
   constructor(host: HTMLElement, private input: Input) {
+    const touch = 'ontouchstart' in window || navigator.maxTouchPoints > 0 || new URLSearchParams(location.search).has('touch');
     this.root = document.createElement('div');
     this.root.className = 'ec-touch';
     host.appendChild(this.root);
@@ -74,14 +78,52 @@ export class TouchControls {
       e.addEventListener('pointerup', up);
       e.addEventListener('pointercancel', up);
     }
+    // The HUD's ability slots are the ability buttons (1-4 and the ultimate): only the abilities Kael has
+    // unlocked are shown, each with its cooldown, and a tap casts it.
+    const casts: Action[] = ['ability1', 'ability2', 'ability3', 'ability4', 'ultimate'];
+    // (the HUD sits under this layer, whose look/stick area would swallow the taps: the bar moves up into it;
+    // the HUD keeps updating it through its own references)
+    const bar = host.querySelector<HTMLElement>('.ec-abilities');
+    if (bar && touch) this.root.appendChild(bar);
+    host.querySelectorAll<HTMLElement>('.ec-abilities .ec-slot').forEach((slot, i) => {
+      const action = casts[i];
+      if (!action) return;
+      slot.addEventListener('pointerdown', (ev) => {
+        ev.preventDefault();
+        ev.stopPropagation();
+        slot.classList.add('down');
+        this.input.setTouchAction(action, true);
+        slot.setPointerCapture(ev.pointerId);
+      });
+      const up = (ev: PointerEvent) => {
+        ev.preventDefault();
+        slot.classList.remove('down');
+        this.input.setTouchAction(action, false);
+      };
+      slot.addEventListener('pointerup', up);
+      slot.addEventListener('pointercancel', up);
+    });
     zone.addEventListener('pointerdown', (ev) => this.start(ev));
     zone.addEventListener('pointermove', (ev) => this.drag(ev));
     zone.addEventListener('pointerup', (ev) => this.end(ev));
     zone.addEventListener('pointercancel', (ev) => this.end(ev));
-    const touch = 'ontouchstart' in window || navigator.maxTouchPoints > 0 || new URLSearchParams(location.search).has('touch');
     this.root.classList.toggle('on', touch);
     // the HUD lays itself out round the pad (hotbar out of the pad's way)
     document.documentElement.classList.toggle('ec-touch-on', touch);
+    // the game is played sideways: upright, a full-screen note asks for a turn (and the game pauses)
+    this.rotate = document.createElement('div');
+    this.rotate.className = 'ec-rotate';
+    this.rotate.innerHTML = '<div class="ico">&#10227;</div><div class="msg">Turn your device sideways to play</div>';
+    host.appendChild(this.rotate);
+    // read the size itself (the media query's change event is not delivered reliably) on every resize
+    this.isTouch = touch;
+    window.addEventListener('resize', () => this.tick());
+    window.addEventListener('orientationchange', () => this.tick());
+    queueMicrotask(() => this.tick());
+    // Android Chrome honours this in full screen; elsewhere it is refused, which is fine
+    window.addEventListener('pointerdown', () => {
+      (screen.orientation as ScreenOrientation & { lock?: (o: string) => Promise<void> } | undefined)?.lock?.('landscape').catch(() => undefined);
+    }, { once: true });
   }
 
   private start(ev: PointerEvent): void {
@@ -133,6 +175,15 @@ export class TouchControls {
     } else if (ev.pointerId === this.lookId) {
       this.lookId = null;
     }
+  }
+
+  /** Every frame (and on resize): is the device held upright? Shows the note and tells the game once per change. */
+  tick(): void {
+    const p = this.isTouch && window.innerHeight > window.innerWidth;
+    if (p === this.wasPortrait && this.rotate.classList.contains('on') === p) return;
+    this.rotate.classList.toggle('on', p);
+    if (p !== this.wasPortrait) this.onPortrait?.(p);
+    this.wasPortrait = p;
   }
 
   setVisible(v: boolean): void {

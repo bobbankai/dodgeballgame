@@ -178,7 +178,10 @@
 .ec-touch .b-pause { position: fixed; top: max(12px, env(safe-area-inset-top)); right: max(12px, env(safe-area-inset-right)); width: 40px; height: 40px; bottom: auto; }
 @media (max-height: 500px) { .ec-touch .pad { transform: scale(0.8); transform-origin: right bottom; } }
 /* on touch the pad has the ability buttons: the hotbar only shows cooldowns, low in the middle, clear of the pad */
-.ec-touch-on .ec-abilities { right: auto; left: calc(50% - 70px); bottom: max(12px, env(safe-area-inset-bottom)); transform: translateX(-50%) scale(0.66); transform-origin: center bottom; gap: 14px; }
+.ec-touch-on .ec-abilities { right: auto; left: calc(50% - 127px); bottom: max(14px, env(safe-area-inset-bottom)); transform: translateX(-50%) scale(0.95); transform-origin: center bottom; gap: 18px; pointer-events: none; }
+.ec-touch-on .ec-slot { pointer-events: auto; touch-action: none; }
+.ec-touch-on .ec-slot > .key { display: none; }
+.ec-slot.down { background: rgba(217,181,106,0.4); }
 .ec-touch-on .ec-slot.empty { display: none; }
 /* lines keep to the open middle-left, clear of the pad's buttons */
 .ec-touch-on #ui:not(.ec-letterbox) .ec-subtitle { left: calc(50% - 120px); max-width: min(560px, calc(100vw - 300px)); }
@@ -191,3 +194,10 @@
 .ec-status span.shock.on { color: #e4dcff; border-color: #9a86ff; background: rgba(40,30,90,0.6); }
 .ec-status span.root.on { color: #e2f6c4; border-color: #7cb342; background: rgba(30,60,15,0.6); }
 .ec-status span.ward.on { color: #d8f6ff; border-color: #7fe0ff; background: rgba(20,70,90,0.6); }
+
+/* held upright on a phone: ask for a turn */
+.ec-rotate { position: fixed; inset: 0; z-index: 60; display: none; flex-direction: column; align-items: center; justify-content: center; gap: 18px; background: #07060a; color: var(--ec-parchment); text-align: center; padding: 0 12vw; font-family: var(--ec-title); letter-spacing: 0.08em; }
+.ec-rotate.on { display: flex; }
+.ec-rotate .ico { font-size: 64px; color: var(--ec-gold); animation: ec-turn 2.4s ease-in-out infinite; }
+.ec-rotate .msg { font-size: 18px; line-height: 1.5; }
+@keyframes ec-turn { 0%, 15% { transform: rotate(0); } 55%, 100% { transform: rotate(-90deg); } }

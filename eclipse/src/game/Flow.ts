@@ -235,6 +235,12 @@ export class Flow {
     this.menus.push(this.pauseScreen());
   }
 
+  /** The device was turned upright: stop the game under the "turn your device" note (no-op if already paused). */
+  pauseForRotation(): void {
+    if (this.onTitle || this.menus.open || this.g.cine.running || this.deathShown) return;
+    this.togglePause();
+  }
+
   private resume(): void {
     this.menus.close();
     this.g.paused = false;
@@ -383,6 +389,11 @@ export class Flow {
         toggle(() => s.data.controls.invertY, (v) => { s.data.controls.invertY = v; }, 'Invert camera Y'),
         toggle(() => s.data.access.subtitles, (v) => { s.data.access.subtitles = v; }, 'Subtitles'),
         { label: 'Camera shake', value: { get: () => pct(s.data.access.cameraShake), step: (d) => { s.data.access.cameraShake = Math.min(1, Math.max(0, Math.round((s.data.access.cameraShake + d * 0.25) * 4) / 4)); g.rig.shakeScale = s.data.access.cameraShake; s.save(); } } },
+        { label: 'Fullscreen', value: { get: () => (document.fullscreenElement ? 'On' : 'Off'), step: () => {
+          if (document.fullscreenElement) void document.exitFullscreen();
+          else void document.documentElement.requestFullscreen?.().catch(() => undefined);
+          setTimeout(() => this.menus.refresh(), 300);
+        } } },
         { label: 'Controls', detail: 'Rebind keys', action: () => this.menus.push(this.controlsScreen()) },
         { label: 'Difficulty', value: { get: () => s.data.access.difficulty, step: (d) => { s.data.access.difficulty = cycle<'story' | 'normal' | 'hard'>(['story', 'normal', 'hard'], s.data.access.difficulty, d); s.save(); } } },
         { label: 'Back', action: () => this.menus.pop() },
@@ -394,11 +405,12 @@ export class Flow {
   update(dt: number): void {
     const g = this.g;
     g.touch.setVisible(!this.menus.open && !this.onTitle && !g.cine.running);
+    g.touch.tick();
     if (this.menus.open) {
       g.input.update(performance.now() / 1000);
       this.menus.update(dt);
     }
-    if (g.input.pressed('pause') && !this.onTitle && !this.deathShown) this.togglePause();
+    if (g.input.pressedThisFrame('pause') && !this.onTitle && !this.deathShown) this.togglePause();
     if (this.onTitle) {
       // a slow flight over the burning town
       this.titleOrbit += dt * 0.025;
