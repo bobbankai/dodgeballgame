@@ -6,6 +6,7 @@ import '@fontsource/cinzel/400.css';
 import '@fontsource/cinzel/600.css';
 import '@fontsource/cormorant-garamond/400.css';
 import '@fontsource/cormorant-garamond/600.css';
+import { Shade, refreshShading } from './render/materials/Shading';
 
 const params = new URLSearchParams(location.search);
 const canvas = document.getElementById('game') as HTMLCanvasElement;
@@ -16,7 +17,7 @@ window.addEventListener('unhandledrejection', (e) => log.error('unhandled reject
 Game.create(canvas, params)
   .then((game) => {
     if (params.has('test')) {
-      Object.assign(window, { __game: game, __errors: recentErrors });
+      Object.assign(window, { __game: game, __errors: recentErrors, __shade: Shade, __refreshShading: () => refreshShading(game.scene) });
     }
   })
   .catch((err) => {

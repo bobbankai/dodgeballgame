@@ -1,6 +1,7 @@
 import {
   CascadedShadowGenerator, Color3, DirectionalLight, HemisphericLight, ReflectionProbe, Vector3, HDRFiltering,
   type AbstractMesh, type Camera, type Scene, ShadowGenerator, RenderTargetTexture, CubeMapToSphericalPolynomialTools,
+  SphericalPolynomial, type BaseTexture,
 } from '@babylonjs/core';
 import { log } from '../core/Log';
 import type { Sky } from './Sky';
@@ -47,6 +48,20 @@ export class Lighting {
   private casters = new Set<AbstractMesh>();
   profile!: LightingProfile;
   private scene: Scene;
+  /**
+   * Local light probe: the surroundings near the player captured into the environment cube, so
+   * ambient light and reflections come from the place itself (ground bounce, walls, a roof overhead)
+   * and not from an open sky everywhere. `blend` mixes the local diffuse light with the sky's (a
+   * single probe is only right at its own position); `size` 0 turns it off.
+   */
+  localProbe = { size: 96, distance: 9, interval: 14, height: 2.2, blend: 0.7, filterSamples: 256 };
+  private statics = new Set<AbstractMesh>();
+  private sky?: Sky;
+  private skyEnv?: BaseTexture;
+  private skySH?: SphericalPolynomial;
+  private local: { probe?: ReflectionProbe; at?: Vector3; age: number; busy: boolean; token: number } = { age: 0, busy: false, token: 0 };
+  private localFilter?: HDRFiltering;
+  private sh: { from?: SphericalPolynomial; to?: SphericalPolynomial; t: number } = { t: 1 };
 
   constructor(scene: Scene) {
     this.scene = scene;
@@ -139,6 +154,12 @@ export class Lighting {
     mesh.receiveShadows = true;
     for (const c of mesh.getChildMeshes(false)) c.receiveShadows = true;
     if (cast) this.addCaster(mesh, true);
+    // static scenery is what the local light probe sees
+    for (const m of [mesh, ...mesh.getChildMeshes(false)]) {
+      if (this.statics.has(m)) continue;
+      this.statics.add(m);
+      m.onDisposeObservable.addOnce(() => this.statics.delete(m));
+    }
   }
 
   /**
@@ -172,6 +193,80 @@ export class Lighting {
       log.warn('environment prefiltering failed; using unfiltered cube', e);
       scene.environmentTexture = tex;
     }
+    // the sky is the base the local probe blends with; a new sky starts the local capture afresh
+    this.sky = sky;
+    this.skyEnv = tex;
+    this.skySH = tex.sphericalPolynomial ?? undefined;
+    this.local.token++;
+    this.local.probe?.dispose();
+    this.local = { age: 0, busy: false, token: this.local.token };
+    this.sh = { t: 1 };
+  }
+
+  /**
+   * Keeps the local light probe current: call every frame with the point the view is about (the
+   * player). A new capture starts when that point has moved `distance` metres or `interval` seconds
+   * have passed; the scene's static scenery and the sky are rendered into a fresh cube from just
+   * above it, prefiltered for roughness, and swapped in. Diffuse light (spherical harmonics) is
+   * eased from the old probe to the new one, so the ambient never pops. `now` waits for the capture
+   * (level loads call it once before the fade in).
+   */
+  async updateLocal(dt: number, center: Vector3, now = false): Promise<void> {
+    const cfg = this.localProbe;
+    const env = this.scene.environmentTexture;
+    // ease the diffuse light toward the latest probe
+    if (this.sh.t < 1 && this.sh.from && this.sh.to && env) {
+      this.sh.t = Math.min(1, this.sh.t + dt / 1.5);
+      const k = this.sh.t * this.sh.t * (3 - 2 * this.sh.t);
+      env.sphericalPolynomial = lerpSH(this.sh.from, this.sh.to, k);
+    }
+    if (!cfg.size || !this.sky || !this.skyEnv || !this.skySH || this.local.busy) return;
+    this.local.age += dt;
+    const moved = this.local.at ? Vector3.Distance(this.local.at, center) : Infinity;
+    if (!now && moved < cfg.distance && this.local.age < cfg.interval) return;
+    this.local.busy = true;
+    const token = this.local.token;
+    const scene = this.scene;
+    const at = center.clone();
+    const probe = new ReflectionProbe('localProbe', cfg.size, scene, true, true);
+    try {
+      probe.position = at.add(new Vector3(0, cfg.height, 0));
+      probe.refreshRate = RenderTargetTexture.REFRESHRATE_RENDER_ONCE;
+      const list = probe.renderList!;
+      list.push(this.sky.mesh);
+      for (const m of this.statics) if (m.isEnabled() && m.isVisible && !m.isDisposed()) list.push(m);
+      const tex = probe.cubeTexture;
+      const sky = this.sky;
+      await new Promise<void>((resolve) => {
+        tex.onAfterRenderObservable.addOnce(() => resolve());
+        if (now) sky.withSteps(Math.min(sky.cloudSteps, 12), () => tex.render(false));
+      });
+      const localSH = await CubeMapToSphericalPolynomialTools.ConvertCubeMapTextureToSphericalPolynomial(tex);
+      this.localFilter ??= new HDRFiltering(scene.getEngine(), { hdrScale: 1, quality: cfg.filterSamples });
+      await this.localFilter.prefilter(tex);
+      if (token !== this.local.token || !localSH) {
+        probe.dispose(); // the level changed while this was rendering
+        return;
+      }
+      tex.lodGenerationScale = 0.8;
+      const current = scene.environmentTexture?.sphericalPolynomial ?? this.skySH;
+      const target = lerpSH(this.skySH!, localSH, cfg.blend);
+      tex.sphericalPolynomial = now ? target : current;
+      this.sh = now ? { t: 1 } : { from: current, to: target, t: 0 };
+      const old = this.local.probe;
+      scene.environmentTexture = tex;
+      this.local.probe = probe;
+      this.local.at = at;
+      this.local.age = 0;
+      old?.dispose();
+    } catch (e) {
+      log.warn('local light probe failed; keeping the previous environment', e);
+      probe.dispose();
+      this.local.at = at;
+      this.local.age = 0;
+    } finally {
+      if (token === this.local.token) this.local.busy = false;
+    }
   }
 
   dispose(): void {
@@ -180,4 +275,14 @@ export class Lighting {
     this.sun.dispose();
     this.fill.dispose();
   }
+}
+
+
+const SH_TERMS = ['x', 'y', 'z', 'xx', 'yy', 'zz', 'xy', 'yz', 'zx'] as const;
+
+/** Blend of two sets of diffuse-light coefficients (they are linear in the light they describe). */
+function lerpSH(a: SphericalPolynomial, b: SphericalPolynomial, t: number): SphericalPolynomial {
+  const o = new SphericalPolynomial();
+  for (const k of SH_TERMS) Vector3.LerpToRef(a[k], b[k], t, o[k]);
+  return o;
 }

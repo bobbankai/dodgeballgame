@@ -6,6 +6,7 @@ import type { MaterialLibrary } from '../render/Materials';
 import type { Lighting } from '../render/Lighting';
 import { withLayers } from '../render/materials/SurfaceLayers';
 import { log } from '../core/Log';
+import { ShadingPlugin } from '../render/materials/Shading';
 
 /** How a texture set is used on environment pieces (UVs are in metres). */
 interface EnvSet {
@@ -125,6 +126,8 @@ export class EnvKit {
     const s = SETS[key] ?? SETS[set] ?? { size: 2 };
     const pm: PBRMaterial = this.mats.surface({ set, tile: 1 / s.size, tint: s.tint, roughness: s.roughness, normalStrength: s.normal, metallic: s.metallic }).clone(`env_${key}`);
     withLayers(pm, { porosity: s.porosity ?? 0.8, allowCover: true });
+    const sh = ShadingPlugin.of(pm);
+    if (sh) sh.macro = s.metallic ? 0.35 : 1;
     if (s.emissive) {
       pm.emissiveColor = s.emissive;
       pm.emissiveTexture = pm.albedoTexture;
@@ -217,6 +220,9 @@ export class EnvKit {
         // it still takes the weather (wetness, ash or snow cover)
         if (!this.materials.has(own)) {
           withLayers(m.material, { porosity: 0.9, allowCover: true });
+          // leaves and fronds (alpha-tested cards) let the sun through from behind
+          const sh = ShadingPlugin.of(m.material);
+          if (sh && m.material.needAlphaTesting()) sh.leaf = 0.9;
           this.materials.set(own, m.material);
         }
         m.material = this.materials.get(own)!;

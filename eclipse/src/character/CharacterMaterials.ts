@@ -3,6 +3,7 @@ import {
 } from '@babylonjs/core';
 import { assetUrl } from '../assets/paths';
 import { SkinPlugin, HairPlugin, EmissiveFxPlugin, DissolvePlugin } from '../render/materials/FxPlugins';
+import { ShadingPlugin } from '../render/materials/Shading';
 
 /** Per-part settings written by the Blender build script into <char>.json. */
 export interface PartSpec {
@@ -67,6 +68,10 @@ export class CharacterMaterials {
         m.roughness = 1;
       }
     };
+    const fuzz = (amount: number) => {
+      const sh = ShadingPlugin.of(m);
+      if (sh) sh.fuzz = amount;
+    };
     switch (spec.kind) {
       case 'skin': {
         withMaps(spec.tex ?? 'skin');
@@ -82,6 +87,8 @@ export class CharacterMaterials {
       }
       case 'gear': {
         withMaps(spec.tex ?? 'gear');
+        // the atlas mixes plate, leather and cloth: the fuzz term keys on each texel's roughness and metalness
+        fuzz(0.9);
         // gear built with single-walled shells (inner walls dropped at build time) renders both
         // sides; double-walled gear must not (the walls a few millimetres apart would z-fight)
         if (spec.twoSided) {
@@ -100,6 +107,7 @@ export class CharacterMaterials {
       }
       case 'cloth': {
         withMaps(spec.tex ?? 'cloth');
+        fuzz(1);
         m.backFaceCulling = false;
         m.sheen.isEnabled = true;
         m.sheen.intensity = 0.4;

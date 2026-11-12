@@ -12,6 +12,7 @@ import { Tonemap, type TonemapParams } from './post/Tonemap';
 import { DepthOfField } from './post/DepthOfField';
 import { Sharpen } from './post/Sharpen';
 import { NEUTRAL_GRADE, type GradeSettings } from './post/Grading';
+import { Shade, refreshShading } from './materials/Shading';
 
 /** Everything a region (chapter area) sets about the look of the frame. */
 export interface LookParams {
@@ -155,6 +156,13 @@ export class Pipeline {
     // MSAA on the scene render target (first pass of the chain)
     const first = camera._postProcesses.find((p): p is PostProcess => !!p);
     if (first) first.samples = settings.antiAliasing === 'msaa' ? 4 : 1;
+    // screen-space contact shadows on the sun, marched through the depth pre-pass in every material
+    const contact = settings.shadows > 0 && settings.preset !== 'low';
+    Shade.depth = contact ? this.depth.getDepthMap() : null;
+    Shade.contact = contact ? 0.85 : 0;
+    Shade.contactSteps = ultra ? 12 : settings.preset === 'high' ? 8 : 6;
+    Shade.contactDistance = ultra ? 60 : 45;
+    refreshShading(scene);
     this.applyLook();
     this.exposure.reset();
   }
@@ -194,6 +202,7 @@ export class Pipeline {
   }
 
   update(dt: number, sunFollow?: { center: import('@babylonjs/core').Vector3; toSun: import('@babylonjs/core').Vector3 }): void {
+    Shade.frame++;
     this.atmosphere?.update(dt);
     this.tonemap?.update(dt);
     if (this.dof) {

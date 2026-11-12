@@ -1,5 +1,6 @@
 import { Color3, PBRMaterial, Texture, type Scene, type BaseTexture } from '@babylonjs/core';
 import { assetUrl } from '../assets/paths';
+import { ShadingPlugin } from './materials/Shading';
 
 /** Options for a tiled PBR surface built from a texture set in public/assets/tex. */
 export interface SurfaceOptions {
@@ -72,6 +73,8 @@ export class MaterialLibrary {
     if (o.emissive) m.emissiveColor = o.emissive;
     m.backFaceCulling = !o.twoSided;
     m.environmentIntensity = 1;
+    const sh = ShadingPlugin.of(m);
+    if (sh) sh.macro = o.metallic ? 0.35 : 1;
     this.materials.set(key, m);
     return m;
   }

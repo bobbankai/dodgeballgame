@@ -30,6 +30,7 @@ import type { Enemy } from '../ai/Enemy';
 import { Vfx } from '../vfx/Vfx';
 import { LocalLights } from '../render/LocalLights';
 import { GroundFx } from '../vfx/GroundFx';
+import { installShading } from '../render/materials/Shading';
 import { BladeTrail } from '../vfx/BladeTrail';
 import { Projectiles } from '../combat/Projectiles';
 import { Hazards } from '../combat/Hazards';
@@ -259,6 +260,7 @@ export class Game {
     const host = await EngineHost.create(canvas, { prefer: gl ?? undefined, antialias: false });
     host.renderScale = settings.data.graphics.resolution;
     const scene = new Scene(host.engine);
+    installShading();
     scene.useRightHandedSystem = true;
     scene.clearColor = new Color4(0, 0, 0, 1);
     scene.ambientColor = new Color3(0, 0, 0);
@@ -326,6 +328,8 @@ export class Game {
       this.sky.setWind(w.windDir[0], w.windDir[1]);
     }
     await this.lighting.captureEnvironment(this.sky);
+    // the first local light probe is captured before the level fades in (no pop on the first frame)
+    await this.lighting.updateLocal(0, this.player ? this.player.position : this.camera.position, true);
     this.pipe.exposure.reset();
     if (a.music) {
       void this.audio.music(a.music);
@@ -496,6 +500,7 @@ export class Game {
     }
     const focus = this.player ? this.player.position : this.camera.position;
     this.pipe.update(dt, { center: focus, toSun: this.lighting.toSun });
+    void this.lighting.updateLocal(dt, focus);
     this.scene.render();
     this.hud.update(this.player);
   }
