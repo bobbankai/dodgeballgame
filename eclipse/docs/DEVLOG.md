@@ -18,6 +18,44 @@ WebGL 2 screenshots, or tests), not just compiled.
 
 ## Log
 
+### Session 7 — shading v2, and a class of bug found by A/B: HDR-scaled terms
+
+Built (see `docs/RENDERING.md`):
+- **`EcShading` plugin on every PBR material**: sun contact shadows marched through the depth
+  pre-pass (applied to the sun's own shadow term, so fill and reflections are untouched), cloth fuzz
+  keyed per texel on roughness/metalness, leaf translucency, world-space macro variation, geometric
+  specular anti-aliasing. WebGPU and WebGL 2 versions of every snippet.
+- **Local light probe** (`Lighting.updateLocal`): the surroundings near the player captured into the
+  environment cube, diffuse SH eased old -> new (never pops), first capture blocks the level load.
+- `?test` exposes `__shade` and `__refreshShading()`; `Shade.debug` = 1/2 paints the contact term and
+  the depth-agreement check.
+
+Found and fixed by A/B (each seen broken, then seen working):
+- **Kael's face was flat red plastic.** The skin plugin's subsurface terms are added in HDR times the
+  sun's colour*intensity (4+); at 0.85/0.55/0.35 they swamped the albedo. Plugin off showed a real
+  face. Now 0.12/0.5/0.06 (+ Babylon translucency 0.08).
+- **White speckle on the back of his head**: the same scale bug in the Kajiya-Kay hair terms
+  (0.35/0.6 -> 0.03/0.2). Bisected: plugin off = clean, mesh hidden = scalp only.
+- **No tree had ever received leaf translucency**: the photoscan leaf materials are alpha-BLENDED
+  (the Blender round trip turns the scan's cutout into a blend), so my `needAlphaTesting()` check
+  never matched. Blended leaves also write no depth (fog, AO and contact shadows could not see them)
+  and sort badly. They are now alpha-tested cutouts (0.42) with translucency 0.4.
+- **Aurelion's head was hollow**: his mask was a face plate only (nothing behind it, the crown floating
+  on an empty skull) and a void-glass "mouth" read as a scream. Golden skullcap added, mouth removed.
+- **Eclipse Priest** was a tight white bag over a mannequin head: now a loose cowl open at the face
+  with a gold slit-eyed mask.
+
+Verified headless: all five chapters + the playground load with no shader errors in WebGPU and the
+playground in WebGL 2; the Aurelion fight runs (sun-line eruptions, corona nova ring, burning status);
+Kael, the Sentinel, Thornbound and Bloomcaller close up; the forest grove with the new foliage.
+
+Not done yet / honest gaps:
+- Aurelion and the Priest were rebuilding at the time of writing: not yet seen in game.
+- Contact shadows and the local probe cost real GPU time that headless software rendering cannot
+  measure; the numbers in RENDERING.md are step counts, not milliseconds. Low preset has neither.
+- The ending cinematic has still not been played end to end.
+- Kael's armour reads as matte blue-grey cloth rather than steel; the gear atlas for his plate needs a look.
+
 ### Session 6 — bugs found by playing: navmesh, materials, cutscenes; cloth; mobile HUD
 
 Found and fixed (each seen broken, then seen working, headless):

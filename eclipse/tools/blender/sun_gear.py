@@ -164,14 +164,22 @@ def priest(R, B, info):
                             lambda p: mat_ids(p, 'gold', [(lambda q: cracks(q, 18, 0.03, 812), 'sunglow')]), skin='transfer', voxel=0.0022, budget=2200))
     head_ell = sdf.ellipsoid(skull + np.array([0, 0.012, 0.01]), (0.11, 0.13, 0.14))
 
-    def veil(p):
+    def cowl(p):
+        # a loose hood that stands off the head and falls to the shoulders, open at the face
         z = p[:, 2]
-        env = smin(B(p) - 0.024, head_ell(p) - 0.016, 0.04)
-        region = np.maximum((zc - 0.02) - z, np.hypot(p[:, 0], p[:, 1] * 1.15) - 0.3)
-        return np.maximum(np.abs(env) - 0.0026, region)
+        env = smin(B(p) - 0.034, head_ell(p) - 0.026, 0.05)
+        region = np.maximum((zc - 0.05) - z, np.hypot(p[:, 0], p[:, 1] * 1.15) - 0.32)
+        face = np.hypot(p[:, 0] / 0.072, (p[:, 2] - (eyes[2] - 0.02)) / 0.105) - 1.0
+        opening = np.maximum(face, p[:, 1] - (skull[1] - 0.02))
+        return np.maximum(np.maximum(np.abs(env) - 0.0032, region), -opening)
 
-    pieces.append(Piece('veil', veil, (np.array([-0.3, -0.3, zc - 0.06]), np.array([0.3, 0.3, L['top'] + 0.08])),
-                        lambda p: mat_ids(p, 'cloth_white', [(lambda q: np.abs(q[:, 2] - (eyes[2] + 0.04)) < 0.008, 'gold')]), skin='transfer', voxel=0.003, budget=3800))
+    pieces.append(Piece('cowl', cowl, (np.array([-0.34, -0.34, zc - 0.1]), np.array([0.34, 0.34, L['top'] + 0.1])),
+                        lambda p: mat_ids(p, 'cloth_white', [(lambda q: q[:, 2] < zc - 0.03, 'gold')]), skin='transfer', voxel=0.003, budget=4200))
+    # the face under it: a gold mask with one narrow sun-lit eye slit each side (what is left of a face)
+    pieces.append(Piece('mask', face_mask(L, B, skull, eyes, neck, 0.012), (skull - np.array([0.12, 0.17, 0.2]), skull + np.array([0.12, 0.02, 0.08])),
+                        lambda p: mat_ids(p, 'gold', [(lambda q: np.abs(q[:, 2] - (eyes[2] + 0.04)) < 0.005, 'sunglow')]),
+                        skin={'bone': 'head'}, voxel=0.0015, budget=2600))
+    pieces.append(Piece('eyes', glow_eyes(L), (eyes - 0.08, eyes + 0.08), 'sunglow', skin={'bone': 'head'}, voxel=0.0012, budget=400))
     hc = skull + np.array([0, 0.1, 0.05])
 
     def halo(p):
