@@ -100,9 +100,12 @@ export const PHASE_LINES: Record<number, [string, string][]> = {
 export async function bossDeath(d: Director, g: Game, boss: Boss): Promise<void> {
   const b = boss.position.clone();
   d.letterbox(true);
-  d.focus(5, 2.2);
-  await d.rail({ pos: b.add(new Vector3(5, 3, -6)), target: b.add(new Vector3(0, 2, 0)), fov: 0.65 },
-    { pos: b.add(new Vector3(3, 2.2, -4)), target: b.add(new Vector3(0, 2.2, 0)), fov: 0.55 }, 3, easeOut);
+  // the fallen body, low and close: framed where it actually lies (the clip carries it from where it stood)
+  const c = boss.bodyCentre();
+  const k = boss.height / 4.6; // the bigger the god, the further back
+  d.focus(10 * k, 2.4);
+  await d.rail({ pos: c.add(new Vector3(7.5 * k, 2.2 * k, -8.5 * k)), target: c.add(new Vector3(0, 0.5 * k, 0)), fov: 0.62 },
+    { pos: c.add(new Vector3(5.5 * k, 1.5 * k, -6.2 * k)), target: c.add(new Vector3(0, 0.4 * k, 0)), fov: 0.55 }, 3, easeOut);
   await d.say('ignaroth', 'You carry his light. Do you not even know it?');
   await d.say('ignaroth', 'The Eclipse was never a curse, little knight. It was a hand. Closing.');
   g.vfx.burst('firePillar', b, Vector3.Up(), 1.2);

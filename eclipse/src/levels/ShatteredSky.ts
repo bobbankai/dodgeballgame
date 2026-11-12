@@ -314,11 +314,12 @@ export class ShatteredSky extends Level {
       }
     };
     b.events.on('died', () => {
+      b.holdBody(); // the body lies there while the scene speaks over it
       g.hud.showBoss(null);
       void g.audio.music('sky');
       if (this.bossKey) g.lights.remove(this.bossKey);
       this.bossKey = null;
-      g.hazards.after(2.4, () => void g.cine.play((d) => bossDeath(d, g, b)).then(() => {
+      g.hazards.after(2.4, () => void g.cine.play((d) => bossDeath(d, g, b)).finally(() => b.releaseBody()).then(() => {
         g.flow.claimSpark('vaeltris');
         g.flow.checkpoint(this.id, 'crown', 'vaeltris');
         g.flow.chapterComplete(this.id);

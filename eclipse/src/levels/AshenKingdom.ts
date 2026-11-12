@@ -390,9 +390,10 @@ export class AshenKingdom extends Level {
       }
     };
     b.events.on('died', () => {
+      b.holdBody(); // the body lies there while the scene speaks over it
       g.hud.showBoss(null);
       void g.audio.music('ashen');
-      g.hazards.after(2.4, () => void g.cine.play((d) => bossDeath(d, g, b)).then(() => {
+      g.hazards.after(2.4, () => void g.cine.play((d) => bossDeath(d, g, b)).finally(() => b.releaseBody()).then(() => {
         g.flow.claimSpark('ignaroth');
         g.flow.checkpoint(this.id, 'throne', 'ignaroth');
         g.flow.chapterComplete(this.id);

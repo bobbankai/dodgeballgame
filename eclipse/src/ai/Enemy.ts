@@ -35,6 +35,9 @@ export interface AiContext {
   shake(amount: number): void;
 }
 
+/** Joints that must not sink into the floor when a body lies down (centres: the body is thicker than this). */
+const GROUND_JOINTS = ['pelvis', 'spine_03', 'head', 'hand_l', 'hand_r', 'foot_l', 'foot_r', 'upperarm_l', 'upperarm_r', 'calf_l', 'calf_r'];
+
 export type EnemyState =
   | 'idle' | 'patrol' | 'search' | 'return' | 'combat' | 'attack' | 'block' | 'blockHit' | 'dodge' | 'hit'
   | 'stun' | 'knockdown' | 'getup' | 'executed' | 'dead' | 'taunt';
@@ -116,6 +119,12 @@ export class Enemy implements Combatant, Tactical {
   private locoMode: 'free' | 'combat' | '' = '';
   private deathAt = 0;
   private deathFx: FxHandle | null = null;
+  /** The body lies where it fell (no dissolve) while a death scene plays over it. */
+  private deathHold = false;
+  private heldSince = -1;
+  private heldTotal = 0;
+  /** How far the model is raised (local units) so the fallen body lies on the floor, not in it. */
+  private deathLift = 0;
   private executioner: Combatant | null = null;
   private moveTarget = new Vector3();
   private hasMoveTarget = false;
@@ -278,6 +287,7 @@ export class Enemy implements Combatant, Tactical {
     this.stats.update(dt, this.state === 'block' ? 0.4 : 1);
     if (this.state === 'dead') {
       this.deathTick();
+      this.groundBody(dt);
     } else {
       this.perceive();
       this.behave(dt);
@@ -980,8 +990,67 @@ export class Enemy implements Combatant, Tactical {
     this.events.emit('died', { killer: hit.source });
   }
 
+  /**
+   * Keeps a dying body in the world, undissolved, until `releaseBody()`: a boss's last words are
+   * spoken over it (the dissolve would otherwise finish before the scene's first line). Safe to leave
+   * held for ever: the body goes with its level.
+   */
+  holdBody(): void {
+    this.deathHold = true;
+  }
+
+  releaseBody(): void {
+    this.deathHold = false;
+  }
+
+  /** The middle of the body as it lies or stands now (the average of its main joints): what a camera should frame. */
+  bodyCentre(out = new Vector3()): Vector3 {
+    out.setAll(0);
+    let n = 0;
+    for (const j of GROUND_JOINTS) {
+      const b = this.char.rig.bone(j);
+      if (!b) continue;
+      b.computeWorldMatrix(true);
+      out.addInPlace(b.getAbsolutePosition());
+      n++;
+    }
+    return n ? out.scaleInPlace(1 / n) : out.copyFrom(this.position);
+  }
+
+  /**
+   * The death clips drop the pelvis a quarter metre below the floor (a thrall, a knight, Ignaroth) or
+   * far more on a tall rig (Aurelion: 1.7 m), so a fallen body sank into the ground: the dissolve hid
+   * it, but a boss's last words are spoken over it. Each frame the lowest joint is measured and the
+   * model eased up so that no joint is under the floor plus the body's own thickness.
+   */
+  private groundBody(dt: number): void {
+    const root = this.char.model.root;
+    let low = Infinity;
+    for (const n of GROUND_JOINTS) {
+      const b = this.char.rig.bone(n);
+      if (!b) continue;
+      b.computeWorldMatrix(true);
+      low = Math.min(low, b.getAbsolutePosition().y);
+    }
+    if (!Number.isFinite(low)) return;
+    const base = low - this.deathLift * this.scale;
+    const want = Math.max(0, this.position.y + 0.12 * this.scale - base) / this.scale;
+    this.deathLift += (want - this.deathLift) * Math.min(1, dt * 10);
+    root.position.y = this.deathLift;
+  }
+
   private deathTick(): void {
-    const t = this.time - this.deathAt;
+    let t = this.time - this.deathAt - this.heldTotal;
+    if (this.deathHold && t > 2.2) {
+      if (this.heldSince < 0) this.heldSince = this.time;
+      return;
+    }
+    if (this.heldSince >= 0) {
+      // released: the dissolve resumes from where it was held (time spent held does not count)
+      this.heldTotal += this.time - this.heldSince;
+      this.heldSince = -1;
+      t = this.time - this.deathAt - this.heldTotal;
+    }
     if (t > 2.2 && !this.deathFx) {
       const d = this.def.death;
       if (d?.color) this.char.setDissolveColor(d.color);
