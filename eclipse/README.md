@@ -46,7 +46,7 @@ chapters unlock in *Chapters*.
 | Ultimate | `R` | LT | |
 | Pause, skills, journal, map, inventory | `Esc`, `Y`, `N`, `M`, `I` | | pause button |
 
-Controls can be rebound in the pause menu. Touch controls appear on touch devices (or add `?touch`).
+Keys and mouse buttons can be rebound in Settings > Controls (from the title screen or the pause menu). Touch controls appear on touch devices (or add `?touch`).
 
 ## Combat in one paragraph
 
