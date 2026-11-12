@@ -50,6 +50,19 @@ Found and fixed by A/B (each seen broken, then seen working):
   standing-chest height. Now `Enemy.groundBody` keeps the fallen body on the floor,
   `holdBody`/`releaseBody` keep it for the scene, and all five `bossDeath` shots frame `bodyCentre()`.
 
+Playability pass (finishing the game):
+- **Production build** (`npm run eclipse:build`): clean, 6.7 MB JS (1.5 MB gzipped) + 289 MB of assets;
+  `dist-eclipse/` is git-ignored. Unit tests (16) pass.
+- **Settings > Controls**: keys were rebindable in the data and the input layer but there was no way to do it.
+  Pick an action, press the new key or mouse button (Esc cancels); a key another action held swaps over to
+  it, so nothing is doubled or unbound. Verified in the game, including the swap and the Esc cancel (which
+  first also closed the menu: the input layer ran before the menu's handler on synthetic events).
+- `eclipse/README.md`: how to run and build, controls (keyboard, gamepad, touch), combat basics, options.
+- The local light probe no longer runs while a level loads (a WebGPU validation warning appeared in
+  overlapping level swaps; the probe sampled scenery that was being created and disposed).
+- A test-harness lesson: game time is frozen while a level loads, so waits in a test script must be real-time
+  conditions (`__game.loading`), not `t:` seconds; the first chain run fired five chapter transitions at once.
+
 Verified headless: all five chapters + the playground load with no shader errors in WebGPU and the
 playground in WebGL 2 (re-run after the probe, foliage and skin changes); the Aurelion fight runs (sun-line eruptions, corona nova ring, burning status);
 Kael, the Sentinel, Thornbound and Bloomcaller close up; the forest grove with the new foliage.
