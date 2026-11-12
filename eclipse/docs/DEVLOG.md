@@ -44,16 +44,23 @@ Found and fixed by A/B (each seen broken, then seen working):
   on an empty skull) and a void-glass "mouth" read as a scream. Golden skullcap added, mouth removed.
 - **Eclipse Priest** was a tight white bag over a mannequin head: now a loose cowl open at the face
   with a gold slit-eyed mask.
+- **Every boss's death scene played over an empty floor** (found by playing the Eclipse ending): the
+  death clips drop the pelvis below the floor on every rig (0.25 m on a thrall, 1.7 m on Aurelion's
+  tall one), the body dissolved 0.2 s before the scene began, and the cameras were aimed at
+  standing-chest height. Now `Enemy.groundBody` keeps the fallen body on the floor,
+  `holdBody`/`releaseBody` keep it for the scene, and all five `bossDeath` shots frame `bodyCentre()`.
 
 Verified headless: all five chapters + the playground load with no shader errors in WebGPU and the
-playground in WebGL 2; the Aurelion fight runs (sun-line eruptions, corona nova ring, burning status);
+playground in WebGL 2 (re-run after the probe, foliage and skin changes); the Aurelion fight runs (sun-line eruptions, corona nova ring, burning status);
 Kael, the Sentinel, Thornbound and Bloomcaller close up; the forest grove with the new foliage.
 
 Not done yet / honest gaps:
-- Aurelion and the Priest were rebuilding at the time of writing: not yet seen in game.
+- Aurelion's gold (and every `gold` look) reads as burnished bronze rather than bright metal in
+  game: metals depend on what they reflect, and the environment cube is dull. Needs look-dev.
 - Contact shadows and the local probe cost real GPU time that headless software rendering cannot
   measure; the numbers in RENDERING.md are step counts, not milliseconds. Low preset has neither.
-- The ending cinematic has still not been played end to end.
+- The ending was played headless up to the dawn climb (death scene, sparks, Ithra's farewell, the sky
+  turning); the credits hand-off and the final banner were not captured.
 - Kael's armour reads as matte blue-grey cloth rather than steel; the gear atlas for his plate needs a look.
 
 ### Session 6 — bugs found by playing: navmesh, materials, cutscenes; cloth; mobile HUD
