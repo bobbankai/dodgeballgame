@@ -216,9 +216,23 @@ def aurelion(R, B, info):
     pieces.append(Piece('fauld', skirt(L, zw - 0.02, zk + 0.12, sx * 0.88, 0.16, 0.06, 0.0, 823, slit=0.035, slit_from=zw - 0.04),
                         (np.array([-0.55, -0.45, zk]), np.array([0.55, 0.45, zw + 0.02])),
                         lambda p: mat_ids(p, 'gold', [(lambda q: np.abs(np.mod(q[:, 2] * 25, 1) - 0.5) < 0.08, 'silver')]), skin='transfer_skirt', voxel=0.0034, budget=4000))
+    # a serene golden death-mask (no mouth: he has said all he will say) with a sunglow brow line
     pieces.append(Piece('mask', face_mask(L, B, skull, eyes, neck, 0.011), (skull - np.array([0.12, 0.17, 0.2]), skull + np.array([0.12, 0.02, 0.08])),
-                        lambda p: mat_ids(p, 'gold', [(lambda q: np.hypot(q[:, 0], q[:, 2] - (eyes[2] - 0.085)) < 0.022, 'voidglass')]),
+                        lambda p: mat_ids(p, 'gold', [(lambda q: np.abs(q[:, 2] - (eyes[2] + 0.043)) < 0.005, 'sunglow')]),
                         skin={'bone': 'head'}, voxel=0.0015, budget=2800))
+
+    def skullcap(p):
+        # the rest of the helm: a shell that hugs the real head (ears and all) over the brow, round the
+        # back and down to the nape. The mask is only the face; nothing else covers the skull.
+        z = p[:, 2]
+        shell = np.abs(B(p) - 0.0125) - 0.0032
+        face_side = np.minimum((eyes[2] + 0.043) - z, (skull[1] - 0.03) - p[:, 1])
+        region = np.maximum(np.maximum(face_side, (neck[2] + 0.015) - z), np.abs(p[:, 0]) - 0.17)
+        return np.maximum(shell, region)
+
+    pieces.append(Piece('skullcap', skullcap, (skull - np.array([0.2, 0.2, 0.2]), skull + np.array([0.2, 0.2, 0.2])),
+                        lambda p: mat_ids(p, 'gold', [(lambda q: q[:, 2] < neck[2] + 0.07, 'silver'), (lambda q: np.abs(q[:, 2] - (eyes[2] + 0.047)) < 0.004, 'sunglow')]),
+                        skin={'bone': 'head'}, voxel=0.0016, budget=3000))
     pieces.append(Piece('eyes', glow_eyes(L), (eyes - 0.08, eyes + 0.08), 'sunglow', skin={'bone': 'head'}, voxel=0.0012, budget=400))
     hc = skull + np.array([0, 0.06, 0.08])
 
