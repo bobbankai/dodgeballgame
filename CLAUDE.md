@@ -136,6 +136,12 @@ UI polish); sources and licenses in `.claude/skills/THIRD_PARTY.md`. The Blender
 5.3. Where a skill's generic three.js advice disagrees with this file, this file wins (the renderer is custom).
 The cloud environment's setup script installs Blender 5.3 and Python Playwright.
 
+## FRACTURED TIME (`fractured-time/`)
+
+A second, unrelated game lives in `fractured-time/` (cinematic sci-fi action, Three.js WebGPU + Blender 5.3). Its owner-written quality
+contract is in `fractured-time/docs/` (start with `docs/GRAPHICS_DIRECTIVE_PROMPT.md`) and `fractured-time/CLAUDE.md` says what to read first.
+When working there, read those documents before building anything and keep `docs/PROJECT_PROGRESS.md` honest.
+
 ## Status
 
 Done: Prologue (attic), Chapter One (Margin Village, green), Chapter Two (Folded Sea, blue),

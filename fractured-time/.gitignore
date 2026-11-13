@@ -1,0 +1,7 @@
+node_modules
+dist
+# downloaded source assets (licences tracked in docs/ASSETS.md); only processed game assets in public/ ship
+vendor/
+.cache/
+__pycache__/
+*.pyc

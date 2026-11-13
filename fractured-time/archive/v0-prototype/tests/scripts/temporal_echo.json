@@ -1,0 +1,29 @@
+[
+ {
+  "do": "g.enemies[0].tick=()=>{}; g.physics.teleport(g.player.body,{x:-3,y:0.3,z:2.6}); g.player.pos.set(-3,0.3,2.6); g.player.yaw=0; return g.enemies[0].health",
+  "step": 40
+ },
+ {
+  "do": "__sc.press('light'); return 1",
+  "step": 36,
+  "log": "{hp:+g.enemies[0].health.toFixed(1), anim:g.player.anim.current}"
+ },
+ {
+  "do": "g.enemies[0].health=56; g.enemies[0].alive=true; return g.temporal.readiness()",
+  "step": 20
+ },
+ {
+  "do": "__sc.press('echo'); return 1",
+  "step": 60,
+  "log": "{echoes:g.temporal.echoes.length, energy:+g.player.energy.toFixed(1), anim:g.player.anim.current}"
+ },
+ {
+  "step": 25,
+  "shot": "t3_echo",
+  "log": "{echoes:g.temporal.echoes.map(e=>[e.actor.anim.current,+e.actor.pos.x.toFixed(2),+e.actor.pos.z.toFixed(2),e.age,e.length]), enemyHp:+g.enemies[0].health.toFixed(1)}"
+ },
+ {
+  "step": 150,
+  "log": "{echoes:g.temporal.echoes.length, enemyHp:+g.enemies[0].health.toFixed(1)}"
+ }
+]

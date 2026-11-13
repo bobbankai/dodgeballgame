@@ -1,0 +1,40 @@
+[
+ {
+  "do": "g.enemies[0].tick=()=>{}; return [g.player.energy, __ts.world]",
+  "step": 10
+ },
+ {
+  "do": "__sc.press('slow'); return 1",
+  "step": 70,
+  "log": "{slow:g.temporal.slowActive, world:+__ts.world.toFixed(3), energy:+g.player.energy.toFixed(1), anim:g.player.anim.current}"
+ },
+ {
+  "step": 120,
+  "log": "{world:+__ts.world.toFixed(3), energy:+g.player.energy.toFixed(1)}",
+  "shot": "t1_slow"
+ },
+ {
+  "do": "__sc.press('slow'); return 1",
+  "step": 40,
+  "log": "{slow:g.temporal.slowActive, world:+__ts.world.toFixed(3), energy:+g.player.energy.toFixed(1)}"
+ },
+ {
+  "do": "g.player.energy=100; __sc.dz=1; return 1",
+  "step": 120,
+  "log": "+g.player.pos.z.toFixed(2)"
+ },
+ {
+  "do": "window.zA=g.player.pos.z; return window.zA",
+  "step": 90,
+  "log": "+g.player.pos.z.toFixed(2)"
+ },
+ {
+  "do": "window.zB=g.player.pos.z; __sc.dz=0; __sc.press('rewind'); return window.zB",
+  "step": 4
+ },
+ {
+  "step": 200,
+  "log": "{rewinding:g.temporal.rewinding, z:+g.player.pos.z.toFixed(2), zB:window.zB, zA:window.zA, energy:+g.player.energy.toFixed(1), health:g.player.health, state:g.player.state}",
+  "shot": "t2_rewound"
+ }
+]
