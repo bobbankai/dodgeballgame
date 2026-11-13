@@ -26,7 +26,7 @@ themselves. Scripted walking: set `__game.player.goal` with `inputEnabled = fals
 while the player has control). `tools/tile.py <dir> <out.png> [cols]` (run with the scratchpad venv's
 python, system PIL is broken) tiles screenshots into one sheet, sorted by file name (b10 < b2).
 
-## Assets (Blender 4.5 at /opt/blender, run headless)
+## Assets (Blender 5.3 at /opt/blender, run headless)
 
 - `blender -b -P tools/blender/<script>.py -- --export` writes GLBs into `src/assets/`.
   `--preview out.png` renders Cycles previews; `--poses out.png` renders animation contact sheets.
@@ -128,6 +128,13 @@ painted colour: grass, wood, stone, sand, paper, water), ambiences (gusting wind
 trees, gulls), and `Soundscape` emitters in the world with the camera as listener (the stream along
 its length, the windmill, surf on the nearest beaches, water lapping the boat, the attic clock,
 chimes on the last page).
+
+## Skills
+
+`.claude/skills/` holds vendored third-party skills (three.js, shaders, Blender, game design, colour, audio,
+UI polish); sources and licenses in `.claude/skills/THIRD_PARTY.md`. The Blender ones target 5.2 and work on
+5.3. Where a skill's generic three.js advice disagrees with this file, this file wins (the renderer is custom).
+The cloud environment's setup script installs Blender 5.3 and Python Playwright.
 
 ## Status
 
