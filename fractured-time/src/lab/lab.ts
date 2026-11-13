@@ -7,6 +7,7 @@ import { createGfx } from '@/rendering/gfx';
 import { PostFX } from '@/rendering/postfx';
 import { QUALITY, type QualityName } from '@/rendering/quality';
 import { dressCharacter, assetUrl, texturesReady } from '@/rendering/charmat';
+import { ClipLibrary } from '@/animation/library';
 
 /**
  * Character look-dev lab: the exported character under studio lighting (HDRI + key/fill/rim), matching the Cycles review setup, so the
@@ -90,6 +91,17 @@ async function main() {
     out.meshes = list;
   }
   scene.add(root);
+  // ?anim=<clip>&t=<seconds>: pose the character from the shared clip library
+  const animName = qs.get('anim');
+  if (animName) {
+    const lib = await ClipLibrary.load();
+    const mixer = new THREE.AnimationMixer(root);
+    const action = mixer.clipAction(lib.forCharacter(animName, lib.hipHeight));
+    action.play();
+    mixer.setTime(Number(qs.get('t') || 0));
+    root.updateMatrixWorld(true);
+    out.clip = { name: animName, ...lib.meta[animName] };
+  }
   const box = new THREE.Box3().setFromObject(root);
   const top = box.max.y;
   out.height = +top.toFixed(3);
@@ -125,6 +137,7 @@ async function main() {
   else if (view === 'chest') shot(new THREE.Vector3(0, top * 0.72, 0), 1.0, -20, 4, lensFov(50));
   else if (view === 'neck') shot(new THREE.Vector3(0, top - 0.3, 0.02), 0.55, -25, 6, lensFov(85));
   else if (view === 'hair') shot(new THREE.Vector3(0, top - 0.04, 0.06), 0.3, 25, 22, lensFov(85));
+  else if (view === 'side') shot(new THREE.Vector3(0, top * 0.5, 0), top * 1.75, -90, 2, lensFov(50)); // forward = screen right
   else if (view === 'back') shot(new THREE.Vector3(0, top * 0.5, 0), top * 1.75, 180, 2, lensFov(50));
   else if (view === 'front') shot(new THREE.Vector3(0, top * 0.5, 0), top * 1.75, 0, 2, lensFov(50));
   else shot(new THREE.Vector3(0, top * 0.52, 0), top * 1.6, -32, 6, lensFov(50));

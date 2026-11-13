@@ -1,0 +1,354 @@
+{
+ "fps": 30,
+ "rig": "mpfb game_engine",
+ "clips": {
+  "idle": {
+   "speed": 0.003,
+   "source": "CMU 77_02 frames 2-938",
+   "loop": true,
+   "duration": 4.8667
+  },
+  "walk": {
+   "speed": 1.261,
+   "source": "CMU 16_15 frames 2-472",
+   "loop": true,
+   "duration": 1.1667
+  },
+  "run": {
+   "speed": 3.479,
+   "source": "CMU 35_17 frames 2-168",
+   "loop": true,
+   "duration": 0.7667
+  },
+  "sprint": {
+   "speed": 4.053,
+   "source": "CMU 09_01 frames 20-149",
+   "loop": true,
+   "duration": 0.7333
+  },
+  "walk_back": {
+   "speed": 0.631,
+   "source": "CMU 111_01 frames 30-700",
+   "loop": true,
+   "duration": 1.4
+  },
+  "strafe_l": {
+   "speed": 0.183,
+   "source": "CMU 69_42 frames 30-900",
+   "loop": true,
+   "duration": 1.0333
+  },
+  "talk": {
+   "speed": 0.005,
+   "source": "CMU 19_08 frames 60-2000",
+   "loop": true,
+   "duration": 8.5333
+  },
+  "look_around": {
+   "speed": 0.018,
+   "source": "CMU 77_05 frames 2-1400",
+   "duration": 4.2333
+  },
+  "jump": {
+   "speed": 0.884,
+   "source": "CMU 16_05 frames 92-260",
+   "duration": 1.4
+  },
+  "run_start": {
+   "speed": 2.899,
+   "source": "CMU 104_53 frames 120-240",
+   "duration": 1.0
+  },
+  "death": {
+   "speed": 0.129,
+   "source": "CMU 90_16 frames 290-560",
+   "duration": 2.2333
+  },
+  "roll": {
+   "speed": 1.491,
+   "source": "CMU 90_34 frames 280-470",
+   "duration": 1.5667
+  },
+  "strafe_r": {
+   "speed": 0.183,
+   "source": "CMU 69_42 frames 30-900",
+   "loop": true,
+   "duration": 1.0333
+  },
+  "guard": {
+   "loop": true,
+   "speed": 0.0,
+   "duration": 3.1667
+  },
+  "block": {
+   "loop": true,
+   "speed": 0.0,
+   "duration": 1.9667
+  },
+  "parry": {
+   "speed": 0.0,
+   "events": {
+    "parry": [
+     0.0,
+     0.2
+    ],
+    "cancel": [
+     0.3,
+     0.6
+    ]
+   },
+   "duration": 0.5667
+  },
+  "light1": {
+   "speed": 0.0,
+   "events": {
+    "hit": [
+     0.1,
+     0.2
+    ],
+    "striker": "hand_l",
+    "cancel": [
+     0.23333333333333334,
+     0.4666666666666667
+    ],
+    "combo_window": [
+     0.13333333333333333,
+     0.43333333333333335
+    ]
+   },
+   "duration": 0.4333
+  },
+  "light2": {
+   "speed": 0.0,
+   "events": {
+    "hit": [
+     0.13333333333333333,
+     0.23333333333333334
+    ],
+    "striker": "hand_r",
+    "cancel": [
+     0.26666666666666666,
+     0.5333333333333333
+    ],
+    "combo_window": [
+     0.16666666666666666,
+     0.4666666666666667
+    ]
+   },
+   "duration": 0.5
+  },
+  "light3": {
+   "speed": 0.0,
+   "events": {
+    "hit": [
+     0.2,
+     0.3
+    ],
+    "striker": "hand_l",
+    "cancel": [
+     0.33333333333333337,
+     0.6
+    ],
+    "combo_window": [
+     0.23333333333333334,
+     0.5333333333333333
+    ]
+   },
+   "duration": 0.5667
+  },
+  "heavy1": {
+   "speed": 0.0,
+   "events": {
+    "hit": [
+     0.43333333333333335,
+     0.5333333333333333
+    ],
+    "striker": "hand_l",
+    "cancel": [
+     0.5666666666666667,
+     1.0
+    ],
+    "combo_window": [
+     0.4666666666666667,
+     0.7666666666666666
+    ]
+   },
+   "duration": 0.9667
+  },
+  "heavy2": {
+   "speed": 0.0,
+   "events": {
+    "hit": [
+     0.3333333333333333,
+     0.4333333333333333
+    ],
+    "striker": "foot_r",
+    "cancel": [
+     0.4666666666666667,
+     0.8666666666666667
+    ],
+    "combo_window": [
+     0.36666666666666664,
+     0.6666666666666666
+    ]
+   },
+   "duration": 0.8333
+  },
+  "kick": {
+   "speed": 0.0,
+   "events": {
+    "hit": [
+     0.3666666666666667,
+     0.4666666666666667
+    ],
+    "striker": "foot_r",
+    "cancel": [
+     0.5,
+     0.9333333333333333
+    ],
+    "combo_window": [
+     0.4,
+     0.7
+    ]
+   },
+   "duration": 0.9
+  },
+  "counter": {
+   "speed": 0.0,
+   "events": {
+    "hit": [
+     0.09012345679012343,
+     0.19012345679012344
+    ],
+    "striker": "hand_r",
+    "cancel": [
+     0.22345679012345676,
+     0.3950617283950617
+    ],
+    "combo_window": [
+     0.12345679012345677,
+     0.42345679012345677
+    ]
+   },
+   "duration": 0.3333
+  },
+  "dodge_l": {
+   "speed": 0.0,
+   "events": {
+    "iframes": [
+     0.03,
+     0.33
+    ],
+    "cancel": [
+     0.38,
+     0.5333333333333333
+    ]
+   },
+   "duration": 0.5
+  },
+  "dodge_r": {
+   "speed": 0.0,
+   "events": {
+    "iframes": [
+     0.03,
+     0.33
+    ],
+    "cancel": [
+     0.38,
+     0.5333333333333333
+    ]
+   },
+   "duration": 0.5
+  },
+  "dodge_b": {
+   "speed": 0.0,
+   "events": {
+    "iframes": [
+     0.03,
+     0.33
+    ],
+    "cancel": [
+     0.38,
+     0.5333333333333333
+    ]
+   },
+   "duration": 0.5
+  },
+  "dodge_f": {
+   "speed": 0.0,
+   "events": {
+    "iframes": [
+     0.03,
+     0.33
+    ],
+    "cancel": [
+     0.38,
+     0.5333333333333333
+    ]
+   },
+   "duration": 0.5
+  },
+  "hit_light": {
+   "speed": 0.0,
+   "duration": 0.4333
+  },
+  "hit_heavy": {
+   "speed": 0.0,
+   "duration": 0.7667
+  },
+  "stagger": {
+   "speed": 0.0,
+   "events": {
+    "vulnerable": [
+     0.1,
+     1.2
+    ]
+   },
+   "duration": 1.3667
+  },
+  "cast_slow": {
+   "speed": 0.0,
+   "events": {
+    "cast": 0.26666666666666666,
+    "cancel": [
+     0.4,
+     0.8
+    ]
+   },
+   "duration": 0.7667
+  },
+  "cast_rewind": {
+   "speed": 0.0,
+   "events": {
+    "cast": 0.3333333333333333,
+    "cancel": [
+     0.4666666666666667,
+     1.0
+    ]
+   },
+   "duration": 0.9667
+  },
+  "cast_echo": {
+   "speed": 0.0,
+   "events": {
+    "cast": 0.3333333333333333,
+    "cancel": [
+     0.4666666666666667,
+     0.9333333333333333
+    ]
+   },
+   "duration": 0.9
+  },
+  "cast_shift": {
+   "speed": 0.0,
+   "events": {
+    "cast": 0.4,
+    "cancel": [
+     0.5333333333333333,
+     1.0666666666666667
+    ]
+   },
+   "duration": 1.0333
+  }
+ }
+}

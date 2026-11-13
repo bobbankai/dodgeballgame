@@ -11,7 +11,10 @@ Every downloaded asset and tool is recorded here with its source and licence bef
 | MakeHuman faceunits01, visemes01, visemes02 | files.makehumancommunity.org/functional/ | CC0 (MakeHuman functional packs) | ARKit-style face units + viseme shape keys for facial animation / lip sync | Derived morph targets |
 | Poly Haven textures / HDRIs / models | api.polyhaven.com, dl.polyhaven.org | CC0 | Photoscanned PBR materials, image-based lighting, props | Derived textures/models |
 | ambientCG materials | ambientcg.com | CC0 | PBR materials | Derived textures |
+| CMU Graphics Lab Motion Capture Database, BVH conversion by B. Hahne (cgspeed), mirrored at github.com/una-dinosauria/cmu-mocap | mocap.cs.cmu.edu | Free for any use, including commercial products; may not be resold as raw data (READMEFIRST.txt) | Locomotion, idles, gestures, jump, roll, run start, death (retargeted by `blender/animations/mocap.py`) | Retargeted clips in `animations/humanoid.glb` |
 
-Generated in-house (no third-party licence): pore detail-normal maps, roughness/stubble maps, hair-card textures, all animation, all code.
+Generated in-house (no third-party licence): pore detail-normal maps, roughness/stubble maps, hair-card textures, every authored animation
+(strikes, guard/block/parry, dodges, reactions, chronal casts), all code. Clip sources are listed per clip in `humanoid_clips.json`.
+The motion data used was captured at CMU with funding from NSF EIA-0196217.
 
 Fetch scripts: `tools/assets/fetch_makehuman.sh` (MPFB + packs), `tools/assets/polyhaven.py` (textures/HDRIs/models by id).
