@@ -17,6 +17,9 @@ import type { GameCtx } from '@/gameplay/ctx';
 import { hostileTo } from '@/combat/strike';
 import { bus } from '@/core/events';
 import { buildArena } from '@/world/arena';
+import { loadLevel, addCharacterLights, captureProbe } from '@/world/level';
+import { loadGLTF } from '@/assets/loader';
+import { RectAreaLightTexturesLib } from 'three/addons/lights/RectAreaLightTexturesLib.js';
 import { Temporal } from '@/temporal/temporal';
 
 export interface SpawnDef {
@@ -90,7 +93,25 @@ export class Game implements Simulation, GameCtx {
     g.vfx.density = QUALITY[q].particles;
     g.temporal = new Temporal(g);
 
-    g.level = await buildArena(g);
+    const levelPath = new URLSearchParams(location.search).get('level');
+    if (levelPath) {
+      // a baked level section: static surfaces lit by their lightmap, characters by real-time copies of the lights + a probe
+      (THREE as any).RectAreaLightNode.setLTC(RectAreaLightTexturesLib.init());
+      // real-time copies of the baked lights (characters: full; static surfaces: specular only), created before materials compile
+      const pre = await loadGLTF(`environments/${levelPath}.glb`);
+      const lightMarkers: { name: string; pos: THREE.Vector3; yaw: number; data: Record<string, unknown> }[] = [];
+      pre.scene.updateMatrixWorld(true);
+      pre.scene.traverse((o) => { if (o.userData?.marker === 'light') lightMarkers.push({ name: 'light', pos: o.getWorldPosition(new THREE.Vector3()), yaw: 0, data: o.userData }); });
+      const rt = addCharacterLights(lightMarkers, g.scene);
+      const lv = await loadLevel(`environments/${levelPath}.glb`, g.physics, g.scene, rt);
+      const sp = lv.markers.find((m) => m.name === 'spawn');
+      g.level = { spawn: sp ? sp.pos.clone() : new THREE.Vector3(), yaw: sp ? sp.yaw : 0, enemies: [], objective: '' };
+      g.scene.background = new THREE.Color(0x000000);
+      g.scene.environment = captureProbe(g.gfx.renderer, g.scene, g.level.spawn.clone().setY(1.6));
+      g.scene.environmentIntensity = 1.0;
+    } else {
+      g.level = await buildArena(g);
+    }
     g.post = new PostFX(g.gfx, g.scene, g.camera.camera, QUALITY[q]);
     g.player = await Player.create(g, g.live, g.level.spawn, g.level.yaw);
     g.player.onAbility = (name) => g.temporal.activate(name);
@@ -205,6 +226,16 @@ export class Game implements Simulation, GameCtx {
     const look = this.input.takeLook();
     this.camera.lock = this.player.lockTarget;
     this.camera.update(realDt, feet, this.player.yaw, look, { sprinting: this.player.speed > 5.6 });
+    // test override: ?cam=x,y,z,yawDeg,pitchDeg,fovDeg (three space) to match a Cycles reference camera exactly
+    const co = this.testMode ? new URLSearchParams(location.search).get('cam') : null;
+    if (co) {
+      const [x, y, z, yaw, pitch, fov] = co.split(',').map(Number);
+      const c = this.camera.camera;
+      c.position.set(x, y, z);
+      c.rotation.set(THREE.MathUtils.degToRad(pitch), THREE.MathUtils.degToRad(yaw), 0, 'YXZ');
+      c.fov = fov;
+      c.updateProjectionMatrix();
+    }
     // post uniforms: transient effects decay
     const u = this.post.u;
     u.flash.value = Math.max(0, u.flash.value - realDt * 3.5);

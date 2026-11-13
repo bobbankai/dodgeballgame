@@ -29,7 +29,7 @@ export async function createGfx(canvas: HTMLCanvasElement, qualityName: QualityN
   await renderer.init();
   const backend: Backend = (renderer.backend as unknown as { isWebGPUBackend?: boolean }).isWebGPUBackend ? 'webgpu' : 'webgl2';
 
-  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMapping = THREE.AgXToneMapping; // matches the Cycles look-dev (AgX) the art is approved in
   renderer.toneMappingExposure = 1.0;
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;

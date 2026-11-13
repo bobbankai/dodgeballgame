@@ -27,7 +27,7 @@ export async function texturesReady(): Promise<void> {
 }
 export const assetUrl = (p: string) => `${import.meta.env.BASE_URL}assets/${p}`.replace(/\/\/+/g, '/');
 
-function tex(path: string, srgb: boolean): THREE.Texture {
+export function tex(path: string, srgb: boolean): THREE.Texture {
   const key = path + (srgb ? ':s' : ':l');
   let t = texCache.get(key);
   if (!t) {
@@ -44,7 +44,7 @@ function tex(path: string, srgb: boolean): THREE.Texture {
   return t;
 }
 
-interface Recipe { type: string; [k: string]: any }
+export interface Recipe { type: string; [k: string]: any }
 
 function skin(r: Recipe, old: THREE.MeshStandardMaterial): THREE.Material {
   // Dual-lobe skin, as in production real-time skin shading:
@@ -82,7 +82,7 @@ function skin(r: Recipe, old: THREE.MeshStandardMaterial): THREE.Material {
   return m;
 }
 
-function pbr(r: Recipe): THREE.Material {
+export function pbr(r: Recipe): THREE.MeshPhysicalNodeMaterial {
   const m = new THREE.MeshPhysicalNodeMaterial();
   const base = `textures/pbr/${r.tex}/${r.tex}`;
   const u = uv().mul(r.tile ?? 1);
@@ -99,7 +99,7 @@ function pbr(r: Recipe): THREE.Material {
   return m;
 }
 
-function armour(r: Recipe): THREE.Material {
+export function armour(r: Recipe): THREE.MeshPhysicalNodeMaterial {
   const m = new THREE.MeshPhysicalNodeMaterial();
   const p = positionGeometry; // rest pose: the pattern sticks to the plate while it moves
   const k = r.grooves ?? 9;
@@ -120,7 +120,7 @@ function armour(r: Recipe): THREE.Material {
   return m;
 }
 
-function emissive(r: Recipe): THREE.Material {
+export function emissive(r: Recipe): THREE.MeshStandardNodeMaterial {
   const m = new THREE.MeshStandardNodeMaterial({ color: 0x050708, roughness: 0.25 });
   const c = r.color ?? [0.35, 0.85, 1];
   const pulse = sin(time.mul(1.7)).mul(0.12).add(0.88);
