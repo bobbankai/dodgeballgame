@@ -1,354 +1,452 @@
 {
- "fps": 30,
- "rig": "mpfb game_engine",
- "clips": {
-  "idle": {
-   "speed": 0.003,
-   "source": "CMU 77_02 frames 2-938",
-   "loop": true,
-   "duration": 4.8667
-  },
-  "walk": {
-   "speed": 1.261,
-   "source": "CMU 16_15 frames 2-472",
-   "loop": true,
-   "duration": 1.1667
-  },
-  "run": {
-   "speed": 3.479,
-   "source": "CMU 35_17 frames 2-168",
-   "loop": true,
-   "duration": 0.7667
-  },
-  "sprint": {
-   "speed": 4.053,
-   "source": "CMU 09_01 frames 20-149",
-   "loop": true,
-   "duration": 0.7333
-  },
-  "walk_back": {
-   "speed": 0.631,
-   "source": "CMU 111_01 frames 30-700",
-   "loop": true,
-   "duration": 1.4
-  },
-  "strafe_l": {
-   "speed": 0.183,
-   "source": "CMU 69_42 frames 30-900",
-   "loop": true,
-   "duration": 1.0333
-  },
-  "talk": {
-   "speed": 0.005,
-   "source": "CMU 19_08 frames 60-2000",
-   "loop": true,
-   "duration": 8.5333
-  },
-  "look_around": {
-   "speed": 0.018,
-   "source": "CMU 77_05 frames 2-1400",
-   "duration": 4.2333
-  },
-  "jump": {
-   "speed": 0.884,
-   "source": "CMU 16_05 frames 92-260",
-   "duration": 1.4
-  },
-  "run_start": {
-   "speed": 2.899,
-   "source": "CMU 104_53 frames 120-240",
-   "duration": 1.0
-  },
-  "death": {
-   "speed": 0.129,
-   "source": "CMU 90_16 frames 290-560",
-   "duration": 2.2333
-  },
-  "roll": {
-   "speed": 1.491,
-   "source": "CMU 90_34 frames 280-470",
-   "duration": 1.5667
-  },
-  "strafe_r": {
-   "speed": 0.183,
-   "source": "CMU 69_42 frames 30-900",
-   "loop": true,
-   "duration": 1.0333
-  },
-  "guard": {
-   "loop": true,
-   "speed": 0.0,
-   "duration": 3.1667
-  },
-  "block": {
-   "loop": true,
-   "speed": 0.0,
-   "duration": 1.9667
-  },
-  "parry": {
-   "speed": 0.0,
-   "events": {
-    "parry": [
-     0.0,
-     0.2
-    ],
-    "cancel": [
-     0.3,
-     0.6
-    ]
-   },
-   "duration": 0.5667
-  },
-  "light1": {
-   "speed": 0.0,
-   "events": {
-    "hit": [
-     0.1,
-     0.2
-    ],
-    "striker": "hand_l",
-    "cancel": [
-     0.23333333333333334,
-     0.4666666666666667
-    ],
-    "combo_window": [
-     0.13333333333333333,
-     0.43333333333333335
-    ]
-   },
-   "duration": 0.4333
-  },
-  "light2": {
-   "speed": 0.0,
-   "events": {
-    "hit": [
-     0.13333333333333333,
-     0.23333333333333334
-    ],
-    "striker": "hand_r",
-    "cancel": [
-     0.26666666666666666,
-     0.5333333333333333
-    ],
-    "combo_window": [
-     0.16666666666666666,
-     0.4666666666666667
-    ]
-   },
-   "duration": 0.5
-  },
-  "light3": {
-   "speed": 0.0,
-   "events": {
-    "hit": [
-     0.2,
-     0.3
-    ],
-    "striker": "hand_l",
-    "cancel": [
-     0.33333333333333337,
-     0.6
-    ],
-    "combo_window": [
-     0.23333333333333334,
-     0.5333333333333333
-    ]
-   },
-   "duration": 0.5667
-  },
-  "heavy1": {
-   "speed": 0.0,
-   "events": {
-    "hit": [
-     0.43333333333333335,
-     0.5333333333333333
-    ],
-    "striker": "hand_l",
-    "cancel": [
-     0.5666666666666667,
-     1.0
-    ],
-    "combo_window": [
-     0.4666666666666667,
-     0.7666666666666666
-    ]
-   },
-   "duration": 0.9667
-  },
-  "heavy2": {
-   "speed": 0.0,
-   "events": {
-    "hit": [
-     0.3333333333333333,
-     0.4333333333333333
-    ],
-    "striker": "foot_r",
-    "cancel": [
-     0.4666666666666667,
-     0.8666666666666667
-    ],
-    "combo_window": [
-     0.36666666666666664,
-     0.6666666666666666
-    ]
-   },
-   "duration": 0.8333
-  },
-  "kick": {
-   "speed": 0.0,
-   "events": {
-    "hit": [
-     0.3666666666666667,
-     0.4666666666666667
-    ],
-    "striker": "foot_r",
-    "cancel": [
-     0.5,
-     0.9333333333333333
-    ],
-    "combo_window": [
-     0.4,
-     0.7
-    ]
-   },
-   "duration": 0.9
-  },
-  "counter": {
-   "speed": 0.0,
-   "events": {
-    "hit": [
-     0.09012345679012343,
-     0.19012345679012344
-    ],
-    "striker": "hand_r",
-    "cancel": [
-     0.22345679012345676,
-     0.3950617283950617
-    ],
-    "combo_window": [
-     0.12345679012345677,
-     0.42345679012345677
-    ]
-   },
-   "duration": 0.3333
-  },
-  "dodge_l": {
-   "speed": 0.0,
-   "events": {
-    "iframes": [
-     0.03,
-     0.33
-    ],
-    "cancel": [
-     0.38,
-     0.5333333333333333
-    ]
-   },
-   "duration": 0.5
-  },
-  "dodge_r": {
-   "speed": 0.0,
-   "events": {
-    "iframes": [
-     0.03,
-     0.33
-    ],
-    "cancel": [
-     0.38,
-     0.5333333333333333
-    ]
-   },
-   "duration": 0.5
-  },
-  "dodge_b": {
-   "speed": 0.0,
-   "events": {
-    "iframes": [
-     0.03,
-     0.33
-    ],
-    "cancel": [
-     0.38,
-     0.5333333333333333
-    ]
-   },
-   "duration": 0.5
-  },
-  "dodge_f": {
-   "speed": 0.0,
-   "events": {
-    "iframes": [
-     0.03,
-     0.33
-    ],
-    "cancel": [
-     0.38,
-     0.5333333333333333
-    ]
-   },
-   "duration": 0.5
-  },
-  "hit_light": {
-   "speed": 0.0,
-   "duration": 0.4333
-  },
-  "hit_heavy": {
-   "speed": 0.0,
-   "duration": 0.7667
-  },
-  "stagger": {
-   "speed": 0.0,
-   "events": {
-    "vulnerable": [
-     0.1,
-     1.2
-    ]
-   },
-   "duration": 1.3667
-  },
-  "cast_slow": {
-   "speed": 0.0,
-   "events": {
-    "cast": 0.26666666666666666,
-    "cancel": [
-     0.4,
-     0.8
-    ]
-   },
-   "duration": 0.7667
-  },
-  "cast_rewind": {
-   "speed": 0.0,
-   "events": {
-    "cast": 0.3333333333333333,
-    "cancel": [
-     0.4666666666666667,
-     1.0
-    ]
-   },
-   "duration": 0.9667
-  },
-  "cast_echo": {
-   "speed": 0.0,
-   "events": {
-    "cast": 0.3333333333333333,
-    "cancel": [
-     0.4666666666666667,
-     0.9333333333333333
-    ]
-   },
-   "duration": 0.9
-  },
-  "cast_shift": {
-   "speed": 0.0,
-   "events": {
-    "cast": 0.4,
-    "cancel": [
-     0.5333333333333333,
-     1.0666666666666667
-    ]
-   },
-   "duration": 1.0333
+ "idle": {
+  "frames": 146,
+  "fps": 30,
+  "loop": true,
+  "events": {},
+  "source": "CMU 77_02 frames 2-938"
+ },
+ "idle_combat": {
+  "frames": 95,
+  "fps": 30,
+  "loop": true,
+  "events": {}
+ },
+ "walk": {
+  "frames": 35,
+  "fps": 30,
+  "loop": true,
+  "events": {},
+  "speed": 1.261,
+  "source": "CMU 16_15 frames 2-472"
+ },
+ "run": {
+  "frames": 23,
+  "fps": 30,
+  "loop": true,
+  "events": {},
+  "speed": 3.479,
+  "source": "CMU 35_17 frames 2-168"
+ },
+ "sprint": {
+  "frames": 22,
+  "fps": 30,
+  "loop": true,
+  "events": {},
+  "speed": 4.053,
+  "source": "CMU 09_01 frames 20-149"
+ },
+ "combat_walk_F": {
+  "frames": 35,
+  "fps": 30,
+  "loop": true,
+  "events": {},
+  "speed": 1.261,
+  "source": "CMU 16_15 frames 2-472"
+ },
+ "combat_walk_B": {
+  "frames": 42,
+  "fps": 30,
+  "loop": true,
+  "events": {},
+  "speed": 0.631,
+  "source": "CMU 111_01 frames 30-700"
+ },
+ "combat_strafe_L": {
+  "frames": 31,
+  "fps": 30,
+  "loop": true,
+  "events": {},
+  "speed": 1.4,
+  "source": "CMU 69_42 frames 30-900"
+ },
+ "combat_strafe_R": {
+  "frames": 31,
+  "fps": 30,
+  "loop": true,
+  "events": {},
+  "speed": 1.4,
+  "source": "CMU 69_42 frames 30-900"
+ },
+ "jump": {
+  "frames": 14,
+  "fps": 30,
+  "loop": false,
+  "events": {
+   "launch": 5
   }
+ },
+ "fall": {
+  "frames": 22,
+  "fps": 30,
+  "loop": true,
+  "events": {}
+ },
+ "land": {
+  "frames": 16,
+  "fps": 30,
+  "loop": false,
+  "events": {
+   "impact": 3
+  }
+ },
+ "light1": {
+  "frames": 14,
+  "fps": 30,
+  "loop": false,
+  "events": {
+   "hit": [
+    3,
+    6
+   ],
+   "cancel": 7,
+   "striker": "hand_l",
+   "damage": 1.0,
+   "stagger": 0.35,
+   "reach": 0.35,
+   "lunge": 0.45
+  }
+ },
+ "light2": {
+  "frames": 16,
+  "fps": 30,
+  "loop": false,
+  "events": {
+   "hit": [
+    4,
+    7
+   ],
+   "cancel": 8,
+   "striker": "hand_r",
+   "damage": 1.3,
+   "stagger": 0.5,
+   "reach": 0.4,
+   "lunge": 0.55
+  }
+ },
+ "light3": {
+  "frames": 18,
+  "fps": 30,
+  "loop": false,
+  "events": {
+   "hit": [
+    6,
+    9
+   ],
+   "cancel": 10,
+   "striker": "hand_l",
+   "damage": 1.6,
+   "stagger": 0.7,
+   "reach": 0.4,
+   "lunge": 0.4
+  }
+ },
+ "light4": {
+  "frames": 28,
+  "fps": 30,
+  "loop": false,
+  "events": {
+   "hit": [
+    11,
+    14
+   ],
+   "cancel": 15,
+   "striker": "foot_r",
+   "damage": 2.2,
+   "stagger": 1.0,
+   "reach": 0.55,
+   "lunge": 0.55
+  }
+ },
+ "heavy1": {
+  "frames": 30,
+  "fps": 30,
+  "loop": false,
+  "events": {
+   "hit": [
+    13,
+    16
+   ],
+   "cancel": 17,
+   "striker": "hand_l",
+   "damage": 3.2,
+   "stagger": 1.6,
+   "reach": 0.5,
+   "lunge": 0.9,
+   "guardbreak": true
+  }
+ },
+ "heavy2": {
+  "frames": 26,
+  "fps": 30,
+  "loop": false,
+  "events": {
+   "hit": [
+    10,
+    13
+   ],
+   "cancel": 14,
+   "striker": "foot_r",
+   "damage": 3.6,
+   "stagger": 2.0,
+   "reach": 0.7,
+   "lunge": 0.7,
+   "guardbreak": true
+  }
+ },
+ "counter": {
+  "frames": 11,
+  "fps": 30,
+  "loop": false,
+  "events": {
+   "hit": [
+    3,
+    6
+   ],
+   "cancel": 7,
+   "striker": "hand_r",
+   "damage": 4.0,
+   "stagger": 3.0,
+   "reach": 0.5,
+   "lunge": 0.8
+  }
+ },
+ "heavy3": {
+  "frames": 30,
+  "fps": 30,
+  "loop": false,
+  "events": {
+   "hit": [
+    13,
+    16
+   ],
+   "cancel": 19,
+   "striker": "hand_l",
+   "damage": 3.0,
+   "stagger": 1.2,
+   "reach": 0.5,
+   "lunge": 0.4,
+   "launch": 1.0
+  }
+ },
+ "temporal_counter": {
+  "frames": 18,
+  "fps": 30,
+  "loop": false,
+  "events": {
+   "hit": [
+    8,
+    12
+   ],
+   "cancel": 15,
+   "striker": "hand_l",
+   "damage": 6.0,
+   "stagger": 4.0,
+   "reach": 0.6,
+   "lunge": 1.4
+  }
+ },
+ "block_start": {
+  "frames": 8,
+  "fps": 30,
+  "loop": false,
+  "events": {}
+ },
+ "block_hold": {
+  "frames": 59,
+  "fps": 30,
+  "loop": true,
+  "events": {}
+ },
+ "block_hit": {
+  "frames": 14,
+  "fps": 30,
+  "loop": false,
+  "events": {}
+ },
+ "parry": {
+  "frames": 18,
+  "fps": 30,
+  "loop": false,
+  "events": {
+   "window": [
+    1,
+    8
+   ],
+   "cancel": 9
+  }
+ },
+ "dodge_F": {
+  "frames": 16,
+  "fps": 30,
+  "loop": false,
+  "events": {
+   "iframes": [
+    1,
+    10
+   ],
+   "travel": [
+    0,
+    -1,
+    0
+   ],
+   "cancel": 11
+  }
+ },
+ "dodge_B": {
+  "frames": 16,
+  "fps": 30,
+  "loop": false,
+  "events": {
+   "iframes": [
+    1,
+    10
+   ],
+   "travel": [
+    0,
+    1,
+    0
+   ],
+   "cancel": 11
+  }
+ },
+ "dodge_L": {
+  "frames": 16,
+  "fps": 30,
+  "loop": false,
+  "events": {
+   "iframes": [
+    1,
+    10
+   ],
+   "travel": [
+    1,
+    0,
+    0
+   ],
+   "cancel": 11
+  }
+ },
+ "dodge_R": {
+  "frames": 16,
+  "fps": 30,
+  "loop": false,
+  "events": {
+   "iframes": [
+    1,
+    10
+   ],
+   "travel": [
+    -1,
+    0,
+    0
+   ],
+   "cancel": 11
+  }
+ },
+ "hit_light": {
+  "frames": 14,
+  "fps": 30,
+  "loop": false,
+  "events": {}
+ },
+ "hit_heavy": {
+  "frames": 24,
+  "fps": 30,
+  "loop": false,
+  "events": {}
+ },
+ "stagger": {
+  "frames": 42,
+  "fps": 30,
+  "loop": false,
+  "events": {
+   "cancel": 32
+  }
+ },
+ "defeat": {
+  "frames": 68,
+  "fps": 30,
+  "loop": false,
+  "events": {},
+  "source": "CMU 90_16 frames 290-560"
+ },
+ "time_slow": {
+  "frames": 24,
+  "fps": 30,
+  "loop": false,
+  "events": {
+   "activate": 8,
+   "cancel": 12
+  }
+ },
+ "rewind": {
+  "frames": 30,
+  "fps": 30,
+  "loop": false,
+  "events": {
+   "activate": 10,
+   "cancel": 14
+  }
+ },
+ "echo": {
+  "frames": 28,
+  "fps": 30,
+  "loop": false,
+  "events": {
+   "activate": 10,
+   "cancel": 14
+  }
+ },
+ "timeline_shift": {
+  "frames": 32,
+  "fps": 30,
+  "loop": false,
+  "events": {
+   "activate": 12,
+   "cancel": 16
+  }
+ },
+ "talk": {
+  "frames": 256,
+  "fps": 30,
+  "loop": true,
+  "events": {},
+  "source": "CMU 19_08 frames 60-2000"
+ },
+ "look_around": {
+  "frames": 128,
+  "fps": 30,
+  "loop": false,
+  "events": {},
+  "source": "CMU 77_05 frames 2-1400"
+ },
+ "roll": {
+  "frames": 48,
+  "fps": 30,
+  "loop": false,
+  "events": {},
+  "source": "CMU 90_34 frames 280-470"
+ },
+ "run_start": {
+  "frames": 31,
+  "fps": 30,
+  "loop": false,
+  "events": {},
+  "source": "CMU 104_53 frames 120-240"
+ },
+ "interact": {
+  "frames": 44,
+  "fps": 30,
+  "loop": false,
+  "events": {
+   "use": 24
+  }
+ },
+ "shock": {
+  "frames": 40,
+  "fps": 30,
+  "loop": false,
+  "events": {}
  }
 }

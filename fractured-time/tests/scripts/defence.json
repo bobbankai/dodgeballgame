@@ -1,0 +1,46 @@
+[
+ {
+  "do": "window.H=()=>({attacker:g.enemies[0],damage:8,stagger:0.4,heavy:false,guardbreak:false,launch:0,point:g.player.pos.clone(),dir:{x:0,y:0,z:-1,clone(){return this}},clip:'light1'});g.enemies[0].tick=()=>{}; g.physics.teleport(g.player.body,{x:-3,y:0.3,z:2.0}); g.player.pos.set(-3,0.3,2.0); g.player.yaw=0; return 1",
+  "step": 20
+ },
+ {
+  "do": "return {plain: g.player.receiveHit(H()), hp: g.player.health, state: g.player.state}"
+ },
+ {
+  "do": "g.player.health=100; g.player.state='loco'; g.player.stateT=0; __sc.press('block'); return 1",
+  "step": 3,
+  "log": "g.player.state"
+ },
+ {
+  "do": "return {parry_early: g.player.receiveHit(H()), opening: g.player.openingActive, enemy: g.enemies[0].state, energy: g.player.energy}",
+  "step": 2,
+  "log": "[g.player.state,g.player.anim.current]"
+ },
+ {
+  "do": "__sc.release('block'); return 1",
+  "step": 40,
+  "log": "[g.player.state, g.enemies[0].state]"
+ },
+ {
+  "do": "g.enemies[0].state='idle'; __sc.press('block'); return 1",
+  "step": 20,
+  "log": "g.player.state"
+ },
+ {
+  "do": "return {block_late: g.player.receiveHit(H()), guard: g.player.guard, hp: g.player.health}"
+ },
+ {
+  "do": "__sc.release('block'); return 1",
+  "step": 40
+ },
+ {
+  "do": "__sc.press('dodge'); return 1",
+  "step": 6,
+  "log": "[g.player.state,g.player.anim.current,g.player.stamina]"
+ },
+ {
+  "do": "return {during_dodge: g.player.receiveHit(H())}",
+  "step": 40,
+  "log": "g.player.state"
+ }
+]

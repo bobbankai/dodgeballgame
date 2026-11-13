@@ -457,11 +457,139 @@ def build(preview=None, export=False):
                                         ('spine_02', 'z', -10), ('head', 'z', -8), ('upperarm_r', 'x', -10)], env)
         clips[name] = (seq, [gl] * n, {'speed': 0.0, 'events': {'cast': cast / FPS, 'cancel': [(cast + 4) / FPS, n / FPS]}})
 
+    clips = game_table(P, clips, guard, block, gl)
     if preview:
         mocap.save_preview(preview, rig, tgt, {k: (v[0], v[1]) for k, v in clips.items()})
     if export:
         export_glb(rig, clips)
     return rig, clips
+
+
+UPPER = ('spine_02', 'spine_03', 'neck_01', 'head', 'clavicle_l', 'clavicle_r', 'upperarm_l', 'upperarm_r', 'lowerarm_l', 'lowerarm_r',
+         'hand_l', 'hand_r') + tuple(f'{f}_0{j}_{s}' for f in ('thumb', 'index', 'middle', 'ring', 'pinky') for j in (1, 2, 3) for s in 'lr')
+
+
+def overlay(frames, pose, bones=UPPER, w=1.0):
+    """Upper body from `pose` over a locomotion cycle (combat walk / strafe in guard)."""
+    out = []
+    for f in frames:
+        g = dict(f)
+        for b in bones:
+            q0, q1 = f[b], pose[b]
+            if q0.dot(q1) < 0:
+                q1 = -q1
+            g[b] = q0.slerp(q1, w)
+        out.append(g)
+    return out
+
+
+def game_table(P, c, guard, block, gl):
+    """The gameplay clip set (names, frame counts and combat data the player/enemy code reads, all in 30 fps frames).
+    Damage is a multiplier on the attacker's base damage; stagger in seconds; reach/lunge in metres; travel is a Blender-space unit
+    direction (-Y forward); window = parry window."""
+    def ev(name):
+        return c[name][2].get('events', {})
+
+    def fr(sec):
+        return int(round(sec * FPS))
+
+    out = {}
+
+    def put(name, src, loop=False, speed=None, events=None, frames=None, locs=None):
+        f = frames if frames is not None else c[src][0]
+        lc = locs if locs is not None else c[src][1]
+        m = {'frames': len(f) - (1 if loop else 0), 'fps': FPS, 'loop': loop, 'events': events or {}}
+        if speed is not None:
+            m['speed'] = speed
+        if src and 'source' in c.get(src, (0, 0, {}))[2]:
+            m['source'] = c[src][2]['source']
+        out[name] = (f, lc, m)
+
+    sp = lambda k: c[k][2].get('speed', 0.0)  # noqa: E731
+    put('idle', 'idle', loop=True)
+    put('idle_combat', 'guard', loop=True)
+    put('walk', 'walk', loop=True, speed=sp('walk'))
+    put('run', 'run', loop=True, speed=sp('run'))
+    put('sprint', 'sprint', loop=True, speed=sp('sprint'))
+    put('combat_walk_F', 'walk', loop=True, speed=sp('walk'), frames=overlay(c['walk'][0], guard))
+    put('combat_walk_B', 'walk_back', loop=True, speed=sp('walk_back'), frames=overlay(c['walk_back'][0], guard))
+    put('combat_strafe_L', 'strafe_l', loop=True, speed=1.4, frames=overlay(c['strafe_l'][0], guard))
+    put('combat_strafe_R', 'strafe_r', loop=True, speed=1.4, frames=overlay(c['strafe_r'][0], guard))
+    # jump (mocap 16_05): crouch + take-off | air | landing. Split at the lift-off and touch-down samples.
+    jf, jl = c['jump'][0], c['jump'][1]
+    n = len(jf)
+    t_off, t_land = int(n * 0.36), int(n * 0.62)
+    put('jump', None, events={'launch': 5}, frames=jf[t_off - 14:t_off], locs=jl[t_off - 14:t_off])
+    air = jf[t_off:t_land]
+    loop_air = air + air[::-1]
+    put('fall', None, loop=True, frames=loop_air + [loop_air[0]], locs=[jl[t_off]] * (len(loop_air) + 1))
+    put('land', None, events={'impact': 3}, frames=jf[t_land:t_land + 16], locs=jl[t_land:t_land + 16])
+    # strikes (authored), damage and reach as tuned in v0
+    tune = {'light1': (1.0, 0.35, 0.35, 0.45, 'light1'), 'light2': (1.3, 0.5, 0.4, 0.55, 'light2'), 'light3': (1.6, 0.7, 0.4, 0.4, 'light3'),
+            'light4': (2.2, 1.0, 0.55, 0.55, 'kick'), 'heavy1': (3.2, 1.6, 0.5, 0.9, 'heavy1'), 'heavy2': (3.6, 2.0, 0.7, 0.7, 'heavy2'),
+            'counter': (4.0, 3.0, 0.5, 0.8, 'counter')}
+    for name, (dmg, stg, reach, lunge, src) in tune.items():
+        e = ev(src)
+        events = {'hit': [fr(e['hit'][0]), fr(e['hit'][1])], 'cancel': fr(e['cancel'][0]), 'striker': e['striker'], 'damage': dmg,
+                  'stagger': stg, 'reach': reach, 'lunge': lunge}
+        if name in ('heavy1', 'heavy2'):
+            events['guardbreak'] = True
+        put(name, src, events=events)
+    # heavy3: rising palm (launcher) and temporal counter: authored variants of the palm strike
+    hv = c['heavy1']
+    up = []
+    for i, f in enumerate(hv[0]):
+        W = P.world(f)
+        w = smooth(i / 14) if i <= 14 else 1 - smooth((i - 16) / 12)
+        P.rotate(W, 'upperarm_l', 'x', 35 * w)
+        P.rotate(W, 'spine_01', 'x', -8 * w)
+        up.append(P.local(W))
+    e = ev('heavy1')
+    put('heavy3', None, frames=up, locs=hv[1], events={'hit': [fr(e['hit'][0]), fr(e['hit'][1])], 'cancel': fr(e['cancel'][0]) + 2,
+                                                         'striker': 'hand_l', 'damage': 3.0, 'stagger': 1.2, 'reach': 0.5, 'lunge': 0.4,
+                                                         'launch': 1.0})
+    tc_idx = [min(len(hv[0]) - 1, round(i * 1.6)) for i in range(int(len(hv[0]) / 1.6))]
+    tc_h = round(14 / 1.6)
+    put('temporal_counter', None, frames=[hv[0][i] for i in tc_idx], locs=[hv[1][i] for i in tc_idx],
+        events={'hit': [tc_h - 1, tc_h + 3], 'cancel': tc_h + 6, 'striker': 'hand_l', 'damage': 6.0, 'stagger': 4.0, 'reach': 0.6,
+                'lunge': 1.4})
+    # defence
+    bs = [blend_frames(guard, block, smooth(i / 7)) for i in range(8)]
+    put('block_start', None, frames=bs, locs=[gl] * 8)
+    put('block_hold', 'block', loop=True)
+    bh = layer(P, hold(block, 14), [('spine_02', 'x', -8), ('upperarm_l', 'x', -10), ('upperarm_r', 'x', -10), ('head', 'x', -6)],
+               envelope(14, 0, 2, 3, 13))
+    put('block_hit', None, frames=bh, locs=[gl] * 14)
+    pe = ev('parry')
+    put('parry', 'parry', events={'window': [fr(pe['parry'][0]) + 1, fr(pe['parry'][1]) + 2], 'cancel': fr(pe['cancel'][0])})
+    for d, tv in (('F', [0, -1, 0]), ('B', [0, 1, 0]), ('L', [1, 0, 0]), ('R', [-1, 0, 0])):
+        e = ev(f'dodge_{d.lower()}')
+        put(f'dodge_{d}', f'dodge_{d.lower()}', events={'iframes': [fr(e['iframes'][0]), fr(e['iframes'][1])], 'travel': tv,
+                                                       'cancel': fr(e['cancel'][0])})
+    put('hit_light', 'hit_light')
+    put('hit_heavy', 'hit_heavy')
+    put('stagger', 'stagger', events={'cancel': len(c['stagger'][0]) - 10})
+    put('defeat', 'death')
+    for name, src in (('time_slow', 'cast_slow'), ('rewind', 'cast_rewind'), ('echo', 'cast_echo'), ('timeline_shift', 'cast_shift')):
+        e = ev(src)
+        put(name, src, events={'activate': fr(e['cast']), 'cancel': fr(e['cancel'][0])})
+    put('talk', 'talk', loop=True)
+    put('look_around', 'look_around')
+    put('roll', 'roll')
+    put('run_start', 'run_start')
+    # interact: reach out with the right hand to a panel / door control, press, withdraw
+    it = sequence([(0, c['idle'][0][0], 'smooth'),
+                   (14, key_pose(P, c['idle'][0][0], [('rot', 'spine_02', 'x', 8), ('aim', 'upperarm_r', FWD * 0.8 + LEFT * 0.25 - UP * 0.2),
+                                                      ('aim', 'lowerarm_r', FWD + UP * 0.1), ('rot', 'head', 'x', 8)]), 'smooth'),
+                   (24, key_pose(P, c['idle'][0][0], [('rot', 'spine_02', 'x', 10), ('aim', 'upperarm_r', FWD * 0.9 + LEFT * 0.25 - UP * 0.1),
+                                                      ('aim', 'lowerarm_r', FWD + UP * 0.05), ('rot', 'head', 'x', 8)]), 'snap'),
+                   (43, c['idle'][0][0], 'smooth')], 44)
+    put('interact', None, frames=it, locs=[c['idle'][1][0]] * 44, events={'use': 24})
+    # shock: a temporal distortion hits the room: flinch, brace, look around
+    sh = layer(P, hold(c['idle'][0][0], 40), [('spine_02', 'x', -10), ('head', 'x', -12), ('upperarm_l', 'x', 25), ('upperarm_r', 'x', 25),
+                                              ('lowerarm_l', 'x', 30), ('lowerarm_r', 'x', 30), ('head', 'z', 18)], envelope(40, 0, 3, 14, 39))
+    put('shock', None, frames=sh, locs=[c['idle'][1][0]] * 40)
+    return out
 
 
 def export_glb(rig, clips):
@@ -474,7 +602,7 @@ def export_glb(rig, clips):
         tr.name = name
         tr.strips.new(name, 1, act)
         rig.animation_data.action = None
-        meta[name] = dict(m, duration=round((len(fr) - 1) / FPS, 4))
+        meta[name] = m
     bpy.ops.object.select_all(action='DESELECT')
     rig.select_set(True)
     bpy.context.view_layer.objects.active = rig
@@ -483,7 +611,7 @@ def export_glb(rig, clips):
                               export_animation_mode='ACTIONS', export_force_sampling=True, export_frame_step=1, export_def_bones=False,
                               export_skins=True, export_morph=False, export_extras=False, export_yup=True)
     with open(os.path.join(OUT, 'humanoid_clips.json'), 'w') as fh:
-        json.dump({'fps': FPS, 'rig': 'mpfb game_engine', 'clips': meta}, fh, indent=1)
+        json.dump(meta, fh, indent=1)
     print('EXPORTED', path, os.path.getsize(path) // 1024, 'KB', len(clips), 'clips')
 
 
