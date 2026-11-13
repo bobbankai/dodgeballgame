@@ -37,6 +37,8 @@ export interface GameCtx {
   tokens: { request(a: Actor, cost?: number): boolean; release(a: Actor): void };
   /** world-state flags (story progress and puzzle state) */
   flags: Map<string, unknown>;
+  /** temporal hazards: drag the player's own time for a while */
+  slowPlayer?(seconds: number): void;
   /** is the ground clear between two points (line of sight for AI) */
   lineOfSight(a: THREE.Vector3, b: THREE.Vector3): boolean;
 }

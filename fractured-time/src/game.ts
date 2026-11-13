@@ -64,6 +64,24 @@ export class Game implements Simulation, GameCtx {
   paused = false;
   testMode = false;
   private tokensHeld = new Set<Actor>();
+  /** test hook: use the nearest interactable this tick */
+  forceInteract = false;
+  private playerSlowUntil = 0;
+  slowPlayer(seconds: number): void { this.playerSlowUntil = this.time + seconds; this.post.u.slow.value = 0.6; }
+  chapter: { tick(dt: number): void } | null = null;
+  startScript: (() => Promise<void>) | null = null;
+
+  private timers: { at: number; resolve: () => void }[] = [];
+
+  /** Resolve after `seconds` of game time (scripts run on game time so tests and pauses stay deterministic). */
+  wait(seconds: number): Promise<void> {
+    return new Promise((resolve) => this.timers.push({ at: this.time + seconds, resolve }));
+  }
+
+  setCheckpoint(pos: THREE.Vector3, yaw: number): void {
+    this.lastCheckpoint.pos.copy(pos);
+    this.lastCheckpoint.yaw = yaw;
+  }
   private lastCheckpoint = { pos: new THREE.Vector3(), yaw: 0 };
   private resizeObs: (() => void) | null = null;
 
@@ -93,8 +111,22 @@ export class Game implements Simulation, GameCtx {
     g.vfx.density = QUALITY[q].particles;
     g.temporal = new Temporal(g);
 
-    const levelPath = new URLSearchParams(location.search).get('level');
-    if (levelPath) {
+    const qsp = new URLSearchParams(location.search);
+    const chapterN = qsp.get('chapter');
+    const levelPath = qsp.get('level');
+    if (chapterN) {
+      (THREE as any).RectAreaLightNode.setLTC(RectAreaLightTexturesLib.init());
+      const { ChapterRuntime } = await import('@/chapters/runtime');
+      const { CH1_SECTIONS, chapter1 } = await import('@/chapters/ch1');
+      const ch = new ChapterRuntime(g);
+      g.chapter = ch;
+      for (const path of CH1_SECTIONS) await ch.loadSection(path);
+      const sp = ch.markers.find((m) => m.name === 'spawn');
+      g.level = { spawn: sp ? sp.pos.clone() : new THREE.Vector3(), yaw: sp ? sp.yaw : 0, enemies: [], objective: '' };
+      g.scene.background = new THREE.Color(0x000000);
+      ch.stream(g.level.spawn);
+      g.startScript = () => chapter1(g, ch);
+    } else if (levelPath) {
       // a baked level section: static surfaces lit by their lightmap, characters by real-time copies of the lights + a probe
       (THREE as any).RectAreaLightNode.setLTC(RectAreaLightTexturesLib.init());
       // real-time copies of the baked lights (characters: full; static surfaces: specular only), created before materials compile
@@ -201,6 +233,13 @@ export class Game implements Simulation, GameCtx {
       this.physics.updateSensors(this.player.pos);
       this.temporal.record(dt);
     }
+    this.chapter?.tick(dt);
+
+    if (this.timers.length) {
+      const due = this.timers.filter((t) => t.at <= this.time);
+      this.timers = this.timers.filter((t) => t.at > this.time);
+      for (const t of due) t.resolve();
+    }
     this.vfx.step(dt * (timeScale.world * 0.5 + 0.5));
     if (!this.player.alive && this.player.stateT > 2.4) this.respawn();
   }
@@ -209,7 +248,7 @@ export class Game implements Simulation, GameCtx {
     const opening = this.player.openingActive ? 0.16 : 1;
     const target = this.temporal.worldScaleTarget() * opening;
     timeScale.world += (target - timeScale.world) * Math.min(1, dt * (target < timeScale.world ? 22 : 7));
-    timeScale.player = 1;
+    timeScale.player = this.time < this.playerSlowUntil ? 0.55 : 1;
   }
 
   respawn(): void {
@@ -254,6 +293,15 @@ export class Game implements Simulation, GameCtx {
 
   start(): void {
     this.loop.start();
+    this.runScript();
+  }
+
+  /** Start the chapter script once (test mode starts it explicitly after setting up scripted controls). */
+  runScript(): void {
+    if (!this.startScript) return;
+    const s = this.startScript;
+    this.startScript = null;
+    s().catch((e) => console.error('[chapter]', e));
   }
 
   /** Test helper: advance n ticks then render one frame. */

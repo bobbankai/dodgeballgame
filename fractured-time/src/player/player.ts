@@ -144,6 +144,11 @@ export class Player extends Actor {
         case 'dodge': this.tickDodge(d); break;
         case 'hurt': this.tickHurt(d, frame); break;
         case 'ability': this.tickAbility(d); break;
+        case 'busy':
+          // scripted one-shots (interact, cinematic beats): hold still until the clip ends
+          this.vel.x *= 0.8; this.vel.z *= 0.8;
+          if (this.anim.finished) { this.state = 'loco'; this.stateT = 0; }
+          break;
         default: this.vel.x *= 0.85; this.vel.z *= 0.85; break;
       }
     } else {
@@ -390,6 +395,19 @@ export class Player extends Actor {
   }
 
   // --- defence -------------------------------------------------------------------------------------------------
+
+  /** Turn to face a world point (used before interacting with something). */
+  faceTowards(p: THREE.Vector3): void {
+    this.yaw = Math.atan2(p.x - this.pos.x, p.z - this.pos.z);
+  }
+
+  /** Play a scripted one-shot clip (interact, gestures); control returns when it ends. */
+  playAction(clip: string): void {
+    if (!this.alive || !this.anim.has(clip)) return;
+    this.state = 'busy';
+    this.stateT = 0;
+    this.anim.play(clip, { fade: 0.12, restart: true });
+  }
 
   private enterBlock(): void {
     this.state = 'block';

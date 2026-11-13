@@ -5,6 +5,7 @@ import { loadGLTF } from '@/assets/loader';
 import { pbr, emissive, tex, texturesReady, type Recipe } from '@/rendering/charmat';
 import { assetUrl } from '@/rendering/charmat';
 import type { Physics } from '@/physics/physics';
+import type { LightDef } from './lightpool';
 
 const T = TSL as any;
 const { texture, uv, float } = T;
@@ -17,7 +18,8 @@ const { texture, uv, float } = T;
  * real-time light rig + the probe.
  */
 export interface Marker { name: string; pos: THREE.Vector3; yaw: number; data: Record<string, unknown> }
-export interface LoadedLevel { root: THREE.Group; markers: Marker[]; staticMeshes: THREE.Mesh[] }
+export interface LoadedLevel { root: THREE.Group; markers: Marker[]; staticMeshes: THREE.Mesh[]; dynamic: THREE.Object3D[]; lightDefs: LightDef[];
+  lightmaps: THREE.Texture[] }
 
 const hdr = new HDRLoader();
 
@@ -52,13 +54,35 @@ function plain(r: Recipe): THREE.Material {
   return new THREE.MeshPhysicalNodeMaterial({ color: new THREE.Color(c[0], c[1], c[2]), roughness: r.rough ?? 0.5, metalness: r.metal ?? 0 });
 }
 
-export async function loadLevel(path: string, physics: Physics | null, scene: THREE.Scene, lights: THREE.Light[] = []): Promise<LoadedLevel> {
+export async function loadLevel(path: string, physics: Physics | null, scene: THREE.Scene | null, _unused: THREE.Light[] = []): Promise<LoadedLevel> {
   const g = await loadGLTF(path);
   const root = g.scene.clone(true) as THREE.Group;
   const markers: Marker[] = [];
   const staticMeshes: THREE.Mesh[] = [];
+  const dynamic: THREE.Object3D[] = [];
   const lmLoads: Promise<void>[] = [];
-  const rtLights = (T.lights as (l: THREE.Light[]) => unknown)(lights);
+  // this section's fixtures as real-time lights for the SPECULAR of its baked surfaces (kept out of the scene graph: characters use
+  // the light pool instead), plus their definitions for the pool
+  root.updateMatrixWorld(true);
+  const lightMarkers: Marker[] = [];
+  root.traverse((o) => { if (o.userData?.marker === 'light') lightMarkers.push({ name: 'light', pos: o.getWorldPosition(new THREE.Vector3()), yaw: 0, data: o.userData }); });
+  const lightDefs = toLightDefs(lightMarkers);
+  const ownLights = lightDefs.map((d) => {
+    let l: THREE.Light;
+    if (d.kind === 'area') {
+      const ra = new THREE.RectAreaLight(d.color, d.intensity, d.size[0], d.size[1]);
+      ra.position.copy(d.pos);
+      ra.lookAt(d.pos.x, d.pos.y - 1, d.pos.z);
+      l = ra;
+    } else {
+      l = new THREE.PointLight(d.color, d.intensity, 8, 2);
+      l.position.copy(d.pos);
+    }
+    l.updateMatrixWorld(true);
+    return l;
+  });
+  const rtLights = (T.lights as (l: THREE.Light[]) => unknown)(ownLights);
+  const lightmaps: THREE.Texture[] = [];
   root.updateMatrixWorld(true);
   // one lightmap per section: multi-material meshes arrive as a group of primitives with the node extras on the group
   const lmCache = new Map<string, Promise<THREE.Texture>>();
@@ -75,9 +99,14 @@ export async function loadLevel(path: string, physics: Physics | null, scene: TH
       if (physics) physics.addTrimesh(mesh.geometry, mesh.matrixWorld);
       return;
     }
-    staticMeshes.push(mesh);
+    const isDynamic = !!ud.dynamic;
+    if (isDynamic) {
+      // moving props (door leaves): not baked; lit by the real-time lights + probe like characters
+      const holder = (o.parent && o.parent.userData?.dynamic) ? o.parent : o;
+      if (!dynamic.includes(holder)) dynamic.push(holder);
+    } else staticMeshes.push(mesh);
     mesh.receiveShadow = true;
-    mesh.castShadow = false;
+    mesh.castShadow = isDynamic;
     let lightMap: THREE.Texture | null = null;
     if (ud.lightmap) {
       const key = String(ud.lightmap);
@@ -89,6 +118,7 @@ export async function loadLevel(path: string, physics: Physics | null, scene: TH
           t.minFilter = THREE.LinearFilter;
           t.magFilter = THREE.LinearFilter;
           t.generateMipmaps = false;
+          lightmaps.push(t);
           return t;
         }));
       }
@@ -111,6 +141,7 @@ export async function loadLevel(path: string, physics: Physics | null, scene: TH
     });
     const r0 = (m: THREE.Material) => { const raw = (m.userData as any)?.ft; return raw ? (typeof raw === 'string' ? JSON.parse(raw) : raw).type : ''; };
     const apply = (m: THREE.Material) => {
+      if (isDynamic) return;
       const sm = m as THREE.MeshStandardNodeMaterial;
       if (lightMap && 'lightMap' in sm) {
         sm.lightMap = lightMap;
@@ -128,8 +159,21 @@ export async function loadLevel(path: string, physics: Physics | null, scene: TH
   });
   await Promise.all(lmLoads);
   await texturesReady();
-  scene.add(root);
-  return { root, markers, staticMeshes };
+  if (scene) scene.add(root);
+  return { root, markers, staticMeshes, dynamic, lightDefs, lightmaps };
+}
+
+/** Light markers (Blender area/point lights exported as empties) -> pool definitions. Blender W converted with one exposure factor. */
+export function toLightDefs(markers: Marker[], exposure = 0.06): LightDef[] {
+  return markers.filter((m) => m.name === 'light').map((m) => {
+    const d = typeof m.data.light === 'string' ? JSON.parse(m.data.light as string) : (m.data.light as any);
+    const col = new THREE.Color(d.color[0], d.color[1], d.color[2]);
+    if (d.kind === 'area') {
+      const w = d.size[0], h = d.size[1];
+      return { kind: 'area', pos: m.pos.clone(), size: [w, h], color: col, intensity: (d.power * exposure) / Math.max(w * h, 0.05) } as LightDef;
+    }
+    return { kind: 'point', pos: m.pos.clone(), size: [0, 0], color: col, intensity: d.power * exposure * 2 } as LightDef;
+  });
 }
 
 /**

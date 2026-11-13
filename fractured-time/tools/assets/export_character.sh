@@ -8,7 +8,10 @@ set -euo pipefail
 cd "$(dirname "$0")/../.."
 name="${1:?character name}"
 out="public/assets/characters/$name/$name.glb"
-/opt/blender/blender -b --factory-startup --python-exit-code 1 -P "blender/characters/$name.py" -- --export
+script="blender/characters/$name.py"
+args="--export"
+if [ ! -f "$script" ]; then script="blender/characters/helix.py"; args="--variant $name --export"; fi  # HELIX archetypes
+/opt/blender/blender -b --factory-startup --python-exit-code 1 -P "$script" -- $args
 mkdir -p vendor
 cp "$out" "vendor/${name}_raw.glb"
 npx gltfpack -i "vendor/${name}_raw.glb" -o "$out" -cc -kn -km -ke -kv -vpf -vtf -vn 8

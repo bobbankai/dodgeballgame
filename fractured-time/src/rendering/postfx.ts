@@ -46,7 +46,7 @@ export class PostFX {
     this.u = {
       slow: uniform(0), rewind: uniform(0), fracture: uniform(0), flash: uniform(0), hurt: uniform(0), fade: uniform(0),
       vignette: uniform(0.28), saturation: uniform(1.0), contrast: uniform(1.06), tint: uniform(new THREE.Color(1, 1, 1)),
-      grain: uniform(0.35), focus: uniform(4), focusRange: uniform(6), bokeh: uniform(1.6), bloomStrength: uniform(0.32),
+      grain: uniform(0.35), focus: uniform(4), focusRange: uniform(6), bokeh: uniform(1.6), bloomStrength: uniform(0.16),
     } as unknown as PostUniforms;
     this.pipeline = new THREE.RenderPipeline(gfx.renderer);
     this.build(q);
@@ -118,7 +118,7 @@ export class PostFX {
     // 3. bloom (HDR emissives and lights bleed)
     if (q.bloom) {
       try {
-        const b = (bloom as any)(color, 0.32, 0.55, 0.92);
+        const b = (bloom as any)(color, 0.16, 0.25, 1.8); // threshold above diffuse white: only emitters and hot highlights bloom
         b.strength = u.bloomStrength;
         color = vec4(color.rgb.add(b.rgb), color.a);
         this.features.push('bloom');

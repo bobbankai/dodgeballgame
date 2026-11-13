@@ -26,6 +26,7 @@ async function boot() {
     window.__ts = timeScale;
     game.loop.manual = true;
     game.loop.start();
+    game.runScript();
     window.__ready = true;
     return;
   }

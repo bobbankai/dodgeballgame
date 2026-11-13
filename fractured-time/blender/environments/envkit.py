@@ -192,6 +192,8 @@ def join(objs, name):
     bpy.ops.object.join()
     ob = bpy.context.view_layer.objects.active
     ob.name = name
+    # bake the transform into the mesh: pieces are authored around the world origin and placed afterwards
+    bpy.ops.object.transform_apply(location=True, rotation=True, scale=True)
     return ob
 
 
@@ -251,7 +253,10 @@ def area_light(name, loc, size, power, color=(1, 1, 1), rot=(0, 0, 0), shape='RE
 LIGHT_MARKERS = []
 
 
-def light_strip(name, length, loc, rot_z, M, on=True, color=(0.85, 0.92, 1.0), strength=18.0, power=320.0):
+LAMP_POWER = [240.0]  # watts for a full-strength 3 m fixture (levels can set it)
+
+
+def light_strip(name, length, loc, rot_z, M, on=True, color=(0.85, 0.92, 1.0), strength=18.0, power=None):
     """Ceiling light fixture: housing + emissive diffuser (seen glowing) + a matching area light just below it (lights the bake with
     soft, low-noise illumination)."""
     hous = box(name + '_h', (length, 0.22, 0.08), (0, 0, 0), M['trim'], bevel=0.01)
@@ -261,6 +266,7 @@ def light_strip(name, length, loc, rot_z, M, on=True, color=(0.85, 0.92, 1.0), s
     ob.location = loc
     ob.rotation_euler = (0, 0, rot_z)
     if on:
+        power = LAMP_POWER[0] * length / 3.0 if power is None else power
         area_light(name + '_area', (loc[0], loc[1], loc[2] - 0.07), (length - 0.06, 0.16), power * strength / 18.0, color,
                    rot=(0, 0, rot_z))
     return ob
@@ -342,7 +348,7 @@ def screen_mat(key, tex_rel, strength=3.0):
 
 def console(name, loc, rot_z, M, screen):
     desk = box(name + '_desk', (1.4, 0.7, 0.08), (0, 0, 0.92), M['panel'], bevel=0.012)
-    body = box(name + '_body', (1.3, 0.55, 0.85), (0, 0.06, 0.45), M['wall'], bevel=0.015)
+    body = box(name + '_body', (1.3, 0.55, 0.85), (0, 0.06, 0.45), M['panel'], bevel=0.015)
     kick = box(name + '_kick', (1.26, 0.5, 0.1), (0, 0.1, 0.05), M['trim'], bevel=0.008)
     mon = box(name + '_mon', (1.0, 0.06, 0.6), (0, 0.22, 1.38), M['trim'], bevel=0.01, rot=(math.radians(-12), 0, 0))
     scr = box(name + '_scr', (0.92, 0.01, 0.52), (0, 0.185, 1.38), screen, bevel=0.0, rot=(math.radians(-12), 0, 0))
@@ -505,3 +511,187 @@ def export(objs, path, extras=None):
                               export_normals=True, export_tangents=True, export_materials='EXPORT', export_yup=True,
                               export_apply=True, export_vertex_color='NONE')
     print('EXPORTED', path, os.path.getsize(path) // 1024, 'KB')
+
+
+# --- rooms, doors, set pieces ---------------------------------------------------------------------------------------------------
+
+def glass_mat(key='glass', tint=(0.75, 0.85, 0.9), rough=0.05):
+    if key not in MATS:
+        m = bpy.data.materials.new(key)
+        m.use_nodes = True
+        b = m.node_tree.nodes['Principled BSDF']
+        b.inputs['Base Color'].default_value = (*tint, 1)
+        b.inputs['Roughness'].default_value = rough
+        b.inputs['Transmission Weight'].default_value = 1.0
+        m['ft'] = json.dumps({'type': 'glass', 'tint': list(tint), 'rough': rough})
+        MATS[key] = m
+    return MATS[key]
+
+
+def _wall_segments(a, b, openings):
+    """Split [a, b] (1D) by openings [(center, width)] -> solid spans."""
+    cuts = sorted((c - w / 2, c + w / 2) for c, w in openings)
+    spans, cur = [], a
+    for lo, hi in cuts:
+        if lo > cur:
+            spans.append((cur, lo))
+        cur = max(cur, hi)
+    if cur < b:
+        spans.append((cur, b))
+    return spans
+
+
+def room(S, name, x0, x1, y0, y1, H, M, openings=None, beams=True, ceiling=True, floor_mat='floor', door_h=2.9):
+    """A rectangular room (Blender xy, y0 > y1 going 'north' = -Y). openings: {'n'|'s'|'e'|'w': [(center, width)]} along the wall.
+    Builds floor, ceiling + beams, panelled walls split around openings with headers and frames; adds collision boxes."""
+    openings = openings or {}
+    W, L = x1 - x0, y0 - y1
+    cx, cy = (x0 + x1) / 2, (y0 + y1) / 2
+    S.add(box(f'{name}_floor', (W, L, 0.2), (cx, cy, -0.1), M[floor_mat], bevel=0.0))
+    if ceiling:
+        S.add(box(f'{name}_ceil', (W + 0.3, L + 0.3, 0.3), (cx, cy, H + 0.15), M['ceiling'], bevel=0.0))
+        if beams:
+            for i in range(int(L / 2.5) + 1):
+                S.add(box(f'{name}_beam{i}', (W, 0.3, 0.4), (cx, y0 - i * 2.5, H - 0.2), M['trim'], bevel=0.015))
+    walls = {'s': ((x0, y0), (x1, y0), (0, -1, 0)), 'n': ((x0, y1), (x1, y1), (0, 1, 0)),
+             'w': ((x0, y0), (x0, y1), (1, 0, 0)), 'e': ((x1, y0), (x1, y1), (-1, 0, 0))}
+    for side, (p0, p1, inward) in walls.items():
+        horiz = side in ('n', 's')
+        a, b = (p0[0], p1[0]) if horiz else (p1[1], p0[1])
+        ops = openings.get(side, [])
+        for k, (lo, hi) in enumerate(_wall_segments(a, b, ops)):
+            if hi - lo < 0.05:
+                continue
+            q0 = (lo, p0[1]) if horiz else (p0[0], hi)
+            q1 = (hi, p0[1]) if horiz else (p0[0], lo)
+            S.add(panel_wall(f'{name}_{side}{k}', q0, q1, H, 0, M, inward=inward))
+            mid = ((q0[0] + q1[0]) / 2, (q0[1] + q1[1]) / 2)
+            size = ((hi - lo), 0.3, H) if horiz else (0.3, (hi - lo), H)
+            o = box(f'col_{name}_{side}{k}', size, (mid[0], mid[1], H / 2), None, bevel=0.0)
+            o['collision'] = True
+            o.hide_render = True
+            S.collide.append(S.link(o))
+        for j, (c, w) in enumerate(ops):
+            pos = (c, p0[1]) if horiz else (p0[0], c)
+            hdr_size = (w, 0.14, H - door_h) if horiz else (0.14, w, H - door_h)
+            S.add(box(f'{name}_{side}hdr{j}', hdr_size, (pos[0], pos[1], door_h + (H - door_h) / 2), M['wall'], bevel=0.008))
+            fr = (w + 0.3, 0.24, 0.18) if horiz else (0.24, w + 0.3, 0.18)
+            S.add(box(f'{name}_{side}frt{j}', fr, (pos[0], pos[1], door_h + 0.09), M['trim'], bevel=0.02))
+            for sgn in (-1, 1):
+                jamb = (0.15, 0.26, door_h) if horiz else (0.26, 0.15, door_h)
+                jp = (pos[0] + sgn * (w / 2 + 0.075), pos[1]) if horiz else (pos[0], pos[1] + sgn * (w / 2 + 0.075))
+                S.add(box(f'{name}_{side}jamb{j}{sgn}', jamb, (jp[0], jp[1], door_h / 2), M['trim'], bevel=0.02))
+    o = box(f'col_{name}_floor', (W, L, 0.2), (cx, cy, -0.1), None, bevel=0.0)
+    o['collision'] = True
+    o.hide_render = True
+    S.collide.append(S.link(o))
+
+
+def sliding_door(S, name, center, horiz, width, M, door_h=2.9, state='closed', role='door'):
+    """Two door leaves exported as dynamic objects (the engine slides them apart); marker extras say how."""
+    leaves = []
+    for sgn in (-1, 1):
+        size = (width / 2, 0.1, door_h - 0.05) if horiz else (0.1, width / 2, door_h - 0.05)
+        off = (sgn * width / 4, 0) if horiz else (0, sgn * width / 4)
+        lf = box(f'{name}_leaf{sgn}', size, (center[0] + off[0], center[1] + off[1], door_h / 2), M['door'], bevel=0.015)
+        stripe = box(f'{name}_st{sgn}', (size[0] * 0.9 if horiz else 0.11, 0.11 if horiz else size[1] * 0.9, 0.12),
+                     (center[0] + off[0], center[1] + off[1], 1.2), M['hazard'], bevel=0.004)
+        lf = join([lf, stripe], f'{name}_leaf{sgn}')
+        lf['dynamic'] = 'door'
+        lf['door'] = name
+        lf['slide'] = json.dumps([sgn * width / 2 * (1 if horiz else 0), 0.0, sgn * width / 2 * (0 if horiz else 1)])
+        leaves.append(S.link(lf))
+    e = bpy.data.objects.new(f'{name}_marker', None)
+    e.location = (center[0], center[1], 0)
+    e['marker'] = role
+    e['id'] = name
+    e['state'] = state
+    e['width'] = width
+    e['horiz'] = horiz
+    S.markers.append(S.link(e))
+    S.dynamic = getattr(S, 'dynamic', []) + leaves
+    return leaves
+
+
+def marker(S, kind, loc, yaw=0.0, **data):
+    e = bpy.data.objects.new(f'{kind}_{len(S.markers)}', None)
+    e.location = loc
+    e['marker'] = kind
+    e['yaw'] = yaw
+    for k, v in data.items():
+        e[k] = json.dumps(v) if isinstance(v, (list, dict)) else v
+    S.markers.append(S.link(e))
+    return e
+
+
+def collide_box(S, name, size, loc):
+    o = box(f'col_{name}', size, loc, None, bevel=0.0)
+    o['collision'] = True
+    o.hide_render = True
+    S.collide.append(S.link(o))
+
+
+def railing(name, p0, p1, M, h=1.05, post_every=1.5):
+    p0, p1 = Vector(p0), Vector(p1)
+    d = p1 - p0
+    n = max(1, int(d.length / post_every))
+    parts = [tube(f'{name}_top', [p0 + Vector((0, 0, h)), p1 + Vector((0, 0, h))], 0.025, M['trim']),
+             tube(f'{name}_mid', [p0 + Vector((0, 0, h * 0.5)), p1 + Vector((0, 0, h * 0.5))], 0.015, M['trim'])]
+    for i in range(n + 1):
+        c = p0.lerp(p1, i / n)
+        parts.append(cylinder(f'{name}_p{i}', 0.025, h, (c.x, c.y, c.z + h / 2), M['trim'], verts=12))
+    return join(parts, name)
+
+
+def sign(name, text, loc, rot, size, material, depth=0.01):
+    cu = bpy.data.curves.new(name, 'FONT')
+    cu.body = text
+    cu.size = size
+    cu.extrude = depth
+    cu.align_x = 'CENTER'
+    ob = bpy.data.objects.new(name, cu)
+    bpy.context.scene.collection.objects.link(ob)
+    me = bpy.data.meshes.new_from_object(ob.evaluated_get(bpy.context.evaluated_depsgraph_get()))
+    bpy.data.objects.remove(ob)
+    out = _obj(name, me, material)
+    out.location = loc
+    out.rotation_euler = rot
+    return out
+
+
+def pod(name, loc, M):
+    """Chronal integration pod: armoured base, couch, glass canopy ring, cyan light ring, cable sockets."""
+    x, y, z = loc
+    parts = [cylinder(f'{name}_base', 1.6, 0.5, (0, 0, 0.25), M['trim'], verts=48, bevel=0.03),
+             cylinder(f'{name}_step', 1.9, 0.12, (0, 0, 0.06), M['panel'], verts=48, bevel=0.02),
+             box(f'{name}_couch', (0.8, 2.2, 0.28), (0, 0, 0.66), M['panel'], bevel=0.08, rot=(math.radians(-14), 0, 0)),
+             cylinder(f'{name}_ring', 1.62, 0.08, (0, 0, 0.52), M['glow'], verts=48, bevel=0.0)]
+    for k in range(8):
+        a = k / 8 * math.tau
+        parts.append(box(f'{name}_rib{k}', (0.12, 0.12, 2.6), (math.cos(a) * 1.5, math.sin(a) * 1.5, 1.8), M['trim'], bevel=0.02,
+                         rot=(0, 0, a)))
+    parts.append(cylinder(f'{name}_crown', 1.6, 0.22, (0, 0, 3.1), M['trim'], verts=48, bevel=0.03))
+    parts.append(cylinder(f'{name}_crownglow', 1.3, 0.04, (0, 0, 2.98), M['glow'], verts=48, bevel=0.0))
+    ob = join(parts, name)
+    ob.location = (x, y, z)
+    return ob
+
+
+def engine_ring(name, center, R, M, segments=24):
+    """The Chronal Engine: a vertical ring of armoured segments around a glowing core track, with conduits."""
+    import sdf
+    parts = []
+    cx, cy, cz = center
+    for k in range(segments):
+        a = k / segments * math.tau
+        p = (cx + math.cos(a) * R, cy, cz + math.sin(a) * R)
+        seg = box(f'{name}_s{k}', (R * math.tau / segments * 0.82, 1.6, 1.1), p, M['trim'], bevel=0.06, rot=(0, -a + math.pi / 2, 0))
+        parts.append(seg)
+        fin = box(f'{name}_f{k}', (0.3, 2.2, 1.6), (cx + math.cos(a) * (R + 0.6), cy, cz + math.sin(a) * (R + 0.6)), M['panel'],
+                  bevel=0.04, rot=(0, -a + math.pi / 2, 0))
+        parts.append(fin)
+    core = tube(f'{name}_core', [(cx + math.cos(t) * (R - 0.62), cy, cz + math.sin(t) * (R - 0.62))
+                                 for t in np.linspace(0, math.tau, 97)], 0.18, M['glow'], sides=12)
+    parts.append(core)
+    del sdf
+    return join(parts, name)

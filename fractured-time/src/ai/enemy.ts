@@ -463,7 +463,7 @@ export class Enemy extends Actor {
 /** Archetypes. Visual identity comes from the model; the numbers and attack sets are what make them play differently. */
 export const ENEMIES: Record<string, EnemyDef> = {
   trooper: {
-    id: 'trooper', display: 'HELIX Security', model: 'characters/ethan/ethan.glb', health: 56, poise: 14, runSpeed: 4.0, circleSpeed: 1.7,
+    id: 'trooper', display: 'HELIX Security', model: 'characters/trooper/trooper.glb', health: 56, poise: 14, runSpeed: 4.0, circleSpeed: 1.7,
     aggroRange: 16, fov: Math.PI * 1.1, guardChance: 0.35, circleRange: [1.9, 3.2],
     attacks: [
       { clip: 'light1', min: 0.8, max: 2.4, weight: 3, cooldown: 1.2, then: 'light2' },
@@ -472,7 +472,7 @@ export const ENEMIES: Record<string, EnemyDef> = {
     ],
   },
   operative: {
-    id: 'operative', display: 'Temporal Operative', model: 'characters/ethan/ethan.glb', health: 40, poise: 10, runSpeed: 6.0, circleSpeed: 2.6,
+    id: 'operative', display: 'Temporal Operative', model: 'characters/operative/operative.glb', health: 40, poise: 10, runSpeed: 6.0, circleSpeed: 2.6,
     aggroRange: 18, fov: Math.PI * 1.3, guardChance: 0.1, circleRange: [1.7, 3.0], evades: true, power: 0.85,
     attacks: [
       { clip: 'light1', min: 0.8, max: 3.2, weight: 3, cooldown: 0.7, then: 'light2' },
@@ -481,7 +481,7 @@ export const ENEMIES: Record<string, EnemyDef> = {
     ],
   },
   heavy: {
-    id: 'heavy', display: 'Armored Guard', model: 'characters/ethan/ethan.glb', health: 130, poise: 40, runSpeed: 3.0, circleSpeed: 1.3, scale: 1.12,
+    id: 'heavy', display: 'Armored Guard', model: 'characters/heavy/heavy.glb', health: 130, poise: 40, runSpeed: 3.0, circleSpeed: 1.3,
     aggroRange: 14, fov: Math.PI, guardChance: 0.7, armored: true, power: 1.4, circleRange: [1.9, 3.0],
     attacks: [
       { clip: 'heavy1', min: 1.2, max: 2.6, weight: 2, cooldown: 2.6 },

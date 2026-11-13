@@ -239,6 +239,11 @@ def finish(ob, space, material, tris=None):
     return ob
 
 
+DETAIL = [1.0]  # global triangle budget scale (1 = hero, ~0.35 = enemies)
+
+
 def make(space, name, f, lo, hi, material, step=0.0018, tris=None):
+    if tris:
+        tris = max(600, int(tris * DETAIL[0]))
     ob = sdf.sculpt(name, f, lo, hi, step, tris=tris)
     return finish(ob, space, material)
