@@ -1,0 +1,23 @@
+{
+ "name": "Thrall",
+ "height": 1.8866307735443115,
+ "parts": {
+  "thrall_gear": {
+   "kind": "gear",
+   "tex": "gear",
+   "emissive": 2.2,
+   "twoSided": true
+  }
+ },
+ "sockets": {
+  "weapon_r": "weapon_r",
+  "weapon_l": "weapon_l"
+ },
+ "morphs": [],
+ "cloth": [
+  "cloth_f",
+  "cloth_b",
+  "cloth_l",
+  "cloth_r"
+ ]
+}

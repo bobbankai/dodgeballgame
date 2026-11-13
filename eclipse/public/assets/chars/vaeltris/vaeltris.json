@@ -1,0 +1,23 @@
+{
+ "name": "Vaeltris",
+ "height": 2.2182648181915283,
+ "parts": {
+  "vaeltris_gear": {
+   "kind": "gear",
+   "tex": "gear",
+   "emissive": 3.4,
+   "twoSided": true
+  }
+ },
+ "sockets": {
+  "weapon_r": "weapon_r",
+  "weapon_l": "weapon_l"
+ },
+ "morphs": [],
+ "cloth": [
+  "cloth_f",
+  "cloth_b",
+  "cloth_l",
+  "cloth_r"
+ ]
+}

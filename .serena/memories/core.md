@@ -1,0 +1,7 @@
+# Eclipse: Fallen Gods (dodgeballgame repo)
+- Real project is `eclipse/` inside the repo root /home/user/dodgeballgame. Root `package.json` scripts target it via `--config eclipse/vite.config.ts` / `-p eclipse`. `emberfall/` is a separate game in the same repo; ignore unless asked.
+- src/: levels (Ashen, Drowned, ShatteredSky, Sanctuary, Eclipse, Playground, KitView), ai (Boss, Enemy, Archetypes, bosses/), anim (Animator, ClothSprings), character, combat, vfx (GroundFx, Lightning), world (EnvKit, CloudSea), render (InkMaterial, Pipeline), story (Director, chapter*.ts), ui (HUD, TouchControls, theme.css).
+- tools/blender: Blender Python (bpy, /opt/bvenv/bin/python) builds all models/rigs/gear. enemy_build.py <id> [--res 2048] [--preview] [--retex]; cloth.py; *_kit.py; *_gear.py.
+- tools/tex: Poly Haven fetch/build + gen_metal.py, gen_marble.py. tools/models: Poly Haven glTF downloads. tools/play.mjs: headless deterministic play/screenshots.
+- public/assets: built GLB/WebP outputs (chars/, weapons/, env/, tex/). Raw downloads live in /opt/eclipse-raw (not in repo).
+- Project rules are in /home/user/dodgeballgame/CLAUDE.md; design doc in eclipse/docs/DESIGN.md; running log in eclipse/docs/DEVLOG.md (newest at top).

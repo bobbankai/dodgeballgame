@@ -1,0 +1,23 @@
+{
+ "name": "Pyre Acolyte",
+ "height": 1.6041351556777954,
+ "parts": {
+  "acolyte_gear": {
+   "kind": "gear",
+   "tex": "gear",
+   "emissive": 2.6,
+   "twoSided": true
+  }
+ },
+ "sockets": {
+  "weapon_r": "weapon_r",
+  "weapon_l": "weapon_l"
+ },
+ "morphs": [],
+ "cloth": [
+  "cloth_f",
+  "cloth_b",
+  "cloth_l",
+  "cloth_r"
+ ]
+}

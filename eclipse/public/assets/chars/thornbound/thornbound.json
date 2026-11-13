@@ -1,0 +1,17 @@
+{
+ "name": "Thornbound",
+ "height": 2.13179612159729,
+ "parts": {
+  "thornbound_gear": {
+   "kind": "gear",
+   "tex": "gear",
+   "emissive": 2.6,
+   "twoSided": true
+  }
+ },
+ "sockets": {
+  "weapon_r": "weapon_r",
+  "weapon_l": "weapon_l"
+ },
+ "morphs": []
+}

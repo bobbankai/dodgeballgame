@@ -1,0 +1,30 @@
+import { Game } from './game/Game';
+import { log, recentErrors } from './core/Log';
+import './ui/styles.css';
+import './ui/theme.css';
+import '@fontsource/cinzel/400.css';
+import '@fontsource/cinzel/600.css';
+import '@fontsource/cormorant-garamond/400.css';
+import '@fontsource/cormorant-garamond/600.css';
+import { Shade, refreshShading } from './render/materials/Shading';
+
+const params = new URLSearchParams(location.search);
+const canvas = document.getElementById('game') as HTMLCanvasElement;
+
+window.addEventListener('error', (e) => log.error('uncaught', e.error ?? e.message));
+window.addEventListener('unhandledrejection', (e) => log.error('unhandled rejection', e.reason));
+
+Game.create(canvas, params)
+  .then((game) => {
+    if (params.has('test')) {
+      Object.assign(window, { __game: game, __errors: recentErrors, __shade: Shade, __refreshShading: () => refreshShading(game.scene) });
+    }
+  })
+  .catch((err) => {
+    log.error('startup failed', err);
+    const box = document.getElementById('fatal');
+    if (box) {
+      box.textContent = `Eclipse: Fallen Gods could not start. ${err instanceof Error ? err.message : String(err)}`;
+      box.style.display = 'flex';
+    }
+  });
