@@ -55,12 +55,12 @@ def materials(PH, variant='ethan'):
     return m
 
 
-def build_kit(h, rig, PH, variant='ethan', P='ethan', detail=1.0):
+def build_kit(h, rig, PH, variant='ethan', P='ethan', detail=1.0, carrier=True, helix=None, devices=None):
     """Ethan's kit, or a HELIX variant ('trooper', 'operative', 'heavy'): HELIX colours, helmet + visor, shoulder plates, armoured
     bracers on both forearms (no chronal device; operatives keep light-lines). Object names start with `P`_."""
     S = Gm.BodySpace(h, rig)
     mat = materials(PH, variant)
-    helix = variant != 'ethan'
+    helix = (variant in ('trooper', 'operative', 'heavy')) if helix is None else helix
     # triangle budget: enemies are seen at gameplay distance (HS.make reads the scale)
     HS.DETAIL[0] = detail
     SUB = 1 if detail >= 0.99 else 0
@@ -114,81 +114,82 @@ def build_kit(h, rig, PH, variant='ethan', P='ethan', detail=1.0):
     Fb = F.view(math.pi / 2)  # arc measured from the back
     T = lambda z: z - pelvis_z  # noqa: E731  world z -> field t
 
-    # --- plate carrier ---------------------------------------------------------------------------------------------------
-    top = T(zc - 0.04)
-    bot = T(z1 + 0.035)
-    w2 = 0.135
-    cut = 0.055
-    plate_outline = [(-w2, bot), (w2, bot), (w2, top - cut), (w2 - cut * 0.85, top), (-w2 + cut * 0.85, top), (-w2, top - cut)]
-    def pillow(s, t_):  # noqa: E306
-        return 0.004 * np.clip(1 - (s / w2) ** 2, 0, 1) * np.clip(1 - ((t_ - (top + bot) / 2) / ((top - bot) / 2)) ** 2, 0, 1)
-    off_c, th_c = 0.011, 0.022
+    if carrier:
+        # --- plate carrier ---------------------------------------------------------------------------------------------------
+        top = T(zc - 0.04)
+        bot = T(z1 + 0.035)
+        w2 = 0.135
+        cut = 0.055
+        plate_outline = [(-w2, bot), (w2, bot), (w2, top - cut), (w2 - cut * 0.85, top), (-w2 + cut * 0.85, top), (-w2, top - cut)]
+        def pillow(s, t_):  # noqa: E306
+            return 0.004 * np.clip(1 - (s / w2) ** 2, 0, 1) * np.clip(1 - ((t_ - (top + bot) / 2) / ((top - bot) / 2)) ** 2, 0, 1)
+        off_c, th_c = 0.011, 0.022
 
-    def plate_bag(field):
-        bag = sdf.intersect(HS.layer(field, off_c, th_c, pillow), HS.outline(field, plate_outline), k=0.007)
-        # stitched seam a few mm inside the edge on the outer face
-        edge = HS.outline(field, plate_outline)
-        seam = sdf.intersect(lambda P: np.abs(edge(P) + 0.007) - 0.0007,
-                             HS.layer(field, off_c + th_c - 0.0012, 0.004))
-        return sdf.subtract(bag, seam, k=0.0006)
+        def plate_bag(field):
+            bag = sdf.intersect(HS.layer(field, off_c, th_c, pillow), HS.outline(field, plate_outline), k=0.007)
+            # stitched seam a few mm inside the edge on the outer face
+            edge = HS.outline(field, plate_outline)
+            seam = sdf.intersect(lambda P: np.abs(edge(P) + 0.007) - 0.0007,
+                                 HS.layer(field, off_c + th_c - 0.0012, 0.004))
+            return sdf.subtract(bag, seam, k=0.0006)
 
-    # MOLLE: three rows of 25 mm webbing across the lower front, bar-tacked every 38 mm (gaps)
-    def molle(field, t_rows, s_half):
-        rows = []
-        for tr in t_rows:
-            row = sdf.intersect(HS.layer(field, off_c + th_c - 0.0008, 0.0024), HS.band(field, tr - 0.0125, tr + 0.0125, -s_half, s_half), k=0.001)
-            gaps = lambda P, tr=tr: _gap_field(field, P, 0.038, 0.0035)  # noqa: E731
-            rows.append(sdf.subtract(row, gaps))
-        return sdf.union(*rows)
+        # MOLLE: three rows of 25 mm webbing across the lower front, bar-tacked every 38 mm (gaps)
+        def molle(field, t_rows, s_half):
+            rows = []
+            for tr in t_rows:
+                row = sdf.intersect(HS.layer(field, off_c + th_c - 0.0008, 0.0024), HS.band(field, tr - 0.0125, tr + 0.0125, -s_half, s_half), k=0.001)
+                gaps = lambda P, tr=tr: _gap_field(field, P, 0.038, 0.0035)  # noqa: E731
+                rows.append(sdf.subtract(row, gaps))
+            return sdf.union(*rows)
 
-    rows = [bot + 0.03 + 0.038 * i for i in range(3)]
-    front = sdf.union(plate_bag(F), molle(F, rows, w2 - 0.01), k=0.0015)
-    lo, hi = HS.bounds(F, -w2 - 0.01, w2 + 0.01, bot - 0.01, top + 0.01, -0.005, 0.05)
-    HS.make(S, f'{P}_carrier_front', front, lo, hi, mat['cordura'], step=0.0016, tris=13000)
-    back = plate_bag(Fb)
-    lo, hi = HS.bounds(Fb, -w2 - 0.01, w2 + 0.01, bot - 0.01, top + 0.01, -0.005, 0.05)
-    HS.make(S, f'{P}_carrier_back', back, lo, hi, mat['cordura'], step=0.0018, tris=8000)
+        rows = [bot + 0.03 + 0.038 * i for i in range(3)]
+        front = sdf.union(plate_bag(F), molle(F, rows, w2 - 0.01), k=0.0015)
+        lo, hi = HS.bounds(F, -w2 - 0.01, w2 + 0.01, bot - 0.01, top + 0.01, -0.005, 0.05)
+        HS.make(S, f'{P}_carrier_front', front, lo, hi, mat['cordura'], step=0.0016, tris=13000)
+        back = plate_bag(Fb)
+        lo, hi = HS.bounds(Fb, -w2 - 0.01, w2 + 0.01, bot - 0.01, top + 0.01, -0.005, 0.05)
+        HS.make(S, f'{P}_carrier_back', back, lo, hi, mat['cordura'], step=0.0018, tris=8000)
 
-    # cummerbund: elastic band round the sides, joining the plate bags, with its own webbing rows
-    cb_lo, cb_hi = bot + 0.005, bot + 0.16
-    s_side0, s_side1 = w2 - 0.03, math.pi * F.r_ref - w2 + 0.03
-    cumm = []
-    for sgn in (1, -1):
-        s0, s1 = sorted((sgn * s_side0, sgn * s_side1))
-        body = sdf.intersect(HS.layer(F, off_c + 0.002, 0.009), HS.band(F, cb_lo, cb_hi, s0, s1), k=0.004)
-        web = sdf.union(*[sdf.intersect(HS.layer(F, off_c + 0.0102, 0.0022), HS.band(F, r - 0.0125, r + 0.0125, s0 + 0.02, s1 - 0.02), k=0.001)
-                          for r in (cb_lo + 0.035, cb_lo + 0.075, cb_lo + 0.115)])
-        cumm.append(sdf.union(body, web, k=0.001))
-    cum = sdf.union(*cumm)
-    lo, hi = HS.bounds(F, -math.pi * F.r_ref, math.pi * F.r_ref, cb_lo - 0.01, cb_hi + 0.01, -0.005, 0.03)
-    HS.make(S, f'{P}_cummerbund', cum, lo, hi, mat['cordura'], step=0.0018, tris=11000)
+        # cummerbund: elastic band round the sides, joining the plate bags, with its own webbing rows
+        cb_lo, cb_hi = bot + 0.005, bot + 0.16
+        s_side0, s_side1 = w2 - 0.03, math.pi * F.r_ref - w2 + 0.03
+        cumm = []
+        for sgn in (1, -1):
+            s0, s1 = sorted((sgn * s_side0, sgn * s_side1))
+            body = sdf.intersect(HS.layer(F, off_c + 0.002, 0.009), HS.band(F, cb_lo, cb_hi, s0, s1), k=0.004)
+            web = sdf.union(*[sdf.intersect(HS.layer(F, off_c + 0.0102, 0.0022), HS.band(F, r - 0.0125, r + 0.0125, s0 + 0.02, s1 - 0.02), k=0.001)
+                              for r in (cb_lo + 0.035, cb_lo + 0.075, cb_lo + 0.115)])
+            cumm.append(sdf.union(body, web, k=0.001))
+        cum = sdf.union(*cumm)
+        lo, hi = HS.bounds(F, -math.pi * F.r_ref, math.pi * F.r_ref, cb_lo - 0.01, cb_hi + 0.01, -0.005, 0.03)
+        HS.make(S, f'{P}_cummerbund', cum, lo, hi, mat['cordura'], step=0.0018, tris=11000)
 
-    # magazine pouches (3) on the front webbing + an admin pouch on the upper chest
-    def pouch(hw, hh, hd, flap=True):
-        b = HS.rbox((hw, hh, hd), 0.006)
-        if flap:
-            f = sdf.box((0, hh - 0.018, 0.0015), (hw + 0.0015, 0.02, hd + 0.0012), 0.005)
-            b = sdf.union(b, f, k=0.002)
-            # flap edge line
-            b = sdf.subtract(b, sdf.box((0, hh - 0.038, hd + 0.0015), (hw + 0.004, 0.0009, 0.004), 0.0), k=0.0006)
-        return b
-    pouches = []
-    for sc in (-0.082, 0.0, 0.082):
-        pouches.append(HS.solid_at(F, sc, bot + 0.075, off_c + th_c + 0.019, pouch(0.036, 0.068, 0.018)))
-    pouches.append(HS.solid_at(F, 0.0, top - 0.085, off_c + th_c + 0.011, pouch(0.075, 0.045, 0.01)))
-    pu = sdf.union(*pouches)
-    lo, hi = HS.bounds(F, -w2, w2, bot - 0.01, top + 0.01, 0.0, 0.09)
-    HS.make(S, f'{P}_pouches', pu, lo, hi, mat['cordura'], step=0.0015, tris=12000)
+        # magazine pouches (3) on the front webbing + an admin pouch on the upper chest
+        def pouch(hw, hh, hd, flap=True):
+            b = HS.rbox((hw, hh, hd), 0.006)
+            if flap:
+                f = sdf.box((0, hh - 0.018, 0.0015), (hw + 0.0015, 0.02, hd + 0.0012), 0.005)
+                b = sdf.union(b, f, k=0.002)
+                # flap edge line
+                b = sdf.subtract(b, sdf.box((0, hh - 0.038, hd + 0.0015), (hw + 0.004, 0.0009, 0.004), 0.0), k=0.0006)
+            return b
+        pouches = []
+        for sc in (-0.082, 0.0, 0.082):
+            pouches.append(HS.solid_at(F, sc, bot + 0.075, off_c + th_c + 0.019, pouch(0.036, 0.068, 0.018)))
+        pouches.append(HS.solid_at(F, 0.0, top - 0.085, off_c + th_c + 0.011, pouch(0.075, 0.045, 0.01)))
+        pu = sdf.union(*pouches)
+        lo, hi = HS.bounds(F, -w2, w2, bot - 0.01, top + 0.01, 0.0, 0.09)
+        HS.make(S, f'{P}_pouches', pu, lo, hi, mat['cordura'], step=0.0015, tris=12000)
 
-    # padded shoulder straps: front plate top corners, over the shoulders, to the back plate
-    for sx in (1, -1):
-        p0, *_ = F.point(sx * (w2 - cut * 0.85 - 0.02), top - 0.005, off_c + th_c * 0.5)
-        p1, *_ = Fb.point(-sx * (w2 - cut * 0.85 - 0.02), top - 0.005, off_c + th_c * 0.5)
-        cl = np.array(B['clavicle_l' if sx > 0 else 'clavicle_r'][1])
-        mid = np.array([sx * 0.085, (p0[1] + p1[1]) / 2, cl[2] + 0.06])  # over the trapezius, near the neck
-        guide = [p0 + (mid - p0) * k / 8 for k in range(8)] + [mid + (p1 - mid) * k / 8 for k in range(9)]
-        Gm.path_line(S, guide, lift=0.006, name=f'{P}_strap_{"l" if sx > 0 else "r"}', radius=0.0035, width=0.04, material=mat['cordura'],
-                     weight_bone='spine_03', center=(0, ymid, zc))
+        # padded shoulder straps: front plate top corners, over the shoulders, to the back plate
+        for sx in (1, -1):
+            p0, *_ = F.point(sx * (w2 - cut * 0.85 - 0.02), top - 0.005, off_c + th_c * 0.5)
+            p1, *_ = Fb.point(-sx * (w2 - cut * 0.85 - 0.02), top - 0.005, off_c + th_c * 0.5)
+            cl = np.array(B['clavicle_l' if sx > 0 else 'clavicle_r'][1])
+            mid = np.array([sx * 0.085, (p0[1] + p1[1]) / 2, cl[2] + 0.06])  # over the trapezius, near the neck
+            guide = [p0 + (mid - p0) * k / 8 for k in range(8)] + [mid + (p1 - mid) * k / 8 for k in range(9)]
+            Gm.path_line(S, guide, lift=0.006, name=f'{P}_strap_{"l" if sx > 0 else "r"}', radius=0.0035, width=0.04, material=mat['cordura'],
+                         weight_bone='spine_03', center=(0, ymid, zc))
 
     # --- belt + buckle --------------------------------------------------------------------------------------------------
     tb = T(belt_z)
@@ -223,65 +224,14 @@ def build_kit(h, rig, PH, variant='ethan', P='ethan', detail=1.0):
         boot(S, P, mat, sd)
     hide_covered(h, S, ('foot_', 'ball_', 'pelvis', 'spine_01', 'spine_02', 'upperarm_', 'lowerarm_', 'thigh_', 'calf_', 'hand_', 'index',
                         'middle', 'ring', 'pinky', 'thumb'))
-    for sd, device in ((('l', True), ('r', False)) if not helix else (('l', variant == 'operative'), ('r', variant == 'operative'))):
+    if devices is None:
+        devices = (('l', True), ('r', False)) if not helix else (('l', variant == 'operative'), ('r', variant == 'operative'))
+    for sd, device in devices:
         forearm_piece(S, P, mat, sd, device)
     if helix:
-        helix_armour(S, h, mat, P, variant)
+        import helix_kit
+        helix_kit.armour(S, h, mat, P, variant)
     return S
-
-
-def helix_armour(S, h, mat, P, variant):
-    """HELIX security armour on top of the kit: full helmet (ellipsoid shell fitted to the head, face opening, visor band, rebreather),
-    shoulder plates; heavies get bigger plates."""
-    B = S.bones
-    big = 1.25 if variant == 'heavy' else 1.0
-    # head extents from the body faces owned by the head bone
-    # the whole head (jaw included): everything above the base of the skull, minus the shoulders
-    z0 = B['head'][0][2] - 0.07
-    ztop = S.centers[:, 2].max()
-    hm = (S.centers[:, 2] > z0) & (np.abs(S.centers[:, 0]) < 0.13)
-    C = S.centers[hm]
-    lo_h, hi_h = C.min(0), C.max(0)
-    c = (lo_h + hi_h) / 2
-    c[2] = (z0 + ztop) / 2 + 0.01
-    rad = np.array([(hi_h[0] - lo_h[0]) / 2 + 0.026, (hi_h[1] - lo_h[1]) / 2 + 0.028, (ztop - z0) / 2 + 0.025])
-    outer = sdf.ellipsoid(c, rad)
-    shell_ = lambda P_: np.abs(outer(P_) + 0.005) - 0.005  # noqa: E731
-    eye_z = c[2] - rad[2] * 0.05
-    # face opening at the front, below the brow; the neck stays covered by a gorget band
-    opening = sdf.box((c[0], c[1] - rad[1], eye_z - rad[2] * 0.42), (rad[0] * 0.62, rad[1] * 0.6, rad[2] * 0.42), 0.03)
-    helmet = sdf.subtract(sdf.intersect(shell_, lambda P_: (c[2] - rad[2] * 0.95) - P_[:, 2]), opening, k=0.01)
-    ridge = sdf.intersect(sdf.ellipsoid(c, rad * np.array([0.25, 1.03, 1.03])), lambda P_: P_[:, 2] - (c[2] + rad[2] * 0.2), k=0.01)
-    helmet = sdf.union(helmet, sdf.intersect(ridge, lambda P_: np.abs(outer(P_)) - 0.016), k=0.006)
-    lo, hi = c - rad - 0.05, c + rad + 0.05
-    HS.make(S, f'{P}_helmet', helmet, lo, hi, mat['plate'], step=0.0022, tris=9000)
-    # visor: dark glass filling the face opening (faceless and menacing), with a thin light slit at eye level in the archetype's colour
-    glass = Gm.armour(f'{P}_visorglass', base=(0.012, 0.013, 0.015), edge=(0.05, 0.05, 0.055), wear=0.05, rough=0.12, coat=0.8)
-    vis_shell = lambda P_: np.abs(sdf.ellipsoid(c, rad - 0.002)(P_)) - 0.004  # noqa: E731
-    visor = sdf.intersect(vis_shell, sdf.offset(opening, 0.004), k=0.003)
-    HS.make(S, f'{P}_visor', visor, lo, hi, glass, step=0.0016, tris=3000)
-    slit = sdf.intersect(lambda P_: np.abs(sdf.ellipsoid(c, rad + 0.003)(P_)) - 0.002, lambda P_: np.abs(P_[:, 2] - (eye_z + 0.012)) - 0.006,
-                         lambda P_: P_[:, 1] - (c[1] - rad[1] * 0.5), lambda P_: np.abs(P_[:, 0] - c[0]) - rad[0] * 0.55, k=0.002)
-    HS.make(S, f'{P}_slit', slit, lo, hi, mat['glow'], step=0.0012, tris=1500)
-    # rebreather: a rounded block over mouth and nose with two filter cans
-    mz = eye_z - rad[2] * 0.62
-    mask = sdf.union(sdf.ellipsoid((c[0], c[1] - rad[1] * 0.78, mz), (rad[0] * 0.55, rad[1] * 0.32, rad[2] * 0.34)),
-                     sdf.cylinder((c[0] + 0.045, c[1] - rad[1] * 0.92, mz - 0.01), 0.022, 0.025, 0.005, R=sdf.rot(80, 0, 25)),
-                     sdf.cylinder((c[0] - 0.045, c[1] - rad[1] * 0.92, mz - 0.01), 0.022, 0.025, 0.005, R=sdf.rot(80, 0, -25)), k=0.01)
-    HS.make(S, f'{P}_mask', mask, lo - 0.05, hi, mat['metal'], step=0.0014, tris=4000)
-    # shoulder plates (pauldrons) over the upper arms
-    for sd in ('l', 'r'):
-        a, b = np.array(B[f'upperarm_{sd}'][0]), np.array(B[f'upperarm_{sd}'][1])
-        L = float(np.linalg.norm(b - a))
-        F = HS.RadialField(S, a, b - a, (0, 0, 1), -0.04, L * 0.6, n_theta=96, step_t=0.004, only=(f'upperarm_{sd}', f'clavicle_{sd}'),
-                           r_max=0.14, blur=4)
-        F = F.view(F.theta_of((0, 0, 1)))
-        F.r_ref = 0.05
-        pl = sdf.intersect(HS.layer(F, 0.012, 0.012 * big, lambda s_, t_: 0.004 * np.clip(1 - (s_ / 0.07) ** 2, 0, 1)),
-                           HS.outline(F, [(-0.075 * big, -0.03), (0.075 * big, -0.03), (0.06 * big, L * 0.45 * big), (-0.06 * big, L * 0.45 * big)]),
-                           k=0.008)
-        lo2, hi2 = HS.bounds(F, -0.12, 0.12, -0.05, L * 0.6, -0.01, 0.06)
-        HS.make(S, f'{P}_pauldron_{sd}', pl, lo2, hi2, mat['plate'], step=0.0016, tris=4000)
 
 
 def _gap_field(field, P, pitch, half):

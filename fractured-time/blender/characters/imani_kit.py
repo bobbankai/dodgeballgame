@@ -58,14 +58,11 @@ def build_kit(h, rig, PH, P='imani'):
     Gm.shell(S, f'{P}_knit', knit, offset=0.0035, thickness=0.0016, material=mat['knit'], subdiv=1)
     legs = (thighs | calf | (torso & (C[:, 2] <= waist_z + 0.01))) & ~boots_region
     Gm.shell(S, f'{P}_trousers', legs, offset=0.014, thickness=0.0022, material=mat['trousers'], subdiv=1, smooth_iters=4)
-    # the jacket: hip length, sleeves to the wrist bone, open down the front (a 9 cm gap shows the knit)
-    hem_z = pelvis_z - 0.1
-    jacket_body = (torso & (C[:, 2] > hem_z)) | (thighs & (t < 0.12) & (C[:, 2] > hem_z))
-    opening = (N[:, 1] < -0.45) & (ax < 0.045) & (C[:, 2] < B['neck_01'][0][2] - 0.02)
+    # the jacket sleeves: shells of the arms (they follow the arm); the body of the jacket is built below from a blurred torso field so
+    # it bridges the hollows (between the breasts, the small of the back) the way cloth does, instead of clinging to every contour
     sleeves = upper | (lower & (t < 0.93))
-    Gm.shell(S, f'{P}_jacket', (jacket_body & ~opening) | sleeves, offset=0.015, thickness=0.0028, material=mat['jacket'], subdiv=1,
-             smooth_iters=3)
-
+    Gm.shell(S, f'{P}_sleeves', sleeves, offset=0.014, thickness=0.0026, material=mat['jacket'], subdiv=1, smooth_iters=3)
+    hem_z = pelvis_z - 0.1
     # rolled turtleneck collar (a soft SDF band round the neck)
     na, nb = np.array(B['neck_01'][0]), np.array(B['head'][0])
     Nf = HS.RadialField(S, na, nb - na, (1, 0, 0), -0.03, 0.08, n_theta=120, step_t=0.003, only=('neck',), r_max=0.12, blur=5)
@@ -88,12 +85,34 @@ def build_kit(h, rig, PH, P='imani'):
     F = HS.RadialField(S, (0.0, ymid, pelvis_z), (0, 0, 1), (1, 0, 0), -0.2, zc - pelvis_z + 0.06, n_theta=200, step_t=0.004,
                        exclude=arms, blur=7, theta0=-math.pi / 2, r_ref=0.15)
     T = lambda z: z - pelvis_z  # noqa: E731
-    jo = 0.015 + 0.0028  # outer face of the jacket above the body
+    Fj = HS.RadialField(S, (0.0, ymid, pelvis_z), (0, 0, 1), (1, 0, 0), -0.2, zc - pelvis_z + 0.1, n_theta=200, step_t=0.004,
+                        exclude=arms, blur=14, theta0=-math.pi / 2, r_ref=0.15)
+    open_half = 0.045  # the jacket hangs open: 9 cm at the front
+    neck_t = B['neck_01'][0][2] - pelvis_z - 0.02
+    jacket = sdf.intersect(HS.layer(Fj, 0.016, 0.003), HS.band(Fj, T(hem_z), neck_t),
+                           lambda P: open_half - np.abs(Fj.coords(P)[0]), k=0.004)
+    lo_j, hi_j = HS.bounds(Fj, -math.pi * Fj.r_ref, math.pi * Fj.r_ref, T(hem_z) - 0.02, neck_t + 0.03, -0.01, 0.06)
+    HS.make(S, f'{P}_jacket', jacket, lo_j, hi_j, mat['jacket'], step=0.0018, tris=24000)
+    # finished edges: a hem tape round the bottom and up both front edges
+    hem = sdf.intersect(HS.layer(Fj, 0.0175, 0.0022), sdf.union(HS.band(Fj, T(hem_z), T(hem_z) + 0.022),
+                        lambda P: np.abs(np.abs(Fj.coords(P)[0]) - open_half - 0.011) - 0.011), HS.band(Fj, T(hem_z), neck_t),
+                        lambda P: open_half - np.abs(Fj.coords(P)[0]), k=0.001)
+    HS.make(S, f'{P}_jacket_hem', hem, lo_j, hi_j, mat['trim'], step=0.0012, tris=8000)
+    # sleeve cuffs
+    for sd in ('l', 'r'):
+        a_, b_ = np.array(B[f'lowerarm_{sd}'][0]), np.array(B[f'lowerarm_{sd}'][1])
+        Lb = float(np.linalg.norm(b_ - a_))
+        G = HS.RadialField(S, a_, b_ - a_, (0, 0, 1), Lb * 0.8, Lb * 0.98, n_theta=72, step_t=0.004, only=(f'lowerarm_{sd}', f'hand_{sd}'), r_max=0.1,
+                           blur=3)
+        cuff = sdf.intersect(HS.layer(G, 0.0155, 0.003), HS.band(G, Lb * 0.9, Lb * 0.93), k=0.001)
+        lo_c, hi_c = HS.bounds(G, -0.2, 0.2, Lb * 0.86, Lb * 0.96, -0.01, 0.04)
+        HS.make(S, f'{P}_cuff_{sd}', cuff, lo_c, hi_c, mat['trim'], step=0.001, tris=2000)
+    jo = 0.016 + 0.003  # outer face of the jacket above the body
     # zip tapes down both edges of the opening and a chest pocket with a zip
-    tapes = sdf.union(*[sdf.intersect(HS.layer(F, jo - 0.0005, 0.0018), HS.band(F, T(hem_z) + 0.005, T(B['neck_01'][0][2]) - 0.03, sx * 0.047 - 0.004,
-                                                                                 sx * 0.047 + 0.004), k=0.0008) for sx in (-1, 1)])
-    pocket = HS.solid_at(F, 0.085, T(zc) - 0.11, jo + 0.002, sdf.box((0, 0, 0), (0.055, 0.065, 0.003), 0.003))
-    pzip = HS.solid_at(F, 0.085, T(zc) - 0.11 + 0.05, jo + 0.0045, sdf.box((0, 0, 0), (0.045, 0.002, 0.0012), 0.0008))
+    tapes = sdf.union(*[sdf.intersect(HS.layer(Fj, jo - 0.0005, 0.0018), HS.band(Fj, T(hem_z) + 0.025, neck_t - 0.01, sx * (open_half + 0.004) - 0.0035,
+                                                                                  sx * (open_half + 0.004) + 0.0035), k=0.0008) for sx in (-1, 1)])
+    pocket = HS.solid_at(Fj, 0.085, T(zc) - 0.11, jo + 0.002, sdf.box((0, 0, 0), (0.055, 0.065, 0.003), 0.003))
+    pzip = HS.solid_at(Fj, 0.085, T(zc) - 0.11 + 0.05, jo + 0.0045, sdf.box((0, 0, 0), (0.045, 0.002, 0.0012), 0.0008))
     lo2, hi2 = HS.bounds(F, -0.2, 0.2, T(hem_z) - 0.02, T(zc) + 0.04, -0.005, 0.05)
     HS.make(S, f'{P}_jacket_tapes', sdf.union(tapes, pzip), lo2, hi2, mat['trim'], step=0.0011, tris=5000)
     HS.make(S, f'{P}_jacket_pocket', pocket, lo2, hi2, mat['jacket'], step=0.0013, tris=3000)

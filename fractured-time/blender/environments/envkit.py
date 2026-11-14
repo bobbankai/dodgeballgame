@@ -646,7 +646,7 @@ def copy_textures():
     texroot = os.path.join(PUB, 'textures', 'pbr')
     used = {json.loads(m['ft'])['tex'] for m in bpy.data.materials if 'ft' in m and json.loads(m['ft']).get('type') == 'pbr'}
     for tid in used:
-        for kind in ('diff', 'nor_gl', 'rough'):
+        for kind in ('diff', 'nor_gl', 'rough', 'ao'):
             dst = os.path.join(texroot, tid, f'{tid}_{kind}.jpg')
             src = os.path.join(PH, tid, f'{tid}_{kind}_2k.jpg')
             if os.path.exists(dst) or not os.path.exists(src):

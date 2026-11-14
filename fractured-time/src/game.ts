@@ -21,6 +21,8 @@ import { loadLevel, addCharacterLights, captureProbe } from '@/world/level';
 import { loadGLTF } from '@/assets/loader';
 import { RectAreaLightTexturesLib } from 'three/addons/lights/RectAreaLightTexturesLib.js';
 import { Temporal } from '@/temporal/temporal';
+import { Afterimages } from '@/temporal/afterimages';
+import { FaceRig } from '@/characters/face';
 
 export interface SpawnDef {
   def: string;
@@ -71,6 +73,13 @@ export class Game implements Simulation, GameCtx {
   private playerSlowUntil = 0;
   slowPlayer(seconds: number): void { this.playerSlowUntil = this.time + seconds; this.post.u.slow.value = 0.6; }
   chapter: { tick(dt: number): void } | null = null;
+  afterimages!: Afterimages;
+  private ticks = 0;
+  private wasSlow = false;
+  private lastState = '';
+  chapterNumber = 1;
+  /** Ethan's face: blinks, speaks his lines */
+  face: FaceRig | null = null;
   /** per-tick callbacks on game time (cinematic rails, scripted sequences) */
   tickers = new Set<(dt: number) => void>();
   /** depth-of-field focus override (m) while a cinematic pulls focus */
@@ -129,19 +138,24 @@ export class Game implements Simulation, GameCtx {
     if (chapterN) {
       (THREE as any).RectAreaLightNode.setLTC(RectAreaLightTexturesLib.init());
       const { ChapterRuntime } = await import('@/chapters/runtime');
-      const { CH1_SECTIONS, chapter1 } = await import('@/chapters/ch1');
+      const chapterMods: Record<string, () => Promise<{ SECTIONS: string[]; run: (g: Game, ch: any, at: string | null) => Promise<void> }>> = {
+        '1': () => import('@/chapters/ch1'),
+        '2': () => import('@/chapters/ch2'),
+      };
+      const mod = await (chapterMods[chapterN] ?? chapterMods['1'])();
       const ch = new ChapterRuntime(g);
       g.chapter = ch;
-      for (const [i, path] of CH1_SECTIONS.entries()) {
+      g.chapterNumber = Number(chapterN) || 1;
+      for (const [i, path] of mod.SECTIONS.entries()) {
         await ch.loadSection(path).catch((e) => console.warn('[chapter] section missing', path, e));
-        opts.onProgress?.((i + 1) / CH1_SECTIONS.length * 0.9);
+        opts.onProgress?.((i + 1) / mod.SECTIONS.length * 0.9);
       }
       const sp = ch.markers.find((m) => m.name === 'spawn');
       g.level = { spawn: sp ? sp.pos.clone() : new THREE.Vector3(), yaw: sp ? sp.yaw : 0, enemies: [], objective: '' };
       g.scene.background = new THREE.Color(0x000000);
       ch.stream(g.level.spawn);
       if (g.testMode && qsp.has('fast')) g.dialogueRate = 0.15;
-      g.startScript = () => chapter1(g, ch, qsp.get('at'));
+      g.startScript = () => mod.run(g, ch, qsp.get('at'));
     } else if (levelPath) {
       // a baked level section: static surfaces lit by their lightmap, characters by real-time copies of the lights + a probe
       (THREE as any).RectAreaLightNode.setLTC(RectAreaLightTexturesLib.init());
@@ -162,6 +176,8 @@ export class Game implements Simulation, GameCtx {
     }
     g.post = new PostFX(g.gfx, g.scene, g.camera.camera, QUALITY[q]);
     g.player = await Player.create(g, g.live, g.level.spawn, g.level.yaw);
+    g.afterimages = new Afterimages(g.scene, g.player.inst.root, 5);
+    g.face = new FaceRig(g.player.inst.root);
     g.player.onAbility = (name) => g.temporal.activate(name);
     g.scene.add(g.player.root);
     g.camera.reset(g.level.yaw, g.level.spawn);
@@ -252,6 +268,7 @@ export class Game implements Simulation, GameCtx {
     this.chapter?.tick(dt);
     for (const f of this.tickers) f(dt);
     this.footsteps(dt);
+    this.temporalTrails(dt);
 
     if (this.timers.length) {
       const due = this.timers.filter((t) => t.at <= this.time);
@@ -267,6 +284,26 @@ export class Game implements Simulation, GameCtx {
     const target = this.temporal.worldScaleTarget() * opening;
     timeScale.world += (target - timeScale.world) * Math.min(1, dt * (target < timeScale.world ? 22 : 7));
     timeScale.player = this.time < this.playerSlowUntil ? 0.55 : 1;
+  }
+
+  /** Afterimages: a burst and a short trail on every dodge, a trail of ghosts left behind while rewinding, one strong echo when time slows. */
+  private temporalTrails(dt: number): void {
+    this.ticks++;
+    const p = this.player;
+    const st = String(p.state);
+    const src = p.inst.root;
+    if (st === 'dodge' && this.lastState !== 'dodge') this.afterimages.spawn(src, 0.65, 0.42);
+    else if (st === 'dodge' && this.ticks % 4 === 0) this.afterimages.spawn(src, 0.32, 0.3);
+    if (this.temporal.rewinding && this.ticks % 5 === 0) this.afterimages.spawn(src, 0.45, 0.7);
+    if (this.temporal.slowActive && !this.wasSlow) this.afterimages.spawn(src, 0.8, 0.9);
+    this.wasSlow = this.temporal.slowActive;
+    this.lastState = st;
+    this.afterimages.step(dt);
+    if (this.face) {
+      const sp = this.sfx.voices.speaking;
+      this.face.listen(sp && sp.who === 'ETHAN' && this.sfx.engine.now < sp.until ? sp.analyser : null);
+      this.face.update(dt);
+    }
   }
 
   private stepDist = 0;

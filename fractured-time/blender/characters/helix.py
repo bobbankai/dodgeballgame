@@ -55,6 +55,11 @@ def export(h, rig, variant):
         ob.data = me
         a = ob.modifiers.new('Armature', 'ARMATURE')
         a.object = rig
+    # baked AO + edge masks for the hard armour (one atlas per archetype)
+    import helix_kit
+    import masks
+    arm = [o for o in kit if o.name in helix_kit.ARMOUR]
+    masks.bake(arm, os.path.join(out, f'{variant}_masks.png'), f'characters/{variant}/{variant}_masks.png', size=1024, edge_radius=0.006)
     # the body is never visible under the armour: drop it (and its proxies)
     for o in [o for o in bpy.data.objects if o.type == 'MESH' and o not in kit]:
         bpy.data.objects.remove(o)
@@ -102,7 +107,10 @@ if __name__ == '__main__':
                 o.hide_render = True
         studio.setup(samples=32)
         for nm, yaw, pitch in (('front', 0, 2), ('threequarter', -32, 6)):
-            studio.camera((0, 0, top * 0.52), top * 1.65, yaw, pitch, 50)
+            studio.camera((0, 0, top * 0.54), top * 1.75, yaw, pitch, 50)
             studio.render(os.path.join(outdir, f'{variant}_{nm}.png'), (800, 1200))
+        for nm, yaw in (('head', -28), ('headside', -90)):
+            studio.camera((0, 0, top - 0.02), 0.85, yaw, 4, 85)
+            studio.render(os.path.join(outdir, f'{variant}_{nm}.png'), (900, 900))
     if '--export' in argv:
         export(h, rig, variant)

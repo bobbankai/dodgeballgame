@@ -39,7 +39,7 @@ type State = 'intro' | 'stalk' | 'slam' | 'sweep' | 'charge' | 'beam' | 'pulse' 
 
 export class SentinelBoss extends Actor {
   readonly team: Team = 'enemy';
-  readonly def = { id: 'boss_sentinel', display: 'Sentinel A-07' };
+  readonly def = { id: 'boss_sentinel', display: 'Sentinel A-07', title: 'HELIX experimental security frame' };
   phase = 1;
   state: State = 'intro';
   stateT = 0;

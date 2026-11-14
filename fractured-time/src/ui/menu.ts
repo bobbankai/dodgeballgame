@@ -12,7 +12,7 @@ export interface SaveData { chapter: number; at: string; when: number; reached: 
 
 export const CHAPTERS = [
   { n: 1, title: 'The Incident', place: 'HELIX Underground Research Facility', beats: ['wake', 'checkpoint', 'lab', 'servers', 'engine', 'surface'] },
-  { n: 2, title: 'The Other World', place: 'The Fractured District', beats: [] },
+  { n: 2, title: 'The Other World', place: 'The Fractured District', beats: ['rooftops', 'street', 'cafe'] },
   { n: 3, title: 'The Doppelganger', place: 'HELIX Corporate Arcology', beats: [] },
   { n: 4, title: 'The Paradox', place: 'Four timelines at once', beats: [] },
   { n: 5, title: 'The Final Timeline', place: 'The Temporal Nexus', beats: [] },

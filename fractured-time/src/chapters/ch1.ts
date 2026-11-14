@@ -214,3 +214,7 @@ export async function chapter1(g: Game, ch: ChapterRuntime, at: string | null = 
   await dir.title('Chapter Two', 'The Other World', 4.0);
   g.flags.set('chapter1_complete', true);
 }
+
+/** the chapter registry's interface (src/game.ts) */
+export const SECTIONS = CH1_SECTIONS;
+export const run = chapter1;

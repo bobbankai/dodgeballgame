@@ -8,7 +8,7 @@ import type { AudioEngine } from './engine';
  */
 type Fx = 'dry' | 'radio' | 'pa' | 'echo' | 'memory';
 const FX: Record<string, Fx> = {
-  'HELIX SYSTEM': 'pa', 'COMMANDER NYX': 'radio', 'HELIX TROOPER': 'radio', 'THE ECHO': 'echo', 'DIRECTOR VOSS': 'memory',
+  'HELIX SYSTEM': 'pa', 'COMMANDER NYX': 'radio', 'HELIX TROOPER': 'radio', 'THE ECHO': 'echo', 'DIRECTOR VOSS': 'memory', 'CIVILIAN': 'memory',
 };
 
 async function sha1(s: string): Promise<string> {
@@ -19,6 +19,8 @@ async function sha1(s: string): Promise<string> {
 export class Voices {
   private manifest: Record<string, { who: string; text: string; dur: number }> | null = null;
   private buffers = new Map<string, Promise<AudioBuffer | null>>();
+  /** the line being spoken and its analyser (faces lip-sync to it) */
+  speaking: { who: string; analyser: AnalyserNode; until: number } | null = null;
   /** per-scene overrides (Nyx in person in later chapters: 'dry') */
   fx: Record<string, Fx> = { ...FX };
 
@@ -109,6 +111,10 @@ export class Voices {
       g2.connect(this.a.verbIn);
       s2.start(t + 0.022);
     }
+    const an = ctx.createAnalyser();
+    an.fftSize = 512;
+    src.connect(an);
+    this.speaking = { who, analyser: an, until: t + buf.duration };
     src.start(t);
     // duck the score under the line
     this.a.music.gain.setTargetAtTime(0.2, t - 0.02, 0.08);

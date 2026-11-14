@@ -34,6 +34,7 @@ VOICES = {
     'HELIX TROOPER': ({'am_eric': 0.7, 'am_adam': 0.3}, 'en-us', 1.1, 0.97),
     'DR. IMANI REYES': ({'af_sarah': 0.6, 'af_nova': 0.4}, 'en-us', 1.0, 1.0),
     'IMANI': ({'af_sarah': 0.6, 'af_nova': 0.4}, 'en-us', 1.0, 1.0),
+    'CIVILIAN': ({'af_river': 0.7, 'af_jessica': 0.3}, 'en-us', 0.96, 1.02),
 }
 # respellings for words the model misreads
 FIX = {'A-07': 'A zero seven', 'HELIX': 'Helix', 'C-1': 'C one', 'B-2': 'B two'}

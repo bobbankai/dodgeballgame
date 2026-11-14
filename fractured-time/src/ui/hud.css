@@ -27,14 +27,31 @@ canvas#game { position: fixed; inset: 0; width: 100%; height: 100%; display: blo
 .lock-marker { position: absolute; left: 0; top: 0; width: 34px; height: 34px; margin: -17px 0 0 -17px; opacity: 0; border: 1.5px solid var(--hx); transform: rotate(45deg); box-shadow: 0 0 10px rgba(255,138,42,0.6); transition: opacity 0.12s; }
 .target-bar { position: absolute; left: 0; top: 0; width: 80px; height: 4px; background: rgba(255,255,255,0.1); opacity: 0; }
 .target-bar .fill { height: 100%; width: 100%; background: var(--hx); }
-.prompt { position: absolute; left: 50%; bottom: 22%; transform: translateX(-50%); padding: 8px 18px; background: var(--bg); border: 1px solid rgba(90,216,255,0.35); font-size: 13px; opacity: 0; transition: opacity 0.15s; }
-.objective { position: absolute; left: 28px; top: 28px; font-size: 12px; opacity: 0; transition: opacity 0.3s; color: var(--cy); text-shadow: 0 0 8px rgba(90,216,255,0.4); }
-.subtitle { position: absolute; left: 50%; bottom: 9%; transform: translateX(-50%); max-width: 70%; text-align: center; font-size: 17px; letter-spacing: 0.04em; text-transform: none; padding: 10px 22px; background: rgba(0,0,0,0.55); opacity: 0; transition: opacity 0.2s; }
-.subtitle .who { display: block; font-size: 10px; letter-spacing: 0.2em; color: var(--cy); margin-bottom: 3px; text-transform: uppercase; }
-.boss { position: absolute; left: 50%; bottom: 7%; width: min(620px, 70vw); transform: translateX(-50%); text-align: center; opacity: 0; transition: opacity 0.4s; }
-.boss-name { font-size: 13px; letter-spacing: 0.32em; margin-bottom: 6px; color: var(--hx); }
-.boss-track { height: 7px; background: rgba(255,255,255,0.08); clip-path: polygon(10px 0, 100% 0, calc(100% - 10px) 100%, 0 100%); }
-.boss-track .fill { height: 100%; width: 100%; background: linear-gradient(90deg, #ff5a1f, var(--hx)); transition: width 0.18s; }
+.prompt { position: absolute; left: 50%; bottom: 22%; transform: translateX(-50%); display: flex; align-items: center; gap: 10px; padding: 7px 16px 7px 8px;
+  background: var(--bg); border: 1px solid rgba(90,216,255,0.3); font-size: 12px; opacity: 0; transition: opacity 0.15s; }
+kbd { display: inline-grid; place-items: center; min-width: 20px; height: 20px; padding: 0 5px; border: 1px solid rgba(223,244,255,0.55); border-radius: 3px;
+  font: 600 11px/1 'Rajdhani', system-ui, sans-serif; color: #fff; background: rgba(255,255,255,0.06); margin: 0 2px; }
+.objective { position: absolute; left: 28px; top: 26px; max-width: 46vw; font-size: 13px; opacity: 0; transition: opacity 0.3s; color: var(--ink);
+  border-left: 2px solid var(--cy); padding: 2px 0 2px 12px; }
+.objective .tag { display: block; font-size: 9px; letter-spacing: 0.4em; color: var(--cy); opacity: 0.85; margin-bottom: 4px; }
+.objective .keys { display: block; margin-top: 6px; font-size: 10px; opacity: 0.75; letter-spacing: 0.1em; }
+.objective.fresh .tag { animation: objtag 3.2s ease forwards; }
+.objective.fresh .txt { animation: objin 0.7s cubic-bezier(0.2, 0.8, 0.2, 1); display: inline-block; }
+@keyframes objtag { 0% { opacity: 0; letter-spacing: 0.9em; } 15% { opacity: 1; letter-spacing: 0.4em; } 80% { opacity: 1; } 100% { opacity: 0.0; } }
+@keyframes objin { from { opacity: 0; transform: translateX(-14px); clip-path: inset(0 100% 0 0); } to { opacity: 1; transform: none; clip-path: inset(0 0 0 0); } }
+.subtitle { position: absolute; left: 50%; bottom: 8%; transform: translateX(-50%); max-width: min(900px, 72%); text-align: center; font-size: 18px; letter-spacing: 0.02em;
+  text-transform: none; padding: 6px 14px; text-shadow: 0 1px 3px #000, 0 0 14px rgba(0,0,0,0.9); opacity: 0; transition: opacity 0.2s; line-height: 1.35; }
+.subtitle .who { display: block; font-size: 10px; letter-spacing: 0.3em; margin-bottom: 4px; text-transform: uppercase; color: var(--cy); }
+.subtitle .who.ethan { color: #5ad8ff; } .subtitle .who.echo { color: #ffa24a; } .subtitle .who.nyx { color: #ff4f4f; }
+.subtitle .who.voss { color: #f0deb0; } .subtitle .who.helix { color: #ff8a2a; } .subtitle .who.imani { color: #4fe0c3; } .subtitle .who.other { color: #c8d4dc; }
+.boss { position: absolute; left: 50%; bottom: 6.5%; width: min(680px, 72vw); transform: translateX(-50%); text-align: center; opacity: 0; transition: opacity 0.4s; }
+.boss-name { font-size: 14px; letter-spacing: 0.34em; margin-bottom: 7px; color: #fff; }
+.boss-name .sub { display: block; font-size: 9px; letter-spacing: 0.4em; color: var(--hx); opacity: 0.8; margin-top: 3px; }
+.boss-track { position: relative; height: 8px; background: rgba(255,255,255,0.07); clip-path: polygon(10px 0, 100% 0, calc(100% - 10px) 100%, 0 100%); }
+.boss-track .fill, .boss-track .trail { position: absolute; left: 0; top: 0; height: 100%; width: 100%; }
+.boss-track .trail { background: rgba(255,240,230,0.55); }
+.boss-track .fill { background: linear-gradient(90deg, #ff5a1f, var(--hx)); transition: width 0.12s; }
+.boss-track .phase { position: absolute; left: 50%; top: -2px; bottom: -2px; width: 2px; background: rgba(0,0,0,0.85); }
 .debug { position: absolute; right: 12px; top: 10px; font-size: 10px; opacity: 0.55; text-transform: none; letter-spacing: 0.04em; white-space: pre; text-align: right; }
 .start { position: fixed; inset: 0; display: grid; place-items: center; background: radial-gradient(ellipse at center, rgba(8,18,26,0.55), rgba(0,0,0,0.9)); color: var(--ink); text-align: center; cursor: pointer; z-index: 10; }
 .start h1 { font-size: 54px; letter-spacing: 0.5em; margin: 0 0 8px 0.5em; font-weight: 300; }

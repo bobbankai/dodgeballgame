@@ -472,7 +472,8 @@ if __name__ == '__main__':
         sc.render.resolution_x, sc.render.resolution_y = 1280, 720
         sc.render.filepath = out
         bpy.ops.render.render(write_still=True)
-    if '--export' in argv:
-        export(built, keys, samples)
+    # probes first: export joins each section's objects into one and strips the textures (probes need both intact)
     if '--probes' in argv:
         probes(built, keys)
+    if '--export' in argv:
+        export(built, keys, samples)

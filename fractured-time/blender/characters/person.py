@@ -161,6 +161,12 @@ def export(spec, h, rig, parts):
         ob.data = me
         a = ob.modifiers.new('Armature', 'ARMATURE')
         a.object = rig
+    # hard armour parts: baked AO + edge masks on their own atlas (fabric parts keep their metric UVs for the tiled scans)
+    arm = [o for o in bpy.data.objects if o.type == 'MESH' and o.name.startswith(name + '_') and o.data.materials and
+           all(m_ and 'ft' in m_ and json.loads(m_['ft']).get('type') == 'armour' for m_ in o.data.materials)]
+    if arm:
+        import masks
+        masks.bake(arm, os.path.join(out, f'{name}_masks.png'), f'characters/{name}/{name}_masks.png', size=2048, edge_radius=0.005)
     hs = spec['hair']
     hc = bpy.data.objects.get(f'{name}_hair')
     lookdev.hair_shell(h, rig, f'{name}_hair_shell', color=hs.get('color', (0.018, 0.013, 0.011)), shells=hs.get('shells', 20),

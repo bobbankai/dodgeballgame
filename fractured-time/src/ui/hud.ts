@@ -6,6 +6,12 @@ import type { Enemy } from '@/ai/enemy';
  * In-game HUD (DOM overlay). Minimal during exploration; a lock-on marker and the target's health bar appear in combat; boss bar at the bottom.
  * Styling is in `hud.css` (consistent sci-fi look: thin geometric linework, cyan chronal accents, HELIX orange for hostile).
  */
+/** Speaker colours in subtitles (one per character, consistent everywhere). */
+const SPEAKER: Record<string, string> = {
+  'ETHAN': 'ethan', 'THE ECHO': 'echo', 'COMMANDER NYX': 'nyx', 'DIRECTOR VOSS': 'voss', 'HELIX SYSTEM': 'helix', 'HELIX TROOPER': 'helix',
+  'IMANI': 'imani', 'DR. IMANI REYES': 'imani',
+};
+
 export class Hud {
   private root = document.createElement('div');
   private health = document.createElement('div');
@@ -67,25 +73,52 @@ export class Hud {
     const bt = document.createElement('div');
     bt.className = 'boss-track';
     this.bossFill.className = 'fill';
-    bt.appendChild(this.bossFill);
+    const trail = document.createElement('div');
+    trail.className = 'trail';
+    const phase = document.createElement('div');
+    phase.className = 'phase';
+    bt.append(trail, this.bossFill, phase);
     this.bossWrap.append(this.bossName, bt);
     this.stateEl.className = 'debug';
     this.root.append(this.marker, this.targetBar, this.prompt, this.objective, this.subtitle, this.bossWrap, this.stateEl);
     document.body.appendChild(this.root);
   }
 
-  setObjective(text: string): void { this.objective.textContent = text ? `OBJECTIVE  ${text}` : ''; this.objective.style.opacity = text ? '1' : '0'; }
-  setPrompt(text: string): void { this.prompt.textContent = text; this.prompt.style.opacity = text ? '1' : '0'; }
+  /** A new objective is announced (a tag and a sweep), then settles into the corner. Controls in [brackets] become key glyphs. */
+  setObjective(text: string): void {
+    const esc = (t: string) => t.replace(/[<>&]/g, (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;' }[c]!));
+    const glyphs = (t: string) => esc(t).replace(/\[([^\]]+)\]/g, (_m, inner: string) => `<span class="keys">${inner.replace(/\b(LMB|RMB|[A-Z0-9])\b/g, '<kbd>$1</kbd>')}</span>`);
+    if (text && text !== this.objText) {
+      this.objective.innerHTML = `<span class="tag">New objective</span><span class="txt">${glyphs(text)}</span>`;
+      this.objective.classList.remove('fresh');
+      void this.objective.offsetWidth; // restart the reveal animation
+      this.objective.classList.add('fresh');
+    }
+    this.objText = text;
+    this.objective.style.opacity = text ? '1' : '0';
+  }
+  private objText = '';
+  setPrompt(text: string): void {
+    const m = /^\[(\w+)\]\s*(.*)$/.exec(text);
+    this.prompt.innerHTML = m ? `<kbd>${m[1]}</kbd><span>${m[2]}</span>` : text;
+    this.prompt.style.opacity = text ? '1' : '0';
+  }
   showSubtitle(who: string, text: string, seconds: number): void {
-    this.subtitle.innerHTML = `<span class="who">${who}</span>${text}`;
+    const cls = SPEAKER[who] ?? 'other';
+    this.subtitle.innerHTML = `<span class="who ${cls}">${who}</span>${text}`;
     this.subtitle.style.opacity = '1';
     this.subTimer = seconds;
   }
+  private bossTrail = 1;
   setBoss(e: Enemy | null): void {
-    if (!e || !e.alive) { this.bossWrap.style.opacity = '0'; return; }
+    if (!e || !e.alive) { this.bossWrap.style.opacity = '0'; this.bossTrail = 1; return; }
     this.bossWrap.style.opacity = '1';
-    this.bossName.textContent = e.def.display.toUpperCase();
-    this.bossFill.style.width = `${Math.max(0, (e.health / e.maxHealth) * 100)}%`;
+    const k = Math.max(0, e.health / e.maxHealth);
+    this.bossName.innerHTML = `${e.def.display.toUpperCase()}<span class="sub">${(e.def as any).title ?? ''}</span>`;
+    this.bossFill.style.width = `${k * 100}%`;
+    // the damage trail: a pale bar that catches up with the real one after a beat
+    this.bossTrail = Math.max(k, this.bossTrail - 0.004);
+    (this.bossWrap.querySelector('.trail') as HTMLElement | null)?.style.setProperty('width', `${this.bossTrail * 100}%`);
   }
   setDebug(text: string): void { this.stateEl.textContent = text; }
   show(v: boolean): void { this.root.style.display = v ? '' : 'none'; }

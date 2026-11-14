@@ -2,6 +2,7 @@ import * as THREE from 'three/webgpu';
 import * as TSL from 'three/tsl';
 import { stackShells, hairShellMaterial } from './hairshell';
 import { SkinNodeMaterial } from './skin';
+import { AO_SETS } from './aosets';
 
 /**
  * Character materials for WebGPU, rebuilt from the recipes the Blender export stores on each material (glTF extras -> userData.ft).
@@ -95,7 +96,9 @@ export function pbr(r: Recipe): THREE.MeshPhysicalNodeMaterial {
   const lum = dot(d, vec3(0.2126, 0.7152, 0.0722));
   const c = r.desat === null || r.desat === undefined ? d : mix(vec3(lum), d, float(r.desat));
   const t = r.tint ?? [1, 1, 1];
-  m.colorNode = c.mul(vec3(t[0], t[1], t[2]));
+  // the scan's ambient occlusion, multiplied in at 0.8 like the Blender material (grooves, seams, the gaps between bricks)
+  const ao = AO_SETS.has(r.tex) ? mix(float(1), texture(tex(`${base}_ao.jpg`, false), u).r, float(0.8)) : float(1);
+  m.colorNode = c.mul(vec3(t[0], t[1], t[2])).mul(ao);
   m.roughnessNode = texture(tex(`${base}_rough.jpg`, false), u).r.mul(r.rough_mul ?? 1).add(r.rough_add ?? 0).clamp(0.04, 1);
   m.normalNode = normalMap(texture(tex(`${base}_nor_gl.jpg`, false), u), vec2(r.normal ?? 1));
   m.metalness = r.metal ?? 0;

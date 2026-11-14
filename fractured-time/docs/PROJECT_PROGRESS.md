@@ -28,10 +28,17 @@ the Echo, audio, menus and saves do not exist yet.
 | Cinematic director (`src/cinematics/director.ts`): letterbox, input lock, camera rails, focus pulls, fades, title cards | 3 | used for the opening, Engine reveal, Sentinel wake, wreck pass, lift and surface finale; not yet reviewed frame by frame |
 | HELIX enemies: trooper, operative, heavy (`blender/characters/helix.py`) | 4 | ~0.9 MB packed each; fight in s3/s4/s5; animation/AI tuning not reviewed in motion |
 | Sentinel A-07 (`blender/characters/sentinel.py`, `src/bosses/sentinel.ts`) | 5 | rebuilt as polygonal hard surface (`blender/common/hardpoly.py`), 65k tris, baked AO + edge masks, scanned breakup, hazard bands; two phases, telegraphed attacks, armour shed; fight not yet played through by hand |
-| The Echo (`src/characters/echo.ts`) | 3 | Ethan's own model with an amber chronal signature; appears in the Chapter 1 finale |
+| The Echo (`src/characters/echo.ts`) | 5 | Ethan's own model with an amber chronal signature (rim + amber light-lines), reviewed in the lab; appears in the Chapter 1 finale |
+| Dr. Imani Reyes (`blender/characters/imani.py`, `imani_kit.py`, shared `person.py`) | 4 | built and reviewed in Cycles + WebGPU (body); jacket rebuilt as bridged cloth with finished edges (re-export pending); face close-up not verifiable on the headless software GPU (device loss with hair shells filling the screen) |
+| Commander Nyx, Director Voss (`nyx.py`, `voss.py` + kits) | 2 | specs and kits written; not yet built or reviewed |
+| HELIX enemies v2 (`helix_kit.py`) | 4 | redesigned: sculpted helmet + full smoked visor, chest plate with the HELIX chevron, layered pauldrons, heavy backpack, operative sleek; baked masks; export + in-engine review in progress |
+| Audio (`src/audio/`) | 4 | synthesised sound design (27 recipes, measured offline + mix table), ambience beds, adaptive score, HRTF positioning, per-space reverb; voices for every Chapter 1 line (Kokoro) with per-speaker treatment. Not heard by a person yet: needs a listening pass on real speakers |
+| Front end (`src/ui/menu.ts`) | 4 | title (Continue/New Game/Chapters/Settings/Credits), loading card, pause menu, persistent settings (quality, volumes, sensitivity, invert Y, subtitles, shake), checkpoint saves; keyboard/mouse/gamepad navigation; reviewed by screenshot |
+| HUD v2 | 3 | speaker-coloured subtitles, objective reveal with key glyphs, styled prompts, boss bar with title, damage trail and phase marker |
+| Afterimages (`src/temporal/afterimages.ts`) | 3 | pooled ghost copies of Ethan's pose on dodge / rewind / slow; not yet reviewed in motion |
 | Chapter 1 surface finale (s8 deck, s9 skyline: `citykit.py`, `facades.py`) | 2 | built; bake + engine review pending |
 | Chapters 2-5, Imani/Voss/Nyx, Rift Marshal/Echo/Nyx/Voss bosses, both endings | 1 | planned |
-| Audio, menus, settings, saves | 1 | `Sfx` logs only |
+
 
 ### v1 known quality gaps (must be fixed; do not forget)
 - **Skin** is still smoother and flatter than reference B: needs stronger micro detail at mid distance, specular breakup, and a real

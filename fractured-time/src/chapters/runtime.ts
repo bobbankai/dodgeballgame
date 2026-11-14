@@ -335,7 +335,7 @@ export class ChapterRuntime {
     }
     if (best) {
       const it = this.interactables.get(best.id)!;
-      this.g.hud.setPrompt(`[E]  ${String(it.m.data.prompt ?? 'Use')}`);
+      this.g.hud.setPrompt(`[E] ${String(it.m.data.prompt ?? 'Use')}`);
       if (this.g.input.justPressed('interact') || this.g.forceInteract) {
         this.g.forceInteract = false;
         it.used = true;

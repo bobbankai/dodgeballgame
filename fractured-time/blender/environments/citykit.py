@@ -72,7 +72,7 @@ def era_mats(M, era):
     }[era]
 
 
-def storeys(B, M, era, cx, cy, w, d, z0, z1, rng, rot_z=0.0, floor_h=3.6, bay=3.2, broken=0.0):
+def storeys(B, M, era, cx, cy, w, d, z0, z1, rng, rot_z=0.0, floor_h=3.6, bay=3.2, broken=0.0, parapet=True):
     """Facade block from z0 to z1: recessed glazing core, piers every `bay`, floor slabs every storey, a parapet on top.
     `broken` (0..1): fraction of piers and slab segments missing (ruined era)."""
     frame, slab, glaze = era_mats(M, era)
@@ -109,6 +109,8 @@ def storeys(B, M, era, cx, cy, w, d, z0, z1, rng, rot_z=0.0, floor_h=3.6, bay=3.
                 size = (along + 0.3, 0.42, 0.32) if horiz else (0.42, along + 0.3, 0.32)
                 loc = (0, side * (across / 2 - 0.05), z - 0.16) if horiz else (side * (across / 2 - 0.05), 0, z - 0.16)
                 put(slab, size, loc)
+    if not parapet:
+        return
     # parapet
     for side in (-1, 1):
         put(slab, (w + 0.2, 0.3, 1.1), (0, side * (d / 2 - 0.05), z1 + 0.55))
