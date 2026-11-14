@@ -9,7 +9,9 @@ const T = TSL as any;
  * the point: the player should recognise him before he is named. What sets him apart is his chronal signature: amber where Ethan's is
  * cyan, a faint amber rim that flickers as if his outline does not quite agree with this timeline, and the kit dulled by wear.
  */
-export interface EchoFigure { root: THREE.Group; mixer: THREE.AnimationMixer; update(dt: number): void }
+export interface EchoFigure { root: THREE.Group; mixer: THREE.AnimationMixer; update(dt: number): void;
+  /** crossfade to one of Ethan's clips (by name) */
+  play(name: string, fade?: number): void; current: string }
 
 const AMBER = [1.0, 0.46, 0.1] as const;
 
@@ -47,6 +49,20 @@ export async function spawnEcho(scene: THREE.Scene, pos: THREE.Vector3, yaw: num
   scene.add(inst.root);
   const mixer = new THREE.AnimationMixer(inst.root);
   const idle = inst.clips.get('idle') ?? inst.clips.get('guard') ?? [...inst.clips.values()][0];
-  if (idle) mixer.clipAction(idle).play();
-  return { root: inst.root, mixer, update: (dt) => mixer.update(dt) };
+  let cur: THREE.AnimationAction | null = idle ? mixer.clipAction(idle) : null;
+  cur?.play();
+  const fig: EchoFigure = {
+    root: inst.root, mixer, current: 'idle', update: (dt) => mixer.update(dt),
+    play(name: string, fade = 0.2) {
+      if (name === fig.current) return;
+      const clip = inst.clips.get(name);
+      if (!clip) return;
+      const next = mixer.clipAction(clip);
+      next.reset().play();
+      if (cur) cur.crossFadeTo(next, fade, false);
+      cur = next;
+      fig.current = name;
+    },
+  };
+  return fig;
 }

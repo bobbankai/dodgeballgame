@@ -306,7 +306,7 @@ def s_plaza(M):
     S = K.Section('c5')
     B = CK.Batch('c5b')
     cx, cy, R = 12.0, -165.0, 22.0
-    S.add(K.box('c5_paving', (2 * R + 8, 2 * R + 8, 0.4), (cx, cy, -0.2), M['c_deck'], bevel=0.0))
+    S.add(K.box('c5_paving', (2 * R + 8, 2 * R + 8, 0.4), (cx, cy, -0.2), M['c_cobble'], bevel=0.0))
     K.collide_box(S, 'c5_paving', (2 * R + 8, 2 * R + 8, 0.4), (cx, cy, -0.2))
     fountain(B, M, cx, cy)
     K.collide_box(S, 'c5_fountain', (7.0, 7.0, 1.2), (cx, cy, 0.6))
@@ -460,6 +460,10 @@ def materials():
     # the fountain's pool, stopped in time with the rest of the fountain (flow 0: its ripples hold still)
     M['c_pool'] = K.water_mat('c_pool', tint=(0.42, 0.62, 0.6), dist=0.6, waves=0.25, scale=0.6, flow=0.0)
     M['c_paint'] = K.plain_mat('c_paint', (0.62, 0.62, 0.6), rough=0.7)
+    # the plaza's sampietrini: small square setts in sand joints (parallax depth in the game, puddles in the joints when wet)
+    M['c_cobble'] = K.mat('c_cobble', 'cobblestone_square', 1.0, tint=(0.78, 0.76, 0.74), desat=0.55, pom=0.028)
+    # brick courses with real relief
+    M['c_brick'] = K.mat('c_brick_pom', 'brick_4', 0.55, tint=(0.75, 0.7, 0.68), desat=0.2, pom=0.018)
     return M
 
 

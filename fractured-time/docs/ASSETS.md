@@ -15,7 +15,9 @@ Every downloaded asset and tool is recorded here with its source and licence bef
 | CMU Graphics Lab Motion Capture Database, BVH conversion by B. Hahne (cgspeed), mirrored at github.com/una-dinosauria/cmu-mocap | mocap.cs.cmu.edu | Free for any use, including commercial products; may not be resold as raw data (READMEFIRST.txt) | Locomotion, idles, gestures, jump, roll, run start, death (retargeted by `blender/animations/mocap.py`) | Retargeted clips in `animations/humanoid.glb` |
 
 Poly Haven sets used in the city (CC0): concrete_tile_facade, rectangular_facade_tiles_02, brick_4, red_brick_plaster_patch_02, asphalt_02,
-green_metal_rust, corrugated_iron, brick_moss_001, brushed_concrete_03, metal_grate_rusty; HDRI approaching_storm (sky of the surface).
+green_metal_rust, corrugated_iron, brick_moss_001, brushed_concrete_03, metal_grate_rusty, cobblestone_square (the plaza's setts; its
+displacement map drives parallax occlusion), cobblestone_floor_001 (downloaded, unused); HDRI approaching_storm (sky of the surface,
+dimmed to nightfall).
 
 Generated in-house (no third-party licence): facade window sets (`blender/environments/facades.py`), every synthesised sound effect,
 ambience and the score (`src/audio/`), pore detail-normal maps, roughness/stubble maps, hair-card textures, every authored animation

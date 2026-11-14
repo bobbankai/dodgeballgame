@@ -37,7 +37,7 @@ export interface FogSettings {
 }
 
 export const INTERIOR_FOG: FogSettings = {
-  density: 0.022, heightFalloff: 0.05, baseY: 0, noise: 0.55, noiseScale: 0.22, wind: new THREE.Vector3(0.12, 0.03, 0.05), anisotropy: 0.45,
+  density: 0.0065, heightFalloff: 0.05, baseY: 0, noise: 0.55, noiseScale: 0.22, wind: new THREE.Vector3(0.12, 0.03, 0.05), anisotropy: 0.45,
   albedo: new THREE.Color(0.9, 0.92, 0.95), exposure: 1, fallback: new THREE.Vector4(0.004, 0.005, 0.006, 0), maxDist: 60,
 };
 
@@ -213,7 +213,6 @@ export class VolumetricFog {
       const dir = ray.div(max(sceneDist, 1e-4));
       const isSky = depth.greaterThanEqual(0.99999);
       const marchDist = min(sceneDist, u.maxDist);
-      const ds = marchDist.div(steps);
       const jitter = fract(interleavedGradientNoise(screenCoordinate.xy).add(u.frame.mul(0.61803398)));
       // Henyey-Greenstein for the sun, normalised over the sphere
       const g = u.g;
@@ -225,7 +224,13 @@ export class VolumetricFog {
       const scat = vec3(0).toVar();
       const drift = u.wind.mul(time);
       Loop(steps, ({ i }: any) => {
-        const t = float(i).add(jitter).mul(ds);
+        // quadratic spacing: dense near the eye (where shafts and halos are resolved), sparse far away
+        const a0 = float(i).div(steps);
+        const a1 = float(i).add(1.0).div(steps);
+        const t0 = a0.mul(a0).mul(marchDist);
+        const t1 = a1.mul(a1).mul(marchDist);
+        const ds = t1.sub(t0);
+        const t = t0.add(jitter.mul(ds));
         const p = u.camPos.add(dir.mul(t));
         // baked light here (blend to the fallback across the last cell of the volume's box)
         const uvw = p.sub(u.volMin).div(u.volSize);

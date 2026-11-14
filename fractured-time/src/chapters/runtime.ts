@@ -4,6 +4,7 @@ import { loadLevel, captureProbe, type Marker, type LoadedLevel } from '@/world/
 import { LightPool } from '@/world/lightpool';
 import { ProbeField, CharacterLight } from '@/world/probes';
 import { setWeather, weather } from '@/rendering/wet';
+import type { GradeName } from '@/rendering/postfx';
 import { loadVolume, INTERIOR_FOG, EXTERIOR_FOG, type LightVolume, type FogSettings } from '@/rendering/volumetrics';
 import { HDRLoader } from 'three/addons/loaders/HDRLoader.js';
 import { assetUrl } from '@/rendering/charmat';
@@ -152,6 +153,7 @@ export class ChapterRuntime {
   /** baked SH light probes of every section; each character carries its own blended probe */
   readonly probes = new ProbeField();
   readonly lasers: LaserSweep[] = [];
+  private plates: { m: Marker; door: string; hold: number; until: number; ring: THREE.Mesh }[] = [];
   /** called when a laser sweep sees Ethan (scripts hook the alarm here) */
   onSeen: ((laser: LaserSweep) => void) | null = null;
   private charLights = new WeakMap<THREE.Object3D, CharacterLight>();
@@ -165,7 +167,11 @@ export class ChapterRuntime {
   timeline: 'a' | 'b' = 'a';
   setTimeline(t: 'a' | 'b'): void {
     this.timeline = t;
+    this.pool.timeline = t;
+    this.probes.timeline = t;
     for (const s of this.sections) {
+      for (const sw of s.lv.lmSwap) (sw.m as any).lightMap = t === 'b' ? sw.b : sw.a;
+      for (const ol of s.lv.ownLights) ol.light.intensity = !ol.timeline || ol.timeline === t ? ol.intensity : 0;
       for (const k of ['a', 'b'] as const) {
         const on = k === t;
         for (const m of s.lv.timeline[k].meshes) m.visible = on;
@@ -174,6 +180,7 @@ export class ChapterRuntime {
     }
     this.g.post.u.fracture.value = 1; // the shift ripple
     this.applyVolume();
+    this.refreshAtmosphere();
   }
 
   /** The light volume of the current section in the current timeline. */
@@ -192,7 +199,8 @@ export class ChapterRuntime {
     const vols = await Promise.all([loadVolume(assetUrl(path.replace(/\.glb$/, '_vol.bin'))),
       lv.timeline.b.meshes.length ? loadVolume(assetUrl(path.replace(/\.glb$/, '_vol_b.bin'))) : Promise.resolve(null)]);
     this.sections.push({ path, lv, box, inScene: false, probe: null, vol: { a: vols[0], b: vols[1] } });
-    await this.probes.load(path.replace(/\.glb$/, '_probes.json'), this.sections.length - 1, box);
+    await this.probes.load(path.replace(/\.glb$/, '_probes.json'), this.sections.length - 1, box, lv.timeline.b.meshes.length ? 'a' : undefined);
+    if (lv.timeline.b.meshes.length) await this.probes.load(path.replace(/\.glb$/, '_probes_b.json'), this.sections.length - 1, box, 'b');
     this.pool.add(lv.lightDefs);
     const ms = lv.markers;
     this.markers.push(...ms);
@@ -204,6 +212,15 @@ export class ChapterRuntime {
         return { obj: o, base: o.position.clone(), slide: new THREE.Vector3(s[0], 0, -s[2]) };
       });
       this.doors.set(id, new Door(this.g, id, leaves, m.pos.clone(), !!m.data.horiz, Number(m.data.width ?? 2.4), String(m.data.state ?? 'closed')));
+    }
+    // pressure plates: a door that stays open while Ethan, or one of his echoes, stands on the plate (and `hold` s after)
+    for (const m of ms.filter((x) => x.name === 'plate')) {
+      const ring = new THREE.Mesh(new THREE.RingGeometry(0.62, 0.8, 48), new THREE.MeshBasicNodeMaterial({ color: 0x5ad8ff, transparent: true,
+        opacity: 0.35, depthWrite: false, blending: THREE.AdditiveBlending }));
+      ring.rotation.x = -Math.PI / 2;
+      ring.position.copy(m.pos).setY(m.pos.y - 0.02);
+      lv.root.add(ring);
+      this.plates.push({ m, door: String(m.data.door), hold: Number(m.data.hold ?? 2), until: -1, ring });
     }
     for (const m of ms.filter((x) => x.name === 'trigger')) {
       const id = String(m.data.id);
@@ -291,6 +308,14 @@ export class ChapterRuntime {
       this.g.scene.add(b.root);
       return b as any;
     }
+    if (id === 'echo') {
+      const { EchoBoss } = await import('@/bosses/echo');
+      const e = await EchoBoss.createEcho(this.g, m.pos.clone(), m.yaw);
+      e.held = true;
+      this.g.enemies.push(e);
+      this.g.scene.add(e.root);
+      return e as any;
+    }
     if (id === 'sentinel') {
       const { SentinelBoss } = await import('@/bosses/sentinel');
       const s = await SentinelBoss.create(this.g, m.pos.clone(), m.yaw);
@@ -372,6 +397,7 @@ export class ChapterRuntime {
   private outdoors = false;
   private thunderAt = 6;
   private lightning = 0;
+  private flashPulse = 0;
   private skyBase = 1;
   private fogBase = new THREE.Vector4();
   /** eye adaptation target for the current place (the sky marker's exposure outdoors, 1 inside) */
@@ -386,12 +412,17 @@ export class ChapterRuntime {
     this.g.post.fog.u.on.value = vf ? 1 : 0;
     this.g.rain.intensity = sky ? Number(sky.data.rain ?? 1) : 0;
     if (sky) setWeather(Number(sky.data.rain ?? 1) > 0 ? 'storm' : 'dry');
+    // the place's grade
+    const isEngine = /s6\.glb$/.test(this.sections[this.current]?.path ?? '');
+    this.g.post.grade(sky ? ((sky.data.grade as GradeName | undefined) ?? 'dusk_storm')
+      : this.g.chapterNumber === 3 ? (this.timeline === 'b' ? 'arcology_ruin' : 'arcology') : isEngine ? 'engine' : 'facility');
     if (!sky) {
       this.exposure = 1;
       sc.background = new THREE.Color(0x000000);
       // volumetric: dusty air lit by the fixtures (the classic exponential haze when the preset has no volumetrics)
       sc.fog = vf ? null : new THREE.FogExp2(0x0a0d11, 0.016);
-      if (vf) this.g.post.fog.apply({ ...INTERIOR_FOG, baseY: box.min.y + 0.5, ...this.fogOverride() });
+      // the engine chamber is a dusty drum: thicker air, so the fixtures and the engine throw visible beams
+      if (vf) this.g.post.fog.apply({ ...INTERIOR_FOG, baseY: box.min.y + 0.5, ...(isEngine ? { density: 0.013 } : {}), ...this.fogOverride() });
       this.captureFogBase();
       this.g.sfx.ambience('amb_facility', this.current === this.sections.findIndex((x) => /s6\.glb$/.test(x.path)) ? 'hall' : 'interior');
       return;
@@ -441,7 +472,8 @@ export class ChapterRuntime {
       if (!root) continue;
       let cl = this.charLights.get(root);
       if (!cl) { cl = new CharacterLight(root, shared); this.charLights.set(root, cl); }
-      cl.update(this.probes, at.copy(a.pos).setY(a.pos.y + 1.1), dt);
+      cl.update(this.probes, at.copy(a.pos).setY(a.pos.y + 1.1), dt, this.outdoors ? this.flashPulse : 0);
+      cl.apply();
     }
   }
 
@@ -460,6 +492,7 @@ export class ChapterRuntime {
     // lightning: the sky and the air light up in a few flickering pulses; the eye adapts to the place (dark storm -> exposure up)
     if (this.lightning > 0) this.lightning = Math.max(0, this.lightning - dt * 2.6);
     const pulse = this.lightning > 0 ? this.lightning * (0.55 + 0.45 * Math.sin(this.lightning * 41) * Math.sin(this.lightning * 17)) : 0;
+    this.flashPulse = pulse;
     const sc = this.g.scene as any;
     sc.backgroundIntensity = this.skyBase * (1 + 9 * pulse);
     const fb = this.g.post.fog.u.fallback.value as THREE.Vector4;
@@ -472,6 +505,17 @@ export class ChapterRuntime {
     sk.value += (soakTo - sk.value) * Math.min(1, dt * (soakTo > sk.value ? 0.03 : 0.004));
     this.pool.update(this.g.player.pos);
     this.lightCharacters(dt);
+    for (const pl of this.plates) {
+      const on = [this.g.player, ...this.g.echoes].some((a) => Math.hypot(a.pos.x - pl.m.pos.x, a.pos.z - pl.m.pos.z) < 0.85
+        && Math.abs(a.pos.y - pl.m.pos.y) < 1.2);
+      const door = this.doors.get(pl.door);
+      if (on) {
+        if (door && door.state !== 'open') door.open();
+        pl.until = this.g.time + pl.hold;
+      } else if (door && door.state === 'open' && pl.until > 0 && this.g.time > pl.until) { door.close(); pl.until = -1; }
+      const mat = pl.ring.material as THREE.MeshBasicNodeMaterial;
+      mat.opacity += ((on ? 1 : pl.until > this.g.time ? 0.6 : 0.3) - mat.opacity) * Math.min(1, dt * 8);
+    }
     for (const d of this.doors.values()) d.tick(dt);
     for (const l of this.lasers) if (l.tick(dt)) this.onSeen?.(l);
     // interaction prompt: nearest unused interactable within reach and roughly in front

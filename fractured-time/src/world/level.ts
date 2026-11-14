@@ -22,6 +22,10 @@ const { texture, uv, float } = T;
 export interface Marker { name: string; pos: THREE.Vector3; yaw: number; data: Record<string, unknown> }
 export interface LoadedLevel { root: THREE.Group; markers: Marker[]; staticMeshes: THREE.Mesh[]; dynamic: THREE.Object3D[]; lightDefs: LightDef[];
   lightmaps: THREE.Texture[];
+  /** shared structure baked once per reality: lightmaps to swap on a Timeline Shift */
+  lmSwap: { m: THREE.Material; a: THREE.Texture; b: THREE.Texture }[];
+  /** the section's specular-only lights on its static surfaces, with the reality each belongs to */
+  ownLights: { light: THREE.Light; timeline?: 'a' | 'b'; intensity: number }[];
   /** Timeline Shift: objects and colliders that exist only in timeline 'a' or 'b' (Chapter 3's arcology) */
   timeline: { a: { meshes: THREE.Object3D[]; colliders: unknown[] }; b: { meshes: THREE.Object3D[]; colliders: unknown[] } } }
 
@@ -106,6 +110,8 @@ export async function loadLevel(path: string, physics: Physics | null, scene: TH
     return l;
   });
   const rtLights = (T.lights as (l: THREE.Light[]) => unknown)(ownLights);
+  const ownTagged = ownLights.map((light, i) => ({ light, timeline: lightDefs[i].timeline, intensity: light.intensity }));
+  const lmSwap: LoadedLevel['lmSwap'] = [];
   const lightmaps: THREE.Texture[] = [];
   root.updateMatrixWorld(true);
   // outdoor sections (a sky marker) carry the rain layer on their static surfaces
@@ -156,6 +162,21 @@ export async function loadLevel(path: string, physics: Physics | null, scene: TH
         }));
       }
       lmLoads.push(lmCache.get(key)!.then((t) => { lightMap = t; for (const m of mats) apply(m); }));
+      if (ud.lightmap_b) {
+        // the shared structure's lightmap in the other reality
+        const kb = String(ud.lightmap_b);
+        if (!lmCache.has(kb)) {
+          lmCache.set(kb, hdr.loadAsync(assetUrl(kb)).then((t) => {
+            t.channel = 1; t.flipY = false; t.colorSpace = THREE.LinearSRGBColorSpace;
+            t.minFilter = t.magFilter = THREE.LinearFilter; t.generateMipmaps = false;
+            lightmaps.push(t);
+            return t;
+          }));
+        }
+        lmLoads.push(Promise.all([lmCache.get(key)!, lmCache.get(kb)!]).then(([a, b]) => {
+          for (const m of mats) if ((m as any).lightMap) lmSwap.push({ m, a, b });
+        }));
+      }
     }
     const src = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
     const mats = src.map((old) => {
@@ -196,7 +217,7 @@ export async function loadLevel(path: string, physics: Physics | null, scene: TH
   await Promise.all(lmLoads);
   await texturesReady();
   if (scene) scene.add(root);
-  return { root, markers, staticMeshes, dynamic, lightDefs, lightmaps, timeline };
+  return { root, markers, staticMeshes, dynamic, lightDefs, lightmaps, timeline, lmSwap, ownLights: ownTagged };
 }
 
 /** Light markers (Blender area/point lights exported as empties) -> pool definitions. Blender W converted with one exposure factor. */
@@ -204,11 +225,12 @@ export function toLightDefs(markers: Marker[], exposure = 0.06): LightDef[] {
   return markers.filter((m) => m.name === 'light').map((m) => {
     const d = typeof m.data.light === 'string' ? JSON.parse(m.data.light as string) : (m.data.light as any);
     const col = new THREE.Color(d.color[0], d.color[1], d.color[2]);
+    const timeline = (m.data.timeline === 'a' || m.data.timeline === 'b') ? m.data.timeline : undefined;
     if (d.kind === 'area') {
       const w = d.size[0], h = d.size[1];
-      return { kind: 'area', pos: m.pos.clone(), size: [w, h], color: col, intensity: (d.power * exposure) / Math.max(w * h, 0.05) } as LightDef;
+      return { kind: 'area', pos: m.pos.clone(), size: [w, h], color: col, intensity: (d.power * exposure) / Math.max(w * h, 0.05), timeline } as LightDef;
     }
-    return { kind: 'point', pos: m.pos.clone(), size: [0, 0], color: col, intensity: d.power * exposure * 2 } as LightDef;
+    return { kind: 'point', pos: m.pos.clone(), size: [0, 0], color: col, intensity: d.power * exposure * 2, timeline } as LightDef;
   });
 }
 

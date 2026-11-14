@@ -37,7 +37,25 @@ export interface PostUniforms {
   focusRange: U;
   bokeh: U;
   bloomStrength: U;
+  /** colour decision list per place (ASC CDL on the HDR image): out = (in * slope + offset) ^ power */
+  slope: { value: THREE.Vector3 }; offset: { value: THREE.Vector3 }; power: { value: THREE.Vector3 };
 }
+
+/** Per-place grades: the look of each kind of place, eased between as Ethan moves (see `PostFX.grade`). */
+export const GRADES = {
+  neutral: { slope: [1, 1, 1], offset: [0, 0, 0], power: [1, 1, 1], saturation: 1.0, contrast: 1.06 },
+  // HELIX facility: clinical, cool whites, clean blacks
+  facility: { slope: [0.98, 1.0, 1.04], offset: [0, 0.0006, 0.002], power: [1.0, 1.0, 0.99], saturation: 0.94, contrast: 1.08 },
+  // the Engine chamber: the chronal cyan carries the room
+  engine: { slope: [0.95, 1.0, 1.06], offset: [-0.001, 0.0008, 0.003], power: [1.02, 1.0, 0.98], saturation: 1.0, contrast: 1.12 },
+  // the storm at nightfall: teal shadows, warm practical highlights (street lights, windows), restrained saturation
+  dusk_storm: { slope: [1.06, 1.0, 0.92], offset: [-0.0025, 0.0012, 0.0035], power: [1.04, 1.0, 0.96], saturation: 0.9, contrast: 1.12 },
+  // the arcology in 2089: high-key, cool glass and steel
+  arcology: { slope: [0.99, 1.0, 1.03], offset: [0.001, 0.001, 0.002], power: [0.98, 0.98, 0.97], saturation: 0.92, contrast: 1.05 },
+  // the same rooms twenty years abandoned: warm dust, faded colour
+  arcology_ruin: { slope: [1.05, 1.0, 0.9], offset: [0.003, 0.002, 0.0], power: [1.03, 1.02, 1.0], saturation: 0.72, contrast: 1.04 },
+} as const;
+export type GradeName = keyof typeof GRADES;
 
 export class PostFX {
   pipeline: THREE.RenderPipeline;
@@ -52,6 +70,7 @@ export class PostFX {
       slow: uniform(0), rewind: uniform(0), fracture: uniform(0), flash: uniform(0), hurt: uniform(0), fade: uniform(0),
       vignette: uniform(0.28), saturation: uniform(1.0), contrast: uniform(1.06), tint: uniform(new THREE.Color(1, 1, 1)),
       grain: uniform(0.35), focus: uniform(4), focusRange: uniform(6), bokeh: uniform(1.6), bloomStrength: uniform(0.16),
+      slope: uniform(new THREE.Vector3(1, 1, 1)), offset: uniform(new THREE.Vector3(0, 0, 0)), power: uniform(new THREE.Vector3(1, 1, 1)),
     } as unknown as PostUniforms;
     this.pipeline = new THREE.RenderPipeline(gfx.renderer);
     this.fog = new VolumetricFog(camera);
@@ -214,6 +233,8 @@ export class PostFX {
       // rewind: magenta in the highlights, cyan in the shadows
       c.assign(mix(c, mix(c.mul(vec3(0.7, 0.95, 1.25)), c.mul(vec3(1.25, 0.8, 1.15)), smoothstep(0.1, 0.9, lum)), u.rewind.mul(0.75)));
       c.assign(c.mul(u.tint));
+      // the place's grade (CDL)
+      c.assign(c.mul(u.slope).add(u.offset).max(0.0).pow(u.power));
       // contrast around mid grey
       c.assign(mix(vec3(0.18), c, u.contrast));
       // vignette
@@ -244,8 +265,28 @@ export class PostFX {
     return this.features.join(', ') || 'none';
   }
 
+  private gradeTo: (typeof GRADES)[GradeName] = GRADES.neutral;
+  private lastT = 0;
+  /** Ease toward a place's grade (over ~2 s). */
+  grade(name: GradeName): void { this.gradeTo = GRADES[name] ?? GRADES.neutral; }
+
+  private stepGrade(): void {
+    const now = performance.now() / 1000;
+    const dt = Math.min(0.1, this.lastT ? now - this.lastT : 0.016);
+    this.lastT = now;
+    const k = Math.min(1, dt * 1.6);
+    const u = this.u;
+    const g = this.gradeTo;
+    u.slope.value.lerp(new THREE.Vector3(...g.slope), k);
+    u.offset.value.lerp(new THREE.Vector3(...g.offset), k);
+    u.power.value.lerp(new THREE.Vector3(...g.power), k);
+    u.saturation.value += (g.saturation - u.saturation.value) * k;
+    u.contrast.value += (g.contrast - u.contrast.value) * k;
+  }
+
   render(): void {
     this.fog.update();
+    this.stepGrade();
     this.pipeline.render();
   }
 

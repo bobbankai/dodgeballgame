@@ -303,7 +303,7 @@ def panel_wall(name, p0, p1, height, z0, M, panel_w=1.2, depth=0.12, inward=(0, 
     return ob
 
 
-def area_light(name, loc, size, power, color=(1, 1, 1), rot=(0, 0, 0), shape='RECTANGLE'):
+def area_light(name, loc, size, power, color=(1, 1, 1), rot=(0, 0, 0), shape='RECTANGLE', timeline=None):
     l = bpy.data.lights.new(name, 'AREA')
     l.shape = shape
     if shape == 'RECTANGLE':
@@ -324,8 +324,25 @@ def area_light(name, loc, size, power, color=(1, 1, 1), rot=(0, 0, 0), shape='RE
     mk['marker'] = 'light'
     mk['light'] = json.dumps({'kind': 'area' if shape == 'RECTANGLE' else 'point', 'size': list(size), 'power': power,
                               'color': list(color)})
+    if timeline:
+        # a fixture that exists in one reality only (Timeline Shift): its bakes, probes, volume and real-time copy follow it
+        ob['timeline'] = timeline
+        mk['timeline'] = timeline
     LIGHT_MARKERS.append(mk)
     return ob
+
+
+def timeline_lights(tl):
+    """Light objects that belong to timeline `tl` only."""
+    return [o for o in bpy.data.objects if o.type == 'LIGHT' and o.get('timeline') == tl]
+
+
+def show_timeline(S, tl):
+    """Render state of one reality: the other timeline's dressing and fixtures hidden (None: neither hidden)."""
+    for t2 in ('a', 'b'):
+        hide = tl is not None and t2 != tl
+        for o in getattr(S, f'static_{t2}') + timeline_lights(t2):
+            o.hide_render = hide
 
 
 LIGHT_MARKERS = []
@@ -835,14 +852,16 @@ def bake_volumes(built, keys, chapter, hdri=None, skip=(), sky_strength=1.0):
             print('SKY', 'sun', sky[0])
         for tl in ([None] if not (S.static_a or S.static_b) else ['a', 'b']):
             objs = S.static + (getattr(S, f'static_{tl}') if tl else [])
+            lights = [m for m in S.lights if m.get('timeline') in (None, tl)]
             rel = f'environments/{chapter}/{key}_vol{"_b" if tl == "b" else ""}.bin'
-            bake_volume(objs, S.lights, os.path.join(PUB, rel), sky=sky if outdoors else None,
+            bake_volume(objs, lights, os.path.join(PUB, rel), sky=sky if outdoors else None,
                         cell=0.6 if outdoors else 0.4, max_height=36.0 if outdoors else None)
 
 
 def export_timeline_section(S, key, out_dir, prefix, samples, lm_size=2048):
-    """Export a section that may have Timeline Shift geometry: the shared static mesh and each timeline's mesh are joined and baked
-    separately (each timeline's lightmap is baked with the other timeline hidden), then exported together."""
+    """Export a section that has Timeline Shift geometry. Each reality is lit by its own fixtures and shadowed by its own dressing:
+    each timeline's mesh bakes in its own reality; the shared structure (walls, ceiling, columns) bakes twice, once per reality, and the
+    game swaps its lightmap on every shift."""
     parts = []
     for tl, objs in ((None, S.static), ('a', S.static_a), ('b', S.static_b)):
         if not objs:
@@ -853,16 +872,28 @@ def export_timeline_section(S, key, out_dir, prefix, samples, lm_size=2048):
         finish_static(st)
         parts.append((tl, st))
     copy_textures()
+    rel = os.path.relpath(out_dir, PUB)
+    by_tl = {tl: st for tl, st in parts}
+
+    def state(tl):
+        for t2 in ('a', 'b'):
+            hide = t2 != tl
+            if t2 in by_tl:
+                by_tl[t2].hide_render = hide
+            for o in timeline_lights(t2):
+                o.hide_render = hide
     for tl, st in parts:
-        # each timeline bakes with the other hidden; the shared structure bakes with neither (a desk that exists in one reality must
-        # not leave its shadow in the other)
-        other = [o for t2, o in parts if t2 and t2 != tl]
-        for o in other:
-            o.hide_render = True
-        lm_rel = f'{os.path.relpath(out_dir, PUB)}/{key}{"_" + tl if tl else ""}_lm.hdr'
-        bake_lightmap(st, os.path.join(PUB, lm_rel), size=lm_size, samples=samples)
-        st['lightmap'] = lm_rel
-        for o in other:
+        for real in ([tl] if tl else ['a', 'b']):
+            state(real)
+            suffix = ('_' + tl) if tl else ('' if real == 'a' else '_b')
+            lm_rel = f'{rel}/{key}{suffix}_lm.hdr'
+            bake_lightmap(st, os.path.join(PUB, lm_rel), size=lm_size, samples=samples)
+            st['lightmap' if real == 'a' or tl else 'lightmap_b'] = lm_rel
+    state(None)
+    for t2 in ('a', 'b'):
+        if t2 in by_tl:
+            by_tl[t2].hide_render = False
+        for o in timeline_lights(t2):
             o.hide_render = False
     return [st for _, st in parts]
 
@@ -872,7 +903,7 @@ def copy_textures():
     texroot = os.path.join(PUB, 'textures', 'pbr')
     used = {json.loads(m['ft'])['tex'] for m in bpy.data.materials if 'ft' in m and json.loads(m['ft']).get('type') == 'pbr'}
     for tid in used:
-        for kind in ('diff', 'nor_gl', 'rough', 'ao', 'emit'):
+        for kind in ('diff', 'nor_gl', 'rough', 'ao', 'emit', 'disp'):
             dst = os.path.join(texroot, tid, f'{tid}_{kind}.jpg')
             src = os.path.join(PH, tid, f'{tid}_{kind}_2k.jpg')
             if os.path.exists(dst) or not os.path.exists(src):

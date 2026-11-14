@@ -1,5 +1,5 @@
 import * as THREE from 'three/webgpu';
-import { setHairShellCap } from './charmat';
+import { setHairShellCap, setPomSteps } from './charmat';
 import { QUALITY, type Quality, type QualityName } from './quality';
 
 export type Backend = 'webgpu' | 'webgl2';
@@ -21,6 +21,7 @@ export interface Gfx {
  */
 export async function createGfx(canvas: HTMLCanvasElement, qualityName: QualityName): Promise<Gfx> {
   setHairShellCap({ ultra: 30, high: 22, balanced: 16, performance: 12 }[qualityName] ?? 22);
+  setPomSteps({ ultra: 24, high: 16, balanced: 10, performance: 0 }[qualityName] ?? 16);
   const forceWebGL = new URLSearchParams(location.search).has('webgl');
   const renderer = new THREE.WebGPURenderer({
     canvas,

@@ -8,19 +8,22 @@ import { assetUrl } from '@/rendering/charmat';
  * the same light as the lightmapped walls around them (bounce from the floor, the colour of the room, darkness in corners), the way
  * volumetric lightmaps / light probe groups light dynamic objects in production engines.
  */
-interface Probe { p: THREE.Vector3; sh: THREE.Vector3[]; section: number }
+interface Probe { p: THREE.Vector3; sh: THREE.Vector3[]; section: number; timeline?: 'a' | 'b' }
 
 export class ProbeField {
   private probes: Probe[] = [];
   private boxes: THREE.Box3[] = [];
 
-  async load(path: string, section: number, box: THREE.Box3): Promise<void> {
+  /** sections with a second set (Timeline Shift) answer from the current reality's set */
+  timeline: 'a' | 'b' = 'a';
+
+  async load(path: string, section: number, box: THREE.Box3, timeline?: 'a' | 'b'): Promise<void> {
     this.boxes[section] = box;
     const r = await fetch(assetUrl(path));
     if (!r.ok) return;
     const j = (await r.json()) as { probes: { p: number[]; sh: number[][] }[] };
     for (const q of j.probes) {
-      this.probes.push({ p: new THREE.Vector3(q.p[0], q.p[1], q.p[2]), sh: q.sh.map((c) => new THREE.Vector3(c[0], c[1], c[2])), section });
+      this.probes.push({ p: new THREE.Vector3(q.p[0], q.p[1], q.p[2]), sh: q.sh.map((c) => new THREE.Vector3(c[0], c[1], c[2])), section, timeline });
     }
   }
 
@@ -30,8 +33,9 @@ export class ProbeField {
   sample(at: THREE.Vector3, out: THREE.Vector3[], k = 4): boolean {
     if (!this.probes.length) return false;
     const inside = this.boxes.map((b, i) => (b && b.containsPoint(at) ? i : -1)).filter((i) => i >= 0);
-    let pool = inside.length ? this.probes.filter((p) => inside.includes(p.section)) : this.probes;
-    if (!pool.length) pool = this.probes;
+    const real = this.probes.filter((p) => !p.timeline || p.timeline === this.timeline);
+    let pool = inside.length ? real.filter((p) => inside.includes(p.section)) : real;
+    if (!pool.length) pool = real.length ? real : this.probes;
     const near = pool.map((p) => ({ p, d: p.p.distanceToSquared(at) })).sort((a, b) => a.d - b.d).slice(0, k);
     for (const v of out) v.set(0, 0, 0);
     let wsum = 0;
@@ -46,6 +50,8 @@ export class ProbeField {
 }
 
 /** Per-character lighting: its own SH probe plus the shared real-time light pool, wired into every material of the character. */
+const _flash = new THREE.Vector3();
+
 export class CharacterLight {
   readonly probe = new THREE.LightProbe();
   private target = Array.from({ length: 9 }, () => new THREE.Vector3());
@@ -66,12 +72,25 @@ export class CharacterLight {
     });
   }
 
-  /** Follow the probe field at `at` (chest height), easing so walking between probes never pops. */
-  update(field: ProbeField, at: THREE.Vector3, dt: number): void {
+  /** Follow the probe field at `at` (chest height), easing so walking between probes never pops. `flash` (0..1): a lightning
+   *  strike adds cold light from the sky above (L0 + the upward L1 term), applied instantly so the flicker is sharp. */
+  update(field: ProbeField, at: THREE.Vector3, dt: number, flash = 0): void {
     if (!field.sample(at, this.target)) return;
     const k = this.primed ? 1 - Math.exp(-dt * 5) : 1;
     this.primed = true;
+    for (let i = 0; i < 9; i++) this.base[i].lerp(this.target[i], k);
+    this.flashed = flash;
+  }
+
+  private flashed = 0;
+  private base = Array.from({ length: 9 }, () => new THREE.Vector3());
+  /** The probe as rendered this frame: the eased base plus the instantaneous flash. */
+  apply(): void {
     const c = this.probe.sh.coefficients;
-    for (let i = 0; i < 9; i++) c[i].lerp(this.target[i], k);
+    for (let i = 0; i < 9; i++) c[i].copy(this.base[i]);
+    const f = this.flashed;
+    if (f <= 0) return;
+    c[0].add(_flash.set(0.7, 0.8, 1.0).multiplyScalar(f * 1.6));
+    c[1].add(_flash.set(0.7, 0.8, 1.0).multiplyScalar(f * 1.2)); // L1 y: light from above
   }
 }

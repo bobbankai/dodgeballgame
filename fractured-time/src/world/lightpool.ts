@@ -5,7 +5,9 @@ import * as THREE from 'three/webgpu';
  * ruinous and adding/removing lights recompiles every material. Instead a fixed pool (rect area lights + point lights) is re-pointed every
  * tick at the fixtures nearest the player: same light count forever, no recompiles, the right lights where the action is.
  */
-export interface LightDef { kind: 'area' | 'point'; pos: THREE.Vector3; size: [number, number]; color: THREE.Color; intensity: number }
+export interface LightDef { kind: 'area' | 'point'; pos: THREE.Vector3; size: [number, number]; color: THREE.Color; intensity: number;
+  /** a fixture of one reality only (Chapter 3's Timeline Shift) */
+  timeline?: 'a' | 'b' }
 
 export class LightPool {
   readonly rects: THREE.RectAreaLight[] = [];
@@ -25,11 +27,14 @@ export class LightPool {
     }
   }
 
+  /** the reality whose fixtures light the characters */
+  timeline: 'a' | 'b' = 'a';
+
   add(defs: LightDef[]): void { this.defs.push(...defs); }
 
   update(at: THREE.Vector3): void {
     const near = (kind: LightDef['kind'], n: number) =>
-      this.defs.filter((d) => d.kind === kind).map((d) => ({ d, k: d.pos.distanceToSquared(at) })).sort((a, b) => a.k - b.k).slice(0, n);
+      this.defs.filter((d) => d.kind === kind && (!d.timeline || d.timeline === this.timeline)).map((d) => ({ d, k: d.pos.distanceToSquared(at) })).sort((a, b) => a.k - b.k).slice(0, n);
     const r = near('area', this.rects.length);
     this.rects.forEach((l, i) => {
       const e = r[i];

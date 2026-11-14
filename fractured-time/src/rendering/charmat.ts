@@ -116,10 +116,48 @@ function soakIn(m: THREE.Material): void {
   pm.roughnessNode = mix(rough, rough.mul(0.5).add(0.08), soak);
 }
 
+let pomSteps = 16;
+/** Parallax occlusion mapping quality (steps per pixel; 0 = flat). Set before materials are built. */
+export function setPomSteps(n: number): void { pomSteps = n; }
+
+/**
+ * Parallax occlusion mapping: the surface's height map is ray-marched in tangent space along the view direction (fixed steps,
+ * texture gradients from the undisplaced UVs so the loop stays legal in WGSL), with a linear refine between the last two layers.
+ * Cobbles, brick courses and tile joints keep their depth at grazing angles instead of reading as a printed photo.
+ * `depth` is in metres; `tile` (repeats per metre) turns it into UV units.
+ */
+function pomUV(u: any, heightTex: THREE.Texture, depth: number, tile: number): any {
+  const steps = pomSteps;
+  return T.Fn(() => {
+    const V = T.parallaxDirection.normalize().toVar();
+    const gx = T.dFdx(u), gy = T.dFdy(u);
+    const layer = float(1 / steps);
+    const shift = V.xy.div(V.z.max(0.2)).mul(depth * tile).div(steps);
+    const cur = u.toVar();
+    const prev = u.toVar();
+    const curD = float(0).toVar();
+    const prevD = float(0).toVar();
+    const mapD = float(1).sub(texture(heightTex, u).grad(gx, gy).r).toVar();
+    const prevMap = mapD.toVar();
+    T.Loop(steps, () => {
+      T.If(curD.greaterThanEqual(mapD), () => { T.Break(); });
+      prev.assign(cur); prevD.assign(curD); prevMap.assign(mapD);
+      cur.subAssign(shift);
+      curD.addAssign(layer);
+      mapD.assign(float(1).sub(texture(heightTex, cur).grad(gx, gy).r));
+    });
+    const after = mapD.sub(curD);
+    const before = prevMap.sub(prevD);
+    const w = after.div(after.sub(before).min(-1e-4)).clamp(0, 1);
+    return mix(cur, prev, w);
+  })();
+}
+
 export function pbr(r: Recipe): THREE.MeshPhysicalNodeMaterial {
   const m = new THREE.MeshPhysicalNodeMaterial();
   const base = `textures/pbr/${r.tex}/${r.tex}`;
-  const u = uv().mul(r.tile ?? 1);
+  const u0 = uv().mul(r.tile ?? 1);
+  const u = r.pom && pomSteps > 0 ? pomUV(u0, tex(`${base}_disp.jpg`, false), r.pom, r.tile ?? 1) : u0;
   const d = texture(tex(`${base}_diff.jpg`, true), u).rgb;
   const lum = dot(d, vec3(0.2126, 0.7152, 0.0722));
   const c = r.desat === null || r.desat === undefined ? d : mix(vec3(lum), d, float(r.desat));

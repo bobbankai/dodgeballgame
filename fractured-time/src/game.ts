@@ -162,7 +162,12 @@ export class Game implements Simulation, GameCtx {
       g.scene.background = new THREE.Color(0x000000);
       ch.stream(g.level.spawn);
       if (g.testMode && qsp.has('fast')) g.dialogueRate = 0.15;
-      g.startScript = () => mod.run(g, ch, qsp.get('at'));
+      g.startScript = () => mod.run(g, ch, qsp.get('at')).then(() => {
+        // a finished chapter hands over to the next one (a fresh page: a clean GPU state); past the last built chapter, the title
+        if (g.testMode || !g.flags.get(`chapter${g.chapterNumber}_complete`)) return;
+        const next = String(g.chapterNumber + 1);
+        location.search = next in chapterMods ? `?chapter=${next}&at=start` : '';
+      });
     } else if (levelPath) {
       // a baked level section: static surfaces lit by their lightmap, characters by real-time copies of the lights + a probe
       (THREE as any).RectAreaLightNode.setLTC(RectAreaLightTexturesLib.init());

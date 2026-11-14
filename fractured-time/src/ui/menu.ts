@@ -13,7 +13,7 @@ export interface SaveData { chapter: number; at: string; when: number; reached: 
 export const CHAPTERS = [
   { n: 1, title: 'The Incident', place: 'HELIX Underground Research Facility', beats: ['wake', 'checkpoint', 'lab', 'servers', 'engine', 'surface'] },
   { n: 2, title: 'The Other World', place: 'The Fractured District', beats: ['rooftops', 'street', 'cafe', 'gate', 'plaza', 'pursuit', 'marshal'] },
-  { n: 3, title: 'The Doppelganger', place: 'HELIX Corporate Arcology', beats: [] },
+  { n: 3, title: 'The Doppelganger', place: 'HELIX Corporate Arcology', beats: ['lobby', 'offices', 'palimpsest', 'mirror', 'echo'] },
   { n: 4, title: 'The Paradox', place: 'Four timelines at once', beats: [] },
   { n: 5, title: 'The Final Timeline', place: 'The Temporal Nexus', beats: [] },
 ];
@@ -192,7 +192,8 @@ export function titleScreen(): Promise<{ chapter: number; at: string }> {
       nav.push(list, () => { nav.pop(); pr.remove(); });
     };
     main.set([
-      { label: 'Continue', sub: sv ? `Chapter ${sv.chapter}  ·  ${CHAPTERS[sv.chapter - 1]?.title ?? ''}` : undefined, disabled: !sv, act: () => go(sv!.chapter, sv!.at) },
+      { label: 'Continue', sub: sv ? `Chapter ${sv.chapter}  ·  ${CHAPTERS[sv.chapter - 1]?.title ?? ''}${CHAPTERS[sv.chapter - 1]?.beats.length ? '' : '  ·  in production'}` : undefined,
+        disabled: !sv || !CHAPTERS[sv.chapter - 1]?.beats.length, act: () => go(sv!.chapter, sv!.at) },
       { label: 'New Game', act: () => go(1, 'wake') },
       { label: 'Chapters', act: chaptersMenu },
       { label: 'Settings', act: () => openSettings(root, () => {}, () => {}) },

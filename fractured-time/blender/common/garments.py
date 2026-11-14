@@ -225,7 +225,7 @@ def transfer_weights(space, target):
 # --- materials ----------------------------------------------------------------------------------------------------
 
 def pbr(name, tex_dir, tex_id, *, tint=(1, 1, 1), tile=8.0, rough_mul=1.0, rough_add=0.0, normal_strength=1.0, metal=0.0, res='2k',
-        detail_normal=None, detail_tile=40.0, detail_strength=0.3, coat=0.0, desat=None, emit=0.0, emit_tile=None):
+        detail_normal=None, detail_tile=40.0, detail_strength=0.3, coat=0.0, desat=None, emit=0.0, emit_tile=None, pom=0.0):
     """Principled material from a downloaded PBR set (diff / nor_gl / rough / ao), tiled over the UVs, tinted, optional detail normal."""
     import os
     m = bpy.data.materials.new(name)
@@ -291,6 +291,8 @@ def pbr(name, tex_dir, tex_id, *, tint=(1, 1, 1), tile=8.0, rough_mul=1.0, rough
     bsdf.inputs['Coat Weight'].default_value = coat
     rec = {'type': 'pbr', 'tex': tex_id, 'res': res, 'tile': tile, 'tint': list(tint), 'desat': desat,
            'rough_mul': rough_mul, 'rough_add': rough_add, 'normal': normal_strength, 'metal': metal, 'coat': coat}
+    if pom > 0 and os.path.exists(os.path.join(tex_dir, tex_id, f'{tex_id}_disp_{res}.jpg')):
+        rec['pom'] = pom  # parallax occlusion depth (m) in the game; the bake keeps the flat surface
     ep = os.path.join(tex_dir, tex_id, f'{tex_id}_emit_{res}.jpg')
     if emit > 0 and os.path.exists(ep):
         # lit windows (an emission map on its own, larger tile so the pattern does not repeat with the facade)
