@@ -19,7 +19,7 @@ import sdf
 def materials(PH):
     return {
         'knit': Gm.pbr('imani_knit', PH, 'cotton_jersey', tint=(0.032, 0.032, 0.036), tile=14, desat=0.0, normal_strength=1.3, rough_add=0.1),
-        'jacket': Gm.pbr('imani_jacket', PH, 'scuba_suede', tint=(0.032, 0.066, 0.072), tile=9, desat=0.0, normal_strength=1.25, rough_add=0.04),
+        'jacket': Gm.pbr('imani_jacket', PH, 'scuba_suede', tint=(0.05, 0.1, 0.108), tile=9, desat=0.0, normal_strength=1.25, rough_add=0.04),
         'trim': Gm.pbr('imani_trim', PH, 'stretch_poplin', tint=(0.02, 0.024, 0.026), tile=12, desat=0.0, normal_strength=1.2),
         'trousers': Gm.pbr('imani_trousers', PH, 'stretch_poplin', tint=(0.07, 0.068, 0.05), tile=8, desat=0.0, normal_strength=1.5, rough_add=0.1),
         'leather': Gm.pbr('imani_boot', PH, 'fabric_leather_02', tint=(0.11, 0.068, 0.042), tile=6, normal_strength=1.5, desat=0.15, rough_add=0.12),
@@ -57,7 +57,7 @@ def build_kit(h, rig, PH, P='imani'):
     knit = (torso & (C[:, 2] > waist_z - 0.06)) | upper | (lower & (t < 0.97)) | (neck & (t < 0.25))
     Gm.shell(S, f'{P}_knit', knit, offset=0.0035, thickness=0.0016, material=mat['knit'], subdiv=1)
     legs = (thighs | calf | (torso & (C[:, 2] <= waist_z + 0.01))) & ~boots_region
-    Gm.shell(S, f'{P}_trousers', legs, offset=0.008, thickness=0.002, material=mat['trousers'], subdiv=1)
+    Gm.shell(S, f'{P}_trousers', legs, offset=0.014, thickness=0.0022, material=mat['trousers'], subdiv=1, smooth_iters=4)
     # the jacket: hip length, sleeves to the wrist bone, open down the front (a 9 cm gap shows the knit)
     hem_z = pelvis_z - 0.1
     jacket_body = (torso & (C[:, 2] > hem_z)) | (thighs & (t < 0.12) & (C[:, 2] > hem_z))

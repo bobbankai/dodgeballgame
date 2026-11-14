@@ -137,7 +137,7 @@ def export(spec, h, rig, parts):
         nt.links.new(tn.outputs['Color'], b.inputs[ch])
     sp = spec['skin_params']
     em['ft'] = json.dumps({'type': 'skin', 'pores': 'textures/detail/skin_pores_n.png', 'pore_tile': 34, 'pore_strength': spec.get('pore_strength', 0.5),
-                           'sss_color': [0.85, 0.3, 0.2], 'sss_scale': sp.get('sss_scale', 0.0042)})
+                           'sss_color': [0.85, 0.3, 0.2], 'sss_scale': sp.get('sss_scale', 0.0042), 'spec': spec.get('skin_spec', 0.36)})
     for i, mm in enumerate(h.data.materials):
         if mm and mm.name == 'skin':
             h.data.materials[i] = em
@@ -165,6 +165,9 @@ def export(spec, h, rig, parts):
     hc = bpy.data.objects.get(f'{name}_hair')
     lookdev.hair_shell(h, rig, f'{name}_hair_shell', color=hs.get('color', (0.018, 0.013, 0.011)), shells=hs.get('shells', 20),
                        max_len=hs.get('max_len', 0.025), look=hs.get('look'))
+    if hc is not None and not hs.get('cards', True):
+        bpy.data.objects.remove(hc)  # coily volumes are all shell: strand cards would read as spikes
+        hc = None
     if hc is not None:
         cards = lookdev.hair_cards(hc, every=hs.get('card_every', 10), width=0.0012, name=f'{name}_hair_cards', surface=h)
         cards.parent = rig

@@ -22,8 +22,8 @@ def mask(c, n, top):
     front = np.clip(-c[:, 1] / 0.09, 0, 1)
     thr = -0.128 + 0.046 * front         # hairline: low at the nape, a soft rounded line low on the forehead
     temple = sm(0.05, 0.07, np.abs(c[:, 0])) * sm(0.2, 0.7, front)
-    thr = thr + temple * 0.018
-    ears = sm(0.06, 0.068, np.abs(c[:, 0])) * (1 - sm(-0.12, -0.09, hz))
+    thr = thr + temple * 0.006            # the afro comes down over the temples (no shaved sides)
+    ears = sm(0.066, 0.074, np.abs(c[:, 0])) * (1 - sm(-0.135, -0.11, hz))
     return sm(thr, thr + 0.01, hz) * (1 - ears) * (n[:, 2] > -0.4)
 
 
@@ -55,9 +55,10 @@ SPEC = {
     'stubble': 0.0,
     'skin_params': {'sss_radius': (1.0, 0.36, 0.2), 'sss_scale': 0.0042, 'sat': 0.97, 'value': 0.98, 'scalp_color': (0.12, 0.085, 0.07)},
     'pore_strength': 0.42,
+    'skin_spec': 0.29,
     'hair': {'mask': mask, 'length': length, 'comb': comb, 'curl': 1.0, 'curl_freq': 6.5, 'count': 120000, 'segments': 10,
              'melanin': 0.95, 'redness': 0.22, 'rough': 0.4, 'seed': 23, 'color': (0.024, 0.016, 0.012), 'shells': 30, 'max_len': 0.06,
-             'card_every': 12, 'look': {'strandSpacing': 0.00055, 'coilRadius': 0.0007, 'coilTurns': 7.0}},
+             'cards': False, 'look': {'strandSpacing': 0.00055, 'coilRadius': 0.0007, 'coilTurns': 7.0}},
     'kit': lambda h, rig, PH: imani_kit.build_kit(h, rig, PH),
 }
 

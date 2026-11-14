@@ -69,6 +69,7 @@ async function main() {
   const loader = new GLTFLoader();
   loader.setMeshoptDecoder(MeshoptDecoder);
   const name = qs.get('char') || 'ethan';
+  (await import('@/rendering/charmat')).setHairShellCap({ ultra: 30, high: 22, balanced: 16, performance: 12 }[q] ?? 22);
   const t0 = performance.now();
   const gltf = await loader.loadAsync(assetUrl(qs.get('path') || `characters/${name}/${name}.glb`)); // ?path= any asset (bosses, props)
   out.loadMs = Math.round(performance.now() - t0);

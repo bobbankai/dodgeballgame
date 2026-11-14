@@ -103,7 +103,7 @@ export class Game implements Simulation, GameCtx {
     release: (a: Actor): void => { this.tokensHeld.delete(a); },
   };
 
-  static async create(canvas: HTMLCanvasElement, opts: { quality?: QualityName; test?: boolean } = {}): Promise<Game> {
+  static async create(canvas: HTMLCanvasElement, opts: { quality?: QualityName; test?: boolean; onProgress?: (k: number) => void } = {}): Promise<Game> {
     const g = new Game();
     g.testMode = !!opts.test;
     const q = opts.quality ?? detectQuality();
@@ -132,7 +132,10 @@ export class Game implements Simulation, GameCtx {
       const { CH1_SECTIONS, chapter1 } = await import('@/chapters/ch1');
       const ch = new ChapterRuntime(g);
       g.chapter = ch;
-      for (const path of CH1_SECTIONS) await ch.loadSection(path).catch((e) => console.warn('[chapter] section missing', path, e));
+      for (const [i, path] of CH1_SECTIONS.entries()) {
+        await ch.loadSection(path).catch((e) => console.warn('[chapter] section missing', path, e));
+        opts.onProgress?.((i + 1) / CH1_SECTIONS.length * 0.9);
+      }
       const sp = ch.markers.find((m) => m.name === 'spawn');
       g.level = { spawn: sp ? sp.pos.clone() : new THREE.Vector3(), yaw: sp ? sp.yaw : 0, enemies: [], objective: '' };
       g.scene.background = new THREE.Color(0x000000);
@@ -229,7 +232,7 @@ export class Game implements Simulation, GameCtx {
     this.time += dt;
     this.input.now = this.time;
     this.input.poll(dt);
-    if (this.input.justPressed('pause')) { this.input.takePressed(); }
+    if (this.input.justPressed('pause')) { this.input.takePressed(); if (!this.testMode && this.chapter) { this.openPause(); return; } }
 
     this.updateTimeScales(dt);
     const rewinding = this.temporal.tick(dt);
@@ -281,6 +284,36 @@ export class Game implements Simulation, GameCtx {
       this.stepDist = 0;
       this.sfx.play('step', { at: p.pos, volume: Math.min(1, 0.35 + p.speed / 9), pitch: 0.95 + Math.random() * 0.1 });
     }
+  }
+
+  /** Settings from the menu: audio levels, camera feel, subtitles. */
+  applySettings(s: { master: number; music: number; sfx: number; voice: number; sensitivity: number; invertY: boolean; subtitles: boolean;
+    subtitleSize: number; shake: number }): void {
+    this.sfx.setVolumes(s);
+    this.camera.sensitivity = s.sensitivity;
+    this.camera.invertY = s.invertY;
+    this.camera.shakeScale = s.shake;
+    const hud = document.querySelector('.hud') as HTMLElement | null;
+    hud?.classList.toggle('no-subs', !s.subtitles);
+    hud?.style.setProperty('--sub-scale', String(s.subtitleSize));
+  }
+
+  /** Progress: the chapter and beat a Continue resumes from (not in tests). */
+  saveProgress(chapter: number, beat: string): void {
+    if (this.testMode) return;
+    void import('@/ui/menu').then((m) => m.saves.set(chapter, beat));
+  }
+
+  private openPause(): void {
+    if (this.paused) return;
+    this.paused = true;
+    if (document.pointerLockElement) document.exitPointerLock();
+    void import('@/ui/menu').then((m) => m.pauseMenu({
+      resume: () => { this.paused = false; this.input.lock(); },
+      restart: () => { this.paused = false; this.respawn(); this.input.lock(); },
+      quit: () => { location.href = location.pathname; },
+      apply: (st) => this.applySettings(st),
+    }));
   }
 
   respawn(): void {

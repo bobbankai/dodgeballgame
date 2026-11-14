@@ -20,7 +20,11 @@ type Beat = (typeof CH1_BEATS)[number];
 
 export async function chapter1(g: Game, ch: ChapterRuntime, at: string | null = null): Promise<void> {
   const from = Math.max(0, CH1_BEATS.indexOf((at ?? 'wake') as Beat));
-  const play = (b: Beat) => CH1_BEATS.indexOf(b) >= from;
+  const play = (b: Beat) => {
+    const on = CH1_BEATS.indexOf(b) >= from;
+    if (on) g.saveProgress(1, b); // Continue resumes at the last beat reached
+    return on;
+  };
   const dir = new Director(g);
   if (from > 0) ch.jumpTo(({ corridor: 's1_exit', checkpoint: 'cp_s3', lab: 'cp_s4', servers: 'cp_s5', engine: 'cp_s6', lift: 'sentinel', surface: 'cp_s8' } as const)[CH1_BEATS[from] as Exclude<Beat, 'wake'>]);
 

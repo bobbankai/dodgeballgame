@@ -35,6 +35,9 @@ export class CameraRig {
   height = 1.6;
   fov = 58;
   sensitivity = 1;
+  invertY = false;
+  /** accessibility: scales every camera shake (0 = off) */
+  shakeScale = 1;
   lock: LockTarget | null = null;
   /** extra framing offset for bosses (m) */
   bossFraming = 0;
@@ -70,7 +73,7 @@ export class CameraRig {
   }
 
   addShake(amount: number): void {
-    this.trauma = Math.min(1, this.trauma + amount);
+    this.trauma = Math.min(1, this.trauma + amount * this.shakeScale);
   }
 
   cinematic(shot: CinematicShot | null, blendTime = 0): void {
@@ -104,7 +107,7 @@ export class CameraRig {
     // --- orbit input
     if (!this.lock) {
       this.yaw -= look.dx * 0.0024 * this.sensitivity;
-      this.pitch = THREE.MathUtils.clamp(this.pitch + look.dy * 0.0021 * this.sensitivity, -0.55, 1.15);
+      this.pitch = THREE.MathUtils.clamp(this.pitch + look.dy * 0.0021 * this.sensitivity * (this.invertY ? -1 : 1), -0.55, 1.15);
     }
 
     // --- pivot: damped follow so footsteps and steps do not jitter the view

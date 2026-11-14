@@ -19,11 +19,27 @@ export class Sfx implements SfxApi {
   private t0 = performance.now();
   private bed: string | null = null;
 
+  private volumes = { master: 0.9, music: 0.7, sfx: 0.9, voice: 1.0 };
+
+  /** Player volume settings (0..1 each), applied now and whenever the context starts. */
+  setVolumes(v: { master: number; music: number; sfx: number; voice: number }): void {
+    this.volumes = { ...v };
+    const e = this.engine;
+    if (!e.ctx) return;
+    const t = e.ctx.currentTime;
+    e.master.gain.setTargetAtTime(0.85 * v.master, t, 0.05);
+    e.music.gain.setTargetAtTime(0.42 * v.music / 0.7, t, 0.05);
+    e.sfx.gain.setTargetAtTime(0.9 * v.sfx / 0.9, t, 0.05);
+    e.amb.gain.setTargetAtTime(0.5 * v.sfx / 0.9, t, 0.05);
+    e.voice.gain.setTargetAtTime(v.voice, t, 0.05);
+  }
+
   /** First user gesture: start the audio context, the score and the current ambience. */
   unlock(): void {
     const first = !this.engine.ctx;
     this.engine.unlock();
     if (first && this.engine.ctx) {
+      this.setVolumes(this.volumes);
       this.score.start();
       if (this.bed) { const b = this.bed; this.bed = null; this.ambience(b); }
     }

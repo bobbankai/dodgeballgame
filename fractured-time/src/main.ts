@@ -1,4 +1,6 @@
 import '@/ui/hud.css';
+import '@/ui/menu.css';
+import { titleScreen, loadingScreen, settings } from '@/ui/menu';
 import { Game } from '@/game';
 import type { QualityName } from '@/rendering/quality';
 import { ScriptedControls } from '@/player/controls';
@@ -11,11 +13,23 @@ declare global {
 async function boot() {
   const qs = new URLSearchParams(location.search);
   const test = qs.has('test');
+  if (!test && !qs.has('chapter') && !qs.has('level') && !qs.has('arena')) {
+    // the front end: pick where to start, then load that chapter (a fresh page: every chapter starts from a clean GPU state)
+    const picking = titleScreen();
+    window.__ready = true;
+    const pick = await picking;
+    location.search = `?chapter=${pick.chapter}&at=${pick.at}`;
+    return;
+  }
+  const chapterN = qs.get('chapter');
+  const ld = chapterN && !test ? loadingScreen(Number(chapterN)) : null;
+  const st = settings.get();
   const canvas = document.createElement('canvas');
   canvas.id = 'game';
   document.body.appendChild(canvas);
-  const q = (qs.get('quality') as QualityName | null) ?? undefined;
-  const game = await Game.create(canvas, { quality: q, test });
+  const q = (qs.get('quality') as QualityName | null) ?? (test ? undefined : st.quality);
+  const game = await Game.create(canvas, { quality: q, test, onProgress: ld?.progress });
+  if (!test) game.applySettings(st);
   window.__game = game;
 
   if (test) {
@@ -28,6 +42,18 @@ async function boot() {
     game.loop.start();
     game.runScript();
     window.__ready = true;
+    return;
+  }
+  if (ld) {
+    ld.progress(1);
+    game.frame(1, 1 / 60);
+    window.__ready = true;
+    await ld.ready();
+    ld.done();
+    game.sfx.unlock();
+    game.applySettings(st);
+    game.input.lock();
+    game.start();
     return;
   }
   const start = document.createElement('div');

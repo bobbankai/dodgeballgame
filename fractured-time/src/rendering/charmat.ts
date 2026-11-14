@@ -47,6 +47,10 @@ export function tex(path: string, srgb: boolean, flipY = true): THREE.Texture {
 
 export interface Recipe { type: string; [k: string]: any }
 
+/** Hair shell layers allowed by the quality preset (shells are the most fragment-heavy thing on a character close up). */
+let shellCap = 24;
+export function setHairShellCap(n: number): void { shellCap = n; }
+
 function skin(r: Recipe, old: THREE.MeshStandardMaterial): THREE.Material {
   // Dual-lobe skin, as in production real-time skin shading:
   //   base lobe : the smooth surface normal (diffuse wraps softly over the face; no pore noise in the shading), broad specular
@@ -67,7 +71,7 @@ function skin(r: Recipe, old: THREE.MeshStandardMaterial): THREE.Material {
     notScalp = smoothstep(0.97, 0.9, rough);
   }
   m.roughnessNode = rough.add(cavity.oneMinus().mul(0.6)).clamp(0.3, 1.0);
-  (m as any).specularIntensityNode = float(0.36).mul(notScalp);
+  (m as any).specularIntensityNode = float(r.spec ?? 0.36).mul(notScalp); // per character (oilier / drier skin)
   m.metalness = 0;
   // oily lobe: a little oilier where the bake made the skin smoother (T-zone), none on the scalp
   (m as any).clearcoatNode = smoothstep(0.72, 0.5, rough).mul(0.08).add(0.035).mul(notScalp);
@@ -288,7 +292,7 @@ export function dressCharacter(root: THREE.Object3D, opts: { hide?: string[] } =
         else if (r.type === 'hairshell') {
           made = hairShellMaterial({ color: r.color ?? [0.018, 0.013, 0.011], maxLen: r.maxLen, strandSpacing: r.strandSpacing,
             coilRadius: r.coilRadius, coilTurns: r.coilTurns });
-          mesh.geometry = stackShells(mesh.geometry, r.shells ?? 24);
+          mesh.geometry = stackShells(mesh.geometry, Math.min(r.shells ?? 24, shellCap));
         }
       } else {
         // MakeHuman brows/lashes (alpha cards) and nails (opaque, kept as exported)
