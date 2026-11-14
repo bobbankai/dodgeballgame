@@ -2,6 +2,7 @@ import * as THREE from 'three/webgpu';
 import type { Game } from '@/game';
 import { loadLevel, captureProbe, type Marker, type LoadedLevel } from '@/world/level';
 import { LightPool } from '@/world/lightpool';
+import { ProbeField, CharacterLight } from '@/world/probes';
 import { timeScale } from '@/core/loop';
 import { G } from '@/physics/physics';
 
@@ -74,6 +75,9 @@ export class ChapterRuntime {
   sections: { path: string; lv: LoadedLevel; box: THREE.Box3; inScene: boolean; probe: THREE.Texture | null }[] = [];
   current = -1;
   readonly pool: LightPool;
+  /** baked SH light probes of every section; each character carries its own blended probe */
+  readonly probes = new ProbeField();
+  private charLights = new WeakMap<THREE.Object3D, CharacterLight>();
 
   constructor(readonly g: Game) {
     this.pool = new LightPool(g.scene);
@@ -86,6 +90,7 @@ export class ChapterRuntime {
     lv.root.updateMatrixWorld(true);
     const box = new THREE.Box3().setFromObject(lv.root).expandByScalar(0.5);
     this.sections.push({ path, lv, box, inScene: false, probe: null });
+    await this.probes.load(path.replace(/\.glb$/, '_probes.json'), this.sections.length - 1, box);
     this.pool.add(lv.lightDefs);
     const ms = lv.markers;
     this.markers.push(...ms);
@@ -137,6 +142,18 @@ export class ChapterRuntime {
 
   objective(text: string): void { this.g.hud.setObjective(text); }
 
+  /** Dev / test: place Ethan at a marker (checkpoint, trigger or boss) and make it the checkpoint, as if he had walked there. */
+  jumpTo(id: string): void {
+    const m = this.byId(id);
+    if (!m) return;
+    const pos = m.pos.clone();
+    pos.y = Math.max(pos.y, 0) + 0.05;
+    if (m.name === 'boss') pos.z += 6;
+    this.g.setCheckpoint(pos, m.yaw);
+    this.g.respawn();
+    this.stream(pos);
+  }
+
   checkpoint(id: string): void {
     const m = this.byId(id);
     if (m) this.g.setCheckpoint(m.pos, m.yaw);
@@ -152,29 +169,47 @@ export class ChapterRuntime {
     while (!spawned.every((e) => !e.alive)) await this.g.wait(0.25);
   }
 
-  /** Boss encounter at a 'boss' marker: spawns the boss definition (falls back to the heavy guard while its model is in production). */
-  async boss(id: string): Promise<void> {
+  /** Spawn the boss at its 'boss' marker (dormant until the script wakes it; falls back to the heavy guard for unbuilt bosses). */
+  async spawnBoss(id: string): Promise<{ alive: boolean; wake?: () => void; dormant?: boolean; pos: THREE.Vector3; root: THREE.Object3D }> {
     const m = this.byId(id);
-    if (!m) return;
-    let b: { alive: boolean };
+    if (!m) throw new Error(`boss marker ${id} missing`);
     if (id === 'sentinel') {
       const { SentinelBoss } = await import('@/bosses/sentinel');
       const s = await SentinelBoss.create(this.g, m.pos.clone(), m.yaw);
+      s.dormant = true;
       this.g.enemies.push(s);
       this.g.scene.add(s.root);
-      b = s;
-    } else {
-      b = await this.g.spawnEnemy({ def: 'heavy', pos: m.pos.clone(), yaw: m.yaw });
+      return s;
     }
-    while (b.alive) await this.g.wait(0.25);
+    return this.g.spawnEnemy({ def: 'heavy', pos: m.pos.clone(), yaw: m.yaw }) as any;
+  }
+
+  /** Resolve once `cond` holds (checked on game time). */
+  async until(cond: () => boolean, every = 0.25): Promise<void> {
+    while (!cond()) await this.g.wait(every);
+  }
+
+  /** Boss encounter with no cinematic: spawn, wake, fight to the end. */
+  async boss(id: string): Promise<void> {
+    const b = await this.spawnBoss(id);
+    b.wake?.();
+    await this.until(() => !b.alive);
+  }
+
+  /** A camera marker (Blender: location + target) in three space. */
+  cameraKey(id: string, fov = 45): { pos: THREE.Vector3; target: THREE.Vector3; fov: number } {
+    const m = this.byId(id);
+    if (!m) throw new Error(`camera ${id} missing`);
+    const t = parse(m.data.target) as number[];
+    return { pos: m.pos.clone(), target: b2t(t), fov };
   }
 
   /** Dialogue lines [who, text, seconds?]: subtitles in sequence (voiced lines play through the audio system when present). */
   async say(lines: [string, string, number?][]): Promise<void> {
     for (const [who, text, sec] of lines) {
-      const t = sec ?? Math.max(2.2, text.length * 0.065);
+      const t = (sec ?? Math.max(2.2, text.length * 0.065)) * this.g.dialogueRate;
       this.g.hud.showSubtitle(who, text, t);
-      await this.g.wait(t + 0.25);
+      await this.g.wait(t + 0.25 * this.g.dialogueRate);
     }
   }
 
@@ -204,9 +239,24 @@ export class ChapterRuntime {
     this.g.scene.environment = cur.probe;
   }
 
+  /** Characters: their own SH probe from the baked field (at chest height) + the real-time pool. */
+  private lightCharacters(dt: number): void {
+    if (!this.probes.size) return;
+    const shared = [...this.pool.rects, ...this.pool.points];
+    const at = new THREE.Vector3();
+    for (const a of [this.g.player, ...this.g.enemies, ...this.g.echoes]) {
+      const root = (a as any).root as THREE.Object3D | undefined;
+      if (!root) continue;
+      let cl = this.charLights.get(root);
+      if (!cl) { cl = new CharacterLight(root, shared); this.charLights.set(root, cl); }
+      cl.update(this.probes, at.copy(a.pos).setY(a.pos.y + 1.1), dt);
+    }
+  }
+
   tick(dt: number): void {
     this.stream(this.g.player.pos);
     this.pool.update(this.g.player.pos);
+    this.lightCharacters(dt);
     for (const d of this.doors.values()) d.tick(dt);
     // interaction prompt: nearest unused interactable within reach and roughly in front
     const p = this.g.player;

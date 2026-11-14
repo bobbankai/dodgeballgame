@@ -473,6 +473,103 @@ def bake_lightmap(ob, path, size=2048, samples=128):
     return img
 
 
+def probe_points(objs, spacing=2.0, heights=(1.1,), clearance=0.25):
+    """Light probe positions over the floor of a section: a grid inside its static bounds, kept only where the point is in open air
+    (a floor below, something above, no surface within `clearance`, not inside a closed solid)."""
+    sc = bpy.context.scene
+    dg = bpy.context.evaluated_depsgraph_get()
+    lo = np.full(3, np.inf)
+    hi = np.full(3, -np.inf)
+    for ob in objs:
+        for c in ob.bound_box:
+            w = np.array(ob.matrix_world @ Vector(c))
+            lo, hi = np.minimum(lo, w), np.maximum(hi, w)
+    dirs = [Vector(d).normalized() for d in ((1, 0, 0), (-1, 0, 0), (0, 1, 0), (0, -1, 0), (0, 0, 1), (0, 0, -1),
+                                             (1, 1, 0), (1, -1, 0), (-1, 1, 0), (-1, -1, 0), (1, 0, 1), (-1, 0, 1), (0, 1, 1), (0, -1, 1))]
+    pts = []
+    nx = max(1, int(round((hi[0] - lo[0]) / spacing)))
+    ny = max(1, int(round((hi[1] - lo[1]) / spacing)))
+    for i in range(nx):
+        for j in range(ny):
+            for z in heights:
+                # cell centres (never on the bounding walls); a narrow corridor still gets a row down its middle
+                p = Vector((lo[0] + (hi[0] - lo[0]) * (i + 0.5) / nx, lo[1] + (hi[1] - lo[1]) * (j + 0.5) / ny, z))
+                ok = True
+                for d in dirs:
+                    hit, loc, nrm, _i, ob, _m = sc.ray_cast(dg, p, d, distance=40.0)
+                    if not hit:
+                        if d.z <= 0:
+                            ok = False  # open below or sideways: outside the level
+                        continue
+                    if nrm.dot(d) > 0 or (loc - p).length < clearance:
+                        ok = False  # inside a solid, or hugging a surface
+                    if not ok:
+                        break
+                if ok:
+                    pts.append(p)
+    return pts
+
+
+def bake_probes(points, path, res=16, samples=48):
+    """Cycles renders the six cube faces at every probe point; the radiance is projected onto 9 SH coefficients (three.js convention:
+    radiance SH, axes already in three space). Characters are lit by these, the same light as the lightmaps."""
+    sc = bpy.context.scene
+    old = (sc.camera, sc.render.resolution_x, sc.render.resolution_y, sc.render.filepath, sc.cycles.samples, sc.cycles.use_denoising,
+           sc.view_settings.view_transform)
+    cam = bpy.data.objects.new('probecam', bpy.data.cameras.new('probecam'))
+    sc.collection.objects.link(cam)
+    cam.data.angle = math.pi / 2
+    cam.data.clip_start = 0.02
+    sc.camera = cam
+    sc.render.resolution_x = sc.render.resolution_y = res
+    sc.render.resolution_percentage = 100
+    sc.cycles.samples = samples
+    sc.cycles.use_denoising = False
+    sc.render.use_persistent_data = True
+    sc.view_settings.view_transform = 'Standard'
+    sc.render.image_settings.file_format = 'OPEN_EXR'
+    sc.render.image_settings.color_depth = '32'
+    tmp = os.path.join(os.path.dirname(path), '_probe_face.exr')
+    faces = [((1, 0, 0), (0, 0, 1)), ((-1, 0, 0), (0, 0, 1)), ((0, 1, 0), (0, 0, 1)), ((0, -1, 0), (0, 0, 1)), ((0, 0, 1), (0, -1, 0)),
+             ((0, 0, -1), (0, 1, 0))]
+    # per-pixel directions (camera space) and solid angles, shared by every face
+    t = (np.arange(res) + 0.5) / res * 2 - 1
+    X, Y = np.meshgrid(t, t)  # Y: rows from the bottom (Blender pixel order)
+    L = np.sqrt(X * X + Y * Y + 1)
+    dw = (2.0 / res) ** 2 / L ** 3
+    out = []
+    for p in points:
+        sh = np.zeros((9, 3))
+        for f, u in faces:
+            f, u = np.array(f, float), np.array(u, float)
+            zl = -f
+            xl = np.cross(u, zl)
+            cam.matrix_world = Matrix.Translation(p) @ Matrix(((xl[0], u[0], zl[0], 0), (xl[1], u[1], zl[1], 0), (xl[2], u[2], zl[2], 0),
+                                                               (0, 0, 0, 1)))
+            sc.render.filepath = tmp
+            bpy.ops.render.render(write_still=True)
+            img = bpy.data.images.load(tmp)
+            px = np.array(img.pixels[:], dtype=np.float64).reshape(res, res, 4)[..., :3]
+            bpy.data.images.remove(img)
+            d = (f[None, None] + X[..., None] * xl[None, None] + Y[..., None] * u[None, None]) / L[..., None]
+            x3, y3, z3 = d[..., 0], d[..., 2], -d[..., 1]  # Blender -> three axes
+            basis = [np.full_like(x3, 0.282095), 0.488603 * y3, 0.488603 * z3, 0.488603 * x3, 1.092548 * x3 * y3, 1.092548 * y3 * z3,
+                     0.315392 * (3 * z3 * z3 - 1), 1.092548 * x3 * z3, 0.546274 * (x3 * x3 - y3 * y3)]
+            for k in range(9):
+                sh[k] += ((basis[k] * dw)[..., None] * px).sum((0, 1))
+        out.append({'p': [round(p.x, 3), round(p.z, 3), round(-p.y, 3)], 'sh': np.round(sh, 5).tolist()})
+    if os.path.exists(tmp):
+        os.remove(tmp)
+    bpy.data.objects.remove(cam)
+    (sc.camera, sc.render.resolution_x, sc.render.resolution_y, sc.render.filepath, sc.cycles.samples, sc.cycles.use_denoising,
+     sc.view_settings.view_transform) = old
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, 'w') as fh:
+        json.dump({'probes': out}, fh)
+    print('PROBES', path, len(out))
+    return out
+
+
 def copy_textures():
     """1k JPEG copies of every PBR set in use (the engine loads them by recipe)."""
     texroot = os.path.join(PUB, 'textures', 'pbr')

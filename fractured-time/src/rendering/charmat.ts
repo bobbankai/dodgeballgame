@@ -99,22 +99,34 @@ export function pbr(r: Recipe): THREE.MeshPhysicalNodeMaterial {
   return m;
 }
 
-export function armour(r: Recipe): THREE.MeshPhysicalNodeMaterial {
+export function armour(r: Recipe, masks = false): THREE.MeshPhysicalNodeMaterial {
   const m = new THREE.MeshPhysicalNodeMaterial();
   const p = positionGeometry; // rest pose: the pattern sticks to the plate while it moves
   const k = r.grooves ?? 9;
-  // aligned machined grooves: horizontal bands every ~1/k m, plus a vertical centre seam
-  const gy = abs(fract(p.y.mul(k)).sub(0.5));
-  const gx = abs(p.x);
-  const groove = smoothstep(0.47, 0.49, gy).max(float(1).sub(smoothstep(0.002, 0.0045, gx)));
-  // screen-space curvature -> worn, lighter edges
-  const curv = length(fwidth(normalView)).div(length(fwidth(positionView)).max(1e-5)).mul(0.004).clamp(0, 1);
+  // aligned machined grooves: horizontal bands every ~1/k m, plus a vertical centre seam (k = 0: the mesh carries real carved seams)
+  const groove = k > 0 ? smoothstep(0.47, 0.49, abs(fract(p.y.mul(k)).sub(0.5))).max(float(1).sub(smoothstep(0.002, 0.0045, abs(p.x)))) : float(0);
   const n = mx_fractal_noise_float(p.mul(120.0), 3, 2.0, 0.5).mul(0.5).add(0.5);
+  const big = mx_fractal_noise_float(p.mul(3.0), 3, 2.0, 0.5).mul(0.5).add(0.5); // large-scale paint fade / dirt variation
   const b = r.base, e = r.edge;
-  const wear = smoothstep(0.35, 0.9, curv).mul(n).mul(float(r.wear ?? 0.5).mul(1.6)).clamp(0, 1);
-  m.colorNode = mix(vec3(b[0], b[1], b[2]), vec3(e[0], e[1], e[2]), wear).mul(float(1).sub(groove.mul(0.65)));
-  m.roughnessNode = float(r.rough ?? 0.42).add(n.sub(0.5).mul(0.25)).add(groove.mul(0.2)).clamp(0.08, 1);
-  m.metalness = 0.05;
+  let edge: any, ao: any;
+  if (masks) {
+    // baked in Blender (GAME colour): R = ambient occlusion, G = convexity of the surface (sharp outer edges)
+    const c = T.attribute('color', 'vec4');
+    ao = c.r;
+    edge = smoothstep(0.2, 0.75, c.g);
+  } else {
+    // screen-space curvature fallback -> worn, lighter edges
+    edge = smoothstep(0.35, 0.9, length(fwidth(normalView)).div(length(fwidth(positionView)).max(1e-5)).mul(0.004).clamp(0, 1));
+    ao = float(1);
+  }
+  const wear = edge.mul(n.mul(0.7).add(0.3)).mul(float(r.wear ?? 0.5).mul(1.6)).clamp(0, 1);
+  // grime settles where the occlusion is: darker, rougher crevices; paint slightly uneven over large areas
+  const grime = float(1).sub(ao).mul(big.mul(0.6).add(0.7)).clamp(0, 1);
+  const paint = vec3(b[0], b[1], b[2]).mul(big.mul(0.25).add(0.85));
+  m.colorNode = mix(paint, vec3(e[0], e[1], e[2]), wear).mul(float(1).sub(groove.mul(0.65))).mul(float(1).sub(grime.mul(0.55)));
+  m.roughnessNode = float(r.rough ?? 0.42).add(n.sub(0.5).mul(0.25)).add(groove.mul(0.2)).add(grime.mul(0.25)).sub(wear.mul(0.15)).clamp(0.08, 1);
+  m.metalnessNode = wear.mul(0.85).add(0.03); // worn edges are bare metal
+  if (masks) m.aoNode = ao.mul(0.85).add(0.15);
   m.clearcoat = r.coat ?? 0.15;
   m.clearcoatRoughness = 0.3;
   return m;
@@ -246,7 +258,7 @@ export function dressCharacter(root: THREE.Object3D, opts: { hide?: string[] } =
         type = r.type;
         if (r.type === 'skin') made = skin(r, old as THREE.MeshStandardMaterial);
         else if (r.type === 'pbr') made = pbr(r);
-        else if (r.type === 'armour') made = armour(r);
+        else if (r.type === 'armour') made = armour(r, hasAO);
         else if (r.type === 'emissive') made = emissive(r);
         else if (r.type === 'hair') made = hair(r);
         else if (r.type === 'cornea') made = cornea();

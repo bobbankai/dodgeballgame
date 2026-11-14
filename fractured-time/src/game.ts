@@ -66,9 +66,15 @@ export class Game implements Simulation, GameCtx {
   private tokensHeld = new Set<Actor>();
   /** test hook: use the nearest interactable this tick */
   forceInteract = false;
+  /** dialogue duration scale (tests: `?fast` shortens every line so a whole chapter can be stepped) */
+  dialogueRate = 1;
   private playerSlowUntil = 0;
   slowPlayer(seconds: number): void { this.playerSlowUntil = this.time + seconds; this.post.u.slow.value = 0.6; }
   chapter: { tick(dt: number): void } | null = null;
+  /** per-tick callbacks on game time (cinematic rails, scripted sequences) */
+  tickers = new Set<(dt: number) => void>();
+  /** depth-of-field focus override (m) while a cinematic pulls focus */
+  focusOverride: number | null = null;
   startScript: (() => Promise<void>) | null = null;
 
   private timers: { at: number; resolve: () => void }[] = [];
@@ -125,7 +131,8 @@ export class Game implements Simulation, GameCtx {
       g.level = { spawn: sp ? sp.pos.clone() : new THREE.Vector3(), yaw: sp ? sp.yaw : 0, enemies: [], objective: '' };
       g.scene.background = new THREE.Color(0x000000);
       ch.stream(g.level.spawn);
-      g.startScript = () => chapter1(g, ch);
+      if (g.testMode && qsp.has('fast')) g.dialogueRate = 0.15;
+      g.startScript = () => chapter1(g, ch, qsp.get('at'));
     } else if (levelPath) {
       // a baked level section: static surfaces lit by their lightmap, characters by real-time copies of the lights + a probe
       (THREE as any).RectAreaLightNode.setLTC(RectAreaLightTexturesLib.init());
@@ -234,6 +241,7 @@ export class Game implements Simulation, GameCtx {
       this.temporal.record(dt);
     }
     this.chapter?.tick(dt);
+    for (const f of this.tickers) f(dt);
 
     if (this.timers.length) {
       const due = this.timers.filter((t) => t.at <= this.time);
@@ -281,7 +289,8 @@ export class Game implements Simulation, GameCtx {
     u.hurt.value = Math.max(0, u.hurt.value - realDt * 1.1);
     const toCam = this.camera.camera.position.distanceTo(this.player.pos);
     const tgt = this.player.lockTarget ? this.camera.camera.position.distanceTo(this.player.lockTarget.pos) : toCam;
-    u.focus.value += (Math.min(tgt, toCam + 3) - u.focus.value) * Math.min(1, realDt * 6);
+    const want = this.focusOverride ?? Math.min(tgt, toCam + 3);
+    u.focus.value += (want - u.focus.value) * Math.min(1, realDt * 6);
     this.temporal.updateLook(realDt);
     this.vfx.update(this.camera.camera);
     const boss = this.enemies.find((e) => (e as Enemy).def.id.startsWith('boss')) as Enemy | undefined;

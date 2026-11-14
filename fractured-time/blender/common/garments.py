@@ -333,17 +333,32 @@ def armour(name, base=(0.09, 0.1, 0.11), rough=0.42, wear=0.6, edge=(0.28, 0.29,
     nt.links.new(rr.outputs['Value'], bsdf.inputs['Roughness'])
     bsdf.inputs['Coat Weight'].default_value = coat
     bsdf.inputs['Coat Roughness'].default_value = 0.25
-    # machined panel grooves: cells of a coarse Voronoi in object space become separate armour segments
-    vor = nt.nodes.new('ShaderNodeTexVoronoi')
-    vor.feature = 'DISTANCE_TO_EDGE'
-    vor.inputs['Scale'].default_value = grooves
-    nt.links.new(tc.outputs['Object'], vor.inputs['Vector'])
+    # machined panel grooves, the same pattern as the engine material (src/rendering/charmat.ts armour): horizontal bands every 1/k m
+    # (object Z = rest-pose height) and a vertical centre seam. D = distance to the nearest groove in band units.
+    def math(op, a=None, b=None):
+        n = nt.nodes.new('ShaderNodeMath')
+        n.operation = op
+        for i, v in enumerate((a, b)):
+            if v is None:
+                continue
+            if isinstance(v, (int, float)):
+                n.inputs[i].default_value = v
+            else:
+                nt.links.new(v, n.inputs[i])
+        return n.outputs[0]
+    sep = nt.nodes.new('ShaderNodeSeparateXYZ')
+    nt.links.new(tc.outputs['Object'], sep.inputs[0])
+    band = math('SUBTRACT', 0.5, math('ABSOLUTE', math('SUBTRACT', math('FRACT', math('MULTIPLY', sep.outputs['Z'], grooves)), 0.5)))
+    seam = math('MULTIPLY', math('ABSOLUTE', sep.outputs['X']), 6.0)
     gm = nt.nodes.new('ShaderNodeMapRange')
-    gm.inputs['From Min'].default_value = 0.012
-    gm.inputs['From Max'].default_value = 0.028
+    gm.inputs['From Min'].default_value = 0.01
+    gm.inputs['From Max'].default_value = 0.03
     gm.inputs['To Min'].default_value = 0.0
     gm.inputs['To Max'].default_value = 1.0
-    nt.links.new(vor.outputs['Distance'], gm.inputs['Value'])
+    if grooves > 0:
+        nt.links.new(math('MINIMUM', band, seam), gm.inputs['Value'])
+    else:
+        gm.inputs['Value'].default_value = 1.0  # no procedural grooves (the mesh has carved seams)
     dark = nt.nodes.new('ShaderNodeMix')
     dark.data_type = 'RGBA'
     dark.blend_type = 'MULTIPLY'

@@ -6,6 +6,7 @@ import { loadGLTF } from '@/assets/loader';
 import { dressCharacter, texturesReady } from '@/rendering/charmat';
 import { timeScale } from '@/core/loop';
 import { G } from '@/physics/physics';
+import { vec3, float, sin, time } from 'three/tsl';
 
 /**
  * SENTINEL A-07 (Chapter 1 boss). A rigid machine animated procedurally: every joint (hover, torso, head, shoulders, arms, forearms,
@@ -17,8 +18,8 @@ import { G } from '@/physics/physics';
  */
 type Pose = Record<string, [number, number, number]>; // node -> euler (rad) in three space
 
-const P_IDLE: Pose = { torso: [0.05, 0, 0], head: [0, 0, 0], shoulder_l: [0, 0, -0.12], shoulder_r: [0, 0, 0.12], arm_l: [0, 0, 0], arm_r: [0, 0, 0],
-  forearm_l: [-0.5, 0, 0], forearm_r: [-0.5, 0, 0] };
+const P_IDLE: Pose = { torso: [0.05, 0, 0], head: [0, 0, 0], shoulder_l: [0, 0, -0.08], shoulder_r: [0, 0, 0.08], arm_l: [0, 0, 0], arm_r: [0, 0, 0],
+  forearm_l: [-0.18, 0, 0], forearm_r: [-0.18, 0, 0] };
 const P_SLAM_UP: Pose = { torso: [-0.25, 0, 0], head: [-0.15, 0, 0], shoulder_l: [-2.6, 0, -0.25], shoulder_r: [-2.6, 0, 0.25], forearm_l: [-0.9, 0, 0],
   forearm_r: [-0.9, 0, 0] };
 const P_SLAM_DOWN: Pose = { torso: [0.45, 0, 0], head: [0.2, 0, 0], shoulder_l: [-0.9, 0, -0.1], shoulder_r: [-0.9, 0, 0.1], forearm_l: [-0.1, 0, 0],
@@ -53,9 +54,13 @@ export class SentinelBoss extends Actor {
   private slamAt = new THREE.Vector3();
   private beamYaw = 0;
   private plates: { obj: THREE.Object3D; vel: THREE.Vector3; spin: THREE.Vector3 }[] = [];
-  private coreMat: THREE.MeshStandardNodeMaterial | null = null;
+  private coreMats: THREE.MeshStandardNodeMaterial[] = [];
   private bob = 0;
+  private hoverLow = 0;
   isCorpseExpired = false;
+  /** spawned asleep: `wake()` starts the fight (the intro cinematic times it) */
+  dormant = false;
+  wake(): void { this.dormant = false; this.stateT = 0; }
 
   static async create(ctx: GameCtx, pos: THREE.Vector3, yaw: number): Promise<SentinelBoss> {
     const g = await loadGLTF('bosses/sentinel/sentinel.glb');
@@ -67,7 +72,7 @@ export class SentinelBoss extends Actor {
     root.traverse((o) => {
       if (o.name) { b.nodes.set(o.name, o); b.rest.set(o.name, o.rotation.clone()); }
       const m = o as THREE.Mesh;
-      if (m.isMesh && /core/.test(m.name)) b.coreMat = m.material as THREE.MeshStandardNodeMaterial;
+      if (m.isMesh && /^(core|gravity_core)/.test(m.name) && !/cage/.test(m.name)) b.coreMats.push(m.material as THREE.MeshStandardNodeMaterial);
     });
     b.name = 'Sentinel A-07';
     b.maxHealth = b.health = 900;
@@ -121,7 +126,10 @@ export class SentinelBoss extends Actor {
 
     switch (this.state) {
       case 'intro':
-        this.setPose(this.stateT < 1.2 ? P_STAGGER : P_IDLE, 2);
+        // dormant (slumped, hover low) until the boss intro cinematic wakes it, then it rises and turns on Ethan
+        if (this.dormant) { this.stateT = 0; this.setPose(P_STAGGER, 2); break; }
+        this.setPose(this.stateT < 0.6 ? P_STAGGER : P_IDLE, 2);
+        this.faceYaw(want, d, 0.8);
         if (this.stateT > 2.4) this.enter('stalk');
         break;
       case 'stalk': {
@@ -248,13 +256,19 @@ export class SentinelBoss extends Actor {
       this.ctx.fx.hit(o.getWorldPosition(new THREE.Vector3()), out, { heavy: true, blocked: false, parried: false });
     }
     this.ctx.camera.addShake(0.8);
-    if (this.coreMat) (this.coreMat as any).emissiveNode = (THREE as any).TSL?.vec3?.(1, 0.2, 0.08) ?? (this.coreMat as any).emissiveNode;
+    // phase 2: the exposed core runs hot and red, pulsing faster
+    for (const m of this.coreMats) {
+      (m as any).emissiveNode = vec3(1.0, 0.16, 0.05).mul(float(5.0)).mul(sin(time.mul(5.0)).mul(0.25).add(0.85));
+      m.needsUpdate = true;
+    }
   }
 
   private animate(d: number): void {
     this.bob += d;
     const hover = this.node('hover');
-    if (hover) hover.position.y = 0.9 + Math.sin(this.bob * 1.7) * 0.06 + (this.state === 'stagger' || this.state === 'dead' ? -0.45 : 0);
+    const low = this.state === 'stagger' || this.state === 'dead' || this.dormant ? -0.45 : 0;
+    this.hoverLow += (low - this.hoverLow) * Math.min(1, d * 3);
+    if (hover) hover.position.y = 0.9 + Math.sin(this.bob * 1.7) * 0.06 * (this.dormant ? 0 : 1) + this.hoverLow;
     const k = 1 - Math.exp(-this.poseSpeed * d);
     for (const [n, e] of Object.entries(this.pose)) {
       const o = this.node(n);

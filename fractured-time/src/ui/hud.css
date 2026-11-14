@@ -39,3 +39,16 @@ canvas#game { position: fixed; inset: 0; width: 100%; height: 100%; display: blo
 .start { position: fixed; inset: 0; display: grid; place-items: center; background: radial-gradient(ellipse at center, rgba(8,18,26,0.55), rgba(0,0,0,0.9)); color: var(--ink); text-align: center; cursor: pointer; z-index: 10; }
 .start h1 { font-size: 54px; letter-spacing: 0.5em; margin: 0 0 8px 0.5em; font-weight: 300; }
 .start p { opacity: 0.7; letter-spacing: 0.3em; font-size: 13px; }
+
+/* cinematics: letterbox bars, fades, chapter title cards */
+.cine-bar { position: fixed; left: 0; right: 0; height: 0; background: #000; z-index: 20; transition: height 0.9s cubic-bezier(0.65, 0, 0.35, 1); pointer-events: none; }
+.cine-bar.top { top: 0; }
+.cine-bar.bottom { bottom: 0; }
+.cine .cine-bar { height: 11.5vh; }
+.hud.cine .hud-bars, .hud.cine .hud-abilities, .hud.cine .objective, .hud.cine .prompt, .hud.cine .boss { opacity: 0 !important; transition: opacity 0.4s; }
+.hud.cine .subtitle { bottom: 13.5vh; background: transparent; text-shadow: 0 1px 6px #000; }
+.cine-fade { position: fixed; inset: 0; background: #000; opacity: 0; z-index: 30; pointer-events: none; }
+.cine-title { position: fixed; inset: 0; z-index: 31; display: flex; flex-direction: column; align-items: center; justify-content: center; opacity: 0; pointer-events: none;
+  font-family: 'Inter', system-ui, sans-serif; color: #e8f6ff; text-transform: uppercase; letter-spacing: 0.5em; }
+.cine-title .t { font-size: 34px; font-weight: 300; }
+.cine-title .s { margin-top: 14px; font-size: 12px; letter-spacing: 0.4em; color: #5ad8ff; }

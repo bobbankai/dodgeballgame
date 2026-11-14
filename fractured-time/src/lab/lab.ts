@@ -70,7 +70,7 @@ async function main() {
   loader.setMeshoptDecoder(MeshoptDecoder);
   const name = qs.get('char') || 'ethan';
   const t0 = performance.now();
-  const gltf = await loader.loadAsync(assetUrl(`characters/${name}/${name}.glb`));
+  const gltf = await loader.loadAsync(assetUrl(qs.get('path') || `characters/${name}/${name}.glb`)); // ?path= any asset (bosses, props)
   out.loadMs = Math.round(performance.now() - t0);
   const root = gltf.scene;
   out.materials = dressCharacter(root, { hide: (qs.get('hide') || '').split(',').filter(Boolean) });

@@ -1,80 +1,163 @@
+import * as THREE from 'three/webgpu';
 import type { Game } from '@/game';
 import type { ChapterRuntime } from './runtime';
+import { Director } from '@/cinematics/director';
+
+const V = (x: number, y: number, z: number) => new THREE.Vector3(x, y, z);
 
 /**
  * CHAPTER 1: THE INCIDENT. HELIX Underground Research Facility, 2089, minutes after the first full Chronal Engine activation failed.
  * Ethan wakes in integration lab 01 with half his memory, fights his way past HELIX security, learns to slow time, finds the Engine and
  * the machine sent to guard it, and rides the freight lift to a surface that is no longer one city but several.
+ *
+ * The script is a list of beats. `?at=<beat>` (dev / tests) starts at a beat: earlier beats are skipped with their end state applied
+ * (doors, abilities) and Ethan is placed at the beat's checkpoint.
  */
 export const CH1_SECTIONS = ['s1', 's2', 's3', 's4', 's5', 's6', 's7'].map((s) => `environments/ch1/${s}.glb`);
+export const CH1_BEATS = ['wake', 'corridor', 'checkpoint', 'lab', 'servers', 'engine', 'lift'] as const;
+type Beat = (typeof CH1_BEATS)[number];
 
-export async function chapter1(g: Game, ch: ChapterRuntime): Promise<void> {
+export async function chapter1(g: Game, ch: ChapterRuntime, at: string | null = null): Promise<void> {
+  const from = Math.max(0, CH1_BEATS.indexOf((at ?? 'wake') as Beat));
+  const play = (b: Beat) => CH1_BEATS.indexOf(b) >= from;
+  const dir = new Director(g);
+  if (from > 0) ch.jumpTo(({ corridor: 's1_exit', checkpoint: 'cp_s3', lab: 'cp_s4', servers: 'cp_s5', engine: 'cp_s6', lift: 'sentinel' } as const)[CH1_BEATS[from] as Exclude<Beat, 'wake'>]);
+
   // --- integration lab: waking up ------------------------------------------------------------------------------------------
-  ch.objective('');
-  await g.wait(1.2);
-  await ch.say([
-    ['HELIX SYSTEM', 'Chronal integration interrupted. Subject: Vale, Ethan. Synchronisation sixty-one percent.'],
-    ['HELIX SYSTEM', 'Containment breach, sublevels four through nine. All personnel evacuate.'],
-    ['ETHAN', 'Where... where am I?'],
-  ]);
-  ch.objective('Override the lab door from a console');
-  await ch.interact('s1_console');
-  await ch.say([['HELIX SYSTEM', 'Override accepted. Door 01 released.'], ['ETHAN', 'Fine. Let us see how far this goes.']]);
-  ch.door('s1_door').open();
-  ch.objective('Find a way out');
+  if (play('wake')) {
+    ch.objective('');
+    // opening shot: black, the title, the camera sinks from the lab ceiling to Ethan on the integration pod
+    await dir.begin();
+    await dir.fade(1, 0.01);
+    const head = () => g.player.pos.clone().setY(g.player.pos.y + 1.6);
+    const p0 = g.player.pos;
+    dir.cut({ pos: V(p0.x + 2.4, 4.8, p0.z - 3.4), target: V(p0.x, p0.y + 0.4, p0.z), fov: 40 });
+    void dir.fade(0, 3.0);
+    const titled = dir.title('Fractured Time', 'Chapter One  \u00b7  The Incident', 5.0);
+    const lines = ch.say([
+      ['HELIX SYSTEM', 'Chronal integration interrupted. Subject: Vale, Ethan. Synchronisation sixty-one percent.'],
+      ['HELIX SYSTEM', 'Containment breach, sublevels four through nine. All personnel evacuate.'],
+    ]);
+    await dir.rail([
+      { pos: V(p0.x + 2.4, 4.8, p0.z - 3.4), target: V(p0.x, p0.y + 0.4, p0.z), fov: 40 },
+      { pos: V(p0.x + 2.0, 3.0, p0.z + 1.6), target: V(p0.x, p0.y + 1.2, p0.z), fov: 36 },
+      { pos: V(p0.x + 0.8, p0.y + 1.75, p0.z + 2.4), target: V(p0.x, p0.y + 1.6, p0.z), fov: 32 },
+    ], 9.0, { focusOn: head });
+    await Promise.all([titled, lines]);
+    await ch.say([['ETHAN', 'Where... where am I?']]);
+    await dir.end();
+    ch.objective('Override the lab door from a console');
+    await ch.interact('s1_console');
+    await ch.say([['HELIX SYSTEM', 'Override accepted. Door 01 released.'], ['ETHAN', 'Fine. Let us see how far this goes.']]);
+    ch.door('s1_door').open();
+    ch.objective('Find a way out');
+  }
 
   // --- service corridor: the first memory ------------------------------------------------------------------------------------
-  await ch.trigger('s1_exit');
-  ch.door('s1_door').close();
-  void ch.interact('memory_1').then(() => ch.say([
-    ['DIRECTOR VOSS', 'Volunteer seven. Mister Vale. You understand nobody can promise you come back the same man.', 4.2],
-    ['ETHAN', 'I understand. Someone has to go first.', 3.0],
-    ['ETHAN', 'That was me. I signed up for this?'],
-  ]));
-  await ch.trigger('s2_exit');
+  if (play('corridor')) {
+    await ch.trigger('s1_exit');
+    ch.door('s1_door').close();
+    void ch.interact('memory_1').then(() => ch.say([
+      ['DIRECTOR VOSS', 'Volunteer seven. Mister Vale. You understand nobody can promise you come back the same man.', 4.2],
+      ['ETHAN', 'I understand. Someone has to go first.', 3.0],
+      ['ETHAN', 'That was me. I signed up for this?'],
+    ]));
+    await ch.trigger('s2_exit');
+  }
 
   // --- security checkpoint: first fight (combat tutorial) ----------------------------------------------------------------------
-  ch.checkpoint('cp_s3');
-  await ch.trigger('s3_enter');
-  await ch.say([['COMMANDER NYX', 'All units, sublevel six. Volunteer seven is loose. Containment is your only priority.', 3.8]]);
-  ch.objective('Survive  [LMB light  RMB heavy  C dodge  Q block: block just before a hit to parry]');
-  await Promise.all([ch.fight('s3_fight'), ch.say([['HELIX TROOPER', 'Contact! Down on the floor, now!']])]);
-  await ch.say([['ETHAN', 'They are not here to help.']]);
+  if (play('checkpoint')) {
+    ch.checkpoint('cp_s3');
+    await ch.trigger('s3_enter');
+    await ch.say([['COMMANDER NYX', 'All units, sublevel six. Volunteer seven is loose. Containment is your only priority.', 3.8]]);
+    ch.objective('Survive  [LMB light  RMB heavy  C dodge  Q block: block just before a hit to parry]');
+    await Promise.all([ch.fight('s3_fight'), ch.say([['HELIX TROOPER', 'Contact! Down on the floor, now!']])]);
+    await ch.say([['ETHAN', 'They are not here to help.']]);
+    ch.objective('Keep moving');
+  }
   ch.door('s3_door').open();
-  ch.objective('Keep moving');
 
   // --- research lab: the anomaly and the cycling blast door (time slow) ---------------------------------------------------------
-  ch.checkpoint('cp_s4');
-  await ch.trigger('s4_enter');
+  if (play('lab')) {
+    ch.checkpoint('cp_s4');
+    await ch.trigger('s4_enter');
+    g.flags.set('ability_slow', true);
+    await ch.say([
+      ['HELIX SYSTEM', 'Warning. Localised temporal discontinuity in lab 04.'],
+      ['ETHAN', 'The ceiling came down... and stopped. It is just hanging there.'],
+    ]);
+    await ch.fight('s4_fight');
+    ch.objective('Get through the cycling blast door  [1] slow time');
+    await ch.say([['ETHAN', 'That door is cycling faster than anyone could move. Unless...'], ['HELIX SYSTEM', 'Subject chronal output rising.']]);
+  }
   g.flags.set('ability_slow', true);
-  await ch.say([
-    ['HELIX SYSTEM', 'Warning. Localised temporal discontinuity in lab 04.'],
-    ['ETHAN', 'The ceiling came down... and stopped. It is just hanging there.'],
-  ]);
-  await ch.fight('s4_fight');
-  ch.objective('Get through the cycling blast door  [1] slow time');
-  await ch.say([['ETHAN', 'That door is cycling faster than anyone could move. Unless...'], ['HELIX SYSTEM', 'Subject chronal output rising.']]);
 
   // --- server hall --------------------------------------------------------------------------------------------------------------
-  ch.checkpoint('cp_s5');
-  await ch.trigger('s5_enter');
-  ch.objective('Reach the core');
-  await Promise.all([ch.fight('s5_fight'), ch.say([['COMMANDER NYX', 'He is heading for the Engine. Seal the core and put him down.', 3.6]])]);
+  if (play('servers')) {
+    ch.checkpoint('cp_s5');
+    await ch.trigger('s5_enter');
+    ch.objective('Reach the core');
+    await Promise.all([ch.fight('s5_fight'), ch.say([['COMMANDER NYX', 'He is heading for the Engine. Seal the core and put him down.', 3.6]])]);
+  }
   ch.door('s5_door').open();
 
   // --- the Chronal Engine and Sentinel A-07 -------------------------------------------------------------------------------------
-  ch.checkpoint('cp_s6');
-  await ch.trigger('s6_enter');
-  await ch.say([
-    ['ETHAN', 'The Chronal Engine.'],
-    ['HELIX SYSTEM', 'Sentinel A-07 authorised. Neutralise the anomaly.'],
-  ]);
-  ch.objective('Defeat Sentinel A-07');
-  await ch.boss('sentinel');
+  if (play('engine')) {
+    ch.checkpoint('cp_s6');
+    const boss = await ch.spawnBoss('sentinel');
+    await ch.trigger('s6_enter');
+    // the Engine reveal (camera marker authored with the level), then the Sentinel waking
+    const b = boss as any;
+    b.yaw = Math.atan2(g.player.pos.x - boss.pos.x, g.player.pos.z - boss.pos.z);
+    await dir.begin();
+    const rev = ch.cameraKey('engine_reveal', 42);
+    const pp = g.player.pos.clone();
+    await Promise.all([
+      dir.rail([{ pos: V(pp.x - 0.9, pp.y + 1.8, pp.z - 1.8), target: V(pp.x, pp.y + 1.7, pp.z + 4), fov: 50 }, rev], 5.5),
+      ch.say([['ETHAN', 'The Chronal Engine.']]),
+    ]);
+    const bh = () => boss.pos.clone().setY(boss.pos.y + 2.4);
+    const side = V(boss.pos.x - pp.x, 0, boss.pos.z - pp.z).normalize();
+    const left = V(side.z, 0, -side.x);
+    const low0 = pp.clone().addScaledVector(left, 1.4).addScaledVector(side, 1.0).setY(pp.y + 0.55);
+    const low1 = pp.clone().addScaledVector(left, 0.9).addScaledVector(side, 3.2).setY(pp.y + 0.45);
+    const wake = dir.rail([{ pos: low0, target: bh(), fov: 38 }, { pos: low1, target: bh().setY(boss.pos.y + 2.9), fov: 30 }], 4.5, { focusOn: bh });
+    await g.wait(1.0);
+    boss.wake?.();
+    await ch.say([['HELIX SYSTEM', 'Sentinel A-07 authorised. Neutralise the anomaly.']]);
+    await wake;
+    await dir.end();
+    ch.objective('Defeat Sentinel A-07');
+    await ch.until(() => !boss.alive);
+    // the machine falls: a slow pass around the wreck
+    await g.wait(1.2);
+    await dir.begin();
+    const wreck = boss.pos.clone();
+    await dir.rail([
+      { pos: wreck.clone().add(V(4.5, 1.2, -3.0)), target: wreck.clone().add(V(0, 1.2, 0)), fov: 40 },
+      { pos: wreck.clone().add(V(3.0, 2.2, 4.0)), target: wreck.clone().add(V(0, 1.0, 0)), fov: 36 },
+    ], 4.0, { focusOn: () => wreck });
+    await dir.end();
+  }
+
+  // --- the freight lift ----------------------------------------------------------------------------------------------------------
   ch.objective('Take the freight lift to the surface');
   await ch.say([['ETHAN', 'Up. Whatever is up there cannot be worse than this.']]);
   await ch.interact('s7_lift');
   ch.objective('');
-  await ch.say([['ETHAN', '...or maybe it can.']]);
+  // the ride up: a low angle on Ethan under the lift lamps, the camera rising past him, out to white noise and the next chapter
+  await g.wait(0.6);
+  await dir.begin();
+  const e = g.player.pos.clone();
+  const up = dir.rail([
+    { pos: e.clone().add(V(-2.4, 0.5, 1.6)), target: e.clone().add(V(0, 1.7, 0)), fov: 38 },
+    { pos: e.clone().add(V(-1.6, 3.6, 1.2)), target: e.clone().add(V(0, 1.4, 0)), fov: 34 },
+    { pos: e.clone().add(V(-0.4, 7.5, 0.4)), target: e.clone().add(V(0, 0.6, 0)), fov: 30 },
+  ], 8.0, { focusOn: () => e.clone().setY(e.y + 1.6) });
+  g.camera.addShake(0.25);
+  await ch.say([['HELIX SYSTEM', 'Freight lift two. Ascending to surface level.'], ['ETHAN', '...or maybe it can.']]);
+  await up;
+  await dir.fade(1, 1.6);
+  await dir.title('Chapter Two', 'The Fractured District', 4.0);
   g.flags.set('chapter1_complete', true);
 }

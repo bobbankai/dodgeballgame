@@ -121,9 +121,12 @@ export class Player extends Actor {
 
   // --- main tick -----------------------------------------------------------------------------------------------
 
+  /** cinematics: the player's input is ignored (Ethan stands, the scene plays) */
+  locked = false;
+
   tick(dt: number): void {
     this.beginTick();
-    const frame = this.controls.next();
+    const frame = this.locked ? { dx: 0, dz: 0, sprint: false, held: [], pressed: [], switchTarget: 0 } : this.controls.next();
     this.lastFrame = frame;
     this.onRecord?.(frame);
     for (const a of frame.pressed) this.buf.set(a, this.ctx.time);

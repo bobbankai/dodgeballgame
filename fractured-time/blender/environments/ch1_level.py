@@ -274,6 +274,15 @@ def build(only=None):
     return built, M
 
 
+def probes(built, keys):
+    """Bake the character light probes of each section (no lightmap rebake needed: the probes render the scene directly)."""
+    for key in keys:
+        S = built[key]
+        heights = (1.1, 3.4) if key == 's6' else (1.1,)
+        pts = K.probe_points(S.static, spacing=3.0 if key == 's6' else 2.0, heights=heights)
+        K.bake_probes(pts, os.path.join(K.PUB, f'environments/ch1/{key}_probes.json'))
+
+
 def export(built, keys, samples):
     statics = {}
     for key in keys:
@@ -317,3 +326,5 @@ if __name__ == '__main__':
         bpy.ops.render.render(write_still=True)
     if '--export' in argv:
         export(built, keys, samples)
+    if '--probes' in argv:
+        probes(built, keys)
