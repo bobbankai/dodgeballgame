@@ -141,6 +141,7 @@ export class Game implements Simulation, GameCtx {
       const chapterMods: Record<string, () => Promise<{ SECTIONS: string[]; run: (g: Game, ch: any, at: string | null) => Promise<void> }>> = {
         '1': () => import('@/chapters/ch1'),
         '2': () => import('@/chapters/ch2'),
+        '3': () => import('@/chapters/ch3'),
       };
       const mod = await (chapterMods[chapterN] ?? chapterMods['1'])();
       const ch = new ChapterRuntime(g);
@@ -389,6 +390,7 @@ export class Game implements Simulation, GameCtx {
     this.vfx.update(this.camera.camera);
     const boss = this.enemies.find((e) => (e as Enemy).def.id.startsWith('boss')) as Enemy | undefined;
     this.hud.setBoss(boss ?? null);
+    this.hud.unlocked = (['slow', 'rewind', 'echo', 'shift'] as const).map((n) => this.temporal.unlocked(n));
     this.hud.update(realDt, this.player, this.camera.camera, innerWidth, innerHeight, this.temporal.readiness());
     if (this.testMode) this.hud.setDebug(`${this.gfx.backend}  state ${this.player.state}  ${this.player.anim.current}\nfps ${this.loop?.fps.toFixed(0)}  worldscale ${timeScale.world.toFixed(2)}`);
     // audio: the listener rides the camera; the score follows the fight

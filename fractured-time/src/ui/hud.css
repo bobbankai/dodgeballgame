@@ -79,3 +79,6 @@ kbd { display: inline-grid; place-items: center; min-width: 20px; height: 20px; 
 .ft-scan { position: absolute; inset: 0; background: repeating-linear-gradient(0deg, rgba(0,0,0,0.22) 0 1px, transparent 1px 3px); mix-blend-mode: multiply; }
 .ft-cap { position: absolute; left: 16px; bottom: 12px; font: 12px/1 'Courier New', monospace; color: rgba(200,255,220,0.85); letter-spacing: 0.08em; }
 .ft-rec { position: absolute; right: 16px; top: 12px; font: 12px/1 'Courier New', monospace; color: #ff4f4f; animation: pulse 1.2s steps(2) infinite; }
+
+.ability.locked { opacity: 0.15; filter: grayscale(1); }
+.ability.locked b::after { content: ''; }

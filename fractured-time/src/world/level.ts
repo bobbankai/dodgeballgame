@@ -19,7 +19,9 @@ const { texture, uv, float } = T;
  */
 export interface Marker { name: string; pos: THREE.Vector3; yaw: number; data: Record<string, unknown> }
 export interface LoadedLevel { root: THREE.Group; markers: Marker[]; staticMeshes: THREE.Mesh[]; dynamic: THREE.Object3D[]; lightDefs: LightDef[];
-  lightmaps: THREE.Texture[] }
+  lightmaps: THREE.Texture[];
+  /** Timeline Shift: objects and colliders that exist only in timeline 'a' or 'b' (Chapter 3's arcology) */
+  timeline: { a: { meshes: THREE.Object3D[]; colliders: unknown[] }; b: { meshes: THREE.Object3D[]; colliders: unknown[] } } }
 
 const hdr = new HDRLoader();
 
@@ -80,6 +82,7 @@ export async function loadLevel(path: string, physics: Physics | null, scene: TH
   const staticMeshes: THREE.Mesh[] = [];
   const dynamic: THREE.Object3D[] = [];
   const lmLoads: Promise<void>[] = [];
+  const timeline: LoadedLevel['timeline'] = { a: { meshes: [], colliders: [] }, b: { meshes: [], colliders: [] } };
   // this section's fixtures as real-time lights for the SPECULAR of its baked surfaces (kept out of the scene graph: characters use
   // the light pool instead), plus their definitions for the pool
   root.updateMatrixWorld(true);
@@ -115,7 +118,11 @@ export async function loadLevel(path: string, physics: Physics | null, scene: TH
     if (!mesh.isMesh) return;
     if (ud.collision) {
       mesh.visible = false;
-      if (physics) physics.addTrimesh(mesh.geometry, mesh.matrixWorld);
+      if (physics) {
+        const col = physics.addTrimesh(mesh.geometry, mesh.matrixWorld);
+        const tl = ud.timeline as 'a' | 'b' | undefined;
+        if (tl === 'a' || tl === 'b') timeline[tl].colliders.push(col);
+      }
       return;
     }
     const isDynamic = !!ud.dynamic;
@@ -124,6 +131,8 @@ export async function loadLevel(path: string, physics: Physics | null, scene: TH
       const holder = (o.parent && o.parent.userData?.dynamic) ? o.parent : o;
       if (!dynamic.includes(holder)) dynamic.push(holder);
     } else staticMeshes.push(mesh);
+    const tlm = ud.timeline as 'a' | 'b' | undefined;
+    if (tlm === 'a' || tlm === 'b') timeline[tlm].meshes.push(mesh);
     mesh.receiveShadow = true;
     mesh.castShadow = isDynamic;
     let lightMap: THREE.Texture | null = null;
@@ -180,7 +189,7 @@ export async function loadLevel(path: string, physics: Physics | null, scene: TH
   await Promise.all(lmLoads);
   await texturesReady();
   if (scene) scene.add(root);
-  return { root, markers, staticMeshes, dynamic, lightDefs, lightmaps };
+  return { root, markers, staticMeshes, dynamic, lightDefs, lightmaps, timeline };
 }
 
 /** Light markers (Blender area/point lights exported as empties) -> pool definitions. Blender W converted with one exposure factor. */

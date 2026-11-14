@@ -69,6 +69,8 @@ class Section:
     def __init__(self, name):
         self.name = name
         self.static = []
+        self.static_a = []
+        self.static_b = []
         self.collide = []
         self.markers = []
         self.coll = bpy.data.collections.new(name)
@@ -80,8 +82,13 @@ class Section:
         self.coll.objects.link(ob)
         return ob
 
-    def add(self, ob):
-        self.static.append(self.link(ob))
+    def add(self, ob, timeline=None):
+        """Static geometry; timeline 'a' / 'b' marks geometry that exists in only one of the two realities (Timeline Shift)."""
+        if timeline:
+            ob['timeline'] = timeline
+            getattr(self, f'static_{timeline}').append(self.link(ob))
+        else:
+            self.static.append(self.link(ob))
         return ob
 
 
@@ -641,6 +648,33 @@ def bake_probes(points, path, res=16, samples=48):
     return out
 
 
+def export_timeline_section(S, key, out_dir, prefix, samples, lm_size=2048):
+    """Export a section that may have Timeline Shift geometry: the shared static mesh and each timeline's mesh are joined and baked
+    separately (each timeline's lightmap is baked with the other timeline hidden), then exported together."""
+    parts = []
+    for tl, objs in ((None, S.static), ('a', S.static_a), ('b', S.static_b)):
+        if not objs:
+            continue
+        st = join(objs, f'{prefix}_{key}_static' + (f'_{tl}' if tl else ''))
+        if tl:
+            st['timeline'] = tl
+        finish_static(st)
+        parts.append((tl, st))
+    copy_textures()
+    for tl, st in parts:
+        # each timeline bakes with the other hidden; the shared structure bakes with neither (a desk that exists in one reality must
+        # not leave its shadow in the other)
+        other = [o for t2, o in parts if t2 and t2 != tl]
+        for o in other:
+            o.hide_render = True
+        lm_rel = f'{os.path.relpath(out_dir, PUB)}/{key}{"_" + tl if tl else ""}_lm.hdr'
+        bake_lightmap(st, os.path.join(PUB, lm_rel), size=lm_size, samples=samples)
+        st['lightmap'] = lm_rel
+        for o in other:
+            o.hide_render = False
+    return [st for _, st in parts]
+
+
 def copy_textures():
     """1k JPEG copies of every PBR set in use (the engine loads them by recipe)."""
     texroot = os.path.join(PUB, 'textures', 'pbr')
@@ -803,10 +837,12 @@ def marker(S, kind, loc, yaw=0.0, **data):
     return e
 
 
-def collide_box(S, name, size, loc):
+def collide_box(S, name, size, loc, timeline=None):
     o = box(f'col_{name}', size, loc, None, bevel=0.0)
     o['collision'] = True
     o.hide_render = True
+    if timeline:
+        o['timeline'] = timeline
     S.collide.append(S.link(o))
 
 

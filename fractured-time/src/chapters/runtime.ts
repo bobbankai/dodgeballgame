@@ -153,6 +153,21 @@ export class ChapterRuntime {
 
   constructor(readonly g: Game) {
     this.pool = new LightPool(g.scene);
+    // Timeline Shift: swap every section's timeline-tagged geometry and collision (state 0 = timeline a, 1 = b)
+    g.temporal.onShift((state) => this.setTimeline(state === 0 ? 'a' : 'b'));
+  }
+
+  timeline: 'a' | 'b' = 'a';
+  setTimeline(t: 'a' | 'b'): void {
+    this.timeline = t;
+    for (const s of this.sections) {
+      for (const k of ['a', 'b'] as const) {
+        const on = k === t;
+        for (const m of s.lv.timeline[k].meshes) m.visible = on;
+        for (const c of s.lv.timeline[k].colliders) (c as any).setEnabled?.(on);
+      }
+    }
+    this.g.post.u.fracture.value = 1; // the shift ripple
   }
 
   byId(id: string): Marker | undefined { return this.markers.find((m) => m.data.id === id); }
@@ -183,6 +198,11 @@ export class ChapterRuntime {
     }
     for (const m of ms.filter((x) => x.name === 'interact')) this.interactables.set(String(m.data.id), { m, used: false });
     for (const m of ms.filter((x) => x.name === 'anomaly')) this.anomalies.push({ pos: m.pos.clone() });
+    // a section loads in the current timeline
+    for (const k of ['a', 'b'] as const) {
+      for (const m of lv.timeline[k].meshes) m.visible = k === this.timeline;
+      for (const c of lv.timeline[k].colliders) (c as any).setEnabled?.(k === this.timeline);
+    }
     for (const m of ms.filter((x) => x.name === 'laser')) {
       this.lasers.push(new LaserSweep(this.g, String(m.data.id), m.pos.clone(), Number(m.data.width ?? 6), Number(m.data.height ?? 2.8),
         Number(m.data.sweep ?? 4), Number(m.data.period ?? 3), Number(m.data.phase ?? 0)));

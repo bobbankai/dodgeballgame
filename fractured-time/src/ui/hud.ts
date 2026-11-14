@@ -121,6 +121,8 @@ export class Hud {
     (this.bossWrap.querySelector('.trail') as HTMLElement | null)?.style.setProperty('width', `${this.bossTrail * 100}%`);
   }
   setDebug(text: string): void { this.stateEl.textContent = text; }
+  /** which ability slots the story has unlocked (slow, rewind, echo, shift) */
+  unlocked: boolean[] = [true, true, true, true];
   show(v: boolean): void { this.root.style.display = v ? '' : 'none'; }
 
   update(dt: number, player: Player, camera: THREE.Camera, w: number, h: number, abilityReady: boolean[]): void {
@@ -130,6 +132,7 @@ export class Hud {
     this.stamina.style.width = pct(player.stamina, 100);
     this.energy.style.width = pct(player.energy, 100);
     this.abilities.forEach((el, i) => el.classList.toggle('ready', abilityReady[i] ?? false));
+    this.abilities.forEach((el, i) => el.classList.toggle('locked', !(this.unlocked[i] ?? true)));
     this.abilities[0]?.classList.toggle('active', player.slowActive);
     this.root.classList.toggle('opening', player.openingActive);
     if (this.subTimer > 0) { this.subTimer -= dt; if (this.subTimer <= 0) this.subtitle.style.opacity = '0'; }

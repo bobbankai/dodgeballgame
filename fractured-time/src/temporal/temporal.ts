@@ -74,7 +74,14 @@ export class Temporal {
 
   // --- abilities -----------------------------------------------------------------------------------------------
 
+  /** Abilities unlock as the story teaches them (flags 'ability_<name>'); outside chapters (arena, tests) everything is open. */
+  unlocked(name: 'slow' | 'rewind' | 'echo' | 'shift'): boolean {
+    const g = this.g as any;
+    return !g.chapter || g.flags.get(`ability_${name}`) === true;
+  }
+
   activate(name: 'slow' | 'rewind' | 'echo' | 'shift'): void {
+    if (!this.unlocked(name) && !(name === 'slow' && this.slowActive)) { this.g.sfx.play('deny'); return; }
     this.attach();
     const p = this.g.player;
     switch (name) {
@@ -98,7 +105,9 @@ export class Temporal {
 
   readiness(): boolean[] {
     const e = this.g.player.energy;
-    return [e >= ABILITY_COST.slow || this.slowActive, e >= ABILITY_COST.rewind && this.history.length > 30, e >= ABILITY_COST.echo && this.frames.length > 40, e >= ABILITY_COST.shift];
+    const u = (n: 'slow' | 'rewind' | 'echo' | 'shift') => this.unlocked(n);
+    return [u('slow') && (e >= ABILITY_COST.slow || this.slowActive), u('rewind') && e >= ABILITY_COST.rewind && this.history.length > 30,
+      u('echo') && e >= ABILITY_COST.echo && this.frames.length > 40, u('shift') && e >= ABILITY_COST.shift];
   }
 
   // --- recording -----------------------------------------------------------------------------------------------
