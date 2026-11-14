@@ -286,7 +286,8 @@ export function dressCharacter(root: THREE.Object3D, opts: { hide?: string[] } =
         else if (r.type === 'eye') made = eye(old as THREE.MeshStandardMaterial, hasAO);
         else if (r.type === 'teeth') made = teeth(old as THREE.MeshStandardMaterial, hasAO);
         else if (r.type === 'hairshell') {
-          made = hairShellMaterial({ color: r.color ?? [0.018, 0.013, 0.011] });
+          made = hairShellMaterial({ color: r.color ?? [0.018, 0.013, 0.011], maxLen: r.maxLen, strandSpacing: r.strandSpacing,
+            coilRadius: r.coilRadius, coilTurns: r.coilTurns });
           mesh.geometry = stackShells(mesh.geometry, r.shells ?? 24);
         }
       } else {

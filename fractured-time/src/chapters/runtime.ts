@@ -3,6 +3,8 @@ import type { Game } from '@/game';
 import { loadLevel, captureProbe, type Marker, type LoadedLevel } from '@/world/level';
 import { LightPool } from '@/world/lightpool';
 import { ProbeField, CharacterLight } from '@/world/probes';
+import { HDRLoader } from 'three/addons/loaders/HDRLoader.js';
+import { assetUrl } from '@/rendering/charmat';
 import { timeScale } from '@/core/loop';
 import { G } from '@/physics/physics';
 
@@ -51,16 +53,39 @@ export class Door {
   tick(dt: number): void {
     const wdt = dt * timeScale.world; // doors live in the world's time (time slow slows them)
     if (this.state === 'cycling') {
-      // closed 1.6 s, snaps open 0.15 s, open 0.35 s, slams 0.12 s: too fast to pass at normal speed, easy with time slow
-      this.cycleT = (this.cycleT + wdt) % 2.22;
+      // closed 1.8 s, snaps open 0.08 s, open 0.1 s, slams 0.06 s: passable only for ~0.14 s at normal speed (crossing the frame takes
+      // ~0.13 s at a sprint, so it is a coin toss), ~0.55 s of Ethan's time with time slow (world x0.26)
+      const before = this.cycleT;
+      this.cycleT = (this.cycleT + wdt) % 2.04;
       const t = this.cycleT;
-      this.open01 = t < 1.6 ? 0 : t < 1.75 ? (t - 1.6) / 0.15 : t < 2.1 ? 1 : 1 - (t - 2.1) / 0.12;
+      if (before < 1.8 && t >= 1.8) this.g.sfx.play('door_open', { at: this.center, volume: 0.6, pitch: 1.6 });
+      if (before < 1.98 && t >= 1.98) this.g.sfx.play('door_slam', { at: this.center });
+      this.open01 = t < 1.8 ? 0 : t < 1.88 ? (t - 1.8) / 0.08 : t < 1.98 ? 1 : 1 - (t - 1.98) / 0.06;
     } else {
       const sp = this.target > this.open01 ? 1.6 : 2.4;
       this.open01 += Math.sign(this.target - this.open01) * Math.min(Math.abs(this.target - this.open01), wdt * sp);
     }
     for (const l of this.leaves) l.obj.position.copy(l.base).addScaledVector(l.slide, this.open01);
-    this.block(this.open01 < 0.72);
+    const closing = this.open01 < 0.72;
+    if (closing && !this.collider) this.crush();
+    this.block(closing);
+  }
+
+  /** The leaves are closing on Ethan: shove him out of the frame (to the side he is nearer) and hurt him; never trap him inside. */
+  private crush(): void {
+    const p = this.g.player;
+    const along = this.horiz ? p.pos.x - this.center.x : p.pos.z - this.center.z;
+    const across = this.horiz ? p.pos.z - this.center.z : p.pos.x - this.center.x;
+    if (Math.abs(along) > this.width / 2 + 0.3 || Math.abs(across) > 0.55) return;
+    const out = Math.sign(across || 1) * 0.75;
+    const to = p.pos.clone();
+    if (this.horiz) to.z = this.center.z + out; else to.x = this.center.x + out;
+    (this.g.physics as any).teleport(p.body, { x: to.x, y: to.y + 0.3, z: to.z });
+    p.pos.copy(to);
+    const dir = new THREE.Vector3(this.horiz ? 0 : Math.sign(out), 0, this.horiz ? Math.sign(out) : 0);
+    p.receiveHit({ attacker: null, damage: 18, stagger: 1.0, heavy: true, guardbreak: true, launch: 0, point: p.pos.clone(), dir, unblockable: true,
+      clip: 'heavy1' } as any);
+    this.g.camera.addShake(0.5);
   }
 }
 
@@ -207,7 +232,9 @@ export class ChapterRuntime {
   /** Dialogue lines [who, text, seconds?]: subtitles in sequence (voiced lines play through the audio system when present). */
   async say(lines: [string, string, number?][]): Promise<void> {
     for (const [who, text, sec] of lines) {
-      const t = (sec ?? Math.max(2.2, text.length * 0.065)) * this.g.dialogueRate;
+      // a recorded line plays now and sets the pace; otherwise the subtitle is timed from its length
+      const voiced = this.g.testMode ? await this.g.sfx.voices.duration(who, text) : await this.g.sfx.voices.play(who, text);
+      const t = (sec ? Math.max(sec, voiced + 0.25) : voiced ? voiced + 0.35 : Math.max(2.2, text.length * 0.065)) * this.g.dialogueRate;
       this.g.hud.showSubtitle(who, text, t);
       await this.g.wait(t + 0.25 * this.g.dialogueRate);
     }
@@ -235,8 +262,38 @@ export class ChapterRuntime {
       }
     });
     const cur = this.sections[k];
+    this.atmosphere(cur.lv.markers.find((m) => m.name === 'sky'));
     if (!cur.probe) cur.probe = captureProbe(this.g.gfx.renderer, this.g.scene, cur.box.getCenter(new THREE.Vector3()).setY(1.6));
     this.g.scene.environment = cur.probe;
+  }
+
+  private skies = new Map<string, THREE.Texture>();
+  private outdoors = false;
+  private thunderAt = 6;
+
+  /** Sky + fog of the section Ethan is in: exteriors carry a 'sky' marker (HDRI, intensity, fog colour + density); interiors get a
+   * dark, faint haze that gives long rooms their depth. */
+  private atmosphere(sky: Marker | undefined): void {
+    const sc = this.g.scene;
+    this.outdoors = !!sky;
+    if (!sky) {
+      sc.background = new THREE.Color(0x000000);
+      sc.fog = new THREE.FogExp2(0x0a0d11, 0.016);
+      this.g.sfx.ambience('amb_facility', this.current === this.sections.findIndex((x) => /s6\.glb$/.test(x.path)) ? 'hall' : 'interior');
+      return;
+    }
+    this.g.sfx.ambience('amb_storm');
+    const path = String(sky.data.hdri);
+    let t = this.skies.get(path);
+    if (!t) {
+      t = new HDRLoader().load(assetUrl(path));
+      t.mapping = THREE.EquirectangularReflectionMapping;
+      this.skies.set(path, t);
+    }
+    sc.background = t;
+    (sc as any).backgroundIntensity = Number(sky.data.intensity ?? 1);
+    const f = (parse(sky.data.fog) as number[] | undefined) ?? [0.3, 0.34, 0.4, 0.004];
+    sc.fog = new THREE.FogExp2(new THREE.Color(f[0], f[1], f[2]), f[3]);
   }
 
   /** Characters: their own SH probe from the baked field (at chest height) + the real-time pool. */
@@ -255,6 +312,15 @@ export class ChapterRuntime {
 
   tick(dt: number): void {
     this.stream(this.g.player.pos);
+    // the temporal storm: lightning, then the thunder a moment later (distance), every 8-22 s while Ethan is outside
+    if (this.outdoors) {
+      this.thunderAt -= dt;
+      if (this.thunderAt <= 0) {
+        this.thunderAt = 8 + Math.random() * 14;
+        this.g.post.u.flash.value = Math.max(this.g.post.u.flash.value, 0.35 + Math.random() * 0.3);
+        void this.g.wait(0.4 + Math.random() * 1.2).then(() => this.g.sfx.play('thunder', { volume: 0.9 }));
+      }
+    }
     this.pool.update(this.g.player.pos);
     this.lightCharacters(dt);
     for (const d of this.doors.values()) d.tick(dt);

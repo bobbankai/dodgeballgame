@@ -75,6 +75,7 @@ async function main() {
   const root = gltf.scene;
   out.materials = dressCharacter(root, { hide: (qs.get('hide') || '').split(',').filter(Boolean) });
   await texturesReady();
+  if (qs.has('echo')) (await import('@/characters/echo')).echoify(root); // ?echo: the Echo's treatment on this model
   let tris = 0;
   root.traverse((o) => { const m = o as THREE.Mesh; if (m.isMesh) tris += (m.geometry.index ? m.geometry.index.count : m.geometry.attributes.position.count) / 3; });
   out.tris = Math.round(tris);

@@ -11,9 +11,14 @@ Every downloaded asset and tool is recorded here with its source and licence bef
 | MakeHuman faceunits01, visemes01, visemes02 | files.makehumancommunity.org/functional/ | CC0 (MakeHuman functional packs) | ARKit-style face units + viseme shape keys for facial animation / lip sync | Derived morph targets |
 | Poly Haven textures / HDRIs / models | api.polyhaven.com, dl.polyhaven.org | CC0 | Photoscanned PBR materials, image-based lighting, props | Derived textures/models |
 | ambientCG materials | ambientcg.com | CC0 | PBR materials | Derived textures |
+| Kokoro-82M v1.0 (ONNX, via kokoro-onnx; model + voice styles from github.com/thewh1teagle/kokoro-onnx releases) | huggingface.co/hexgrad/Kokoro-82M | Apache-2.0 | Neural text-to-speech for every line of dialogue (`tools/voices/record.py`) | Generated voice recordings only (the model does not ship) |
 | CMU Graphics Lab Motion Capture Database, BVH conversion by B. Hahne (cgspeed), mirrored at github.com/una-dinosauria/cmu-mocap | mocap.cs.cmu.edu | Free for any use, including commercial products; may not be resold as raw data (READMEFIRST.txt) | Locomotion, idles, gestures, jump, roll, run start, death (retargeted by `blender/animations/mocap.py`) | Retargeted clips in `animations/humanoid.glb` |
 
-Generated in-house (no third-party licence): pore detail-normal maps, roughness/stubble maps, hair-card textures, every authored animation
+Poly Haven sets used in the city (CC0): concrete_tile_facade, rectangular_facade_tiles_02, brick_4, red_brick_plaster_patch_02, asphalt_02,
+green_metal_rust, corrugated_iron, brick_moss_001, brushed_concrete_03, metal_grate_rusty; HDRI approaching_storm (sky of the surface).
+
+Generated in-house (no third-party licence): facade window sets (`blender/environments/facades.py`), every synthesised sound effect,
+ambience and the score (`src/audio/`), pore detail-normal maps, roughness/stubble maps, hair-card textures, every authored animation
 (strikes, guard/block/parry, dodges, reactions, chronal casts), all code. Clip sources are listed per clip in `humanoid_clips.json`.
 The motion data used was captured at CMU with funding from NSF EIA-0196217.
 

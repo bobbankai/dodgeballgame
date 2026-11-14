@@ -93,13 +93,14 @@ export interface ShellLook {
   strandSpacing?: number; // m between strand centres
   coilRadius?: number;    // m
   coilTurns?: number;     // turns over the full hair length
+  maxLen?: number;        // m: hair length encoded as COLOR_0.r * maxLen (Ethan's crop: 25 mm; longer styles carry their own)
 }
 
 export function hairShellMaterial(look: ShellLook): THREE.Material {
   const m = new THREE.MeshPhysicalNodeMaterial({ side: THREE.DoubleSide });
   const layer = attribute('layer', 'float');
   const gc = attribute('color', 'vec4');
-  const len = gc.r.mul(0.025); // COLOR_0.r = hair length / 25 mm
+  const len = gc.r.mul(look.maxLen ?? 0.025); // COLOR_0.r = hair length / maxLen
   const growth = gc.g;         // COLOR_0.g = growth density (0 at the hairline edge / bottom of the fade)
   m.positionNode = positionLocal.add(normalLocal.mul(layer.mul(len)));
 

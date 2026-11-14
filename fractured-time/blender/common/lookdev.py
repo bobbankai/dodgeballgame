@@ -445,7 +445,7 @@ def hair_cards(curves_obj, *, every=5, width=0.0016, name='hair_cards', bone='he
     return ob
 
 
-def hair_shell(basemesh, rig, name, color=(0.018, 0.013, 0.011), min_len=0.0002, shells=20):
+def hair_shell(basemesh, rig, name, color=(0.018, 0.013, 0.011), min_len=0.0002, shells=20, max_len=0.025, look=None):
     """Real-time short hair as shells: the scalp patch of the body (every face touching a vertex with hair) copied into its own mesh,
     subdivided, with the hair length per vertex in the GAME colour (R = length / 25 mm; from 'hair_len' written by the build). The engine stacks `shells`
     offset copies of it and cuts coiled strands out of each layer with 3D cellular noise (src/rendering/charmat.ts, hairShell).
@@ -520,12 +520,12 @@ def hair_shell(basemesh, rig, name, color=(0.018, 0.013, 0.011), min_len=0.0002,
     if 'hair_mask' in me.attributes:
         me.attributes['hair_mask'].data.foreach_get('value', hm)
         me.attributes.remove(me.attributes['hair_mask'])
-    game_color(ob, np.clip(hl / 0.025, 0, 1), np.clip(hm, 0, 1))  # R = hair length / 25 mm, G = growth density (hairline, fade)
+    game_color(ob, np.clip(hl / max_len, 0, 1), np.clip(hm, 0, 1))  # R = hair length / max_len, G = growth density (hairline, fade)
     me.materials.clear()
     m = bpy.data.materials.new(name + '_mat')
     m.use_nodes = True
     m.node_tree.nodes['Principled BSDF'].inputs['Base Color'].default_value = (*color, 1)
-    m['ft'] = json.dumps({'type': 'hairshell', 'color': list(color), 'shells': shells})
+    m['ft'] = json.dumps({'type': 'hairshell', 'color': list(color), 'shells': shells, 'maxLen': max_len, **(look or {})})
     me.materials.append(m)
     for p in me.polygons:
         p.material_index = 0

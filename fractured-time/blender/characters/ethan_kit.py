@@ -219,129 +219,12 @@ def build_kit(h, rig, PH, variant='ethan', P='ethan', detail=1.0):
         lo, hi = HS.bounds(K, -math.pi * K.r_ref, math.pi * K.r_ref, knee_t - 0.1, knee_t + 0.09, -0.01, 0.05)
         HS.make(S, f'{P}_kneepad_{sd}', pad, lo, hi, mat['webbing'], step=0.0016, tris=6000)
 
-    # --- boots: a lofted last (cross-sections along the foot), a lug sole, a shaft fitted to the calf, padded collar, lacing ----------
     for sd in ('l', 'r'):
-        ankle = np.array(B[f'foot_{sd}'][0])
-        toe = np.array(B[f'ball_{sd}'][1])
-        fwd = np.array([toe[0] - ankle[0], toe[1] - ankle[1], 0.0])
-        fwd /= np.linalg.norm(fwd)
-        side = np.cross(fwd, (0, 0, 1))
-        heel = ankle - fwd * 0.075
-        heel[2] = 0.0
-        Lf = float((toe - heel) @ fwd) + 0.03
-
-        def loc(P, heel=heel, fwd=fwd, side=side):
-            q = P - heel
-            return q @ fwd, q @ side, P[:, 2]
-        fx = np.array([0.0, 0.03, 0.07, 0.12, 0.17, 0.21, 0.245, 1.0]) * 1.0
-        fx[-1] = Lf
-        fx[-2] = min(fx[-2], Lf - 0.02)
-        halfw = sdf.curve(fx, [0.036, 0.042, 0.045, 0.049, 0.055, 0.056, 0.053, 0.036])
-        ztop = sdf.curve([0.0, 0.08, 0.1, 0.14, 0.19, 0.23, Lf], [0.2, 0.17, 0.125, 0.1, 0.084, 0.072, 0.056])
-        zbot = sdf.curve([0.0, 0.1, 0.16, Lf], [0.032, 0.03, 0.022, 0.028])  # heel block, forefoot, toe spring
-
-        def last(P, loc=loc, Lf=Lf, halfw=halfw, ztop=ztop, zbot=zbot):
-            x, y, z = loc(P)
-            w, _ = halfw(x)
-            zt, _ = ztop(x)
-            zb, _ = zbot(x)
-            hz = (zt - zb) / 2
-            r = np.minimum(w, hz) * 0.75
-            qy = np.abs(y) - (w - r)
-            qz = np.abs(z - (zb + hz)) - (hz - r)
-            d = np.sqrt(np.maximum(qy, 0) ** 2 + np.maximum(qz, 0) ** 2) + np.minimum(np.maximum(qy, qz), 0) - r
-            cap = np.maximum(-x, x - Lf)
-            k = 0.032
-            hh = np.clip(0.5 - 0.5 * (cap - d) / k, 0, 1)  # smooth max: rounded toe and heel
-            return cap + (d - cap) * hh + k * hh * (1 - hh)
-
-        def sole_f(P, loc=loc, Lf=Lf, halfw=halfw, zbot=zbot):
-            x, y, z = loc(P)
-            w, _ = halfw(np.clip(x, 0, Lf))
-            zb, _ = zbot(np.clip(x, 0, Lf))
-            dy = np.abs(y) - (w + 0.006)                        # welt: the sole stands out past the upper
-            dx = np.maximum(-0.006 - x, x - Lf - 0.006)
-            d2 = np.maximum(dy, dx)
-            dz = np.maximum(-z, z - (zb + 0.002))
-            d = np.maximum(d2, dz)
-            lug = np.maximum(np.abs(((x * 45.0) % 1.0) - 0.5) / 45.0 - 0.004, z - 0.006)   # cleats across the tread
-            mid = np.maximum(np.abs(z - 0.016) - 0.0008, -d2 - 0.0012)                      # midsole line round the side
-            return np.maximum(np.maximum(d, -lug), -mid)
-
-        Kc = HS.RadialField(S, B[f'calf_{sd}'][1], np.array(B[f'calf_{sd}'][0]) - np.array(B[f'calf_{sd}'][1]), (1, 0, 0), -0.03, 0.24,
-                            n_theta=96, step_t=0.004, only=(f'calf_{sd}', f'foot_{sd}'), r_max=0.16, blur=3)
-        Kc = Kc.view(Kc.theta_of((0, -1, 0)))
-        Kc.r_ref = 0.05
-        shaft = sdf.intersect(HS.layer(Kc, 0.007, 0.007, lambda s_, t_: 0.005 * np.clip((t_ - 0.15) / 0.02, 0, 1) * np.clip((0.19 - t_) / 0.02, 0, 1)),
-                              HS.band(Kc, 0.03, 0.19), k=0.004)
-        upper = sdf.intersect(sdf.union(last, shaft, k=0.03), lambda P, zbot=zbot, loc=loc: (zbot(loc(P)[0])[0] - 0.002) - P[:, 2])
-        # tongue + laces up the front of the shaft, eyelets either side
-        tongue = sdf.intersect(HS.layer(Kc, 0.012, 0.004), HS.band(Kc, 0.03, 0.2, -0.016, 0.016), k=0.003)
-        laces = [HS.solid_at(Kc, 0.0, tt, 0.017, sdf.box((0, 0, 0), (0.019, 0.0018, 0.0016), 0.0012)) for tt in np.arange(0.045, 0.18, 0.024)]
-        eyelets = [HS.solid_at(Kc, sx * 0.021, tt, 0.0145, sdf.cylinder((0, 0, 0), 0.0028, 0.0035, 0.0008))
-                   for tt in np.arange(0.045, 0.18, 0.024) for sx in (-1, 1)]
-        ends = np.array([heel, heel + fwd * Lf])
-        lo = ends.min(0) - np.array([0.08, 0.08, 0.0])
-        lo[2] = -0.002
-        hi = ends.max(0) + np.array([0.08, 0.08, 0.0])
-        hi[2] = ankle[2] + 0.22
-        HS.make(S, f'{P}_boot_{sd}', sdf.union(upper, tongue, k=0.003), lo, hi, mat['leather'], step=0.002, tris=11000)
-        HS.make(S, f'{P}_laces_{sd}', sdf.union(*laces, *eyelets), lo, hi, mat['webbing'], step=0.0009, tris=3000)
-        HS.make(S, f'{P}_sole_{sd}', sole_f, lo, hi, mat['rubber'], step=0.0015, tris=7000)
-
-    # the feet are inside the boots: hide them (review: mask modifier; export deletes them), no poke-through, no hidden triangles
-    vg = h.vertex_groups.get('ft_hidden') or h.vertex_groups.new(name='ft_hidden')
-    # ... and so is all skin under the clothes (dominant bone covered by a garment): poke-through cannot happen, fewer triangles.
-    # The neck stays (the collar is open at the top) and so does a band at the top of the chest under the collar.
-    covered = ('foot_', 'ball_', 'pelvis', 'spine_01', 'spine_02', 'upperarm_', 'lowerarm_', 'thigh_', 'calf_', 'hand_', 'index', 'middle',
-               'ring', 'pinky', 'thumb')
-    gname = {g.index: g.name for g in h.vertex_groups}
-    neck_z = B['neck_01'][0][2]
-    hide = []
-    for v in h.data.vertices:
-        best, bw = None, 0.0
-        for ge in v.groups:
-            nm = gname.get(ge.group, '')
-            if ge.weight > bw and (nm in B):
-                best, bw = nm, ge.weight
-        if best is None:
-            continue
-        if best.startswith(covered) or (best.startswith(('spine_03', 'clavicle_')) and (h.matrix_world @ v.co).z < neck_z - 0.06):
-            hide.append(v.index)
-    vg.add(hide, 1.0, 'REPLACE')
-    mk = h.modifiers.new('ft_hide', 'MASK')
-    mk.vertex_group = 'ft_hidden'
-    mk.invert_vertex_group = True
-
-    # --- chronal gauntlet (left forearm) + plain bracer (right) ----------------------------------------------------------------
+        boot(S, P, mat, sd)
+    hide_covered(h, S, ('foot_', 'ball_', 'pelvis', 'spine_01', 'spine_02', 'upperarm_', 'lowerarm_', 'thigh_', 'calf_', 'hand_', 'index',
+                        'middle', 'ring', 'pinky', 'thumb'))
     for sd, device in ((('l', True), ('r', False)) if not helix else (('l', variant == 'operative'), ('r', variant == 'operative'))):
-        a, b = np.array(B[f'lowerarm_{sd}'][0]), np.array(B[f'lowerarm_{sd}'][1])
-        Lb = float(np.linalg.norm(b - a))
-        G = HS.RadialField(S, a, b - a, (0, 0, 1), 0.0, Lb, n_theta=120, step_t=0.004, only=(f'lowerarm_{sd}', f'hand_{sd}'), r_max=0.12, blur=3)
-        G = G.view(G.theta_of((0, 0, 1)))  # arc measured from the top of the forearm (A-pose)
-        G.r_ref = 0.04
-        t0, t1 = Lb * 0.3, Lb * 0.86
-        shell_ = sdf.intersect(HS.layer(G, 0.0065, 0.009), HS.outline(G, [(-0.05, t0), (0.05, t0), (0.044, t1), (-0.044, t1)]), k=0.005)
-        # cuff straps round the arm
-        cuffs = sdf.union(*[sdf.intersect(HS.layer(G, 0.0055, 0.003), HS.band(G, tt - 0.008, tt + 0.008), k=0.001)
-                            for tt in (t0 + 0.02, t1 - 0.02)])
-        piece = sdf.union(shell_, cuffs, k=0.002)
-        glow = None
-        if device:
-            # device housing with a recessed window (the glow panel sits in it)
-            housing = HS.solid_at(G, 0.0, (t0 + t1) / 2, 0.0065 + 0.009 + 0.006,
-                                  sdf.subtract(HS.rbox((0.024, 0.045, 0.007), 0.004), sdf.box((0, 0, 0.007), (0.017, 0.038, 0.002), 0.0015), k=0.001))
-            groove = sdf.union(*[sdf.intersect(HS.layer(G, 0.0065 + 0.0075, 0.004), HS.band(G, t0 + 0.03, t1 - 0.03, sc - 0.0012, sc + 0.0012))
-                                 for sc in (-0.034, 0.034)])
-            piece = sdf.subtract(sdf.union(piece, housing, k=0.003), groove, k=0.0008)
-            glow = sdf.union(
-                *[sdf.intersect(HS.layer(G, 0.0065 + 0.0072, 0.0016), HS.band(G, t0 + 0.031, t1 - 0.031, sc - 0.0008, sc + 0.0008))
-                  for sc in (-0.034, 0.034)],
-                HS.solid_at(G, 0.0, (t0 + t1) / 2, 0.0065 + 0.009 + 0.006, sdf.box((0, 0, 0.0055), (0.015, 0.036, 0.0012), 0.001)))
-        lo, hi = HS.bounds(G, -math.pi * G.r_ref, math.pi * G.r_ref, t0 - 0.02, t1 + 0.02, -0.01, 0.05)
-        HS.make(S, f'{P}_gauntlet_{sd}', piece, lo, hi, mat['plate'], step=0.0012, tris=8000)
-        if glow is not None:
-            HS.make(S, f'{P}_glow_gauntlet_{sd}', glow, lo, hi, mat['glow'], step=0.0008, tris=2000)
+        forearm_piece(S, P, mat, sd, device)
     if helix:
         helix_armour(S, h, mat, P, variant)
     return S
@@ -406,3 +289,134 @@ def _gap_field(field, P, pitch, half):
     s, _, _, _ = field.coords(P)
     q = (s / pitch) % 1.0
     return np.abs(q - 0.5) * pitch - (pitch / 2 - half)
+
+
+def boot(S, P, mat, sd, shaft_top=0.19):
+    """A combat / field boot for one foot: a lofted last (cross-sections along the foot), a lug sole with a midsole line, a shaft fitted
+    to the calf up to `shaft_top` m above the ankle, padded collar, tongue, laces and eyelets."""
+    B = S.bones
+    ankle = np.array(B[f'foot_{sd}'][0])
+    toe = np.array(B[f'ball_{sd}'][1])
+    fwd = np.array([toe[0] - ankle[0], toe[1] - ankle[1], 0.0])
+    fwd /= np.linalg.norm(fwd)
+    side = np.cross(fwd, (0, 0, 1))
+    heel = ankle - fwd * 0.075
+    heel[2] = 0.0
+    Lf = float((toe - heel) @ fwd) + 0.03
+
+    def loc(P, heel=heel, fwd=fwd, side=side):
+        q = P - heel
+        return q @ fwd, q @ side, P[:, 2]
+    fx = np.array([0.0, 0.03, 0.07, 0.12, 0.17, 0.21, 0.245, 1.0]) * 1.0
+    fx[-1] = Lf
+    fx[-2] = min(fx[-2], Lf - 0.02)
+    halfw = sdf.curve(fx, [0.036, 0.042, 0.045, 0.049, 0.055, 0.056, 0.053, 0.036])
+    ztop = sdf.curve([0.0, 0.08, 0.1, 0.14, 0.19, 0.23, Lf], [0.2, 0.17, 0.125, 0.1, 0.084, 0.072, 0.056])
+    zbot = sdf.curve([0.0, 0.1, 0.16, Lf], [0.032, 0.03, 0.022, 0.028])  # heel block, forefoot, toe spring
+
+    def last(P, loc=loc, Lf=Lf, halfw=halfw, ztop=ztop, zbot=zbot):
+        x, y, z = loc(P)
+        w, _ = halfw(x)
+        zt, _ = ztop(x)
+        zb, _ = zbot(x)
+        hz = (zt - zb) / 2
+        r = np.minimum(w, hz) * 0.75
+        qy = np.abs(y) - (w - r)
+        qz = np.abs(z - (zb + hz)) - (hz - r)
+        d = np.sqrt(np.maximum(qy, 0) ** 2 + np.maximum(qz, 0) ** 2) + np.minimum(np.maximum(qy, qz), 0) - r
+        cap = np.maximum(-x, x - Lf)
+        k = 0.032
+        hh = np.clip(0.5 - 0.5 * (cap - d) / k, 0, 1)  # smooth max: rounded toe and heel
+        return cap + (d - cap) * hh + k * hh * (1 - hh)
+
+    def sole_f(P, loc=loc, Lf=Lf, halfw=halfw, zbot=zbot):
+        x, y, z = loc(P)
+        w, _ = halfw(np.clip(x, 0, Lf))
+        zb, _ = zbot(np.clip(x, 0, Lf))
+        dy = np.abs(y) - (w + 0.006)                        # welt: the sole stands out past the upper
+        dx = np.maximum(-0.006 - x, x - Lf - 0.006)
+        d2 = np.maximum(dy, dx)
+        dz = np.maximum(-z, z - (zb + 0.002))
+        d = np.maximum(d2, dz)
+        lug = np.maximum(np.abs(((x * 45.0) % 1.0) - 0.5) / 45.0 - 0.004, z - 0.006)   # cleats across the tread
+        mid = np.maximum(np.abs(z - 0.016) - 0.0008, -d2 - 0.0012)                      # midsole line round the side
+        return np.maximum(np.maximum(d, -lug), -mid)
+
+    Kc = HS.RadialField(S, B[f'calf_{sd}'][1], np.array(B[f'calf_{sd}'][0]) - np.array(B[f'calf_{sd}'][1]), (1, 0, 0), -0.03, 0.24,
+                        n_theta=96, step_t=0.004, only=(f'calf_{sd}', f'foot_{sd}'), r_max=0.16, blur=3)
+    Kc = Kc.view(Kc.theta_of((0, -1, 0)))
+    Kc.r_ref = 0.05
+    shaft = sdf.intersect(HS.layer(Kc, 0.007, 0.007, lambda s_, t_: 0.005 * np.clip((t_ - 0.15) / 0.02, 0, 1) * np.clip((shaft_top - t_) / 0.02, 0, 1)),
+                          HS.band(Kc, 0.03, shaft_top), k=0.004)
+    upper = sdf.intersect(sdf.union(last, shaft, k=0.03), lambda P, zbot=zbot, loc=loc: (zbot(loc(P)[0])[0] - 0.002) - P[:, 2])
+    # tongue + laces up the front of the shaft, eyelets either side
+    tongue = sdf.intersect(HS.layer(Kc, 0.012, 0.004), HS.band(Kc, 0.03, shaft_top + 0.01, -0.016, 0.016), k=0.003)
+    laces = [HS.solid_at(Kc, 0.0, tt, 0.017, sdf.box((0, 0, 0), (0.019, 0.0018, 0.0016), 0.0012)) for tt in np.arange(0.045, shaft_top - 0.01, 0.024)]
+    eyelets = [HS.solid_at(Kc, sx * 0.021, tt, 0.0145, sdf.cylinder((0, 0, 0), 0.0028, 0.0035, 0.0008))
+               for tt in np.arange(0.045, shaft_top - 0.01, 0.024) for sx in (-1, 1)]
+    ends = np.array([heel, heel + fwd * Lf])
+    lo = ends.min(0) - np.array([0.08, 0.08, 0.0])
+    lo[2] = -0.002
+    hi = ends.max(0) + np.array([0.08, 0.08, 0.0])
+    hi[2] = ankle[2] + shaft_top + 0.03
+    HS.make(S, f'{P}_boot_{sd}', sdf.union(upper, tongue, k=0.003), lo, hi, mat['leather'], step=0.002, tris=11000)
+    HS.make(S, f'{P}_laces_{sd}', sdf.union(*laces, *eyelets), lo, hi, mat['webbing'], step=0.0009, tris=3000)
+    HS.make(S, f'{P}_sole_{sd}', sole_f, lo, hi, mat['rubber'], step=0.0015, tris=7000)
+
+
+def hide_covered(h, S, covered):
+    """Hide the body skin under the clothes (the dominant bone of each vertex is covered by a garment): no poke-through, fewer
+    triangles. Review renders use a mask modifier; the export deletes the vertices."""
+    B = S.bones
+    vg = h.vertex_groups.get('ft_hidden') or h.vertex_groups.new(name='ft_hidden')
+    # ... and so is all skin under the clothes (dominant bone covered by a garment): poke-through cannot happen, fewer triangles.
+    # The neck stays (the collar is open at the top) and so does a band at the top of the chest under the collar.
+    gname = {g.index: g.name for g in h.vertex_groups}
+    neck_z = B['neck_01'][0][2]
+    hide = []
+    for v in h.data.vertices:
+        best, bw = None, 0.0
+        for ge in v.groups:
+            nm = gname.get(ge.group, '')
+            if ge.weight > bw and (nm in B):
+                best, bw = nm, ge.weight
+        if best is None:
+            continue
+        if best.startswith(covered) or (best.startswith(('spine_03', 'clavicle_')) and (h.matrix_world @ v.co).z < neck_z - 0.06):
+            hide.append(v.index)
+    vg.add(hide, 1.0, 'REPLACE')
+    mk = h.modifiers.new('ft_hide', 'MASK')
+    mk.vertex_group = 'ft_hidden'
+    mk.invert_vertex_group = True
+
+
+def forearm_piece(S, P, mat, sd, device, t0f=0.3, t1f=0.86):
+    """A forearm bracer (sd = 'l' / 'r'); with `device`, the chronal unit: a housing with a recessed glowing window and light-lines."""
+    B = S.bones
+    a, b = np.array(B[f'lowerarm_{sd}'][0]), np.array(B[f'lowerarm_{sd}'][1])
+    Lb = float(np.linalg.norm(b - a))
+    G = HS.RadialField(S, a, b - a, (0, 0, 1), 0.0, Lb, n_theta=120, step_t=0.004, only=(f'lowerarm_{sd}', f'hand_{sd}'), r_max=0.12, blur=3)
+    G = G.view(G.theta_of((0, 0, 1)))  # arc measured from the top of the forearm (A-pose)
+    G.r_ref = 0.04
+    t0, t1 = Lb * t0f, Lb * t1f
+    shell_ = sdf.intersect(HS.layer(G, 0.0065, 0.009), HS.outline(G, [(-0.05, t0), (0.05, t0), (0.044, t1), (-0.044, t1)]), k=0.005)
+    # cuff straps round the arm
+    cuffs = sdf.union(*[sdf.intersect(HS.layer(G, 0.0055, 0.003), HS.band(G, tt - 0.008, tt + 0.008), k=0.001)
+                        for tt in (t0 + 0.02, t1 - 0.02)])
+    piece = sdf.union(shell_, cuffs, k=0.002)
+    glow = None
+    if device:
+        # device housing with a recessed window (the glow panel sits in it)
+        housing = HS.solid_at(G, 0.0, (t0 + t1) / 2, 0.0065 + 0.009 + 0.006,
+                              sdf.subtract(HS.rbox((0.024, 0.045, 0.007), 0.004), sdf.box((0, 0, 0.007), (0.017, 0.038, 0.002), 0.0015), k=0.001))
+        groove = sdf.union(*[sdf.intersect(HS.layer(G, 0.0065 + 0.0075, 0.004), HS.band(G, t0 + 0.03, t1 - 0.03, sc - 0.0012, sc + 0.0012))
+                             for sc in (-0.034, 0.034)])
+        piece = sdf.subtract(sdf.union(piece, housing, k=0.003), groove, k=0.0008)
+        glow = sdf.union(
+            *[sdf.intersect(HS.layer(G, 0.0065 + 0.0072, 0.0016), HS.band(G, t0 + 0.031, t1 - 0.031, sc - 0.0008, sc + 0.0008))
+              for sc in (-0.034, 0.034)],
+            HS.solid_at(G, 0.0, (t0 + t1) / 2, 0.0065 + 0.009 + 0.006, sdf.box((0, 0, 0.0055), (0.015, 0.036, 0.0012), 0.001)))
+    lo, hi = HS.bounds(G, -math.pi * G.r_ref, math.pi * G.r_ref, t0 - 0.02, t1 + 0.02, -0.01, 0.05)
+    HS.make(S, f'{P}_gauntlet_{sd}', piece, lo, hi, mat['plate'], step=0.0012, tris=8000)
+    if glow is not None:
+        HS.make(S, f'{P}_glow_gauntlet_{sd}', glow, lo, hi, mat['glow'], step=0.0008, tris=2000)

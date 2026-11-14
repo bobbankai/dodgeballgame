@@ -60,7 +60,12 @@ export class SentinelBoss extends Actor {
   isCorpseExpired = false;
   /** spawned asleep: `wake()` starts the fight (the intro cinematic times it) */
   dormant = false;
-  wake(): void { this.dormant = false; this.stateT = 0; }
+  wake(): void {
+    this.dormant = false; this.stateT = 0;
+    const sfx = this.ctx.sfx as any;
+    sfx.loop?.('boss_hum', 'boss_hum', { volume: 0.55 });
+    sfx.play('boss_servo', { at: this.pos, pitch: 0.6 });
+  }
 
   static async create(ctx: GameCtx, pos: THREE.Vector3, yaw: number): Promise<SentinelBoss> {
     const g = await loadGLTF('bosses/sentinel/sentinel.glb');
@@ -95,7 +100,13 @@ export class SentinelBoss extends Actor {
     d = Math.atan2(Math.sin(d), Math.cos(d));
     this.yaw += Math.sign(d) * Math.min(Math.abs(d), rate * dt);
   }
-  private enter(s: State) { this.state = s; this.stateT = 0; this.hitDone = false; }
+  private enter(s: State) {
+    this.state = s; this.stateT = 0; this.hitDone = false;
+    const sfx = this.ctx.sfx as any;
+    if (s !== 'stalk' && s !== 'dead') sfx.play('boss_servo', { at: this.pos, pitch: s === 'stagger' ? 0.7 : 1 });
+    if (s === 'charge') sfx.play('boss_charge', { at: this.pos });
+    if (s === 'dead') { sfx.play('boss_death', { at: this.pos }); sfx.stopLoop?.('boss_hum', 2.5); }
+  }
   private node(n: string) { return this.nodes.get(n); }
   private fist(side: 'l' | 'r', out = new THREE.Vector3()) { return (this.node(`fist_${side}`) ?? this.root).getWorldPosition(out); }
 
@@ -147,7 +158,7 @@ export class SentinelBoss extends Actor {
           this.setPose(P_SLAM_DOWN, 16);
           if (this.stateT > wind + 0.12) {
             const c = new THREE.Vector3().addVectors(this.fist('l'), this.fist('r')).multiplyScalar(0.5).setY(this.pos.y + 0.3);
-            if (!this.hitDone) { this.ctx.fx.pulse(c, 'shift'); this.ctx.camera.addShake(0.6); }
+            if (!this.hitDone) { this.ctx.fx.pulse(c, 'shift'); this.ctx.camera.addShake(0.6); this.ctx.sfx.play('boss_slam', { at: c }); }
             this.strike(c, 1.7, 26, true);
           }
         } else if (this.stateT < wind + 0.22 + 1.5) this.setPose(P_SLAM_DOWN, 4); // stuck: the opening
@@ -201,7 +212,7 @@ export class SentinelBoss extends Actor {
             this.strike(this.ctx.player.focusPoint(), 3, 12, false, true);
             this.ctx.slowPlayer?.(2.0); // caught by the temporal ring: Ethan's own time drags
           }
-          if (this.stateT - d < wind) this.ctx.fx.pulse(this.focusPoint(), 'slow');
+          if (this.stateT - d < wind) { this.ctx.fx.pulse(this.focusPoint(), 'slow'); this.ctx.sfx.play('boss_pulse', { at: this.pos }); }
         } else if (this.stateT > wind + 1.0) this.enter('stalk');
         break;
       }
@@ -256,6 +267,7 @@ export class SentinelBoss extends Actor {
       this.ctx.fx.hit(o.getWorldPosition(new THREE.Vector3()), out, { heavy: true, blocked: false, parried: false });
     }
     this.ctx.camera.addShake(0.8);
+    this.ctx.sfx.play('boss_shed', { at: this.pos });
     // phase 2: the exposed core runs hot and red, pulsing faster
     for (const m of this.coreMats) {
       (m as any).emissiveNode = vec3(1.0, 0.16, 0.05).mul(float(5.0)).mul(sin(time.mul(5.0)).mul(0.25).add(0.85));

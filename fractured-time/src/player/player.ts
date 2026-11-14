@@ -481,7 +481,8 @@ export class Player extends Actor {
   receiveHit(hit: HitInfo): HitOutcome {
     if (!this.alive || this.invulnerable) return 'ignored';
     if (this.inIframes()) return 'dodged';
-    const toAtk = this.tmp.set(hit.attacker.pos.x - this.pos.x, 0, hit.attacker.pos.z - this.pos.z).normalize();
+    const src = hit.attacker?.pos ?? hit.point; // environmental hits (doors, hazards) have no attacker
+    const toAtk = this.tmp.set(src.x - this.pos.x, 0, src.z - this.pos.z).normalize();
     const facing = this.forward(this.flat).dot(toAtk) > 0.15;
     this.noteCombat(6);
     if ((this.state === 'block' || this.state === 'parry') && facing && !hit.unblockable) {

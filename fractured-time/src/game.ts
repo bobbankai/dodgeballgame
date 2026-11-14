@@ -116,6 +116,12 @@ export class Game implements Simulation, GameCtx {
     g.scene.add(g.vfx.group);
     g.vfx.density = QUALITY[q].particles;
     g.temporal = new Temporal(g);
+    if (!g.testMode) {
+      // browsers only start audio after a user gesture
+      const unlock = () => g.sfx.unlock();
+      addEventListener('pointerdown', unlock);
+      addEventListener('keydown', unlock);
+    }
 
     const qsp = new URLSearchParams(location.search);
     const chapterN = qsp.get('chapter');
@@ -126,7 +132,7 @@ export class Game implements Simulation, GameCtx {
       const { CH1_SECTIONS, chapter1 } = await import('@/chapters/ch1');
       const ch = new ChapterRuntime(g);
       g.chapter = ch;
-      for (const path of CH1_SECTIONS) await ch.loadSection(path);
+      for (const path of CH1_SECTIONS) await ch.loadSection(path).catch((e) => console.warn('[chapter] section missing', path, e));
       const sp = ch.markers.find((m) => m.name === 'spawn');
       g.level = { spawn: sp ? sp.pos.clone() : new THREE.Vector3(), yaw: sp ? sp.yaw : 0, enemies: [], objective: '' };
       g.scene.background = new THREE.Color(0x000000);
@@ -242,6 +248,7 @@ export class Game implements Simulation, GameCtx {
     }
     this.chapter?.tick(dt);
     for (const f of this.tickers) f(dt);
+    this.footsteps(dt);
 
     if (this.timers.length) {
       const due = this.timers.filter((t) => t.at <= this.time);
@@ -257,6 +264,23 @@ export class Game implements Simulation, GameCtx {
     const target = this.temporal.worldScaleTarget() * opening;
     timeScale.world += (target - timeScale.world) * Math.min(1, dt * (target < timeScale.world ? 22 : 7));
     timeScale.player = this.time < this.playerSlowUntil ? 0.55 : 1;
+  }
+
+  private stepDist = 0;
+  private lastFeet = new THREE.Vector3();
+
+  /** Footfalls from distance actually travelled on the ground (stride ~0.75 m running, longer sprinting). */
+  private footsteps(_dt: number): void {
+    const p = this.player;
+    const moved = Math.hypot(p.pos.x - this.lastFeet.x, p.pos.z - this.lastFeet.z);
+    this.lastFeet.copy(p.pos);
+    if (!(p as any).grounded || moved > 2) return;
+    this.stepDist += moved;
+    const stride = p.speed > 5.6 ? 0.95 : 0.75;
+    if (this.stepDist >= stride) {
+      this.stepDist = 0;
+      this.sfx.play('step', { at: p.pos, volume: Math.min(1, 0.35 + p.speed / 9), pitch: 0.95 + Math.random() * 0.1 });
+    }
   }
 
   respawn(): void {
@@ -297,6 +321,11 @@ export class Game implements Simulation, GameCtx {
     this.hud.setBoss(boss ?? null);
     this.hud.update(realDt, this.player, this.camera.camera, innerWidth, innerHeight, this.temporal.readiness());
     if (this.testMode) this.hud.setDebug(`${this.gfx.backend}  state ${this.player.state}  ${this.player.anim.current}\nfps ${this.loop?.fps.toFixed(0)}  worldscale ${timeScale.world.toFixed(2)}`);
+    // audio: the listener rides the camera; the score follows the fight
+    this.sfx.listen(this.camera.camera);
+    const bossAlive = this.enemies.some((e) => e.alive && (e as Enemy).def?.id?.startsWith('boss'));
+    const fighting = this.enemies.some((e) => e.alive && ((e as any).noticed || (e as any).state === 'stalk'));
+    this.sfx.score.intensity = bossAlive ? 2 : fighting ? 1 : 0;
     this.post.render();
   }
 

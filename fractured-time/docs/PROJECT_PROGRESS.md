@@ -9,34 +9,41 @@ The owner asked for a restart from scratch against `GRAPHICS_DIRECTIVE_PROMPT.md
 for shaders/lighting; B: MetaHuman-class character, the bar for models). The v0 prototype is archived intact in `archive/v0-prototype/`
 (its systems and lessons are listed further down and will be ported, not rewritten blind).
 
-**Overall:** v1 is in the character/look-development stage. **One character (Ethan) is being brought to the reference-B bar; no
-environment, gameplay, chapter, boss, cutscene, audio or UI exists in v1 yet. Nothing in v1 is complete.**
+**Overall:** v1 has a realistic hero, a ported and tested gameplay core, a baked-lighting environment pipeline, Chapter 1's facility
+(7 sections) plus its surface finale (2 sections), three HELIX enemy archetypes, the Sentinel A-07 boss, a cinematic director and a
+scripted Chapter 1 from wake-up to the surface. **Chapter 1 is not yet complete** (see gaps). Chapters 2-5, the cast beyond Ethan and
+the Echo, audio, menus and saves do not exist yet.
 
 | Area | Status | Evidence / gaps |
 |---|---|---|
-| Asset acquisition (Poly Haven, ambientCG, MPFB 2 + MakeHuman CC0 packs), licence ledger `docs/ASSETS.md` | 4 | `tools/assets/polyhaven.py`, `tools/assets/fetch_makehuman.sh`; MPFB is GPL and used as an authoring tool only |
-| Character build pipeline (MPFB base -> targets -> layered skin, eyes + cornea, hair, fitted garments + composite armour, game rig, face shapes) | 4 | `blender/characters/ethan.py`; review renders in Cycles (`--review`) |
-| Export + pack (`tools/assets/export_character.sh`) | 4 | GLB with 75 face morphs (ARKit 52 + visemes) on the body; brows/lashes/eyes/teeth/cornea skinned to the head with their own matching face morphs (mhclo binding); baked eye/teeth occlusion and hair data in COLOR_0; material recipes in glTF extras. gltfpack: float positions + UVs |
-| Engine character materials (`src/rendering/charmat.ts`) | 5 | rebuilt from the Blender recipes: dual-lobe skin (smooth base + oily clearcoat lobe with pores, cavity, SSS translucency), photoscanned fabrics, procedural armour, emissive light-lines, eye (iris rebuilt, lid AO, wet additive cornea), teeth, alpha-hashed brows/lashes |
-| Hair (`src/rendering/hairshell.ts`) | 5 | 24 shells of the subdivided scalp, per-strand coils / length / tone, cylindrical strand shading with specular anti-aliasing, density falloff at the hairline + fade; sparse strand cards for flyaways. Reads as a real short coily crop in the lab; not yet seen in motion |
-| Temporal AA (TRAA) | 4 | in the post pipeline on high/ultra (velocity MRT, resolve before bloom); resolves hair, lashes, specular |
-| Character look-dev lab (`lab.html`) | 4 | studio HDRI + key/fill/rim; framing identical to the Cycles review set; `?view=face|face34|eyes|hair|front|full|back`, `?hide=<recipe type>`, `?meshes` |
-| Ethan's field kit (`blender/characters/ethan_kit.py`, `blender/common/hardsurface.py`) | 5 | "dark practical operator kit": one-piece jersey combat shirt, SDF mock-neck collar, twill trousers, gloves; low-profile plate carrier (front/back plate bags with seams, cummerbund + MOLLE, padded straps over the trapezius), 3 magazine pouches + admin pouch, belt + buckle, knee pads, lofted combat boots (lug sole, midsole line, tongue, laces, eyelets), chronal gauntlet with light-lines. Hard-surface pieces are SDFs fitted to ray-cast body fields, metric UVs, skinned from the body. Covered skin is removed (no poke-through). Reviewed front/back/chest/neck in Cycles and WebGPU |
-| Skin lighting (`src/rendering/skin.ts`) | 5 | per-channel wrapped diffuse (red bleeds furthest past the terminator) on top of the SSS lighting model; matched against Cycles random-walk SSS under the same light rig |
-| Ethan vs reference B | **4** | face, eyes, brows, hair, skin and kit read as a real operator in the lab and match the Cycles review closely; still short of B in skin micro-detail and cloth folds; no expressions authored; no animation |
-| Renderer look-dev vs reference A (lighting-only view, environment) | Planned | |
-| Gameplay port from v0 (controller, camera, combat, temporal abilities, AI) | Planned | v0 code in the archive works and is tested; it will be ported onto the v1 assets |
-| Chapters 1-5, bosses, cutscenes, audio, UI, saves, endings | Planned | |
+| Asset acquisition (Poly Haven, ambientCG, MPFB 2 + MakeHuman CC0 packs, CMU mocap), licence ledger `docs/ASSETS.md` | 4 | `tools/assets/polyhaven.py`, `tools/assets/fetch_makehuman.sh` |
+| Ethan: MPFB body, skin/eyes/hair shells, field kit, 75 face shapes (`blender/characters/ethan.py`, `ethan_kit.py`) | 5 | reviewed in Cycles and WebGPU against reference B; gaps below |
+| Engine character materials (`src/rendering/charmat.ts`, `skin.ts`, `hairshell.ts`) | 5 | dual-lobe skin + wrapped scatter, hair shells, eyes, cornea, fabrics, armour with baked masks |
+| Animation: CMU mocap retarget + authored combat clips on the game rig (`blender/animations/`) | 4 | 43 clips with hit windows, i-frames, lunges in `humanoid_clips.json`; contact sheets reviewed; not yet polished in motion |
+| Gameplay core (fixed 60 Hz loop, Rapier controller, camera, combat, parry, dodge, temporal slow/rewind/echo, AI) | 4 | ported from v0; scripted tests in `tests/scripts/` (parry/block/dodge/slow/rewind/echo) pass |
+| Baked environment pipeline (`blender/environments/envkit.py`, `src/world/level.ts`) | 5 | Cycles lightmaps (HDR, UV1) + specular-only real-time lights on static surfaces; engine matches the Cycles render from the same camera |
+| Character lighting: baked SH light probes (`envkit.bake_probes`, `src/world/probes.ts`) | 5 | Cycles cube-face renders projected to order-2 SH per probe (382 in Ch1); every character blends its own probe; fixed characters rendering black in every room |
+| Facility kit v2 (pilasters, wainscot + set-back panels, LED trim, ceiling grid, floor bands, hazard paint, glass) | 4 | Cycles render of the checkpoint reviewed; full chapter rebake in progress; engine review pending |
+| Chapter runtime (`src/chapters/runtime.ts`): sections streamed (current +-1), light pool, doors, triggers, interactables, fights, bosses, `?at=` beat jumps | 4 | Chapter 1 played checkpoint -> lift by script (fights spawn and resolve, doors open, cycling door cycles) |
+| Cinematic director (`src/cinematics/director.ts`): letterbox, input lock, camera rails, focus pulls, fades, title cards | 3 | used for the opening, Engine reveal, Sentinel wake, wreck pass, lift and surface finale; not yet reviewed frame by frame |
+| HELIX enemies: trooper, operative, heavy (`blender/characters/helix.py`) | 4 | ~0.9 MB packed each; fight in s3/s4/s5; animation/AI tuning not reviewed in motion |
+| Sentinel A-07 (`blender/characters/sentinel.py`, `src/bosses/sentinel.ts`) | 5 | rebuilt as polygonal hard surface (`blender/common/hardpoly.py`), 65k tris, baked AO + edge masks, scanned breakup, hazard bands; two phases, telegraphed attacks, armour shed; fight not yet played through by hand |
+| The Echo (`src/characters/echo.ts`) | 3 | Ethan's own model with an amber chronal signature; appears in the Chapter 1 finale |
+| Chapter 1 surface finale (s8 deck, s9 skyline: `citykit.py`, `facades.py`) | 2 | built; bake + engine review pending |
+| Chapters 2-5, Imani/Voss/Nyx, Rift Marshal/Echo/Nyx/Voss bosses, both endings | 1 | planned |
+| Audio, menus, settings, saves | 1 | `Sfx` logs only |
 
 ### v1 known quality gaps (must be fixed; do not forget)
 - **Skin** is still smoother and flatter than reference B: needs stronger micro detail at mid distance, specular breakup, and a real
   subsurface diffusion (screen-space or pre-integrated) instead of translucency only.
 - **Expressions**: the 75 face shapes exist but no expression set / facial animation has been authored or reviewed.
-- **No animation** on the v1 rig (game_engine, 53 bones). Mocap retarget is the plan.
+- Animation exists but has not been polished in motion (foot sliding, transitions, hit reactions need review in the game).
+- **Chapter 1 not complete:** the boss fight, the cycling-door slow-time pass and every cinematic still need a hand-played, frame-by-frame
+  review; the surface sections need their bake and engine review; no audio.
 - GLB is 8.5 MB (fabric scans load separately as 1k JPEG). **~390k triangles** at the hero level (20 hair shells = ~40k): needs LODs for
   gameplay distance and KTX2 textures.
 - **Cloth has no folds** (shells follow the body): trousers and shirt need fold/wrinkle detail at the joints.
-- Only one character. Every other character (Mara, Dr. Kane, troopers, bosses) still has to be built.
+- Characters still to build: Imani Reyes, Director Voss, Commander Nyx, the Rift Marshal; the Echo needs his own wear and motion.
 
 ### v1 bugs found by testing and fixed
 1. MPFB fitted the game rig ~0.8 m below the body unless the human is created with detailed helpers.
@@ -51,6 +58,15 @@ environment, gameplay, chapter, boss, cutscene, audio or UI exists in v1 yet. No
 10. The lab rendered before separately loaded textures arrived once the GLB got small (roughness read 0: chrome): `texturesReady()`.
 11. Embedded fabric scans made the GLB 81 MB although the engine loads them itself: stripped at export (8.5 MB).
 12. The lab's light rig was mirrored relative to the Cycles review: rebuilt as an exact conversion (area lights + shadowed key).
+13. Characters rendered as black silhouettes in every room: the real-time PMREM probe captured ~10x too little light. Replaced by
+    Cycles-baked SH light probes (the same light as the lightmaps).
+14. Lightmaps baked into the wrong UV set (Cycles bakes into the ACTIVE map) and as one island per face: LM made active for the bake,
+    smart-project + pack islands.
+15. Level extras sat on the parent group of multi-material meshes, so lightmaps never applied: parent userData is read too.
+16. SDF-meshed hard surface crumpled after decimation (light and edge wear caught every crumple): hard surface is now polygonal
+    (`hardpoly.py`); per-vertex wear masks on low-poly faces were 1 everywhere: masks are baked textures on a UV atlas.
+17. The Sentinel's phase-2 core colour change called TSL through the wrong namespace and never happened.
+18. Wall signs were hidden behind the new pilasters: moved in front.
 
 ---
 
