@@ -37,7 +37,7 @@ export interface FogSettings {
 }
 
 export const INTERIOR_FOG: FogSettings = {
-  density: 0.0065, heightFalloff: 0.05, baseY: 0, noise: 0.55, noiseScale: 0.22, wind: new THREE.Vector3(0.12, 0.03, 0.05), anisotropy: 0.45,
+  density: 0.0042, heightFalloff: 0.05, baseY: 0, noise: 0.55, noiseScale: 0.22, wind: new THREE.Vector3(0.12, 0.03, 0.05), anisotropy: 0.45,
   albedo: new THREE.Color(0.9, 0.92, 0.95), exposure: 1, fallback: new THREE.Vector4(0.004, 0.005, 0.006, 0), maxDist: 60,
 };
 
@@ -237,7 +237,9 @@ export class VolumetricFog {
         const edge = min(min(uvw.x, uvw.y), min(uvw.z, min(float(1).sub(uvw.x), min(float(1).sub(uvw.y), float(1).sub(uvw.z)))));
         const w = smoothstep(0.0, 0.02, edge).mul(u.hasVol);
         const v = vol.sample(clamp(uvw, 0.0, 1.0));
-        const baked = v.rgb.mul(v.rgb).mul(u.volScale).mul(u.exposure);
+        const raw = v.rgb.mul(v.rgb).mul(u.volScale).mul(u.exposure);
+        // soft shoulder: the air right at a very bright fixture glows without swamping the room
+        const baked = raw.div(max(max(raw.r, raw.g), raw.b).mul(0.45).add(1.0));
         const iso = mix(u.fallback.rgb, baked, w);
         const sunVis = mix(u.fallback.a, v.a, w);
         // medium: height fog with drifting fbm

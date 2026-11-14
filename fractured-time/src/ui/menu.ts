@@ -14,8 +14,8 @@ export const CHAPTERS = [
   { n: 1, title: 'The Incident', place: 'HELIX Underground Research Facility', beats: ['wake', 'checkpoint', 'lab', 'servers', 'engine', 'surface'] },
   { n: 2, title: 'The Other World', place: 'The Fractured District', beats: ['rooftops', 'street', 'cafe', 'gate', 'plaza', 'pursuit', 'marshal'] },
   { n: 3, title: 'The Doppelganger', place: 'HELIX Corporate Arcology', beats: ['lobby', 'offices', 'palimpsest', 'mirror', 'echo'] },
-  { n: 4, title: 'The Paradox', place: 'Four timelines at once', beats: [] },
-  { n: 5, title: 'The Final Timeline', place: 'The Temporal Nexus', beats: [] },
+  { n: 4, title: 'The Paradox', place: 'Four timelines at once', beats: ['terrace', 'memory', 'foundry', 'nyx'] },
+  { n: 5, title: 'The Final Timeline', place: 'The Temporal Nexus', beats: ['fragments', 'bridge', 'voss'] },
 ];
 
 const DEFAULTS: Settings = { quality: 'high', master: 0.9, music: 0.7, sfx: 0.9, voice: 1.0, sensitivity: 1, invertY: false, subtitles: true,

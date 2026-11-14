@@ -216,7 +216,7 @@ def s_palimpsest(M):
     K.area_light('a3_recorder_l', (4.0, -70.0, 2.0), (0.5, 0.5), 60.0, (1.0, 0.55, 0.22), shape='DISK')
     K.marker(S, 'interact', (4.0, -68.6, 0.2), id='a3_recorder', prompt='Touch the recorder')
     # the archive beyond the gate: PROJECT PALIMPSEST on the wall, shelving of storage cores
-    S.add(K.sign('a3_title', 'PROJECT PALIMPSEST', (0, -91.6, 3.4), (math.radians(90), 0, 0), 0.5, M['a_brand']), timeline='a')
+    S.add(K.sign('a3_title', 'PROJECT PALIMPSEST', (0, -91.6, 3.4), (math.radians(90), 0, math.pi), 0.5, M['a_brand']), timeline='a')
     for i in range(6):
         x = -9.0 + i * 3.6
         S.add(K.box(f'a3_core{i}', (1.2, 0.6, 2.4), (x, -88.5, 1.2), M['trim'], bevel=0.03))

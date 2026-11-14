@@ -48,7 +48,7 @@ export async function run(g: Game, ch: ChapterRuntime, at: string | null = null)
     g.flags.set('ability_shift', true);
     ch.objective('Shift between timelines to reach the lifts  [4] shift');
     // falling into the pit (timeline b) puts him back at the lip, not at the checkpoint across the room
-    void ch.trigger('a1_pit').then(async function retry(): Promise<void> {
+    ch.repeat('a1_pit', async () => {
       ch.jumpTo('cp_a1');
       await ch.say([['IMANI', 'The floor is only gone in one of them. Pick the other before you step.']]);
     });

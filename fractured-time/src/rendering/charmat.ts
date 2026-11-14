@@ -228,6 +228,31 @@ export function armour(r: Recipe, masks = false): THREE.MeshPhysicalNodeMaterial
   return m;
 }
 
+/**
+ * Practical lights (windows, shop interiors, street lamps, neon, furnace mouths): steady, unlike the breathing chronal glows.
+ * Lit window panes get an interior read from the street: each pane its own brightness (hashed from its place in the facade),
+ * brighter under the ceiling, mullions every 1.3 m, some behind blinds; the bake's strength is far too hot for a window seen at night.
+ */
+export function practical(r: Recipe, name: string): THREE.MeshStandardNodeMaterial {
+  const m = new THREE.MeshStandardNodeMaterial({ color: 0x050708, roughness: 0.25 });
+  const c = vec3(...((r.color ?? [1, 0.9, 0.8]) as [number, number, number]));
+  const k = float(r.strength ?? 8).mul(0.45);
+  if (!/^win_/.test(name)) { m.emissiveNode = c.mul(k); return m; }
+  const p = T.positionWorld;
+  const n = T.normalWorld;
+  const along = mix(p.x, p.z, T.step(0.5, abs(n.x))); // the horizontal axis of the facade the pane sits in
+  const cell = T.floor(along.div(3.2)).add(T.floor(p.y.div(3.6)).mul(17.0));
+  const h = T.hash(cell.add(0.37));
+  const h2 = T.hash(cell.add(5.1));
+  const level = h.mul(0.75).add(0.25);
+  const ceiling = smoothstep(0.0, 1.0, fract(p.y.div(3.6))).mul(0.5).add(0.5);
+  const mull = smoothstep(0.0, 0.04, abs(fract(along.div(1.3)).sub(0.5)).sub(0.46).negate());
+  const slats = T.step(0.45, fract(p.y.mul(9.0))).mul(0.6).add(0.3);
+  const blinds = mix(float(1), slats, T.step(h2, 0.3)); // three panes in ten behind blinds
+  m.emissiveNode = c.mul(k).mul(0.32).mul(level).mul(ceiling).mul(mull).mul(blinds);
+  return m;
+}
+
 export function emissive(r: Recipe): THREE.MeshStandardNodeMaterial {
   const m = new THREE.MeshStandardNodeMaterial({ color: 0x050708, roughness: 0.25 });
   const c = r.color ?? [0.35, 0.85, 1];

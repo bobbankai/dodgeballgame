@@ -1,0 +1,28 @@
+.finale-choice { position: fixed; inset: 0; z-index: 45; display: flex; flex-direction: column; justify-content: center; align-items: center;
+  color: #e8eef2; font-family: 'Rajdhani', 'Segoe UI', system-ui, sans-serif; background: radial-gradient(80% 70% at 50% 50%, rgba(10,14,22,0.55), rgba(0,0,0,0.88));
+  animation: fc-in 1.2s ease both; }
+.finale-choice.leaving { animation: fc-out 0.7s ease both; }
+.fc-head { font-size: 12px; letter-spacing: 0.6em; color: #f2c58a; opacity: 0.9; }
+.fc-ask { margin: 14px 0 34px; font-size: clamp(22px, 3vw, 34px); font-weight: 300; letter-spacing: 0.08em; }
+.fc-cards { display: grid; grid-template-columns: repeat(2, minmax(240px, 380px)); gap: 26px; padding: 0 16px; }
+.fc-card { all: unset; cursor: pointer; position: relative; padding: 26px 24px 22px; border: 1px solid rgba(255,255,255,0.12); background: rgba(6,10,16,0.7);
+  transition: border-color 0.25s, background 0.25s, transform 0.25s; }
+.fc-card.on { border-color: rgba(242,197,138,0.75); background: rgba(24,18,10,0.78); transform: translateY(-3px); }
+.fc-n { position: absolute; top: 14px; right: 18px; font-size: 12px; opacity: 0.45; }
+.fc-t { font-size: 20px; letter-spacing: 0.06em; margin-bottom: 12px; }
+.fc-l { font-size: 15px; opacity: 0.85; line-height: 1.45; }
+.fc-c { margin-top: 14px; font-size: 13px; opacity: 0.55; line-height: 1.45; }
+.fc-hint { margin-top: 30px; font-size: 11px; letter-spacing: 0.3em; opacity: 0.4; }
+@media (max-width: 680px) { .fc-cards { grid-template-columns: 1fr; } }
+@keyframes fc-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes fc-out { to { opacity: 0; } }
+.finale-credits { position: fixed; inset: 0; z-index: 46; background: #000; overflow: hidden; color: #dfe6ea; font-family: 'Rajdhani', 'Segoe UI', system-ui, sans-serif;
+  animation: fc-in 1.5s ease both; }
+.finale-credits.leaving { animation: fc-out 0.9s ease both; }
+.cr-roll { position: absolute; left: 0; right: 0; top: 100%; text-align: center; animation: cr-up linear forwards; }
+.cr-ending { font-size: 13px; letter-spacing: 0.5em; color: #f2c58a; margin-bottom: 18vh; }
+.cr-block { margin-bottom: 9vh; }
+.cr-h { font-size: 13px; letter-spacing: 0.4em; opacity: 0.55; margin-bottom: 12px; }
+.cr-block:first-of-type .cr-h { font-size: clamp(26px, 4vw, 46px); font-weight: 300; letter-spacing: 0.3em; opacity: 1; }
+.cr-l { font-size: 17px; line-height: 1.7; }
+@keyframes cr-up { from { transform: translateY(0); } to { transform: translateY(-260%); } }

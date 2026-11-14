@@ -148,6 +148,8 @@ export class Game implements Simulation, GameCtx {
         '1': () => import('@/chapters/ch1'),
         '2': () => import('@/chapters/ch2'),
         '3': () => import('@/chapters/ch3'),
+        '4': () => import('@/chapters/ch4'),
+        '5': () => import('@/chapters/ch5'),
       };
       const mod = await (chapterMods[chapterN] ?? chapterMods['1'])();
       const ch = new ChapterRuntime(g);

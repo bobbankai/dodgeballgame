@@ -2,7 +2,7 @@ import * as THREE from 'three/webgpu';
 import * as TSL from 'three/tsl';
 import { HDRLoader } from 'three/addons/loaders/HDRLoader.js';
 import { loadGLTF } from '@/assets/loader';
-import { pbr, emissive, tex, texturesReady, type Recipe } from '@/rendering/charmat';
+import { pbr, emissive, practical, tex, texturesReady, type Recipe } from '@/rendering/charmat';
 import { assetUrl } from '@/rendering/charmat';
 import type { Physics } from '@/physics/physics';
 import type { LightDef } from './lightpool';
@@ -185,7 +185,7 @@ export async function loadLevel(path: string, physics: Physics | null, scene: TH
       let m: THREE.Material;
       if (!r) m = old;
       else if (r.type === 'pbr') m = pbr(r);
-      else if (r.type === 'emissive') m = emissive(r);
+      else if (r.type === 'emissive') m = /^(win_|shop_|lamp_lens|neon_|m_lamp|m_chalk|c5_booth|furnace|molten|a_light|light_|n_engine)/.test(old.name) ? practical(r, old.name) : emissive(r);
       else if (r.type === 'screen') m = screen(r);
       else if (r.type === 'plain') m = plain(r);
       else if (r.type === 'glass') m = glass(r);

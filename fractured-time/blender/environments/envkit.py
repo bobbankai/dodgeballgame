@@ -838,7 +838,7 @@ def bake_volume(objs, lights, path, cell=0.45, pad=0.5, sky=None, max_height=Non
     return head
 
 
-def bake_volumes(built, keys, chapter, hdri=None, skip=(), sky_strength=1.0):
+def bake_volumes(built, keys, chapter, hdri=None, skip=(), sky_strength=1.0, skies=None):
     """`--volume` for a level script: the light volume of every section (outdoors when it has a sky marker); sections with Timeline
     Shift geometry get one volume per reality (`_vol.bin` for a, `_vol_b.bin` for b)."""
     sky = None
@@ -853,12 +853,14 @@ def bake_volumes(built, keys, chapter, hdri=None, skip=(), sky_strength=1.0):
         for tl in ([None] if not (S.static_a or S.static_b) else ['a', 'b']):
             objs = S.static + (getattr(S, f'static_{tl}') if tl else [])
             lights = [m for m in S.lights if m.get('timeline') in (None, tl)]
+            if outdoors and skies and key in skies and tl in skies[key]:
+                sky = sky_light(skies[key][tl][0], strength=skies[key][tl][1])  # this reality's own sky
             rel = f'environments/{chapter}/{key}_vol{"_b" if tl == "b" else ""}.bin'
             bake_volume(objs, lights, os.path.join(PUB, rel), sky=sky if outdoors else None,
                         cell=0.6 if outdoors else 0.4, max_height=36.0 if outdoors else None)
 
 
-def export_timeline_section(S, key, out_dir, prefix, samples, lm_size=2048):
+def export_timeline_section(S, key, out_dir, prefix, samples, lm_size=2048, skies=None):
     """Export a section that has Timeline Shift geometry. Each reality is lit by its own fixtures and shadowed by its own dressing:
     each timeline's mesh bakes in its own reality; the shared structure (walls, ceiling, columns) bakes twice, once per reality, and the
     game swaps its lightmap on every shift."""
@@ -882,8 +884,11 @@ def export_timeline_section(S, key, out_dir, prefix, samples, lm_size=2048):
                 by_tl[t2].hide_render = hide
             for o in timeline_lights(t2):
                 o.hide_render = hide
+        if skies and tl in skies:
+            sky_world(*skies[tl])  # a section whose two realities have different skies (Chapter 4's terrace)
+    two = bool(S.static_a or S.static_b or any(m.get('timeline') for m in getattr(S, 'lights', [])) or (skies and len(skies) > 1))
     for tl, st in parts:
-        for real in ([tl] if tl else ['a', 'b']):
+        for real in ([tl] if tl else (['a', 'b'] if two else ['a'])):
             state(real)
             suffix = ('_' + tl) if tl else ('' if real == 'a' else '_b')
             lm_rel = f'{rel}/{key}{suffix}_lm.hdr'

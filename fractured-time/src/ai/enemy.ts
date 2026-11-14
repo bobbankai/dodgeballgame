@@ -471,6 +471,16 @@ export const ENEMIES: Record<string, EnemyDef> = {
       { clip: 'heavy1', min: 1.0, max: 2.4, weight: 0.8, cooldown: 2.2 },
     ],
   },
+  // the Nexus's temporal elites: the Marshal's armour on a line soldier (Chapter 5)
+  elite: {
+    id: 'elite', display: 'Temporal Elite', model: 'characters/marshal/marshal.glb', health: 120, poise: 30, runSpeed: 5.6, circleSpeed: 2.5,
+    aggroRange: 30, fov: Math.PI * 1.6, guardChance: 0.4, circleRange: [1.8, 3.2], evades: true, power: 1.1,
+    attacks: [
+      { clip: 'light1', min: 0.8, max: 2.4, weight: 3, cooldown: 0.9, then: 'light2' },
+      { clip: 'heavy1', min: 1.0, max: 2.6, weight: 1.4, cooldown: 1.5 },
+      { clip: 'light4', min: 1.2, max: 3.0, weight: 1.2, cooldown: 1.2 },
+    ],
+  },
   operative: {
     id: 'operative', display: 'Temporal Operative', model: 'characters/operative/operative.glb', health: 40, poise: 10, runSpeed: 6.0, circleSpeed: 2.6,
     aggroRange: 18, fov: Math.PI * 1.3, guardChance: 0.1, circleRange: [1.7, 3.0], evades: true, power: 0.85,

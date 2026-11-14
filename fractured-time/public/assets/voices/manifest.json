@@ -458,5 +458,205 @@
   "who": "THE ECHO",
   "text": "Then he is finishing what he started. Go. I will find you when it matters.",
   "dur": 4.378
+ },
+ "b121530db9f9": {
+  "who": "IMANI",
+  "text": "You are standing in the future, Ethan. Twenty one oh one, if the clocks here can be trusted.",
+  "dur": 5.072
+ },
+ "dcbc8eb8c560": {
+  "who": "ETHAN",
+  "text": "And the storm I can hear behind it?",
+  "dur": 1.984
+ },
+ "9c3d257ffdaf": {
+  "who": "IMANI",
+  "text": "The same terrace after Voss wins. Both are real now, and they are leaking into each other.",
+  "dur": 5.226
+ },
+ "4457c92d7527": {
+  "who": "IMANI",
+  "text": "The bridge only exists in one of them. Do not change your mind halfway across.",
+  "dur": 4.536
+ },
+ "73406f43a53d": {
+  "who": "HELIX TROOPER",
+  "text": "Unregistered chronal signature on the terrace! Engage!",
+  "dur": 2.981
+ },
+ "128d7519889a": {
+  "who": "ETHAN",
+  "text": "I know this room.",
+  "dur": 1.332
+ },
+ "60d26023bb12": {
+  "who": "IMANI",
+  "text": "You should. HELIX, ten years before the Incident. Ethan... touch the shards. Please.",
+  "dur": 4.797
+ },
+ "6b98ff760f11": {
+  "who": "DIRECTOR VOSS",
+  "text": "Four fifteen, the fourteenth of March, twenty eighty nine. A chronal cascade takes the city. Every model agrees.",
+  "dur": 8.175
+ },
+ "66a2594296a9": {
+  "who": "IMANI",
+  "text": "Every model we built, Soren. That is not the same thing.",
+  "dur": 3.234
+ },
+ "6f63f820828d": {
+  "who": "ETHAN",
+  "text": "If the prediction holds, someone has to be inside the Engine when it starts. I will do it.",
+  "dur": 5.218
+ },
+ "370de10a119c": {
+  "who": "IMANI",
+  "text": "The integration has never been tested on a person.",
+  "dur": 2.959
+ },
+ "1355395f7d93": {
+  "who": "ETHAN",
+  "text": "Then test it on me.",
+  "dur": 1.59
+ },
+ "2c42d6c27242": {
+  "who": "ETHAN",
+  "text": "The cascade data was edited. Someone wrote the disaster into the model.",
+  "dur": 4.471
+ },
+ "7e642eb95f69": {
+  "who": "DIRECTOR VOSS",
+  "text": "Then you understand why you cannot remember this. Doctor Reyes. His memory. Tonight.",
+  "dur": 6.11
+ },
+ "895d0a25568a": {
+  "who": "IMANI",
+  "text": "Yes, Director.",
+  "dur": 1.146
+ },
+ "32b527b6d06c": {
+  "who": "ETHAN",
+  "text": "Imani. You were there.",
+  "dur": 1.303
+ },
+ "41eed623b66a": {
+  "who": "IMANI",
+  "text": "I took it from you. Voss ordered it and I did it. I hid what I took inside the Engine's own memory, so you could find it if you lived.",
+  "dur": 7.208
+ },
+ "c98cb9c90795": {
+  "who": "ETHAN",
+  "text": "Why should I trust you now?",
+  "dur": 1.675
+ },
+ "4c2d1e27fed5": {
+  "who": "IMANI",
+  "text": "You should not. But you need me for what comes next.",
+  "dur": 2.675
+ },
+ "b7842cab58ad": {
+  "who": "IMANI",
+  "text": "A HELIX foundry, coming apart between two timelines. In one it is still pouring. In the other it went cold years ago.",
+  "dur": 6.988
+ },
+ "8d8395db91eb": {
+  "who": "IMANI",
+  "text": "Not in this timeline. In the other one that metal set years ago.",
+  "dur": 3.746
+ },
+ "bba393d65ad9": {
+  "who": "ETHAN",
+  "text": "Dead. Nothing has run in here for years.",
+  "dur": 2.444
+ },
+ "fc6c1c8e96f1": {
+  "who": "IMANI",
+  "text": "Door is open. Something is waiting past it. One signature, very steady.",
+  "dur": 4.325
+ },
+ "b776aa0a4874": {
+  "who": "COMMANDER NYX",
+  "text": "Ethan Vale. You were the best of us. You still could be.",
+  "dur": 2.751
+ },
+ "79ad81b86428": {
+  "who": "ETHAN",
+  "text": "Commander.",
+  "dur": 0.855
+ },
+ "39fc1c0d7387": {
+  "who": "COMMANDER NYX",
+  "text": "Walk back through that door and I will tell Voss I never found you.",
+  "dur": 3.29
+ },
+ "e5fe38334f82": {
+  "who": "ETHAN",
+  "text": "He erased me once. I am not walking anywhere for him.",
+  "dur": 3.302
+ },
+ "cda57063721e": {
+  "who": "COMMANDER NYX",
+  "text": "Then let us see how much of you he left.",
+  "dur": 2.054
+ },
+ "3c29a11fe09f": {
+  "who": "COMMANDER NYX",
+  "text": "You are not the only one he gave time to.",
+  "dur": 2.29
+ },
+ "3f6c33548299": {
+  "who": "COMMANDER NYX",
+  "text": "This place is failing. So are you.",
+  "dur": 2.002
+ },
+ "adeb461a474b": {
+  "who": "IMANI",
+  "text": "The platform is losing its timeline. Watch the ground, Ethan, it is going to flip under you.",
+  "dur": 5.291
+ },
+ "0399345d3217": {
+  "who": "COMMANDER NYX",
+  "text": "Stop. Enough.",
+  "dur": 0.994
+ },
+ "0f5cc508530f": {
+  "who": "COMMANDER NYX",
+  "text": "I read the cascade data too, Ethan. The same night you did. He did not erase me. He promoted me.",
+  "dur": 6.093
+ },
+ "c86d1de71ed7": {
+  "who": "ETHAN",
+  "text": "Then help me end it.",
+  "dur": 1.476
+ },
+ "3ac75d94b32c": {
+  "who": "COMMANDER NYX",
+  "text": "The Engines are a network now. To restore anything you would have to go inside it. Into the Nexus.",
+  "dur": 5.569
+ },
+ "5e2fd9e9484f": {
+  "who": "IMANI",
+  "text": "If you restore the original timeline, every branch that grew from the fracture could be erased. People who only exist now.",
+  "dur": 7.026
+ },
+ "75d933d36a9e": {
+  "who": "ETHAN",
+  "text": "Then I will find another way.",
+  "dur": 1.834
+ },
+ "4eee4c8c0d18": {
+  "who": "THE ECHO",
+  "text": "Not alone, you will not.",
+  "dur": 1.725
+ },
+ "11e03e559002": {
+  "who": "ETHAN",
+  "text": "You came back.",
+  "dur": 1.093
+ },
+ "e104ab663f1a": {
+  "who": "THE ECHO",
+  "text": "I said I would. When it matters.",
+  "dur": 2.064
  }
 }

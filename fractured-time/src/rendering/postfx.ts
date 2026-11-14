@@ -54,6 +54,8 @@ export const GRADES = {
   arcology: { slope: [0.99, 1.0, 1.03], offset: [0.001, 0.001, 0.002], power: [0.98, 0.98, 0.97], saturation: 0.92, contrast: 1.05 },
   // the same rooms twenty years abandoned: warm dust, faded colour
   arcology_ruin: { slope: [1.05, 1.0, 0.9], offset: [0.003, 0.002, 0.0], power: [1.03, 1.02, 1.0], saturation: 0.72, contrast: 1.04 },
+  // the Nexus: deep violet shadows, the Engine's white-gold in the highlights, strong separation
+  nexus: { slope: [1.03, 0.98, 1.04], offset: [0.0015, -0.0005, 0.004], power: [1.06, 1.02, 0.96], saturation: 1.05, contrast: 1.16 },
 } as const;
 export type GradeName = keyof typeof GRADES;
 

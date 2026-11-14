@@ -255,6 +255,27 @@ export class ChapterRuntime {
     return new Promise((r) => this.waiters.set(id, [...(this.waiters.get(id) ?? []), r]));
   }
 
+  /** A trigger that can fire again (falls, hazards): `fn` runs each time Ethan enters it; it re-arms once `fn` has finished. */
+  repeat(id: string, fn: () => Promise<void> | void): void {
+    const arm = () => { void this.trigger(id).then(async () => { await fn(); this.fired.delete(id); arm(); }); };
+    arm();
+  }
+
+  /** Make a used interactable usable again (a console that did nothing in this timeline). */
+  rearm(id: string): void {
+    const it = this.interactables.get(id);
+    if (it) it.used = false;
+  }
+
+  /** Put Ethan somewhere without touching the checkpoint (a fall back onto the platform). */
+  place(pos: THREE.Vector3, yaw?: number): void {
+    const p = this.g.player;
+    (this.g.physics as any).teleport(p.body, { x: pos.x, y: pos.y + 0.3, z: pos.z });
+    p.pos.copy(pos); p.prev.copy(pos);
+    (p as any).vel?.set(0, 0, 0);
+    if (yaw !== undefined) p.yaw = yaw;
+  }
+
   interact(id: string): Promise<void> {
     const it = this.interactables.get(id);
     if (!it) return Promise.resolve();
@@ -307,6 +328,22 @@ export class ChapterRuntime {
       this.g.enemies.push(b);
       this.g.scene.add(b.root);
       return b as any;
+    }
+    if (id === 'voss') {
+      const { VossBoss } = await import('@/bosses/voss');
+      const e = await VossBoss.createVoss(this.g, m.pos.clone(), m.yaw);
+      e.held = true;
+      this.g.enemies.push(e);
+      this.g.scene.add(e.root);
+      return e as any;
+    }
+    if (id === 'nyx') {
+      const { NyxBoss } = await import('@/bosses/nyx');
+      const e = await NyxBoss.createNyx(this.g, m.pos.clone(), m.yaw);
+      e.held = true;
+      this.g.enemies.push(e);
+      this.g.scene.add(e.root);
+      return e as any;
     }
     if (id === 'echo') {
       const { EchoBoss } = await import('@/bosses/echo');
@@ -397,6 +434,8 @@ export class ChapterRuntime {
   private outdoors = false;
   private thunderAt = 6;
   private lightning = 0;
+  /** the current place is the Nexus (no storm: reality cracks instead) */
+  private nexus = false;
   private flashPulse = 0;
   private skyBase = 1;
   private fogBase = new THREE.Vector4();
@@ -405,12 +444,19 @@ export class ChapterRuntime {
 
   /** Sky + fog of the section Ethan is in: exteriors carry a 'sky' marker (HDRI, intensity, fog colour + density); interiors get a
    * dark, faint haze that gives long rooms their depth. */
-  private atmosphere(sky: Marker | undefined, box: THREE.Box3): void {
+  private atmosphere(skyMarker: Marker | undefined, box: THREE.Box3): void {
     const sc = this.g.scene;
+    // a section whose two realities have different skies carries the second set with a _b suffix (Chapter 4's terrace)
+    let sky = skyMarker;
+    if (sky && this.timeline === 'b' && sky.data.hdri_b) {
+      const d = sky.data;
+      sky = { ...sky, data: { ...d, hdri: d.hdri_b, intensity: d.intensity_b, fog: d.fog_b, exposure: d.exposure_b, rain: d.rain_b, grade: d.grade_b } };
+    }
     this.outdoors = !!sky;
     const vf = this.g.post.volumetric;
     this.g.post.fog.u.on.value = vf ? 1 : 0;
     this.g.rain.intensity = sky ? Number(sky.data.rain ?? 1) : 0;
+    this.nexus = !!sky?.data.nexus;
     if (sky) setWeather(Number(sky.data.rain ?? 1) > 0 ? 'storm' : 'dry');
     // the place's grade
     const isEngine = /s6\.glb$/.test(this.sections[this.current]?.path ?? '');
@@ -427,7 +473,7 @@ export class ChapterRuntime {
       this.g.sfx.ambience('amb_facility', this.current === this.sections.findIndex((x) => /s6\.glb$/.test(x.path)) ? 'hall' : 'interior');
       return;
     }
-    this.g.sfx.ambience('amb_storm');
+    this.g.sfx.ambience(this.nexus ? 'amb_facility' : 'amb_storm', this.nexus ? 'hall' : undefined);
     const path = String(sky.data.hdri);
     let t = this.skies.get(path);
     if (!t) {
@@ -486,7 +532,9 @@ export class ChapterRuntime {
         this.thunderAt = 8 + Math.random() * 14;
         this.g.post.u.flash.value = Math.max(this.g.post.u.flash.value, 0.08 + Math.random() * 0.08);
         this.lightning = 1;
-        void this.g.wait(0.4 + Math.random() * 1.2).then(() => this.g.sfx.play('thunder', { volume: 0.9 }));
+        // in the Nexus the sky does not thunder: reality cracks (the shift's sound, low)
+        if (this.nexus) { this.g.sfx.play('shift', { volume: 0.5, pitch: 0.5 }); this.g.post.u.fracture.value = Math.max(this.g.post.u.fracture.value, 0.35); }
+        else void this.g.wait(0.4 + Math.random() * 1.2).then(() => this.g.sfx.play('thunder', { volume: 0.9 }));
       }
     }
     // lightning: the sky and the air light up in a few flickering pulses; the eye adapts to the place (dark storm -> exposure up)
