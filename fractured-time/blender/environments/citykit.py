@@ -72,6 +72,43 @@ def era_mats(M, era):
     }[era]
 
 
+# Dusk: lit windows (share of windows with the lights on, per era; whole office floors cluster). Level scripts set it.
+LIT = {'modern': 0.0, 'concrete': 0.0, 'brick': 0.0, 'ruin': 0.0, 'overgrown': 0.0}
+DUSK_LIT = {'modern': 0.3, 'concrete': 0.26, 'brick': 0.3, 'ruin': 0.012, 'overgrown': 0.0}
+
+
+def lit_windows(B, M, era, put, w, d, z0, z1, nf, rng, bay):
+    """Emissive panes just proud of the glazing core in a share of the window bays (warm homes, cool offices, a television)."""
+    p = LIT.get(era, 0.0)
+    if p <= 0:
+        return
+    office = era == 'modern'
+    pal = (['win_cool'] * 6 + ['win_neutral'] * 3 + ['win_warm']) if office else (['win_warm'] * 5 + ['win_neutral'] * 3 + ['win_tv'])
+    if era == 'ruin':
+        pal = ['win_fire']
+    h = (z1 - z0) / nf
+    for k in range(nf):
+        floor_on = office and rng.random() < p * 1.1
+        floor_mat = rng.choice(pal)
+        zc = z0 + k * h + 0.3 + (h - 0.9) / 2 + 0.15
+        for along, across, horiz in ((w, d, True), (d, w, False)):
+            n = max(2, int(along / bay) + 1)
+            ts = [-along / 2 + 0.25 + (along - 0.5) * i / (n - 1) for i in range(n)]
+            for i in range(n - 1):
+                for side in (-1, 1):
+                    on = (rng.random() < 0.85) if floor_on else (rng.random() < (p * 0.35 if office else p))
+                    if not on:
+                        continue
+                    mat = M[floor_mat if floor_on else rng.choice(pal)]
+                    wid = ts[i + 1] - ts[i] - 0.62
+                    if wid < 0.4:
+                        continue
+                    t = (ts[i] + ts[i + 1]) / 2
+                    o = side * (across / 2 - 0.35 + 0.012)
+                    size = (wid, 0.02, h - 1.0) if horiz else (0.02, wid, h - 1.0)
+                    put(mat, size, (t, o, zc) if horiz else (o, t, zc), bevel=0.0)
+
+
 def storeys(B, M, era, cx, cy, w, d, z0, z1, rng, rot_z=0.0, floor_h=3.6, bay=3.2, broken=0.0, parapet=True):
     """Facade block from z0 to z1: recessed glazing core, piers every `bay`, floor slabs every storey, a parapet on top.
     `broken` (0..1): fraction of piers and slab segments missing (ruined era)."""
@@ -100,6 +137,7 @@ def storeys(B, M, era, cx, cy, w, d, z0, z1, rng, rot_z=0.0, floor_h=3.6, bay=3.
                 put(frame, (0.5, 0.5, h), loc)
     # floor slabs: a band around the building at every storey
     nf = max(1, int(h / floor_h))
+    lit_windows(B, M, era, put, w, d, z0, z1, nf, random.Random(rng.random()), bay)
     for k in range(1, nf + 1):
         z = z0 + k * h / nf
         for side in (-1, 1):
@@ -162,13 +200,92 @@ def street(B, M, x0, x1, y0, y1, z):
     B.box(M['c_asphalt'], (x1 - x0, y1 - y0, 0.4), ((x0 + x1) / 2, (y0 + y1) / 2, z - 0.2), bevel=0.0)
 
 
-def lamp_post(B, M, x, y, z, rot_z=0.0, fallen=False):
+_LAMPS = [0]
+LAMP_COLOR = (1.0, 0.84, 0.64)   # warm-white LED street lighting
+LAMP_POWER = 340.0
+
+
+def lamp_post(B, M, x, y, z, rot_z=0.0, fallen=False, lit=None):
+    """Street light: pole, outreach arm, a luminaire at its end. `lit` (default: on at dusk) gives it its lens and a real light."""
     if fallen:
         B.box(M['c_metal'], (0.16, 7.0, 0.16), (x, y, z + 0.1), rot_z=rot_z, bevel=0.02)
         return
     B.box(M['c_metal'], (0.16, 0.16, 7.0), (x, y, z + 3.5), bevel=0.02)
     p = Matrix.Rotation(rot_z, 4, 'Z') @ Vector((0, -0.8, 0))
     B.box(M['c_metal'], (0.12, 1.7, 0.12), (x + p.x * 0.5, y + p.y * 0.5, z + 6.9), rot_z=rot_z, bevel=0.02)
+    # luminaire at the far end of the arm
+    hx, hy = x + p.x * 1.45, y + p.y * 1.45
+    B.box(M['c_metal'], (0.3, 0.62, 0.11), (hx, hy, z + 6.86), rot_z=rot_z, bevel=0.03)
+    on = LIT['concrete'] > 0 if lit is None else lit
+    B.box(M['lamp_lens'] if on else M['dark'], (0.22, 0.5, 0.02), (hx, hy, z + 6.80), rot_z=rot_z, bevel=0.005)
+    if on:
+        _LAMPS[0] += 1
+        K.area_light(f'lamp{_LAMPS[0]}', (hx, hy, z + 6.77), (0.22, 0.5), LAMP_POWER, LAMP_COLOR, rot=(0, 0, rot_z))
+
+
+# --- signage ---------------------------------------------------------------------------------------------------------------
+
+_SIGNS = [0]
+
+
+def _facing_rot(dx, dy):
+    """Euler for a text mesh (Blender text faces +Z, reads along +X) standing upright facing (dx, dy)."""
+    return (math.pi / 2, 0.0, math.atan2(dx, -dy))
+
+
+def neon_sign(S, B, M, text, x, y, z, facing, color, size=0.42, strength=22.0, board=True, light=1.0, missing=''):
+    """Storefront lettering in bent neon on a dark fascia board, with a soft coloured light thrown on the pavement and the wet
+    street in front of it. `missing`: letters that are dark (a dead sign)."""
+    _SIGNS[0] += 1
+    n = _SIGNS[0]
+    dx, dy = facing
+    neon = K.emissive_mat(f'neon_{color[0]:.2f}_{color[1]:.2f}_{color[2]:.2f}_{strength:.0f}', color, strength)
+    width = len(text) * size * 0.66 + 0.5
+    if board:
+        # the fascia: a shallow dark box the letters stand on, with a lit top edge
+        bx, by = x - dx * 0.06, y - dy * 0.06
+        bsize = (abs(dy) * width + abs(dx) * 0.1, abs(dx) * width + abs(dy) * 0.1, size * 1.7)
+        B.box(M['dark'], bsize, (bx, by, z + size * 0.32), bevel=0.02)
+    lit_text = ''.join(c if c not in missing else ' ' for c in text)
+    if lit_text.strip():
+        ob = K.sign(f'neon{n}', lit_text, (x + dx * 0.02, y + dy * 0.02, z), _facing_rot(dx, dy), size, neon, depth=0.012)
+        S.add(ob)
+    dead = ''.join(c if c in missing else ' ' for c in text)
+    if dead.strip():
+        ob = K.sign(f'neond{n}', dead, (x + dx * 0.02, y + dy * 0.02, z), _facing_rot(dx, dy), size, M['dark'], depth=0.012)
+        S.add(ob)
+    if light > 0 and lit_text.strip():
+        K.area_light(f'neon{n}_l', (x + dx * 0.35, y + dy * 0.35, z + size * 0.3), (width * 0.8, size * 0.8),
+                     40.0 * width * light * len(lit_text.replace(' ', '')) / max(1, len(text.replace(' ', ''))), color,
+                     rot=(math.pi / 2, 0.0, math.atan2(-dx, dy)))
+
+
+def shopfront(S, B, M, x, y, facing, width, z=0.0, interior=(1.0, 0.86, 0.68), sign=None, neon=(1.0, 0.3, 0.6), strength=2.6,
+              awning=True):
+    """A lit shop window at street level in a facade facing (dx, dy): a glowing interior plane recessed behind mullions, shelf
+    silhouettes, a canopy, the shop's neon name on the fascia above, and the window's light spilling onto the pavement."""
+    dx, dy = facing
+    ax, ay = -dy, dx  # along the facade
+    key = f'shop_{interior[0]:.2f}_{interior[1]:.2f}_{interior[2]:.2f}_{strength:.1f}'
+    glow = K.emissive_mat(key, interior, strength)
+    sz = lambda along, out, up: (abs(ax) * along + abs(dx) * out, abs(ay) * along + abs(dy) * out, up)  # noqa: E731
+    B.box(glow, sz(width, 0.02, 2.5), (x - dx * 0.05, y - dy * 0.05, z + 1.45), bevel=0.0)
+    # shelves seen through the glass
+    for k, h in enumerate((0.6, 1.15, 1.7)):
+        B.box(M['dark'], sz(width * 0.86, 0.06, 0.05), (x + dx * 0.0, y + dy * 0.0, z + h), bevel=0.0)
+    # mullions + transom
+    nm = max(2, int(width / 1.4) + 1)
+    for i in range(nm):
+        t = -width / 2 + width * i / (nm - 1)
+        B.box(M['c_metal'], sz(0.07, 0.1, 2.6), (x + ax * t + dx * 0.04, y + ay * t + dy * 0.04, z + 1.4), bevel=0.01)
+    B.box(M['c_metal'], sz(width + 0.1, 0.1, 0.08), (x + dx * 0.04, y + dy * 0.04, z + 2.72), bevel=0.01)
+    B.box(M['c_metal'], sz(width + 0.1, 0.12, 0.2), (x + dx * 0.04, y + dy * 0.04, z + 0.12), bevel=0.01)
+    if awning:
+        B.box(M['dark'], sz(width + 0.6, 1.1, 0.08), (x + dx * 0.6, y + dy * 0.6, z + 2.95), bevel=0.02)
+    if sign:
+        neon_sign(S, B, M, sign, x + dx * 0.12, y + dy * 0.12, z + 3.25, facing, neon, size=0.4)
+    K.area_light(f'shop{_SIGNS[0]}_{x:.0f}_{y:.0f}', (x + dx * 0.25, y + dy * 0.25, z + 1.5), (width * 0.9, 2.2), 70.0 * width,
+                 interior, rot=(math.pi / 2, 0.0, math.atan2(-dx, dy)))
 
 
 def barrier(B, M, x, y, z, rot_z=0.0, tipped=0.0):

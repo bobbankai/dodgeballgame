@@ -60,6 +60,21 @@ export class SentinelBoss extends Actor {
   isCorpseExpired = false;
   /** spawned asleep: `wake()` starts the fight (the intro cinematic times it) */
   dormant = false;
+
+  /** Rewind: the frame's position, health, phase and behaviour state (plates already shed stay shed: the fight never un-breaks). */
+  snapshot(): unknown {
+    return { pos: [this.pos.x, this.pos.y, this.pos.z], yaw: this.yaw, health: this.health, alive: this.alive, phase: this.phase,
+      state: this.state, stateT: this.stateT, poise: this.poise };
+  }
+
+  restore(s: any): void {
+    if (this.phase !== s.phase) return; // never rewind across the phase transition cinematic
+    this.pos.set(s.pos[0], s.pos[1], s.pos[2]); this.prev.copy(this.pos); this.yaw = this.prevYaw = s.yaw;
+    this.health = s.health; this.alive = s.alive; this.state = s.state; this.stateT = s.stateT; this.poise = s.poise;
+    this.vel.set(0, 0, 0);
+    this.hitDone = false;
+    this.ctx.physics.teleport(this.body, this.pos);
+  }
   wake(): void {
     this.dormant = false; this.stateT = 0;
     const sfx = this.ctx.sfx as any;

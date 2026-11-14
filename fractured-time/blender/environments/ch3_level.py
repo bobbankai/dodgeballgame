@@ -219,5 +219,7 @@ if __name__ == '__main__':
         bpy.ops.render.render(write_still=True)
     if '--probes' in argv:
         probes(built, keys)
+    if '--volume' in argv:
+        K.bake_volumes(built, keys, 'ch3', os.path.join(K.ROOT, 'vendor', 'polyhaven', 'hdri', 'approaching_storm_2k.hdr'), skip=())
     if '--export' in argv:
         export(built, keys, samples)

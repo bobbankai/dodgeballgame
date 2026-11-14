@@ -3,6 +3,8 @@ import type { Game } from '@/game';
 import { loadLevel, captureProbe, type Marker, type LoadedLevel } from '@/world/level';
 import { LightPool } from '@/world/lightpool';
 import { ProbeField, CharacterLight } from '@/world/probes';
+import { setWeather, weather } from '@/rendering/wet';
+import { loadVolume, INTERIOR_FOG, EXTERIOR_FOG, type LightVolume, type FogSettings } from '@/rendering/volumetrics';
 import { HDRLoader } from 'three/addons/loaders/HDRLoader.js';
 import { assetUrl } from '@/rendering/charmat';
 import { timeScale } from '@/core/loop';
@@ -20,6 +22,7 @@ import { G } from '@/physics/physics';
  * Marker data is authored in Blender (blender/environments/ch*_level.py); sizes and points there are Blender axes and converted here.
  */
 type Json = Record<string, unknown>;
+const _sz = new THREE.Vector3();
 const parse = (v: unknown): any => (typeof v === 'string' && /^[[{]/.test(v) ? JSON.parse(v) : v);
 /** Blender (x, y, z) -> three (x, z, -y) */
 const b2t = (v: number[]) => new THREE.Vector3(v[0], v[2] ?? 0, -(v[1] ?? 0));
@@ -141,7 +144,9 @@ export class ChapterRuntime {
   private interactables = new Map<string, { m: Marker; resolve?: () => void; used: boolean }>();
   private anomalies: { pos: THREE.Vector3; obj?: THREE.Object3D }[] = [];
   /** streamed sections: only the current one and its neighbours are in the scene / on the GPU */
-  sections: { path: string; lv: LoadedLevel; box: THREE.Box3; inScene: boolean; probe: THREE.Texture | null }[] = [];
+  sections: { path: string; lv: LoadedLevel; box: THREE.Box3; inScene: boolean; probe: THREE.Texture | null;
+    /** baked light volumes for the volumetric fog (timeline b has its own where the geometry differs) */
+    vol: { a: LightVolume | null; b: LightVolume | null } }[] = [];
   current = -1;
   readonly pool: LightPool;
   /** baked SH light probes of every section; each character carries its own blended probe */
@@ -168,6 +173,14 @@ export class ChapterRuntime {
       }
     }
     this.g.post.u.fracture.value = 1; // the shift ripple
+    this.applyVolume();
+  }
+
+  /** The light volume of the current section in the current timeline. */
+  private applyVolume(): void {
+    const cur = this.sections[this.current];
+    if (!cur) return;
+    this.g.post.fog.setVolume(this.timeline === 'b' && cur.vol.b ? cur.vol.b : cur.vol.a);
   }
 
   byId(id: string): Marker | undefined { return this.markers.find((m) => m.data.id === id); }
@@ -176,7 +189,9 @@ export class ChapterRuntime {
     const lv = await loadLevel(path, this.g.physics, null);
     lv.root.updateMatrixWorld(true);
     const box = new THREE.Box3().setFromObject(lv.root).expandByScalar(0.5);
-    this.sections.push({ path, lv, box, inScene: false, probe: null });
+    const vols = await Promise.all([loadVolume(assetUrl(path.replace(/\.glb$/, '_vol.bin'))),
+      lv.timeline.b.meshes.length ? loadVolume(assetUrl(path.replace(/\.glb$/, '_vol_b.bin'))) : Promise.resolve(null)]);
+    this.sections.push({ path, lv, box, inScene: false, probe: null, vol: { a: vols[0], b: vols[1] } });
     await this.probes.load(path.replace(/\.glb$/, '_probes.json'), this.sections.length - 1, box);
     this.pool.add(lv.lightDefs);
     const ms = lv.markers;
@@ -322,7 +337,14 @@ export class ChapterRuntime {
 
   /** Section streaming: keep the section the player is in and its neighbours resident; free the GPU copies of the rest. */
   stream(at: THREE.Vector3): void {
-    let k = this.sections.findIndex((s) => s.box.containsPoint(at));
+    // the smallest section box holding the point (the skyline's box spans the whole map, the rooms it contains are the real place)
+    let k = -1;
+    let vol = Infinity;
+    this.sections.forEach((s, i) => {
+      if (!s.box.containsPoint(at)) return;
+      const v = s.box.getSize(_sz).x * _sz.y * _sz.z;
+      if (v < vol) { vol = v; k = i; }
+    });
     if (k < 0) {
       let best = Infinity;
       this.sections.forEach((s, i) => { const d = s.box.distanceToPoint(at); if (d < best) { best = d; k = i; } });
@@ -340,7 +362,8 @@ export class ChapterRuntime {
       }
     });
     const cur = this.sections[k];
-    this.atmosphere(cur.lv.markers.find((m) => m.name === 'sky'));
+    this.atmosphere(cur.lv.markers.find((m) => m.name === 'sky'), cur.box);
+    this.applyVolume();
     if (!cur.probe) cur.probe = captureProbe(this.g.gfx.renderer, this.g.scene, cur.box.getCenter(new THREE.Vector3()).setY(1.6));
     this.g.scene.environment = cur.probe;
   }
@@ -348,15 +371,28 @@ export class ChapterRuntime {
   private skies = new Map<string, THREE.Texture>();
   private outdoors = false;
   private thunderAt = 6;
+  private lightning = 0;
+  private skyBase = 1;
+  private fogBase = new THREE.Vector4();
+  /** eye adaptation target for the current place (the sky marker's exposure outdoors, 1 inside) */
+  private exposure = 1;
 
   /** Sky + fog of the section Ethan is in: exteriors carry a 'sky' marker (HDRI, intensity, fog colour + density); interiors get a
    * dark, faint haze that gives long rooms their depth. */
-  private atmosphere(sky: Marker | undefined): void {
+  private atmosphere(sky: Marker | undefined, box: THREE.Box3): void {
     const sc = this.g.scene;
     this.outdoors = !!sky;
+    const vf = this.g.post.volumetric;
+    this.g.post.fog.u.on.value = vf ? 1 : 0;
+    this.g.rain.intensity = sky ? Number(sky.data.rain ?? 1) : 0;
+    if (sky) setWeather(Number(sky.data.rain ?? 1) > 0 ? 'storm' : 'dry');
     if (!sky) {
+      this.exposure = 1;
       sc.background = new THREE.Color(0x000000);
-      sc.fog = new THREE.FogExp2(0x0a0d11, 0.016);
+      // volumetric: dusty air lit by the fixtures (the classic exponential haze when the preset has no volumetrics)
+      sc.fog = vf ? null : new THREE.FogExp2(0x0a0d11, 0.016);
+      if (vf) this.g.post.fog.apply({ ...INTERIOR_FOG, baseY: box.min.y + 0.5, ...this.fogOverride() });
+      this.captureFogBase();
       this.g.sfx.ambience('amb_facility', this.current === this.sections.findIndex((x) => /s6\.glb$/.test(x.path)) ? 'hall' : 'interior');
       return;
     }
@@ -369,10 +405,31 @@ export class ChapterRuntime {
       this.skies.set(path, t);
     }
     sc.background = t;
-    (sc as any).backgroundIntensity = Number(sky.data.intensity ?? 1);
+    const intensity = Number(sky.data.intensity ?? 1);
+    (sc as any).backgroundIntensity = intensity;
+    this.skyBase = intensity;
+    this.exposure = Number(sky.data.exposure ?? 1);
     const f = (parse(sky.data.fog) as number[] | undefined) ?? [0.3, 0.34, 0.4, 0.004];
-    sc.fog = new THREE.FogExp2(new THREE.Color(f[0], f[1], f[2]), f[3]);
+    sc.fog = vf ? null : new THREE.FogExp2(new THREE.Color(f[0], f[1], f[2]), f[3]);
+    if (vf) {
+      // outside the light volume the air is lit by the open sky: the marker's fog colour is that in-scatter
+      this.g.post.fog.apply({ ...EXTERIOR_FOG, density: f[3] * 1.1, baseY: box.min.y + 0.3,
+        fallback: new THREE.Vector4(f[0], f[1], f[2], 1), ...this.fogOverride() });
+    }
+    this.captureFogBase();
   }
+
+  private captureFogBase(): void { this.fogBase.copy(this.g.post.fog.u.fallback.value as THREE.Vector4); }
+
+  /** After a quality change (volumetric fog on/off). */
+  refreshAtmosphere(): void {
+    const cur = this.sections[this.current];
+    if (cur) { this.atmosphere(cur.lv.markers.find((m) => m.name === 'sky'), cur.box); this.applyVolume(); }
+  }
+
+  /** Scripts can thicken or tint the air for a beat (smoke, dust, a storm front); cleared with `fogOverride = {}`. */
+  fogTweak: Partial<FogSettings> = {};
+  private fogOverride(): Partial<FogSettings> { return this.fogTweak; }
 
   /** Characters: their own SH probe from the baked field (at chest height) + the real-time pool. */
   private lightCharacters(dt: number): void {
@@ -395,10 +452,24 @@ export class ChapterRuntime {
       this.thunderAt -= dt;
       if (this.thunderAt <= 0) {
         this.thunderAt = 8 + Math.random() * 14;
-        this.g.post.u.flash.value = Math.max(this.g.post.u.flash.value, 0.35 + Math.random() * 0.3);
+        this.g.post.u.flash.value = Math.max(this.g.post.u.flash.value, 0.08 + Math.random() * 0.08);
+        this.lightning = 1;
         void this.g.wait(0.4 + Math.random() * 1.2).then(() => this.g.sfx.play('thunder', { volume: 0.9 }));
       }
     }
+    // lightning: the sky and the air light up in a few flickering pulses; the eye adapts to the place (dark storm -> exposure up)
+    if (this.lightning > 0) this.lightning = Math.max(0, this.lightning - dt * 2.6);
+    const pulse = this.lightning > 0 ? this.lightning * (0.55 + 0.45 * Math.sin(this.lightning * 41) * Math.sin(this.lightning * 17)) : 0;
+    const sc = this.g.scene as any;
+    sc.backgroundIntensity = this.skyBase * (1 + 9 * pulse);
+    const fb = this.g.post.fog.u.fallback.value as THREE.Vector4;
+    fb.set(this.fogBase.x * (1 + 14 * pulse), this.fogBase.y * (1 + 14 * pulse), this.fogBase.z * (1 + 15 * pulse), fb.w);
+    const r = this.g.gfx.renderer;
+    r.toneMappingExposure += (this.exposure - r.toneMappingExposure) * Math.min(1, dt * 1.2);
+    // characters soak through in a couple of minutes of rain and dry far more slowly inside
+    const soakTo = this.outdoors ? weather.rain.value : 0;
+    const sk = weather.soak as any;
+    sk.value += (soakTo - sk.value) * Math.min(1, dt * (soakTo > sk.value ? 0.03 : 0.004));
     this.pool.update(this.g.player.pos);
     this.lightCharacters(dt);
     for (const d of this.doors.values()) d.tick(dt);

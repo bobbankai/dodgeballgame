@@ -108,7 +108,7 @@ def s_rooftops(M):
     CK.tower(B, M, -24, -26, 14, 30, -0.0, 26, 'ruin', 5)
     for o in B.objects():
         S.add(o)
-    K.marker(S, 'sky', (0, 0, 22), id='storm', hdri='textures/sky/approaching_storm.hdr', intensity=0.9, fog=[0.32, 0.36, 0.42, 0.0055])
+    L1.storm_marker(S, (0, 0, 22))
     K.marker(S, 'spawn', (0, -2.0, 20.35), yaw=0.0, id='start')
     K.marker(S, 'checkpoint', (0, -2.0, 20.35), yaw=0.0, id='cp_c1')
     K.marker(S, 'trigger', (0, -14.0, 21.0), size=[8.0, 1.0, 2.0], id='c1_edge')
@@ -148,11 +148,28 @@ def s_street(M):
         CK.barrier(B, M, x, y, 0.0, rot_z=r, tipped=tip)
     for y in (-56, -76, -96):
         CK.lamp_post(B, M, x0 + 0.6, y, 0.16, rot_z=-math.pi / 2)
-        CK.lamp_post(B, M, x1 - 0.6, y, 0.16, rot_z=math.pi / 2, fallen=(y == -76))
+        # the abandoned side's lamps died with it
+        CK.lamp_post(B, M, x1 - 0.6, y, 0.16, rot_z=math.pi / 2, fallen=(y == -76), lit=False)
+    # 2089 at street level: open late, lit, signed. Shop windows in the west towers' ground floors, facing the street (+X)
+    fx = x0 - 9 + 8 - 0.35  # the glazing line of the west towers' street faces
+    shops = (('PHARMACY', (0.25, 1.0, 0.55), (0.85, 0.95, 1.0)), ('NOODLE HOUSE', (1.0, 0.32, 0.12), (1.0, 0.78, 0.5)),
+             ('LUMEN BAR', (1.0, 0.22, 0.62), (0.9, 0.55, 0.85)), ('24H MARKET', (0.35, 0.85, 1.0), (0.95, 0.95, 0.9)))
+    for k, (name, neon, inside) in enumerate(shops):
+        y = y0 - 8 - k * 16
+        CK.shopfront(S, B, M, fx, y + 1.7, (1, 0), 6.0, z=0.16, interior=inside, sign=name, neon=neon)
+    # a pharmacy cross on a bracket, out over the pavement
+    B.box(M['c_metal'], (0.9, 0.06, 0.06), (fx + 0.45, y0 - 8 + 5.6, 4.6), bevel=0.01)
+    cross = K.emissive_mat('neon_cross', (0.25, 1.0, 0.55), 18.0)
+    B.box(cross, (0.08, 0.7, 0.22), (fx + 0.9, y0 - 8 + 5.6, 4.6), bevel=0.01)
+    B.box(cross, (0.08, 0.22, 0.7), (fx + 0.9, y0 - 8 + 5.6, 4.6), bevel=0.01)
+    K.area_light('c2_cross_l', (fx + 1.3, y0 - 8 + 5.6, 4.6), (0.6, 0.6), 30.0, (0.25, 1.0, 0.55), rot=(math.pi / 2, 0, math.atan2(-1, 0)))
+    # the same block decades on: a hotel sign with most of its letters dead
+    CK.neon_sign(S, B, M, 'HOTEL ARCADIA', x1 + 1.0 - 0.02, -88.0, 4.4, (-1, 0), (1.0, 0.16, 0.08), size=0.55, strength=9.0,
+                 missing='OEARCDI', light=0.6)
     # the cafe's frontage on the east side (the door is the way in)
     for o in B.objects():
         S.add(o)
-    K.marker(S, 'sky', (-13, -80, 10), id='storm', hdri='textures/sky/approaching_storm.hdr', intensity=0.9, fog=[0.32, 0.36, 0.42, 0.0055])
+    L1.storm_marker(S, (-13, -80, 10))
     K.marker(S, 'checkpoint', (-13.0, -50.0, 0.05), yaw=0.0, id='cp_c2')
     K.marker(S, 'interact', (-6.5, -70.0, 0.2), id='c2_log1', prompt='Play recording', log=1)
     K.marker(S, 'trigger', (-13.0, -72.0, 1.0), size=[16.0, 1.0, 2.0], id='c2_van_seen')
@@ -256,7 +273,7 @@ def s_gate(M):
     CK.crate(B, M, x1 - 1.0, -120.0, 0.0, s=1.1, rot_z=0.3)
     for o in B.objects():
         S.add(o)
-    K.marker(S, 'sky', ((x0 + x1) / 2, -120, 10), id='storm', hdri='textures/sky/approaching_storm.hdr', intensity=0.9, fog=[0.32, 0.36, 0.42, 0.0055])
+    L1.storm_marker(S, ((x0 + x1) / 2, -120, 10))
     K.marker(S, 'checkpoint', ((x0 + x1) / 2, -106.0, 0.05), yaw=0.0, id='cp_c4')
     K.marker(S, 'trigger', ((x0 + x1) / 2, -139.0, 1.0), size=[x1 - x0, 1.0, 2.0], id='c4_through')
     return S
@@ -265,8 +282,11 @@ def s_gate(M):
 def fountain(B, M, x, y):
     """The plaza fountain, frozen: the basin, the column, and the water itself stopped mid-arc (droplets hanging in the air)."""
     rng = random.Random(21)
-    B.box(M['c_stone'], (7.0, 7.0, 0.6), (x, y, 0.3), bevel=0.15)
-    B.box(M['c_water'], (6.2, 6.2, 0.05), (x, y, 0.5), bevel=0.0)
+    # the basin: a stone rim around a pool floor 0.35 m below the water line, so the water has depth to see into
+    B.box(M['c_stone'], (7.0, 7.0, 0.18), (x, y, 0.09), bevel=0.04)
+    for sx, sy, w_, d_ in ((0, 3.3, 7.0, 0.4), (0, -3.3, 7.0, 0.4), (3.3, 0, 0.4, 6.2), (-3.3, 0, 0.4, 6.2)):
+        B.box(M['c_stone'], (w_, d_, 0.62), (x + sx, y + sy, 0.31), bevel=0.06)
+    B.box(M['c_pool'], (6.2, 6.2, 0.02), (x, y, 0.52), bevel=0.0)
     B.box(M['c_stone'], (0.9, 0.9, 2.2), (x, y, 1.1), bevel=0.1)
     for k in range(6):
         a = k / 6 * math.tau
@@ -299,10 +319,18 @@ def s_plaza(M):
     for i, (x, y, r) in enumerate(((cx - 4, cy + 12, 0.0), (cx + 4, cy + 12, 0.0), (cx - 14, cy, 1.57), (cx + 15, cy + 1, 1.3))):
         CK.barrier(B, M, x, y, 0.0, rot_z=r)
         K.collide_box(S, f'c5_bar{i}', (1.0, 3.0, 1.0), (x, y, 0.5))
+    booth_lit = K.emissive_mat('c5_booth_lit', (0.85, 0.92, 1.0), 2.4)
     for i, (x, y) in enumerate(((cx - 6, cy - 13), (cx + 6, cy - 13))):
         B.box(M['c_vanbody'], (2.2, 2.2, 2.6), (x, y, 1.3), bevel=0.06)
-        B.box(M['c_glass'], (2.0, 0.05, 1.0), (x, y + 1.1, 1.7), bevel=0.0)
+        # the checkpoint booths are manned: lit inside, the light falling out across the wet paving
+        B.box(booth_lit, (2.0, 0.05, 1.0), (x, y + 1.1, 1.7), bevel=0.0)
+        B.box(M['c_vanstripe'], (2.24, 2.24, 0.12), (x, y, 2.45), bevel=0.02)
+        K.area_light(f'c5_booth{i}_l', (x, y + 1.3, 1.7), (1.9, 0.9), 120.0, (0.85, 0.92, 1.0), rot=(math.pi / 2, 0, math.pi))
         K.collide_box(S, f'c5_booth{i}', (2.2, 2.2, 2.6), (x, y, 1.3))
+    # street lights around the square, their arms reaching in over the paving
+    for k in range(6):
+        a = k / 6 * math.tau + 0.52
+        CK.lamp_post(B, M, cx + math.cos(a) * (R - 1.5), cy + math.sin(a) * (R - 1.5), 0.0, rot_z=math.atan2(-math.cos(a), math.sin(a)))
     # the square's buildings
     for k in range(8):
         a = k / 8 * math.tau + 0.2
@@ -312,7 +340,7 @@ def s_plaza(M):
         CK.tower(B, M, tx, ty, 16, 16, 0.0, rng.choice((18, 26, 34, 48)), rng.choice(('modern', 'concrete', 'brick', 'ruin')), 40 + k, rot_z=a)
     for o in B.objects():
         S.add(o)
-    K.marker(S, 'sky', (cx, cy, 10), id='storm', hdri='textures/sky/approaching_storm.hdr', intensity=0.9, fog=[0.32, 0.36, 0.42, 0.0055])
+    L1.storm_marker(S, (cx, cy, 10))
     K.marker(S, 'checkpoint', (cx, cy + R - 2, 0.05), yaw=0.0, id='cp_c5')
     K.marker(S, 'trigger', (cx, cy + R - 5, 1.0), size=[14.0, 1.0, 2.0], id='c5_enter')
     K.marker(S, 'enemies', (cx, cy, 0), id='c5_wave1', group=[['trooper', cx - 6, cy - 8, 3.14], ['trooper', cx + 5, cy - 9, 3.14]])
@@ -367,7 +395,7 @@ def s_underpass(M):
         K.collide_box(S, f'c6_land{k}', (1.4, 1.4, 0.1), (sx, sy + (-2.3 if sgn > 0 else 2.3) - sgn * 0.7, z1_ - 0.05))
     for o in B.objects():
         S.add(o)
-    K.marker(S, 'sky', ((x0 + x1) / 2, -225, 10), id='storm', hdri='textures/sky/approaching_storm.hdr', intensity=0.9, fog=[0.32, 0.36, 0.42, 0.0055])
+    L1.storm_marker(S, ((x0 + x1) / 2, -225, 10))
     K.marker(S, 'checkpoint', ((x0 + x1) / 2, y0 - 3, 0.05), yaw=0.0, id='cp_c6')
     for i, y in enumerate((-206.0, -228.0, -244.0)):
         K.marker(S, 'trigger', ((x0 + x1) / 2, y, 1.0), size=[x1 - x0, 1.0, 2.0], id=f'c6_run{i}')
@@ -406,7 +434,7 @@ def s_helipad(M):
     CK.fractured_tower(B, M, cx + 4, cy - 52, 26, 22, -10, 30, 96, 'modern', 'brick', 71, shift=(4.0, -3.0), twist=9, gap=6.0, chunks=40)
     for o in B.objects():
         S.add(o)
-    K.marker(S, 'sky', (cx, cy, z + 10), id='storm', hdri='textures/sky/approaching_storm.hdr', intensity=0.9, fog=[0.32, 0.36, 0.42, 0.0055])
+    L1.storm_marker(S, (cx, cy, z + 10))
     K.marker(S, 'checkpoint', (cx, cy + 12.0, z + 0.65), yaw=0.0, id='cp_c7')
     K.marker(S, 'boss', (cx, cy - 6.0, z + 0.65), yaw=math.pi, id='marshal')
     K.marker(S, 'trigger', (cx, cy + 8.0, z + 1.5), size=[20.0, 1.0, 2.0], id='c7_enter')
@@ -429,12 +457,15 @@ def materials():
     M['c_screen'] = K.emissive_mat('c_screen', (0.4, 0.8, 1.0), 3.0)
     M['c_lantern'] = K.emissive_mat('c_lantern', (1.0, 0.62, 0.3), 25.0)
     M['c_water'] = K.plain_mat('c_water', (0.05, 0.08, 0.09), rough=0.03, metal=0.0)
+    # the fountain's pool, stopped in time with the rest of the fountain (flow 0: its ripples hold still)
+    M['c_pool'] = K.water_mat('c_pool', tint=(0.42, 0.62, 0.6), dist=0.6, waves=0.25, scale=0.6, flow=0.0)
     M['c_paint'] = K.plain_mat('c_paint', (0.62, 0.62, 0.6), rough=0.7)
     return M
 
 
 def build():
     K.reset()
+    CK.LIT.update(CK.DUSK_LIT)  # nightfall under the storm: the city's lights are on (where anyone is left to switch them on)
     M = materials()
     built = {}
     for key, fn in SECTIONS.items():
@@ -446,7 +477,7 @@ def build():
 
 
 def probes(built, keys):
-    K.sky_world(os.path.join(K.ROOT, 'vendor', 'polyhaven', 'hdri', 'approaching_storm_2k.hdr'), 1.0)
+    K.sky_world(L1.STORM_HDRI, L1.SKY)
     for key in keys:
         S = built[key]
         pts = K.probe_points(S.static, spacing=3.0, heights=(1.1, 19.4, 21.4), exterior=True)
@@ -460,7 +491,7 @@ def export(built, keys, samples):
         K.finish_static(st)
         statics[key] = st
     K.copy_textures()
-    K.sky_world(os.path.join(K.ROOT, 'vendor', 'polyhaven', 'hdri', 'approaching_storm_2k.hdr'), 1.0)
+    K.sky_world(L1.STORM_HDRI, L1.SKY)
     for key in keys:
         lm_rel = f'environments/ch2/{key}_lm.hdr'
         K.bake_lightmap(statics[key], os.path.join(K.PUB, lm_rel), size=2048, samples=samples)
@@ -478,7 +509,7 @@ if __name__ == '__main__':
     built, M = build()
     if '--render' in argv:
         key, out = argv[argv.index('--render') + 1], argv[argv.index('--render') + 2]
-        K.sky_world(os.path.join(K.ROOT, 'vendor', 'polyhaven', 'hdri', 'approaching_storm_2k.hdr'), 1.0)
+        K.sky_world(L1.STORM_HDRI, L1.SKY)
         cam = bpy.data.objects.new('cam', bpy.data.cameras.new('cam'))
         bpy.context.scene.collection.objects.link(cam)
         mk = next((m for m in built[key].markers if m.get('marker') in ('spawn', 'checkpoint')), None)
@@ -495,5 +526,7 @@ if __name__ == '__main__':
         bpy.ops.render.render(write_still=True)
     if '--probes' in argv:
         probes(built, keys)
+    if '--volume' in argv:
+        K.bake_volumes(built, keys, 'ch2', L1.STORM_HDRI, sky_strength=L1.SKY)
     if '--export' in argv:
         export(built, keys, samples)

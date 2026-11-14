@@ -6,6 +6,8 @@ import { pbr, emissive, tex, texturesReady, type Recipe } from '@/rendering/char
 import { assetUrl } from '@/rendering/charmat';
 import type { Physics } from '@/physics/physics';
 import type { LightDef } from './lightpool';
+import { wetten } from '@/rendering/wet';
+import { water } from '@/rendering/water';
 
 const T = TSL as any;
 const { texture, uv, float } = T;
@@ -106,6 +108,9 @@ export async function loadLevel(path: string, physics: Physics | null, scene: TH
   const rtLights = (T.lights as (l: THREE.Light[]) => unknown)(ownLights);
   const lightmaps: THREE.Texture[] = [];
   root.updateMatrixWorld(true);
+  // outdoor sections (a sky marker) carry the rain layer on their static surfaces
+  let outdoors = false;
+  root.traverse((o) => { if (o.userData?.marker === 'sky') outdoors = true; });
   // one lightmap per section: multi-material meshes arrive as a group of primitives with the node extras on the group
   const lmCache = new Map<string, Promise<THREE.Texture>>();
   root.traverse((o) => {
@@ -163,6 +168,7 @@ export async function loadLevel(path: string, physics: Physics | null, scene: TH
       else if (r.type === 'screen') m = screen(r);
       else if (r.type === 'plain') m = plain(r);
       else if (r.type === 'glass') m = glass(r);
+      else if (r.type === 'water') m = water(r as any);
       else m = old;
       m.name = old.name;
       if (raw) m.userData.ft = raw;
@@ -170,7 +176,7 @@ export async function loadLevel(path: string, physics: Physics | null, scene: TH
     });
     const r0 = (m: THREE.Material) => { const raw = (m.userData as any)?.ft; return raw ? (typeof raw === 'string' ? JSON.parse(raw) : raw).type : ''; };
     const apply = (m: THREE.Material) => {
-      if (isDynamic || r0(m) === 'glass') return;
+      if (isDynamic || r0(m) === 'glass' || r0(m) === 'water') return;
       const sm = m as THREE.MeshStandardNodeMaterial;
       if (lightMap && 'lightMap' in sm) {
         sm.lightMap = lightMap;
@@ -179,7 +185,8 @@ export async function loadLevel(path: string, physics: Physics | null, scene: TH
       (sm as any).lightsNode = rtLights; // the level's real-time lights: specular only on baked surfaces
       const phys = sm as any;
       if (phys.isMeshStandardNodeMaterial && !(r0(m) === 'emissive' || r0(m) === 'screen')) {
-        phys.setupLightingModel = () => new (BakedSpecularLightingModel as any)(false, false, false, false, false, false);
+        const wet = outdoors && wetten(m);
+        phys.setupLightingModel = () => new (BakedSpecularLightingModel as any)(wet || !!phys.userData.wet, false, false, false, false, false);
       }
       sm.needsUpdate = true;
     };

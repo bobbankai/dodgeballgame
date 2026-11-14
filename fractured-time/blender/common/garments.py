@@ -225,7 +225,7 @@ def transfer_weights(space, target):
 # --- materials ----------------------------------------------------------------------------------------------------
 
 def pbr(name, tex_dir, tex_id, *, tint=(1, 1, 1), tile=8.0, rough_mul=1.0, rough_add=0.0, normal_strength=1.0, metal=0.0, res='2k',
-        detail_normal=None, detail_tile=40.0, detail_strength=0.3, coat=0.0, desat=None):
+        detail_normal=None, detail_tile=40.0, detail_strength=0.3, coat=0.0, desat=None, emit=0.0, emit_tile=None):
     """Principled material from a downloaded PBR set (diff / nor_gl / rough / ao), tiled over the UVs, tinted, optional detail normal."""
     import os
     m = bpy.data.materials.new(name)
@@ -289,8 +289,22 @@ def pbr(name, tex_dir, tex_id, *, tint=(1, 1, 1), tile=8.0, rough_mul=1.0, rough
         nt.links.new(nm.outputs['Normal'], bsdf.inputs['Normal'])
     bsdf.inputs['Metallic'].default_value = metal
     bsdf.inputs['Coat Weight'].default_value = coat
-    m['ft'] = json.dumps({'type': 'pbr', 'tex': tex_id, 'res': res, 'tile': tile, 'tint': list(tint), 'desat': desat,
-                          'rough_mul': rough_mul, 'rough_add': rough_add, 'normal': normal_strength, 'metal': metal, 'coat': coat})
+    rec = {'type': 'pbr', 'tex': tex_id, 'res': res, 'tile': tile, 'tint': list(tint), 'desat': desat,
+           'rough_mul': rough_mul, 'rough_add': rough_add, 'normal': normal_strength, 'metal': metal, 'coat': coat}
+    ep = os.path.join(tex_dir, tex_id, f'{tex_id}_emit_{res}.jpg')
+    if emit > 0 and os.path.exists(ep):
+        # lit windows (an emission map on its own, larger tile so the pattern does not repeat with the facade)
+        em = nt.nodes.new('ShaderNodeMapping')
+        et = emit_tile if emit_tile is not None else tile
+        em.inputs['Scale'].default_value = (et, et, 1)
+        nt.links.new(uv.outputs['UV'], em.inputs['Vector'])
+        en = nt.nodes.new('ShaderNodeTexImage')
+        en.image = bpy.data.images.load(ep, check_existing=True)
+        nt.links.new(em.outputs['Vector'], en.inputs['Vector'])
+        nt.links.new(en.outputs['Color'], bsdf.inputs['Emission Color'])
+        bsdf.inputs['Emission Strength'].default_value = emit
+        rec.update({'emit': emit, 'emitTile': et})
+    m['ft'] = json.dumps(rec)
     return m
 
 

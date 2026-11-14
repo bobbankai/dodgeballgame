@@ -40,6 +40,13 @@ the Echo, audio, menus and saves do not exist yet.
 | Afterimages (`src/temporal/afterimages.ts`) | 3 | pooled ghost copies of Ethan's pose on dodge / rewind / slow; not yet reviewed in motion |
 | Chapter 1 surface finale (s8 deck, s9 skyline: `citykit.py`, `facades.py`) | 2 | built; bake + engine review pending |
 | Chapters 2-5, Imani/Voss/Nyx, Rift Marshal/Echo/Nyx/Voss bosses, both endings | 1 | planned |
+| **Reference pass (10 owner photos: rain-wet streets, neon, misty god rays, caves, sea, UE5 skin)** | | |
+| Volumetric fog lit by baked light volumes (`envkit.bake_volume`, `src/rendering/volumetrics.ts`) | 4 | per section a 3D grid of the light filling the air (every fixture, shadowed by ray casts against the section; outdoors the occluded sky + sun visibility), 6-280 KB each; post pass marches every pixel's ray through height fog with drifting fbm, HG sun phase, energy-conserving integration, TRAA-resolved jitter; 40/28/16 steps by preset, classic fog on Performance. Ch1 interiors + c2 baked; engine look review in progress |
+| Rain + wet world (`src/rendering/wet.ts`, `rain.ts`) | 3 | outdoor statics: porous darkening, clear-coat water film, puddles in noise basins with raindrop rings, rivulets on walls; GPU rain streaks lit by the light volume (flare under lamps/neon), splash crowns, a ray-cast shelter map keeps rain from under roofs; rain runs on world time (hangs in the air during time slow); characters soak (skin film + beads, darker cloth) and dry slowly indoors. Not yet seen in a baked dusk street |
+| Screen-space reflections (`postfx.ts`) | 3 | MRT reflectivity (water film, polished metal, smooth floors) + roughness; three's SSR, blurred by roughness; High + Ultra |
+| Water medium (`src/rendering/water.ts`, `envkit.water_mat`) | 3 | transmissive IOR 1.33 with per-pixel depth absorption (scene depth behind the surface), layered swells + noise ripples + rain rings, shoreline foam, `flow` 0 freezes it (the plaza fountain) |
+| The storm at nightfall (Ch1 surface, Ch2) | 3 | sky at 0.24 in bakes/volumes/background, eye adaptation per place; lit windows (skyline emission maps on a 48 m tile; real panes on near towers), working street lights with luminaires and lights, shopfronts with lit interiors, neon names and spill light, a dead hotel sign on the abandoned side, lit checkpoint booths; lightning lights the sky and the air. Rebake running |
+| Skin v2 (`charmat.ts` skin) | 3 | pores in the base normal (distance-faded) + a finer micro layer (whiteout blend), specular occlusion in pores, rain soak; stubble/beard shells not done |
 
 
 ### v1 known quality gaps (must be fixed; do not forget)
@@ -76,6 +83,12 @@ the Echo, audio, menus and saves do not exist yet.
     (`hardpoly.py`); per-vertex wear masks on low-poly faces were 1 everywhere: masks are baked textures on a UV atlas.
 17. The Sentinel's phase-2 core colour change called TSL through the wrong namespace and never happened.
 18. Wall signs were hidden behind the new pilasters: moved in front.
+19. The skyline section's bounding box (1.4 km) contained every underground room, so streaming could pick it and unload the room
+    Ethan stood in: the smallest box containing the point now wins.
+20. The engine chamber's floor had no collider (Ethan fell through at the `engine` checkpoint): collider added, re-export queued.
+21. The Sentinel had no rewind snapshot: time recording during its fight threw every tick. It now snapshots (never across its phase change).
+22. Section light volumes were requested without the asset prefix (404): fixed.
+23. Source edits hot-reloaded the dev page in the middle of scripted tests: tests now run against a separate static build.
 
 ---
 

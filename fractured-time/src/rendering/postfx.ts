@@ -3,8 +3,9 @@ import * as TSL from 'three/tsl';
 
 const {
   pass, mrt, output, normalView, uniform, Fn, float, vec2, vec3, vec4, time, mix, smoothstep, screenUV, length, sin, floor,
-  hash, clamp, dot, normalize, diffuseColor, velocity,
+  hash, clamp, dot, normalize, diffuseColor, velocity, metalness, roughness, clearcoat, clearcoatRoughness,
 } = TSL as any;
+import { ssr } from 'three/addons/tsl/display/SSRNode.js';
 import { ao } from 'three/addons/tsl/display/GTAONode.js';
 import { ssgi } from 'three/addons/tsl/display/SSGINode.js';
 import { bloom } from 'three/addons/tsl/display/BloomNode.js';
@@ -15,6 +16,7 @@ import { smaa } from 'three/addons/tsl/display/SMAANode.js';
 import { fxaa } from 'three/addons/tsl/display/FXAANode.js';
 import { traa } from 'three/addons/tsl/display/TRAANode.js';
 import type { Gfx } from './gfx';
+import { VolumetricFog } from './volumetrics';
 import type { Quality } from './quality';
 
 /** Gameplay-driven look controls. Everything here is a uniform, so effects respond instantly to game state. */
@@ -40,6 +42,9 @@ export interface PostUniforms {
 export class PostFX {
   pipeline: THREE.RenderPipeline;
   u: PostUniforms;
+  /** volumetric fog lit by the sections' baked light volumes (null-op when the preset has no fog steps) */
+  fog: VolumetricFog;
+  volumetric = false;
   private features: string[] = [];
 
   constructor(private gfx: Gfx, private scene: THREE.Scene, private camera: THREE.PerspectiveCamera, q: Quality) {
@@ -49,6 +54,7 @@ export class PostFX {
       grain: uniform(0.35), focus: uniform(4), focusRange: uniform(6), bokeh: uniform(1.6), bloomStrength: uniform(0.16),
     } as unknown as PostUniforms;
     this.pipeline = new THREE.RenderPipeline(gfx.renderer);
+    this.fog = new VolumetricFog(camera);
     this.build(q);
   }
 
@@ -62,6 +68,14 @@ export class PostFX {
     if (wantGI) mrtOut.diffuse = diffuseColor;
     const wantTAA = q.antialias === 'taa';
     if (wantTAA) mrtOut.velocity = velocity;
+    // reflections: how mirror-like each pixel is (the water film on wet streets, polished metal and floors) and its roughness
+    if (q.ssr) {
+      const coatR = clamp(clearcoatRoughness, 0.0, 1.0);
+      const reflectivity = clearcoat.mul(smoothstep(0.35, 0.05, coatR))
+        .max(metalness.mul(smoothstep(0.55, 0.12, roughness)))
+        .max(smoothstep(0.32, 0.08, roughness).mul(0.25));
+      mrtOut.refl = vec2(reflectivity.clamp(0, 1), mix(roughness, coatR, clearcoat.clamp(0, 1)));
+    }
     scenePass.setMRT(mrt(mrtOut));
     const sceneColor = scenePass.getTextureNode('output');
     const sceneNormal = scenePass.getTextureNode('normal');
@@ -102,6 +116,37 @@ export class PostFX {
       }
     } catch (e) {
       console.warn('[postfx] AO/GI disabled:', e);
+    }
+
+    // 2a'. screen-space reflections (lights, neon and the street mirrored in puddles): one mirror ray per pixel, blurred by the
+    //      surface roughness; pixels that reflect nothing are skipped
+    if (q.ssr) {
+      try {
+        const rr = scenePass.getTextureNode('refl');
+        const r = (ssr as any)(sceneColor, sceneDepth, sceneNormal, { metalnessNode: rr.r, roughnessNode: rr.g, camera: this.camera });
+        r.maxDistance.value = 40;
+        r.thickness.value = 0.35;
+        r.resolutionScale = q.name === 'ultra' ? 1 : 0.5;
+        r.quality.value = q.name === 'ultra' ? 0.6 : 0.4;
+        r.maxLuminance.value = 40;
+        color = vec4(color.rgb.add(r.rgb), color.a);
+        this.features.push('ssr');
+      } catch (e) {
+        console.warn('[postfx] SSR disabled:', e);
+      }
+    }
+
+    // 2a. volumetric fog: the medium between the camera and every surface, lit by the baked light volume (after AO: occlusion is a
+    //     surface effect; before TRAA: the jittered march resolves over frames)
+    this.volumetric = false;
+    if (q.fogSteps > 0) {
+      try {
+        color = this.fog.node(color, sceneDepth, warpedUV, q.fogSteps);
+        this.volumetric = true;
+        this.features.push('volumetric');
+      } catch (e) {
+        console.warn('[postfx] volumetric fog disabled:', e);
+      }
     }
 
     // 2b. temporal AA (jittered camera + reprojected history, in HDR before bloom): resolves sub-pixel hair, lashes, specular sparkle and
@@ -200,11 +245,12 @@ export class PostFX {
   }
 
   render(): void {
+    this.fog.update();
     this.pipeline.render();
   }
 
   /** Render n frames so temporal effects (TRAA history) converge, e.g. before a still capture or after a camera cut. */
   settle(n = 12): void {
-    for (let i = 0; i < n; i++) this.pipeline.render();
+    for (let i = 0; i < n; i++) { this.fog.update(); this.pipeline.render(); }
   }
 }

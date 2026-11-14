@@ -20,6 +20,17 @@ import envkit as K  # noqa: E402
 
 OUT = os.path.join(K.PUB, 'environments', 'ch1')
 
+# The storm at nightfall (Chapter 1's surface, all of Chapter 2): the HDRI sky's strength in the bakes, the light volumes and the
+# game's background, so the city's own lights (street lamps, lit windows, shopfronts, signs) carry the scene.
+SKY = 0.24
+STORM_HDRI = os.path.join(K.ROOT, 'vendor', 'polyhaven', 'hdri', 'approaching_storm_2k.hdr')
+
+
+def storm_marker(S, loc):
+    """The sky marker the game reads: background HDRI + intensity, fog in-scatter colour + density, exposure, rain."""
+    K.marker(S, 'sky', loc, id='storm', hdri='textures/sky/approaching_storm.hdr', intensity=SKY * 0.9,
+             fog=[0.062, 0.07, 0.088, 0.0065], exposure=1.9, rain=1.0)
+
 
 def materials():
     M = {
@@ -63,7 +74,12 @@ def materials():
         'c_seam': K.emissive_mat('c_seam', (0.35, 0.85, 1.0), 40.0),
     })
     for era in ('modern', 'concrete', 'brick', 'ruin'):
-        M[f'f_{era}'] = K.mat(f'f_{era}', f'facade_{era}', 1.0 / 12.0, desat=0.0)
+        # skyline facades with their lit windows (emission map on a 48 m tile)
+        M[f'f_{era}'] = K.mat(f'f_{era}', f'facade_{era}', 1.0 / 12.0, desat=0.0, emit=3.2, emit_tile=1.0 / 48.0)
+    # the city at nightfall: lit window panes, street light lenses
+    for key, col, st in (('win_warm', (1.0, 0.72, 0.42), 3.2), ('win_neutral', (0.95, 0.9, 0.8), 3.0), ('win_cool', (0.78, 0.86, 1.0), 3.6),
+                         ('win_tv', (0.45, 0.6, 1.0), 2.2), ('win_fire', (1.0, 0.45, 0.15), 2.0), ('lamp_lens', (1.0, 0.88, 0.72), 30.0)):
+        M[key] = K.emissive_mat(key, col, st)
     M['glow'] = K.emissive_mat('glow', (0.35, 0.85, 1.0), 12.0)
     M['led_g'] = K.emissive_mat('led_g', (0.2, 1.0, 0.45), 6.0)
     M['led_r'] = K.emissive_mat('led_r', (1.0, 0.15, 0.08), 8.0)
@@ -239,6 +255,7 @@ def s6_engine_chamber(M):
     S = K.Section('s6')
     cx, cy, R, H = 6.0, -108.0, 16.0, 20.0
     S.add(K.cylinder('s6_floor', R + 0.5, 0.4, (cx, cy, -0.2), M['floor_tile'], verts=96, bevel=0.0))
+    K.collide_box(S, 's6_floor', (2 * R + 1.0, 2 * R + 1.0, 0.4), (cx, cy, -0.2))
     S.add(K.cylinder('s6_ceiling', R + 0.5, 0.6, (cx, cy, H + 0.3), M['ceiling'], verts=96, bevel=0.0))
     n = 40
     for k in range(n):
@@ -329,7 +346,7 @@ def s8_surface(M):
     for o in B.objects():
         S.add(o)
     # sky + fog for this section (the engine swaps the background when Ethan is here); spawn, checkpoint, the edge trigger
-    K.marker(S, 'sky', (ox, oy, 2.0), id='storm', hdri='textures/sky/approaching_storm.hdr', intensity=0.9, fog=[0.32, 0.36, 0.42, 0.0055])
+    storm_marker(S, (ox, oy, 2.0))
     K.marker(S, 'checkpoint', (ox, oy + 4.5, 0.05), yaw=0.0, id='cp_s8')
     K.marker(S, 'trigger', (ox, oy - 16.0, 1.0), size=[30.0, 1.0, 2.0], id='s8_edge')
     K.marker(S, 'echo', (ox - 12.0, oy - 35.4, 4.3), yaw=math.pi, id='echo')
@@ -401,6 +418,8 @@ SECTIONS = {'s1': s1_integration_lab, 's2': s2_corridor, 's3': s3_checkpoint, 's
 def build(only=None):
     K.reset()
     K.LAMP_POWER[0] = 320.0
+    import citykit as CK
+    CK.LIT.update(CK.DUSK_LIT)  # the surface at nightfall: lit windows, working street lights
     M = materials()
     built = {}
     for key, fn in SECTIONS.items():
@@ -414,7 +433,7 @@ def build(only=None):
 def probes(built, keys):
     """Bake the character light probes of each section (no lightmap rebake needed: the probes render the scene directly)."""
     if any(k in ('s8', 's9') for k in keys):
-        K.sky_world(os.path.join(K.ROOT, 'vendor', 'polyhaven', 'hdri', 'approaching_storm_2k.hdr'), 1.0)
+        K.sky_world(STORM_HDRI, SKY)
     for key in keys:
         S = built[key]
         if key == 's9':
@@ -438,7 +457,7 @@ def export(built, keys, samples):
         import shutil
         os.makedirs(os.path.join(K.PUB, 'textures', 'sky'), exist_ok=True)
         shutil.copy(hdri, os.path.join(K.PUB, 'textures', 'sky', 'approaching_storm.hdr'))
-        K.sky_world(hdri, 1.0)
+        K.sky_world(hdri, SKY)
     for key in keys:
         S, st = built[key], statics[key]
         lm_rel = f'environments/ch1/{key}_lm.hdr'
@@ -475,5 +494,7 @@ if __name__ == '__main__':
     # probes first: export joins each section's objects into one and strips the textures (probes need both intact)
     if '--probes' in argv:
         probes(built, keys)
+    if '--volume' in argv:
+        K.bake_volumes(built, keys, 'ch1', STORM_HDRI, skip=('s9',), sky_strength=SKY)
     if '--export' in argv:
         export(built, keys, samples)

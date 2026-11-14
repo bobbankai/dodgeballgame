@@ -2,6 +2,7 @@ import * as THREE from 'three/webgpu';
 import { createGfx, type Gfx } from '@/rendering/gfx';
 import { PostFX } from '@/rendering/postfx';
 import { Vfx } from '@/rendering/vfx';
+import { Rain } from '@/rendering/rain';
 import { QUALITY, detectQuality, type QualityName } from '@/rendering/quality';
 import { Physics } from '@/physics/physics';
 import { Input } from '@/input/input';
@@ -49,6 +50,7 @@ export class Game implements Simulation, GameCtx {
   input!: Input;
   camera!: CameraRig;
   post!: PostFX;
+  rain!: Rain;
   vfx = new Vfx();
   fx = this.vfx;
   sfx = new Sfx();
@@ -72,7 +74,7 @@ export class Game implements Simulation, GameCtx {
   dialogueRate = 1;
   private playerSlowUntil = 0;
   slowPlayer(seconds: number): void { this.playerSlowUntil = this.time + seconds; this.post.u.slow.value = 0.6; }
-  chapter: { tick(dt: number): void } | null = null;
+  chapter: { tick(dt: number): void; refreshAtmosphere?(): void } | null = null;
   afterimages!: Afterimages;
   private ticks = 0;
   private wasSlow = false;
@@ -132,6 +134,10 @@ export class Game implements Simulation, GameCtx {
       addEventListener('keydown', unlock);
     }
 
+    // the post chain exists before the level: section streaming sets its fog
+    g.post = new PostFX(g.gfx, g.scene, g.camera.camera, QUALITY[q]);
+    g.rain = new Rain(g.post.fog, (x, z, from) => g.physics.groundHeight(x, z, from), QUALITY[q].particles);
+    g.scene.add(g.rain.group);
     const qsp = new URLSearchParams(location.search);
     const chapterN = qsp.get('chapter');
     const levelPath = qsp.get('level');
@@ -175,7 +181,6 @@ export class Game implements Simulation, GameCtx {
     } else {
       g.level = await buildArena(g);
     }
-    g.post = new PostFX(g.gfx, g.scene, g.camera.camera, QUALITY[q]);
     g.player = await Player.create(g, g.live, g.level.spawn, g.level.yaw);
     g.afterimages = new Afterimages(g.scene, g.player.inst.root, 5);
     g.face = new FaceRig(g.player.inst.root);
@@ -204,6 +209,7 @@ export class Game implements Simulation, GameCtx {
   setQuality(name: QualityName): void {
     this.gfx.setQuality(name);
     this.post.build(QUALITY[name]);
+    this.chapter?.refreshAtmosphere?.();
     this.vfx.density = QUALITY[name].particles;
   }
 
@@ -388,6 +394,7 @@ export class Game implements Simulation, GameCtx {
     u.focus.value += (want - u.focus.value) * Math.min(1, realDt * 6);
     this.temporal.updateLook(realDt);
     this.vfx.update(this.camera.camera);
+    this.rain.update(realDt * timeScale.world, this.camera.camera);
     const boss = this.enemies.find((e) => (e as Enemy).def.id.startsWith('boss')) as Enemy | undefined;
     this.hud.setBoss(boss ?? null);
     this.hud.unlocked = (['slow', 'rewind', 'echo', 'shift'] as const).map((n) => this.temporal.unlocked(n));

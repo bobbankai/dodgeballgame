@@ -17,25 +17,27 @@ export interface Quality {
   grain: boolean;
   particles: number; // multiplier
   fog: boolean;
+  /** volumetric fog: samples per pixel ray (0 = classic distance fog only) */
+  fogSteps: number;
   antialias: 'none' | 'fxaa' | 'smaa' | 'taa';
 }
 
 export const QUALITY: Record<QualityName, Quality> = {
   ultra: {
     name: 'ultra', resolutionScale: 1, maxPixelRatio: 2, shadowMap: 4096, shadowCascades: 3, ao: 'ssgi', aoScale: 0.75, ssr: true,
-    bloom: true, dof: true, motionBlur: true, chromatic: true, grain: true, particles: 1, fog: true, antialias: 'taa',
+    bloom: true, dof: true, motionBlur: true, chromatic: true, grain: true, particles: 1, fog: true, fogSteps: 40, antialias: 'taa',
   },
   high: {
-    name: 'high', resolutionScale: 1, maxPixelRatio: 1.5, shadowMap: 2048, shadowCascades: 3, ao: 'gtao', aoScale: 0.5, ssr: false,
-    bloom: true, dof: true, motionBlur: false, chromatic: true, grain: true, particles: 0.75, fog: true, antialias: 'taa',
+    name: 'high', resolutionScale: 1, maxPixelRatio: 1.5, shadowMap: 2048, shadowCascades: 3, ao: 'gtao', aoScale: 0.5, ssr: true,
+    bloom: true, dof: true, motionBlur: false, chromatic: true, grain: true, particles: 0.75, fog: true, fogSteps: 28, antialias: 'taa',
   },
   balanced: {
     name: 'balanced', resolutionScale: 0.85, maxPixelRatio: 1.25, shadowMap: 1024, shadowCascades: 2, ao: 'gtao', aoScale: 0.35, ssr: false,
-    bloom: true, dof: false, motionBlur: false, chromatic: false, grain: false, particles: 0.5, fog: true, antialias: 'fxaa',
+    bloom: true, dof: false, motionBlur: false, chromatic: false, grain: false, particles: 0.5, fog: true, fogSteps: 16, antialias: 'fxaa',
   },
   performance: {
     name: 'performance', resolutionScale: 0.67, maxPixelRatio: 1, shadowMap: 1024, shadowCascades: 1, ao: 'none', aoScale: 0.25, ssr: false,
-    bloom: false, dof: false, motionBlur: false, chromatic: false, grain: false, particles: 0.25, fog: false, antialias: 'fxaa',
+    bloom: false, dof: false, motionBlur: false, chromatic: false, grain: false, particles: 0.25, fog: false, fogSteps: 0, antialias: 'fxaa',
   },
 };
 

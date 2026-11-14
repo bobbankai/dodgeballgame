@@ -59,6 +59,49 @@ def make(root, size=2048, seed=0):
         Image.fromarray(to8(np.repeat(rough[::-1, :, None], 3, -1))).save(os.path.join(out, f'{key}_rough_2k.jpg'), quality=92)
         Image.fromarray(to8((nrm[::-1] * 0.5 + 0.5))).save(os.path.join(out, f'{key}_nor_gl_2k.jpg'), quality=92)
         print('facade', key)
+        make_emit(out, key, mull, span, seed=seed + 1)
+
+
+# lit windows at dusk, per era: (chance a whole floor is lit, share of its windows lit, chance of a lone lit window, palette)
+LIGHTS = {
+    'facade_modern': (0.32, 0.85, 0.05, [((0.78, 0.86, 1.0), 6), ((0.95, 0.93, 0.86), 3), ((1.0, 0.8, 0.55), 1)]),
+    'facade_concrete': (0.04, 0.5, 0.26, [((1.0, 0.72, 0.42), 5), ((1.0, 0.84, 0.62), 3), ((0.45, 0.6, 1.0), 1)]),
+    'facade_brick': (0.03, 0.5, 0.3, [((1.0, 0.68, 0.38), 5), ((1.0, 0.82, 0.6), 3), ((0.5, 0.62, 1.0), 1)]),
+    'facade_ruin': (0.0, 0.0, 0.015, [((1.0, 0.45, 0.15), 1)]),
+}
+
+
+def make_emit(out, key, mull, span, size=1024, seed=1):
+    """Emission map of lit windows over a 48 m tile (16 storeys x 32 bays, aligned with the 12 m diffuse tile's window grid): office
+    floors lit end to end, apartments here and there, warm and cool interiors, the odd television; brighter under the ceiling,
+    some behind blinds. Material emission tile = 1/48 per metre."""
+    from PIL import Image
+    rng = np.random.default_rng(seed)
+    p_floor, p_in, p_lone, pal = LIGHTS[key]
+    cols = np.array([c for c, _ in pal])
+    w = np.array([k for _, k in pal], float)
+    w /= w.sum()
+    floors = rng.random(16) < p_floor
+    lit = (rng.random((16, 32)) < np.where(floors[:, None], p_in, p_lone))
+    ci = rng.choice(len(pal), size=(16, 32), p=w)
+    # whole floors share a colour (one office fit-out)
+    for r in range(16):
+        if floors[r]:
+            ci[r, :] = rng.choice(len(pal), p=w)
+    level = rng.uniform(0.35, 1.0, (16, 32))
+    blinds = rng.random((16, 32)) < 0.3
+    y, x = np.mgrid[0:size, 0:size] / size
+    fy = (y * 16) % 1.0
+    bx = (x * 32) % 1.0
+    r_ = np.floor(y * 16).astype(int)
+    c_ = np.floor(x * 32).astype(int)
+    is_glass = (fy > span) & (fy < 0.94) & (np.abs(bx - 0.5) < 0.5 - mull / 2)
+    t = np.clip((fy - span) / (0.94 - span), 0, 1)  # 0 at the sill, 1 at the head
+    shade = 0.55 + 0.45 * t ** 1.5
+    slats = np.where(blinds[r_, c_], 0.55 + 0.45 * ((fy * 160) % 1.0 > 0.35), 1.0)
+    e = (lit[r_, c_] & is_glass)[..., None] * cols[ci[r_, c_]] * (level[r_, c_] * shade * slats)[..., None]
+    srgb = np.where(e <= 0.0031308, e * 12.92, 1.055 * np.power(np.clip(e, 0, 1), 1 / 2.4) - 0.055)
+    Image.fromarray((np.clip(srgb[::-1], 0, 1) * 255).astype(np.uint8)).save(os.path.join(out, f'{key}_emit_2k.jpg'), quality=93)
 
 
 if __name__ == '__main__':

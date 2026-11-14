@@ -648,6 +648,198 @@ def bake_probes(points, path, res=16, samples=48):
     return out
 
 
+# --- light volumes (volumetric fog) ---------------------------------------------------------------------------------------------
+
+def _bvh(objs):
+    """One world-space BVH over the evaluated meshes of `objs` (occlusion for the light volume rays)."""
+    from mathutils.bvhtree import BVHTree
+    dg = bpy.context.evaluated_depsgraph_get()
+    verts, polys = [], []
+    for ob in objs:
+        if ob.type != 'MESH' or ob.hide_render:
+            continue
+        ev = ob.evaluated_get(dg)
+        me = ev.to_mesh()
+        mw = ob.matrix_world
+        base = len(verts)
+        co = np.empty(len(me.vertices) * 3, np.float64)
+        me.vertices.foreach_get('co', co)
+        co = co.reshape(-1, 3) @ np.array(mw.to_3x3()).T + np.array(mw.translation)
+        verts.extend(map(tuple, co))
+        me.calc_loop_triangles()
+        tri = np.empty(len(me.loop_triangles) * 3, np.int64)
+        me.loop_triangles.foreach_get('vertices', tri)
+        polys.extend(map(tuple, (tri.reshape(-1, 3) + base).tolist()))
+        ev.to_mesh_clear()
+    return BVHTree.FromPolygons(verts, polys, all_triangles=True), len(polys)
+
+
+def sky_light(hdri, rot_z=0.0, res=(256, 128), strength=1.0):
+    """Sun + sky of an equirect HDRI (Blender world mapping): the sun is the brightest blob (direction, irradiance), the sky a set of
+    directions over the upper hemisphere with the mean radiance around each (for occluded sky in-scatter)."""
+    img = bpy.data.images.load(hdri, check_existing=True)
+    w, h = img.size
+    px = np.empty(w * h * 4, np.float32)
+    img.pixels.foreach_get(px)
+    px = px.reshape(h, w, 4)[..., :3].astype(np.float64) * strength
+    # downsample by box filter (rows from the bottom: v = 0 is the nadir)
+    fx, fy = w // res[0], h // res[1]
+    small = px[:res[1] * fy, :res[0] * fx].reshape(res[1], fy, res[0], fx, 3).mean((1, 3))
+    v = (np.arange(res[1]) + 0.5) / res[1]
+    u = (np.arange(res[0]) + 0.5) / res[0]
+    theta = (v - 0.5) * math.pi
+    phi = (u - 0.5) * 2 * math.pi - rot_z
+    T, P = np.meshgrid(theta, phi, indexing='ij')
+    dirs = np.stack([-np.cos(T) * np.cos(P), np.cos(T) * np.sin(P), np.sin(T)], -1)
+    dw = np.cos(T) * (math.pi / res[1]) * (2 * math.pi / res[0])
+    lum = small @ np.array([0.2126, 0.7152, 0.0722])
+    # sun: the pixels within 4 degrees of the brightest one, if they stand well clear of the sky around them
+    k = np.unravel_index(np.argmax(lum * (T > 0)), lum.shape)
+    sd = dirs[k]
+    near = (dirs @ sd) > math.cos(math.radians(4.0))
+    sky_mean = (lum * dw)[T > 0].sum() / dw[T > 0].sum()
+    sun = None
+    if lum[k] > 6.0 * sky_mean:
+        excess = np.clip(small - sky_mean, 0, None)
+        e = (excess * (dw * near)[..., None]).sum((0, 1))
+        sun = {'dir': [float(sd[0]), float(sd[2]), float(-sd[1])], 'color': [float(c) for c in e]}
+    # 24 sky directions (golden spiral over the upper hemisphere) with the mean radiance in their cone
+    n = 24
+    sky = []
+    for i in range(n):
+        z = 1 - (i + 0.5) / n
+        r = math.sqrt(max(0.0, 1 - z * z))
+        a = i * math.pi * (3 - math.sqrt(5))
+        d = np.array([r * math.cos(a), r * math.sin(a), z])
+        m = ((dirs @ d) > math.cos(math.radians(30))) & ~near
+        L = (small * dw[..., None])[m].sum(0) / max(dw[m].sum(), 1e-6)
+        sky.append((Vector(d), L))
+    return sun, sky
+
+
+def bake_volume(objs, lights, path, cell=0.45, pad=0.5, sky=None, max_height=None, max_cells=(160, 48, 160), samples=3, seed=7):
+    """Bake the light that fills the air of a section into a 3D grid, for the volumetric fog: at every cell, the light arriving from
+    each of the section's fixtures (shadowed by the geometry, soft: several rays over each area light) and, outdoors, from the open
+    sky (shadowed) and the sun (visibility). The fog in the game scatters this light, so beams fall from the fixtures, windows throw
+    shafts and alleys are darker than the open street.
+    RGB = mean radiance arriving at the cell over all directions (fixtures + sky; isotropic in-scatter), A = sun visibility. Stored
+    as RGBA8 (sqrt encoded against a per-volume scale), zlib-compressed, behind a JSON header. Axes are three.js'."""
+    import zlib
+    rng = np.random.default_rng(seed)
+    lo = np.full(3, np.inf)
+    hi = np.full(3, -np.inf)
+    for ob in objs:
+        for c in ob.bound_box:
+            wc = np.array(ob.matrix_world @ Vector(c))
+            lo, hi = np.minimum(lo, wc), np.maximum(hi, wc)
+    lo -= pad
+    hi += pad
+    if max_height is not None:
+        hi[2] = min(hi[2], lo[2] + max_height)
+    ext = hi - lo
+    dims = [max(2, min(int(math.ceil(ext[i] / cell)), max_cells[[0, 2, 1][i]])) for i in range(3)]  # blender x, y, z
+    bvh, ntri = _bvh(objs)
+    gx = lo[0] + (np.arange(dims[0]) + 0.5) * ext[0] / dims[0]
+    gy = lo[1] + (np.arange(dims[1]) + 0.5) * ext[1] / dims[1]
+    gz = lo[2] + (np.arange(dims[2]) + 0.5) * ext[2] / dims[2]
+    # three layout: x fastest, then up (blender z), then three z = -blender y (so blender y descending)
+    Z3, Y3, X3 = np.meshgrid(gy[::-1], gz, gx, indexing='ij')
+    P = np.stack([X3.ravel(), Z3.ravel(), Y3.ravel()], -1)  # blender coordinates of each cell, in texture order
+    N = len(P)
+    rgb = np.zeros((N, 3))
+    sunvis = np.zeros(N)
+    print(f'VOLUME {path}: {dims[0]}x{dims[2]}x{dims[1]} cells, {ntri} triangles, {len(lights)} lights')
+    eps = 0.02
+    for mk in lights:
+        d = json.loads(mk['light'])
+        mw = mk.matrix_world
+        lp = np.array(mw.translation)
+        col = np.array(d['color'], float)
+        power = float(d['power'])
+        area = d['kind'] == 'area'
+        nrm = np.array(mw.to_3x3() @ Vector((0, 0, -1))).astype(float)  # area lights emit along local -Z
+        ax_u = np.array(mw.to_3x3() @ Vector((1, 0, 0)))
+        ax_v = np.array(mw.to_3x3() @ Vector((0, 1, 0)))
+        sx, sy = (d['size'] + [d['size'][0]])[:2]
+        dv = lp[None] - P
+        dist2 = np.maximum((dv * dv).sum(1), 0.09)
+        if area:
+            cos = np.clip(-(dv @ nrm) / np.sqrt(dist2), 0, 1)
+            I = power / math.pi * cos            # lambertian emitter: radiant intensity
+        else:
+            I = np.full(N, power / (4 * math.pi))
+        E = I / dist2                             # irradiance at the cell from this light
+        keep = np.nonzero(E > power * 2e-4)[0]
+        if not len(keep):
+            continue
+        vis = np.zeros(len(keep))
+        for s in range(samples):
+            off = (rng.random(2) - 0.5) if (area and samples > 1) else np.zeros(2)
+            tgt = lp + ax_u * off[0] * sx + ax_v * off[1] * sy
+            for j, i in enumerate(keep):
+                p = Vector(P[i])
+                dd = Vector(tgt) - p
+                L = dd.length
+                if L < 1e-4:
+                    vis[j] += 1
+                    continue
+                hit = bvh.ray_cast(p, dd / L, L - eps)
+                if hit[0] is None:
+                    vis[j] += 1
+        rgb[keep] += (E[keep] * vis / samples)[:, None] * col[None] / (4 * math.pi)
+    if sky is not None:
+        sun, dirs = sky
+        sdir = Vector((sun['dir'][0], -sun['dir'][2], sun['dir'][1])) if sun else None
+        upmean = np.mean([L for _, L in dirs], 0)
+        for i in range(N):
+            p = Vector(P[i])
+            acc = np.zeros(3)
+            for dvec, L in dirs:
+                if bvh.ray_cast(p, dvec, 120.0)[0] is None:
+                    acc += L
+            # half the sphere is open sky (if unoccluded); the lower half sees the ground lit at ~20% of the sky
+            frac = acc / len(dirs)
+            rgb[i] += 0.5 * frac + 0.5 * 0.2 * frac.mean() / max(upmean.mean(), 1e-6) * upmean
+            if sdir is not None:
+                sunvis[i] = 1.0 if bvh.ray_cast(p, sdir, 400.0)[0] is None else 0.0
+    scale = float(np.percentile(rgb.max(1), 99.7)) or 1.0
+    enc = np.empty((N, 4), np.uint8)
+    enc[:, :3] = np.round(np.sqrt(np.clip(rgb / scale, 0, 1)) * 255)
+    enc[:, 3] = np.round(sunvis * 255)
+    # three-space box: x, up, z = -blender y
+    head = {'dims': [dims[0], dims[2], dims[1]], 'min': [float(lo[0]), float(lo[2]), float(-hi[1])],
+            'max': [float(hi[0]), float(hi[2]), float(-lo[1])], 'scale': scale,
+            'sun': sky[0] if sky else None}
+    hb = json.dumps(head).encode()
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, 'wb') as fh:
+        fh.write(b'FTV1')
+        fh.write(len(hb).to_bytes(4, 'little'))
+        fh.write(hb)
+        fh.write(zlib.compress(enc.tobytes(), 9))
+    print('VOLUME', path, os.path.getsize(path) // 1024, 'KB', 'scale', round(scale, 4))
+    return head
+
+
+def bake_volumes(built, keys, chapter, hdri=None, skip=(), sky_strength=1.0):
+    """`--volume` for a level script: the light volume of every section (outdoors when it has a sky marker); sections with Timeline
+    Shift geometry get one volume per reality (`_vol.bin` for a, `_vol_b.bin` for b)."""
+    sky = None
+    for key in keys:
+        if key in skip:
+            continue
+        S = built[key]
+        outdoors = any(m.get('marker') == 'sky' for m in S.markers)
+        if outdoors and sky is None and hdri:
+            sky = sky_light(hdri, strength=sky_strength)
+            print('SKY', 'sun', sky[0])
+        for tl in ([None] if not (S.static_a or S.static_b) else ['a', 'b']):
+            objs = S.static + (getattr(S, f'static_{tl}') if tl else [])
+            rel = f'environments/{chapter}/{key}_vol{"_b" if tl == "b" else ""}.bin'
+            bake_volume(objs, S.lights, os.path.join(PUB, rel), sky=sky if outdoors else None,
+                        cell=0.6 if outdoors else 0.4, max_height=36.0 if outdoors else None)
+
+
 def export_timeline_section(S, key, out_dir, prefix, samples, lm_size=2048):
     """Export a section that may have Timeline Shift geometry: the shared static mesh and each timeline's mesh are joined and baked
     separately (each timeline's lightmap is baked with the other timeline hidden), then exported together."""
@@ -680,7 +872,7 @@ def copy_textures():
     texroot = os.path.join(PUB, 'textures', 'pbr')
     used = {json.loads(m['ft'])['tex'] for m in bpy.data.materials if 'ft' in m and json.loads(m['ft']).get('type') == 'pbr'}
     for tid in used:
-        for kind in ('diff', 'nor_gl', 'rough', 'ao'):
+        for kind in ('diff', 'nor_gl', 'rough', 'ao', 'emit'):
             dst = os.path.join(texroot, tid, f'{tid}_{kind}.jpg')
             src = os.path.join(PH, tid, f'{tid}_{kind}_2k.jpg')
             if os.path.exists(dst) or not os.path.exists(src):
@@ -716,6 +908,22 @@ def export(objs, path, extras=None):
 
 
 # --- rooms, doors, set pieces ---------------------------------------------------------------------------------------------------
+
+def water_mat(key, tint=(0.36, 0.6, 0.58), dist=1.2, waves=0.4, scale=1.0, flow=1.0):
+    """Water: a transmissive Principled in the bake (it lets light through to the bed); the game rebuilds it as the water medium
+    (refraction, depth absorption, waves, foam: src/rendering/water.ts)."""
+    if key not in MATS:
+        m = bpy.data.materials.new(key)
+        m.use_nodes = True
+        b = m.node_tree.nodes['Principled BSDF']
+        b.inputs['Base Color'].default_value = (*tint, 1)
+        b.inputs['Roughness'].default_value = 0.03
+        b.inputs['IOR'].default_value = 1.333
+        b.inputs['Transmission Weight'].default_value = 1.0
+        m['ft'] = json.dumps({'type': 'water', 'tint': list(tint), 'dist': dist, 'waves': waves, 'scale': scale, 'flow': flow})
+        MATS[key] = m
+    return MATS[key]
+
 
 def glass_mat(key='glass', tint=(0.75, 0.85, 0.9), rough=0.05):
     if key not in MATS:

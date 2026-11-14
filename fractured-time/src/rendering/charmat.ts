@@ -3,6 +3,7 @@ import * as TSL from 'three/tsl';
 import { stackShells, hairShellMaterial } from './hairshell';
 import { SkinNodeMaterial } from './skin';
 import { AO_SETS } from './aosets';
+import { weather } from './wet';
 
 /**
  * Character materials for WebGPU, rebuilt from the recipes the Blender export stores on each material (glTF extras -> userData.ft).
@@ -63,7 +64,6 @@ function skin(r: Recipe, old: THREE.MeshStandardMaterial): THREE.Material {
   const pu = u.mul(r.pore_tile ?? 34);
   const poreH = texture(tex(r.pores.replace('_n.png', '_h.png'), false), pu).r; // 1 = skin surface, 0 = bottom of a pore
   const cavity = mix(float(0.86), float(1.0), smoothstep(0.15, 0.75, poreH));
-  if (old.map) m.colorNode = texture(old.map, u).rgb.mul(cavity);
   let notScalp: any = float(1.0);
   let rough: any = float(0.55);
   if (old.roughnessMap) {
@@ -71,13 +71,28 @@ function skin(r: Recipe, old: THREE.MeshStandardMaterial): THREE.Material {
     // the bake marks the scalp under the hair as roughness ~1: no specular or sheen there (it read as a grey sheen through the hair)
     notScalp = smoothstep(0.97, 0.9, rough);
   }
-  m.roughnessNode = rough.add(cavity.oneMinus().mul(0.6)).clamp(0.3, 1.0);
-  (m as any).specularIntensityNode = float(r.spec ?? 0.36).mul(notScalp); // per character (oilier / drier skin)
+  // rain soaks in: skin darkens a touch, the oil lobe becomes a water film with beads standing on it
+  const soak = weather.soak;
+  const beadF = T.mx_worley_noise_float(u.mul(r.bead_tile ?? 140));
+  const bead = smoothstep(0.16, 0.06, beadF).mul(smoothstep(0.35, 0.8, soak));
+  if (old.map) m.colorNode = texture(old.map, u).rgb.mul(cavity).mul(mix(float(1), float(0.9), soak));
+  m.roughnessNode = rough.add(cavity.oneMinus().mul(0.6)).sub(soak.mul(0.12)).clamp(0.26, 1.0);
+  // specular occlusion: no highlight from the bottom of a pore
+  (m as any).specularIntensityNode = float(r.spec ?? 0.36).mul(notScalp).mul(mix(float(0.35), float(1.0), smoothstep(0.1, 0.6, poreH)));
   m.metalness = 0;
-  // oily lobe: a little oilier where the bake made the skin smoother (T-zone), none on the scalp
-  (m as any).clearcoatNode = smoothstep(0.72, 0.5, rough).mul(0.08).add(0.035).mul(notScalp);
-  (m as any).clearcoatRoughnessNode = rough.mul(0.55).clamp(0.22, 0.6);
-  (m as any).clearcoatNormalNode = normalMap(texture(tex(r.pores, false), pu), vec2(r.pore_strength ?? 0.5));
+  // pores in the base shading too, fading out with distance (they would only alias far away); a finer micro layer for close-ups
+  const poreTex = tex(r.pores, false);
+  const camDist = length(positionView);
+  const near = smoothstep(4.0, 0.6, camDist);
+  const n1 = texture(poreTex, pu).xyz.mul(2.0).sub(1.0);
+  const n2 = texture(poreTex, pu.mul(3.7).add(vec2(0.31, 0.57))).xyz.mul(2.0).sub(1.0);
+  const micro = vec3(n1.xy.add(n2.xy.mul(0.6)), n1.z.mul(n2.z)).normalize(); // whiteout blend
+  m.normalNode = normalMap(micro.mul(0.5).add(0.5), vec2(float(r.pore_base ?? 0.22).mul(near)));
+  // oily lobe: a little oilier where the bake made the skin smoother (T-zone), none on the scalp; wet skin: a full water film
+  (m as any).clearcoatNode = mix(smoothstep(0.72, 0.5, rough).mul(0.08).add(0.035), float(0.55), soak).mul(notScalp);
+  (m as any).clearcoatRoughnessNode = mix(rough.mul(0.55).clamp(0.22, 0.6), float(0.08), soak.max(bead));
+  const beadN = vec3(T.dFdx(beadF).mul(-40.0), T.dFdy(beadF).mul(-40.0), 1.0).mul(bead);
+  (m as any).clearcoatNormalNode = normalMap(micro.add(beadN).normalize().mul(0.5).add(0.5), vec2(float(r.pore_strength ?? 0.5).add(bead.mul(0.6))));
   const s = r.sss_color ?? [0.85, 0.3, 0.2];
   (m as any).thicknessColorNode = vec3(s[0], s[1], s[2]).mul(0.06);
   (m as any).thicknessDistortionNode = float(0.1);
@@ -86,6 +101,19 @@ function skin(r: Recipe, old: THREE.MeshStandardMaterial): THREE.Material {
   (m as any).thicknessPowerNode = float(12.0);
   (m as any).thicknessScaleNode = float(1.5);
   return m;
+}
+
+/** Clothing and kit in the rain (weather.soak): fabric darkens and loses its sheen to a wet gloss; hard plates bead and shine. */
+function soakIn(m: THREE.Material): void {
+  const pm = m as THREE.MeshPhysicalNodeMaterial;
+  if (!(pm as any).isMeshPhysicalNodeMaterial || (pm.userData as any).soaked) return;
+  (pm.userData as any).soaked = true;
+  const soak = weather.soak;
+  const base = pm.colorNode ?? T.materialColor;
+  const rough = pm.roughnessNode ?? T.materialRoughness;
+  const porous = smoothstep(0.35, 0.8, rough);
+  pm.colorNode = base.rgb.mul(mix(float(1), float(0.62), soak.mul(porous)));
+  pm.roughnessNode = mix(rough, rough.mul(0.5).add(0.08), soak);
 }
 
 export function pbr(r: Recipe): THREE.MeshPhysicalNodeMaterial {
@@ -104,6 +132,8 @@ export function pbr(r: Recipe): THREE.MeshPhysicalNodeMaterial {
   m.metalness = r.metal ?? 0;
   m.clearcoat = r.coat ?? 0;
   m.clearcoatRoughness = 0.35;
+  // lit windows (facade sets at dusk): an emission map on its own tile
+  if (r.emit) m.emissiveNode = texture(tex(`${base}_emit.jpg`, true), uv().mul(r.emitTile ?? r.tile ?? 1)).rgb.mul(float(r.emit));
   return m;
 }
 
@@ -302,6 +332,7 @@ export function dressCharacter(root: THREE.Object3D, opts: { hide?: string[] } =
         const sm = old as THREE.MeshStandardMaterial;
         if (sm.map && (sm.transparent || sm.alphaTest > 0)) { made = hairCard(sm); type = 'haircard'; }
       }
+      if (type === 'pbr' || type === 'armour') soakIn(made);
       made.name = old.name;
       if (raw && made !== old) made.userData.ft = raw;
       stats[type] = (stats[type] ?? 0) + 1;
