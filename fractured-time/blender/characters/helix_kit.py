@@ -20,7 +20,8 @@ ARMOUR = []  # names of the armour objects (for the mask bake)
 
 
 def mats(P, variant):
-    light = {'trooper': (1.0, 0.45, 0.1), 'operative': (0.35, 0.85, 1.0), 'heavy': (1.0, 0.14, 0.06), 'nyx': (1.0, 0.12, 0.1)}[variant]
+    light = {'trooper': (1.0, 0.45, 0.1), 'operative': (0.35, 0.85, 1.0), 'heavy': (1.0, 0.14, 0.06), 'nyx': (1.0, 0.12, 0.1),
+             'marshal': (0.65, 0.4, 1.0)}[variant]
     m = {
         'shell': Gm.armour(f'{P}_shell', base=(0.5, 0.5, 0.48), edge=(0.72, 0.72, 0.7), wear=0.45, rough=0.5, coat=0.15, grooves=0.0),
         'under': Gm.armour(f'{P}_under', base=(0.05, 0.052, 0.056), edge=(0.25, 0.25, 0.26), wear=0.4, rough=0.45, coat=0.05, grooves=0.0),
@@ -33,6 +34,14 @@ def mats(P, variant):
         r = json.loads(m[k]['ft'])
         r.update({'detail': 'painted_metal_shutter', 'detailScale': 2.2})
         m[k]['ft'] = json.dumps(r)
+    if variant == 'marshal':
+        # temporal enforcement: dark gunmetal shells, violet marks
+        m['shell'] = Gm.armour(f'{P}_shell', base=(0.07, 0.07, 0.08), edge=(0.36, 0.35, 0.4), wear=0.35, rough=0.38, coat=0.3, grooves=0.0)
+        m['mark'] = Gm.armour(f'{P}_mark', base=(0.22, 0.1, 0.42), edge=(0.5, 0.45, 0.6), wear=0.3, rough=0.4, coat=0.25, grooves=0.0)
+        for k in ('shell', 'mark'):
+            r = json.loads(m[k]['ft'])
+            r.update({'detail': 'painted_metal_shutter', 'detailScale': 2.2})
+            m[k]['ft'] = json.dumps(r)
     if variant == 'nyx':
         # command armour: dark composite with crimson marks
         m['shell'] = Gm.armour(f'{P}_shell', base=(0.055, 0.056, 0.062), edge=(0.32, 0.32, 0.34), wear=0.3, rough=0.4, coat=0.25, grooves=0.0)
@@ -182,6 +191,25 @@ def backpack(S, P, m):
             m['glow'], step=0.001, tris=400)
 
 
+def rift_blades(S, P, m):
+    """The Marshal's weapons: a blade along the outside of each forearm, its edge burning violet."""
+    B = S.bones
+    for sd, sx in (('l', 1), ('r', -1)):
+        a, b = np.array(B[f'lowerarm_{sd}'][0]), np.array(B[f'lowerarm_{sd}'][1])
+        L = float(np.linalg.norm(b - a))
+        G = HS.RadialField(S, a, b - a, (0, 0, 1), 0.0, L, n_theta=96, step_t=0.004, only=(f'lowerarm_{sd}', f'hand_{sd}'), r_max=0.12, blur=3)
+        G = G.view(G.theta_of((sx, 0, 0)))
+        G.r_ref = 0.04
+        # a long fin standing off the forearm, sweeping past the wrist
+        fin = sdf.intersect(HS.layer(G, 0.012, 0.075, lambda s_, t_: 0.035 * np.clip((t_ - L * 0.3) / (L * 0.7), 0, 1)),
+                            HS.band(G, L * 0.2, L * 1.05, -0.006, 0.006), k=0.003)
+        lo, hi = HS.bounds(G, -0.1, 0.1, L * 0.1, L * 1.15, -0.01, 0.15)
+        make(S, f'{P}_blade_{sd}', fin, lo, hi, m['shell'], step=0.0016, tris=4000)
+        edge = sdf.intersect(HS.layer(G, 0.012 + 0.075 - 0.004, 0.006, lambda s_, t_: 0.035 * np.clip((t_ - L * 0.3) / (L * 0.7), 0, 1)),
+                             HS.band(G, L * 0.25, L * 1.03, -0.0035, 0.0035), k=0.002)
+        HS.make(S, f'{P}_bladeglow_{sd}', edge, lo, hi, m['glow'], step=0.0012, tris=1500)
+
+
 def armour(S, h, base_mat, P, variant):
     ARMOUR.clear()
     m = mats(P, variant)
@@ -189,10 +217,12 @@ def armour(S, h, base_mat, P, variant):
     if variant == 'operative':
         pauldron(S, P, m, 'l', layers=1, swept=True)
     else:
-        big = 1.25 if variant == 'heavy' else 1.0
+        big = {'heavy': 1.25, 'marshal': 1.15}.get(variant, 1.0)
         for sd in ('l', 'r'):
-            pauldron(S, P, m, sd, layers=3 if variant == 'heavy' else 2, big=big)
+            pauldron(S, P, m, sd, layers=3 if variant in ('heavy', 'marshal') else 2, big=big)
         chest_plate(S, P, m, heavy=variant == 'heavy')
     if variant == 'heavy':
         backpack(S, P, m)
+    if variant == 'marshal':
+        rift_blades(S, P, m)
     return m

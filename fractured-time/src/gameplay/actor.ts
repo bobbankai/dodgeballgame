@@ -51,8 +51,10 @@ export abstract class Actor {
   }
 
   /** dt scaled by the time group this actor lives in. */
+  /** an actor's own time multiplier on top of its group's (a boss accelerating its own timeline) */
+  timeMul = 1;
   protected scaledDt(dt: number): number {
-    return dt * (this.team === 'enemy' ? timeScale.world : timeScale.player);
+    return dt * (this.team === 'enemy' ? timeScale.world : timeScale.player) * this.timeMul;
   }
 
   forward(out = new THREE.Vector3()): THREE.Vector3 {

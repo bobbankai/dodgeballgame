@@ -69,22 +69,22 @@ export class Enemy extends Actor {
   private alert = 0;
   private lastKnown = new THREE.Vector3();
   private hasLastKnown = false;
-  private cooldown = 1;
-  private curAttack: AttackDef | null = null;
-  private attackClip = '';
+  protected cooldown = 1;
+  protected curAttack: AttackDef | null = null;
+  protected attackClip = '';
   private hitDone = new Set<Actor>();
   private circleDir = Math.random() < 0.5 ? 1 : -1;
   private circleSwitch = 1.5 + Math.random() * 2;
   private holdsToken = false;
   private guardT = 0;
   private deadT = 0;
-  private hurtClip = 'hit_light';
-  private stunUntil = 0;
+  protected hurtClip = 'hit_light';
+  protected stunUntil = 0;
   private want = new THREE.Vector3();
   private tmpA = new THREE.Vector3();
   private lungeVec = new THREE.Vector3();
   private lungeDist = 0;
-  private noticed = false;
+  protected noticed = false;
 
   static async create(ctx: GameCtx, def: EnemyDef, at: THREE.Vector3, yaw = 0): Promise<Enemy> {
     const inst = await instantiateCharacter(def.model, { scale: def.scale });
@@ -163,7 +163,7 @@ export class Enemy extends Actor {
     }
   }
 
-  private setState(s: EState): void { this.state = s; this.stateT = 0; }
+  protected setState(s: EState): void { this.state = s; this.stateT = 0; }
 
   private steer(d: number, dir: THREE.Vector3, speed: number, turn = 9): void {
     // separation from other enemies so a group spreads out instead of stacking
@@ -181,7 +181,7 @@ export class Enemy extends Actor {
     void turn;
   }
 
-  private face(d: number, x: number, z: number, rate = 9): void {
+  protected face(d: number, x: number, z: number, rate = 9): void {
     this.yaw = approachAngle(this.yaw, Math.atan2(x, z), rate * d);
   }
 
@@ -281,7 +281,7 @@ export class Enemy extends Actor {
     this.attackClip = 'dodge_B';
   }
 
-  private startAttack(a: AttackDef): void {
+  protected startAttack(a: AttackDef): void {
     this.curAttack = a;
     this.attackClip = a.clip;
     this.hitDone.clear();
@@ -352,7 +352,7 @@ export class Enemy extends Actor {
     if (this.anim.finished) { this.cooldown = Math.max(this.cooldown, 0.25); this.setState('circle'); }
   }
 
-  private releaseToken(): void {
+  protected releaseToken(): void {
     if (this.holdsToken) { this.ctx.tokens.release(this); this.holdsToken = false; }
   }
 
@@ -407,7 +407,7 @@ export class Enemy extends Actor {
     return 'hit';
   }
 
-  private applyDamage(n: number, hit: HitInfo): void {
+  protected applyDamage(n: number, hit: HitInfo): void {
     this.health -= n;
     if (this.health <= 0) this.die(hit);
   }

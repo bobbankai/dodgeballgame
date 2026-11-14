@@ -51,6 +51,20 @@ A chapter is complete only when objectives, interactions, combat, cinematics, tr
 - Rig conventions: pose rotations are about armature axes; +X bends an upward bone forward / swings a downward bone back; `ax` on feet = absolute pitch
   (+ = toes down); mirrored right side negates ry, rz, tx.
 
+## Pipelines (v1)
+- People: `blender/characters/person.py` builds any cast member from a spec (MPFB body + face targets, layered skin, eyes, hair shells,
+  kit, 75 face shapes, baked skin, armour masks): `imani.py`, `nyx.py`, `voss.py` (Ethan still has his own `ethan.py` + `ethan_kit.py`).
+  Export + pack: `tools/assets/export_character.sh <name>` (falls back to `helix.py --variant` for trooper/operative/heavy/marshal).
+- Hard surface: `blender/common/hardpoly.py` (bevelled boxes, outline plates, bolts, rods, plane cuts, exact booleans, weighted normals);
+  SDF (`sdf.py`) only for organic/round forms. `blender/common/masks.py` bakes AO + edge masks on a UV atlas for armour recipes.
+- Levels: `blender/environments/ch1_level.py`, `ch2_level.py` (`--only s3,s4 --probes --export`; `--render KEY out.png` = Cycles preview).
+  Probes (baked SH light for characters) MUST run before export (export joins objects and strips textures). Scanned sets ship their AO
+  map (`tools/assets/ship_ao.py` regenerates `src/rendering/aosets.ts`). City pieces: `citykit.py`, facade sets `facades.py`.
+- Voices: `python3 tools/voices/record.py` records every `['WHO', 'line']` in `src/chapters/*.ts` with Kokoro (model in vendor/kokoro);
+  unchanged lines are skipped. Sound recipes are checked offline in `audio.html` (peak / RMS / length per recipe).
+- Chapters: `?chapter=N&at=<beat>` (ch1: wake, corridor, checkpoint, lab, servers, engine, lift, surface; ch2: rooftops, street, cafe,
+  gate, plaza, pursuit, marshal); `&fast` in tests shortens dialogue. No params = title screen. `lab.html?char=|path=&view=&echo`.
+
 ## Engine facts verified against three 0.187 (do not rely on memory of older versions)
 - Import renderer/materials from `three/webgpu`, node builders from `three/tsl`, effect nodes from `three/addons/tsl/display/*`
   (`ao`=GTAO, `ssgi`, `ssr`, `bloom`, `dof`, `chromaticAberration`, `film`, `smaa`, `fxaa`, `taau`, `motionBlur`). `RenderPipeline` replaces `PostProcessing`.

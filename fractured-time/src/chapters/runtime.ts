@@ -6,6 +6,8 @@ import { ProbeField, CharacterLight } from '@/world/probes';
 import { HDRLoader } from 'three/addons/loaders/HDRLoader.js';
 import { assetUrl } from '@/rendering/charmat';
 import { timeScale } from '@/core/loop';
+import * as TSL from 'three/tsl';
+const TSLx = TSL as any;
 import { G } from '@/physics/physics';
 
 /**
@@ -33,6 +35,9 @@ export class Door {
               readonly center: THREE.Vector3, readonly horiz: boolean, readonly width: number, state: string) {
     this.state = (state as Door['state']) || 'closed';
     this.block(true);
+    // doors travel back in time with Ethan (a shutter that slammed when he was seen is open again after a rewind)
+    g.temporal.register({ snapshot: () => ({ o: this.open01, t: this.target, s: this.state, c: this.cycleT }),
+      restore: (x: any) => { this.open01 = x.o; this.target = x.t; this.state = x.s; this.cycleT = x.c; } } as any);
   }
 
   private block(on: boolean) {
@@ -89,6 +94,45 @@ export class Door {
   }
 }
 
+/**
+ * A HELIX laser sweep: a vertical plane of light that slides back and forth across a corridor on world time (time slow slows it).
+ * Its phase is rewindable, so pulling Ethan's timeline back pulls the sweep back with him.
+ */
+export class LaserSweep {
+  t: number;
+  seenThisPass = false;
+  readonly mesh: THREE.Mesh;
+  constructor(private g: Game, readonly id: string, readonly center: THREE.Vector3, readonly width: number, readonly height: number,
+              readonly sweep: number, readonly period: number, phase: number) {
+    this.t = phase;
+    const m = new THREE.MeshBasicNodeMaterial({ transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide });
+    const T = TSLx;
+    const v = T.uv();
+    // a bright core line with a soft falloff, faint scan bands moving down the plane
+    const core = T.float(1).sub(T.abs(v.x.sub(0.5)).mul(2)).pow(8);
+    const bands = T.sin(v.y.mul(60).add(T.time.mul(9))).mul(0.15).add(0.85);
+    m.colorNode = T.vec3(1.0, 0.12, 0.06).mul(core.mul(3.0).add(0.12)).mul(bands);
+    this.mesh = new THREE.Mesh(new THREE.PlaneGeometry(0.5, height), m);
+    this.mesh.rotation.y = 0; // the plane spans x (the corridor's width) ... scaled below
+    this.mesh.scale.set(width / 0.5, 1, 1);
+    g.scene.add(this.mesh);
+    g.temporal.register({ snapshot: () => this.t, restore: (s: unknown) => { this.t = s as number; } } as any);
+  }
+
+  get z(): number { return this.center.z + Math.sin((this.t / this.period) * Math.PI * 2) * this.sweep; }
+
+  /** Advance on world time; returns true the moment the beam touches Ethan. */
+  tick(dt: number): boolean {
+    this.t += dt * timeScale.world;
+    this.mesh.position.set(this.center.x, this.center.y, this.z);
+    const p = this.g.player.pos;
+    const hit = Math.abs(p.z - this.z) < 0.22 && Math.abs(p.x - this.center.x) < this.width / 2 && p.y < this.center.y + this.height / 2;
+    const fresh = hit && !this.seenThisPass;
+    this.seenThisPass = hit;
+    return fresh;
+  }
+}
+
 export class ChapterRuntime {
   markers: Marker[] = [];
   doors = new Map<string, Door>();
@@ -102,6 +146,9 @@ export class ChapterRuntime {
   readonly pool: LightPool;
   /** baked SH light probes of every section; each character carries its own blended probe */
   readonly probes = new ProbeField();
+  readonly lasers: LaserSweep[] = [];
+  /** called when a laser sweep sees Ethan (scripts hook the alarm here) */
+  onSeen: ((laser: LaserSweep) => void) | null = null;
   private charLights = new WeakMap<THREE.Object3D, CharacterLight>();
 
   constructor(readonly g: Game) {
@@ -136,6 +183,10 @@ export class ChapterRuntime {
     }
     for (const m of ms.filter((x) => x.name === 'interact')) this.interactables.set(String(m.data.id), { m, used: false });
     for (const m of ms.filter((x) => x.name === 'anomaly')) this.anomalies.push({ pos: m.pos.clone() });
+    for (const m of ms.filter((x) => x.name === 'laser')) {
+      this.lasers.push(new LaserSweep(this.g, String(m.data.id), m.pos.clone(), Number(m.data.width ?? 6), Number(m.data.height ?? 2.8),
+        Number(m.data.sweep ?? 4), Number(m.data.period ?? 3), Number(m.data.phase ?? 0)));
+    }
   }
 
   // --- script vocabulary -----------------------------------------------------------------------------------------------------
@@ -198,6 +249,13 @@ export class ChapterRuntime {
   async spawnBoss(id: string): Promise<{ alive: boolean; wake?: () => void; dormant?: boolean; pos: THREE.Vector3; root: THREE.Object3D }> {
     const m = this.byId(id);
     if (!m) throw new Error(`boss marker ${id} missing`);
+    if (id === 'marshal') {
+      const { RiftMarshal } = await import('@/bosses/marshal');
+      const b = await RiftMarshal.createMarshal(this.g, m.pos.clone(), m.yaw);
+      this.g.enemies.push(b);
+      this.g.scene.add(b.root);
+      return b as any;
+    }
     if (id === 'sentinel') {
       const { SentinelBoss } = await import('@/bosses/sentinel');
       const s = await SentinelBoss.create(this.g, m.pos.clone(), m.yaw);
@@ -324,6 +382,7 @@ export class ChapterRuntime {
     this.pool.update(this.g.player.pos);
     this.lightCharacters(dt);
     for (const d of this.doors.values()) d.tick(dt);
+    for (const l of this.lasers) if (l.tick(dt)) this.onSeen?.(l);
     // interaction prompt: nearest unused interactable within reach and roughly in front
     const p = this.g.player;
     let best: { id: string; d: number } | null = null;

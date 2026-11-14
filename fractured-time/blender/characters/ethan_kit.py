@@ -24,6 +24,7 @@ VARIANTS = {
     'trooper': ((0.05, 0.052, 0.056), (0.07, 0.072, 0.075), (0.085, 0.09, 0.095), (0.3, 0.31, 0.33), (0.55, 0.56, 0.58), (1.0, 0.55, 0.15)),
     'operative': ((0.03, 0.03, 0.034), (0.035, 0.036, 0.04), (0.04, 0.042, 0.048), (0.06, 0.065, 0.075), (0.25, 0.26, 0.28), (0.35, 0.85, 1.0)),
     'heavy': ((0.045, 0.045, 0.05), (0.06, 0.06, 0.062), (0.07, 0.07, 0.072), (0.12, 0.12, 0.13), (0.35, 0.34, 0.33), (1.0, 0.18, 0.08)),
+    'marshal': ((0.03, 0.03, 0.036), (0.028, 0.028, 0.032), (0.04, 0.04, 0.046), (0.06, 0.06, 0.07), (0.3, 0.3, 0.34), (0.65, 0.4, 1.0)),
 }
 
 
@@ -60,7 +61,7 @@ def build_kit(h, rig, PH, variant='ethan', P='ethan', detail=1.0, carrier=True, 
     bracers on both forearms (no chronal device; operatives keep light-lines). Object names start with `P`_."""
     S = Gm.BodySpace(h, rig)
     mat = materials(PH, variant)
-    helix = (variant in ('trooper', 'operative', 'heavy')) if helix is None else helix
+    helix = (variant in ('trooper', 'operative', 'heavy', 'marshal')) if helix is None else helix
     # triangle budget: enemies are seen at gameplay distance (HS.make reads the scale)
     HS.DETAIL[0] = detail
     SUB = 1 if detail >= 0.99 else 0
@@ -176,7 +177,8 @@ def build_kit(h, rig, PH, variant='ethan', P='ethan', detail=1.0, carrier=True, 
         pouches = []
         for sc in (-0.082, 0.0, 0.082):
             pouches.append(HS.solid_at(F, sc, bot + 0.075, off_c + th_c + 0.019, pouch(0.036, 0.068, 0.018)))
-        pouches.append(HS.solid_at(F, 0.0, top - 0.085, off_c + th_c + 0.011, pouch(0.075, 0.045, 0.01)))
+        if not helix:  # HELIX units wear a hard chest plate over this spot
+            pouches.append(HS.solid_at(F, 0.0, top - 0.085, off_c + th_c + 0.011, pouch(0.075, 0.045, 0.01)))
         pu = sdf.union(*pouches)
         lo, hi = HS.bounds(F, -w2, w2, bot - 0.01, top + 0.01, 0.0, 0.09)
         HS.make(S, f'{P}_pouches', pu, lo, hi, mat['cordura'], step=0.0015, tris=12000)

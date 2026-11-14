@@ -28,6 +28,8 @@ BODIES = {
                   'race': {'african': 0.3, 'caucasian': 0.3, 'asian': 0.4}},
     'heavy': {'gender': 1.0, 'age': 0.55, 'muscle': 0.9, 'weight': 0.72, 'proportions': 0.55, 'height': 0.78,
               'race': {'african': 0.4, 'caucasian': 0.4, 'asian': 0.2}},
+    'marshal': {'gender': 1.0, 'age': 0.6, 'muscle': 0.85, 'weight': 0.55, 'proportions': 0.75, 'height': 0.9,
+                'race': {'african': 0.3, 'caucasian': 0.5, 'asian': 0.2}},
 }
 
 

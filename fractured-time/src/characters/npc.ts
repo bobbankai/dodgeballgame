@@ -10,13 +10,26 @@ import type { Game } from '@/game';
 export class Npc {
   readonly face: FaceRig;
   private mixer: THREE.AnimationMixer;
+  private clips: Map<string, THREE.AnimationClip>;
+  private current: THREE.AnimationAction | null = null;
   facePlayer = true;
 
   private constructor(private g: Game, readonly who: string, readonly root: THREE.Object3D, clips: Map<string, THREE.AnimationClip>) {
     this.face = new FaceRig(root);
     this.mixer = new THREE.AnimationMixer(root);
-    const idle = clips.get('idle') ?? [...clips.values()][0];
-    if (idle) this.mixer.clipAction(idle).play();
+    this.clips = clips;
+    this.play('idle');
+  }
+
+  /** Cross-fade to a clip from the shared library ('idle', 'run', 'walk', 'guard'...). */
+  play(name: string, fade = 0.25): void {
+    const c = this.clips.get(name) ?? this.clips.get('idle') ?? [...this.clips.values()][0];
+    if (!c) return;
+    const a = this.mixer.clipAction(c);
+    if (a === this.current) return;
+    a.reset().play();
+    if (this.current) this.current.crossFadeTo(a, fade, false);
+    this.current = a;
   }
 
   static async spawn(g: Game, model: string, who: string, pos: THREE.Vector3, yaw: number): Promise<Npc> {
