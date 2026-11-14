@@ -27,8 +27,8 @@ export async function texturesReady(): Promise<void> {
 }
 export const assetUrl = (p: string) => `${import.meta.env.BASE_URL}assets/${p}`.replace(/\/\/+/g, '/');
 
-export function tex(path: string, srgb: boolean): THREE.Texture {
-  const key = path + (srgb ? ':s' : ':l');
+export function tex(path: string, srgb: boolean, flipY = true): THREE.Texture {
+  const key = path + (srgb ? ':s' : ':l') + (flipY ? '' : ':f');
   let t = texCache.get(key);
   if (!t) {
     let done!: () => void;
@@ -38,6 +38,7 @@ export function tex(path: string, srgb: boolean): THREE.Texture {
     t = loader.load(assetUrl(path), finish, undefined, (e) => { console.warn('[charmat] texture failed', path, e); finish(); });
     t.wrapS = t.wrapT = THREE.RepeatWrapping;
     t.colorSpace = srgb ? THREE.SRGBColorSpace : THREE.NoColorSpace;
+    t.flipY = flipY; // baked maps on glTF UVs (v already flipped by the exporter) load unflipped
     t.anisotropy = 8;
     texCache.set(key, t);
   }
@@ -109,8 +110,13 @@ export function armour(r: Recipe, masks = false): THREE.MeshPhysicalNodeMaterial
   const big = mx_fractal_noise_float(p.mul(3.0), 3, 2.0, 0.5).mul(0.5).add(0.5); // large-scale paint fade / dirt variation
   const b = r.base, e = r.edge;
   let edge: any, ao: any;
-  if (masks) {
-    // baked in Blender (GAME colour): R = ambient occlusion, G = convexity of the surface (sharp outer edges)
+  if (r.masks) {
+    // baked mask texture on the asset's UV atlas: R = ambient occlusion, G = edge proximity (bevel-normal vs true normal)
+    const c = texture(tex(String(r.masks), false, false), uv());
+    ao = c.r;
+    edge = smoothstep(0.25, 0.85, c.g);
+  } else if (masks) {
+    // baked per vertex (GAME colour): R = ambient occlusion, G = convexity
     const c = T.attribute('color', 'vec4');
     ao = c.r;
     edge = smoothstep(0.2, 0.75, c.g);
@@ -119,14 +125,29 @@ export function armour(r: Recipe, masks = false): THREE.MeshPhysicalNodeMaterial
     edge = smoothstep(0.35, 0.9, length(fwidth(normalView)).div(length(fwidth(positionView)).max(1e-5)).mul(0.004).clamp(0, 1));
     ao = float(1);
   }
-  const wear = edge.mul(n.mul(0.7).add(0.3)).mul(float(r.wear ?? 0.5).mul(1.6)).clamp(0, 1);
+  // scanned surface breakup, projected triplanar in rest space (scratches, smudges, uneven paint): no tiling seams on any UV layout
+  let scanLum: any = float(0.5), scanRough: any = float(0.5);
+  if (r.detail) {
+    const id = String(r.detail);
+    const sc = float(r.detailScale ?? 1.4);
+    scanRough = T.triplanarTexture(texture(tex(`textures/pbr/${id}/${id}_rough.jpg`, false)), null, null, sc, p, T.normalGeometry).r;
+    scanLum = dot(T.triplanarTexture(texture(tex(`textures/pbr/${id}/${id}_diff.jpg`, true)), null, null, sc, p, T.normalGeometry).rgb, vec3(0.33));
+  }
+  const wear = edge.mul(n.mul(0.7).add(0.3)).mul(scanRough.mul(0.8).add(0.6)).mul(float(r.wear ?? 0.5).mul(1.6)).clamp(0, 1);
   // grime settles where the occlusion is: darker, rougher crevices; paint slightly uneven over large areas
   const grime = float(1).sub(ao).mul(big.mul(0.6).add(0.7)).clamp(0, 1);
-  const paint = vec3(b[0], b[1], b[2]).mul(big.mul(0.25).add(0.85));
+  let paint: any = vec3(b[0], b[1], b[2]);
+  if (r.stripes) {
+    // hazard stripes (diagonal, in rest space): signal yellow and black
+    const st = smoothstep(0.48, 0.52, fract(p.x.add(p.y.mul(0.8)).add(p.z).mul(float(r.stripes))));
+    paint = mix(vec3(0.62, 0.43, 0.05), vec3(0.022, 0.022, 0.024), st);
+  }
+  paint = paint.mul(big.mul(0.25).add(0.85)).mul(mix(float(0.8), float(1.12), smoothstep(0.15, 0.7, scanLum)));
   m.colorNode = mix(paint, vec3(e[0], e[1], e[2]), wear).mul(float(1).sub(groove.mul(0.65))).mul(float(1).sub(grime.mul(0.55)));
-  m.roughnessNode = float(r.rough ?? 0.42).add(n.sub(0.5).mul(0.25)).add(groove.mul(0.2)).add(grime.mul(0.25)).sub(wear.mul(0.15)).clamp(0.08, 1);
+  m.roughnessNode = float(r.rough ?? 0.42).add(n.sub(0.5).mul(0.15)).add(scanRough.sub(0.5).mul(0.4)).add(groove.mul(0.2)).add(grime.mul(0.25))
+    .sub(wear.mul(0.15)).clamp(0.08, 1);
   m.metalnessNode = wear.mul(0.85).add(0.03); // worn edges are bare metal
-  if (masks) m.aoNode = ao.mul(0.85).add(0.15);
+  if (masks || r.masks) m.aoNode = ao.mul(0.85).add(0.15);
   m.clearcoat = r.coat ?? 0.15;
   m.clearcoatRoughness = 0.3;
   return m;

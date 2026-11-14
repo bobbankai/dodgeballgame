@@ -19,7 +19,7 @@ import numpy as np  # noqa: E402
 from mathutils import Vector  # noqa: E402
 
 import garments as Gm  # noqa: E402
-import hardsurface as HS  # noqa: E402
+import hardpoly as HP  # noqa: E402
 import sdf  # noqa: E402
 
 ROOT = os.path.abspath(os.path.join(HERE, '..', '..'))
@@ -28,15 +28,23 @@ OUT = os.path.join(ROOT, 'public', 'assets', 'bosses', 'sentinel')
 
 def mats():
     return {
-        'hull': Gm.armour('sentinel_hull', base=(0.085, 0.09, 0.1), edge=(0.42, 0.42, 0.43), wear=0.5, rough=0.38, coat=0.25, grooves=0.0),
-        'paint': Gm.armour('sentinel_paint', base=(0.30, 0.055, 0.035), edge=(0.55, 0.53, 0.5), wear=0.6, rough=0.46, coat=0.15, grooves=0.0),
+        'hull': Gm.armour('sentinel_hull', base=(0.06, 0.065, 0.072), edge=(0.38, 0.38, 0.39), wear=0.45, rough=0.55, coat=0.08, grooves=0.0),
+        'paint': Gm.armour('sentinel_paint', base=(0.24, 0.045, 0.03), edge=(0.5, 0.48, 0.45), wear=0.55, rough=0.58, coat=0.05, grooves=0.0),
         'joint': Gm.armour('sentinel_joint', base=(0.025, 0.027, 0.03), edge=(0.3, 0.3, 0.31), wear=0.45, rough=0.28, coat=0.0, grooves=0.0),
+        'hazard': Gm.armour('sentinel_hazard', base=(0.6, 0.42, 0.05), edge=(0.5, 0.48, 0.45), wear=0.6, rough=0.55, coat=0.05, grooves=0.0),
         'core': Gm.emissive('sentinel_core', (0.35, 0.85, 1.0), 9.0),
         'eye': Gm.emissive('sentinel_eye', (1.0, 0.16, 0.06), 30.0),
     }
 
 
 DETAIL = 2.2  # triangle budget scale: crisp chamfers on a hero-sized boss seen up close in cinematics
+
+
+def recipe(m, **kw):
+    r = json.loads(m['ft'])
+    r.update(kw)
+    m['ft'] = json.dumps(r)
+    return m
 
 
 def part(name, f, lo, hi, material, step=0.012, tris=8000, parent=None, pivot=(0, 0, 0)):
@@ -53,6 +61,30 @@ def part(name, f, lo, hi, material, step=0.012, tris=8000, parent=None, pivot=(0
         w = ob.matrix_world.copy()
         ob.parent = parent
         ob.matrix_world = w
+    return ob
+
+
+def ppart(name, objs, material=None, parent=None, pivot=(0, 0, 0), sharp=32.0):
+    """A polygonal part: pieces (hardpoly / sdf objects) joined, shaded with weighted normals, origin at its pivot, parented."""
+    if material is not None:
+        for o in objs:
+            if not o.data.materials:
+                o.data.materials.append(material)
+    ob = HP.finish(objs, name, sharp_deg=sharp)
+    piv = Vector(pivot)
+    ob.data.transform(__import__('mathutils').Matrix.Translation(-piv))
+    ob.location = piv
+    if parent is not None:
+        bpy.context.view_layer.update()
+        w = ob.matrix_world.copy()
+        ob.parent = parent
+        ob.matrix_world = w
+    return ob
+
+
+def sdfo(name, f, lo, hi, material, step=0.008, tris=3000):
+    """An SDF-meshed piece (organic/round forms inside a polygonal part)."""
+    ob = sdf.sculpt(name, f, lo, hi, step, material=material, tris=int(tris * DETAIL))
     return ob
 
 
@@ -95,6 +127,13 @@ def cbox(c, half, ch, R=None, r=0.006):
     return f
 
 
+def bolts(center, R, pts, normal_local, r=0.026, h=0.016):
+    """Hex-ish bolt heads on a plate: local points `pts` (plate frame R about `center`), standing out along the plate's normal."""
+    n = R @ np.asarray(normal_local, float)
+    F = sdf.frame(n)
+    return sdf.union(*[sdf.cylinder(np.asarray(center) + R @ np.asarray(p, float), r, h, rr=0.006, R=F) for p in pts])
+
+
 def wedge(f, p, n):
     """Cut a part with a half space (keep the side the normal points away from): slopes, tapers, bevelled noses."""
     return sdf.intersect(f, sdf.plane(p, n))
@@ -114,11 +153,15 @@ def build():
     for o in list(bpy.data.objects):
         bpy.data.objects.remove(o)
     M = mats()
+    for k in ('hull', 'paint', 'joint', 'hazard'):
+        recipe(M[k], detail='metal_plate_02', detailScale=1.3)
+    recipe(M['hazard'], stripes=5.0)
+    H, P, J = M['hull'], M['paint'], M['joint']
     T = R_(HUNCH, 0, 0)
     root = empty('sentinel_root', (0, 0, 0))
     hover = empty('hover', (0, 0, 0.9), root)
 
-    # --- gravity cradle: a collar and four bladed talons closing under the core, a segmented spine up into the carapace ----------
+    # --- gravity cradle: a machined collar, four bladed talons closing under a caged core, a segmented spine ----------------------
     talons = []
     for k in range(4):
         a = math.radians(45 + 90 * k)
@@ -128,157 +171,233 @@ def build():
         pts = [c0 + d * 0.26 + (0, 0, 1.08), c0 + d * 0.5 + (0, 0, 0.86), c0 + d * 0.44 + (0, 0, 0.46), c0 + d * 0.2 + (0, 0, 0.2)]
         blade = sdf.tube(pts, [0.1, 0.09, 0.065, 0.02], k=0.05)
         talons.append(sdf.intersect(blade, sdf.offset(sdf.plane(c0, side), 0.045), sdf.offset(sdf.plane(c0, -side), 0.045)))
-    cradle = sdf.union(cbox((0, 0.15, 1.1), (0.36, 0.36, 0.08), 0.1), *talons, k=0.05)
-    part('cradle', panel_lines(cradle, 0.16), (-0.75, -0.6, 0.1), (0.75, 0.9, 1.3), M['hull'], step=0.01, tris=7000, parent=hover, pivot=(0, 0, 0.9))
+    tal = sdfo('talons', sdf.union(*talons), (-0.75, -0.6, 0.1), (0.75, 0.9, 1.2), H, step=0.007, tris=6000)
+    collar = HP.hbox('collar', (0, 0.15, 1.1), (0.38, 0.38, 0.08), 0.06, material=H)
+    collar_ring = HP.hcyl('collar_ring', (0, 0.15, 1.0), 0.3, 0.06, sides=32, material=J)
+    ppart('cradle', [tal, collar, collar_ring], parent=hover, pivot=(0, 0, 0.9))
     part('gravity_core', sdf.sphere((0, 0.15, 0.66), 0.15), (-0.3, -0.2, 0.3), (0.3, 0.5, 1.0), M['core'], step=0.012, tris=1200, parent=hover,
          pivot=(0, 0, 0.9))
-    # a dark lens cage around the core: two crossed rings, so it reads as a contained reactor, not a bulb
     cage = sdf.union(sdf.torus((0, 0.15, 0.66), 0.2, 0.025, R=R_(90, 0, 0)), sdf.torus((0, 0.15, 0.66), 0.2, 0.025, R=R_(0, 90, 0)))
-    part('core_cage', cage, (-0.3, -0.2, 0.3), (0.3, 0.5, 1.0), M['joint'], step=0.006, tris=1500, parent=hover, pivot=(0, 0, 0.9))
-    spine = sdf.union(sdf.cylinder((0, 0.25, 1.38), 0.12, 0.32, 0.03),
-                      cbox((0, 0.2, 1.24), (0.28, 0.24, 0.06), 0.06), cbox((0, 0.28, 1.43), (0.36, 0.3, 0.065), 0.07), k=0.015)
-    part('spine', spine, (-0.5, -0.2, 1.0), (0.5, 0.7, 1.75), M['joint'], step=0.009, tris=3500, parent=hover, pivot=(0, 0, 0.9))
+    part('core_cage', cage, (-0.3, -0.2, 0.3), (0.3, 0.5, 1.0), J, step=0.006, tris=1500, parent=hover, pivot=(0, 0, 0.9))
+    spine = [HP.hcyl('sp_axle', (0, 0.25, 1.38), 0.12, 0.62, sides=24, material=J),
+             HP.hbox('sp_a', (0, 0.2, 1.24), (0.28, 0.24, 0.06), 0.03, material=J), HP.hbox('sp_b', (0, 0.28, 1.43), (0.36, 0.3, 0.065), 0.03, material=J)]
+    ppart('spine', spine, parent=hover, pivot=(0, 0, 0.9))
 
-    # --- carapace: chamfered armour mass, wide at the shoulders, narrow at the waist, a raised hump over the back -----------------
+    # --- carapace: a chamfered armour mass narrowing to the waist, raised hump, keel, layered flank plates, vents, the core bay ------
     tc = np.array([0, 0.12, 2.3])
-    torso_f = cbox(tc, (0.86, 0.6, 0.7), 0.26, R=T)
-    for sx in (-1, 1):  # taper to the waist
-        torso_f = wedge(torso_f, (sx * 0.58, 0, 1.75), (sx * 0.85, 0, -0.55))
-    hump = cbox(tc + T @ (0, 0.22, 0.52), (0.66, 0.44, 0.34), 0.22, R=T @ R_(-18, 0, 0))
-    keel = cbox(tc + T @ (0, 0.3, 0.86), (0.07, 0.4, 0.1), 0.06, R=T @ R_(-18, 0, 0))
-    torso_f = sdf.union(torso_f, hump, keel, k=0.04)
-    # recessed chest bay with a grille of armoured slats over the core
-    bay_c = tc + T @ (0, -0.58, -0.08)
-    torso_f = sdf.subtract(torso_f, cbox(bay_c, (0.3, 0.2, 0.32), 0.06, R=T), k=0.02)
-    slats = sdf.union(*[cbox(bay_c + T @ (x, -0.12, 0), (0.025, 0.05, 0.3), 0.02, R=T) for x in (-0.2, -0.1, 0.0, 0.1, 0.2)])
-    torso_f = sdf.union(torso_f, slats)
+    body = HP.hbox('body', tc, (0.86, 0.6, 0.7), 0.2, R=T, material=H)
     for sx in (-1, 1):
-        torso_f = sdf.subtract(torso_f, slots(tc + T @ (sx * 0.86, 0.05, 0.0), 5, 0.13, (0.06, 0.028, 0.2), T, 1), k=0.006)
-    torso_f = panel_lines(torso_f, 0.34)
-    torso = part('torso', torso_f, (-1.1, -0.95, 1.45), (1.1, 1.25, 3.5), M['hull'], step=0.011, tris=26000, parent=hover, pivot=(0, 0.3, 1.6))
+        HP.cut(body, (sx * 0.58, 0, 1.75), (sx * 0.85, 0, -0.55))
+    TH = T @ R_(-18, 0, 0)
+    hump = HP.hbox('hump', tc + T @ (0, 0.22, 0.52), (0.66, 0.44, 0.34), 0.16, R=TH, material=H)
+    keel = HP.hbox('keel', tc + T @ (0, 0.3, 0.86), (0.07, 0.42, 0.1), 0.035, R=TH, material=H)
+    bay_c = tc + T @ (0, -0.58, -0.08)
+    HP.carve(body, [HP.hbox('bay', bay_c, (0.3, 0.22, 0.32), 0.04, R=T)])
+    slats = [HP.hbox(f'slat{i}', bay_c + T @ (x, -0.13, 0), (0.026, 0.05, 0.3), 0.012, R=T, material=J) for i, x in enumerate((-0.2, -0.1, 0.0, 0.1, 0.2))]
+    pieces = [body, hump, keel, *slats]
+    for sx in (-1, 1):
+        # vent slots cut into the hump's flanks
+        vents = [HP.hbox(f'v{sx}{i}', tc + T @ (sx * 0.6, 0.12 + (i - 2) * 0.13, 0.55), (0.12, 0.03, 0.16), 0.008, R=TH) for i in range(5)]
+        HP.carve(hump, vents)
+        # a layered armour panel on each flank (designed outline), bolted
+        FR = T @ R_(0, 0, sx * 90)
+        fc = tc + T @ (sx * 0.875, 0.02, -0.05)
+        outline = [(-0.38, -0.42), (0.34, -0.42), (0.46, -0.1), (0.46, 0.38), (-0.26, 0.38), (-0.38, 0.18)]
+        if sx < 0:
+            outline = [(-u, v) for u, v in reversed(outline)]
+        pieces.append(HP.plate(f'flank{sx}', outline, 0.05, fc, R=FR, chamfer=0.018, material=H))
+        pieces += HP.bolts(f'fb{sx}', fc, FR, [(-0.3, 0.0, -0.32), (0.3, 0.0, -0.32), (0.36, 0.0, 0.3), (-0.2, 0.0, 0.3)], (0, 1, 0), material=J)
+    torso = ppart('torso', pieces, parent=hover, pivot=(0, 0.3, 1.6))
     core_c = bay_c + T @ (0, 0.06, 0)
     part('core', sdf.sphere(core_c, 0.2), core_c - 0.3, core_c + 0.3, M['core'], step=0.014, tris=1200, parent=torso, pivot=core_c)
-    # neck: cables from the front of the carapace down into the head
     nk = [sdf.tube([(x, -0.52, 2.66), (x * 1.25, -0.72, 2.6), (x, -0.86, 2.54)], [0.05, 0.05, 0.045]) for x in (-0.15, 0.0, 0.15)]
-    part('neck', sdf.union(*nk), (-0.4, -1.15, 2.25), (0.4, -0.35, 2.85), M['joint'], step=0.008, tris=2500, parent=torso, pivot=(0, -0.6, 2.6))
+    part('neck', sdf.union(*nk), (-0.4, -1.15, 2.25), (0.4, -0.35, 2.85), J, step=0.008, tris=2500, parent=torso, pivot=(0, -0.6, 2.6))
 
     # --- head: low and far forward, a narrow chamfered wedge, heavy brow over one slit eye, mandible plates ------------------------
     hc = np.array([0, -1.02, 2.5])
     HR = R_(6, 0, 0)
-    head_f = cbox(hc, (0.33, 0.36, 0.21), 0.12, R=HR)
-    head_f = wedge(head_f, hc + (0, -0.12, 0.08), (0, -0.55, 0.84))
+    head = HP.hbox('head_core', hc, (0.33, 0.36, 0.21), 0.07, R=HR, material=H)
+    HP.cut(head, hc + (0, -0.12, 0.08), (0, -0.55, 0.84))
     for sx in (-1, 1):
-        head_f = wedge(head_f, hc + (sx * 0.16, -0.22, 0), (sx * 0.86, -0.5, 0))
-    brow = cbox(hc + (0, -0.24, 0.16), (0.34, 0.17, 0.06), 0.05, R=R_(-16, 0, 0))
-    jaws = [cbox(hc + (sx * 0.17, -0.22, -0.19), (0.09, 0.21, 0.055), 0.035, R=R_(-20, 0, sx * 12)) for sx in (-1, 1)]
-    head_f = sdf.union(head_f, brow, *jaws, k=0.015)
-    head_f = sdf.subtract(head_f, sdf.box(hc + (0, -0.46, 0.04), (0.23, 0.14, 0.03), 0.008), k=0.005)
-    head = part('head', panel_lines(head_f, 0.11, axis=0), (-0.45, -1.62, 2.1), (0.45, -0.65, 2.8), M['hull'], step=0.007, tris=7000,
-                parent=torso, pivot=(0, -0.82, 2.5))
+        HP.cut(head, hc + (sx * 0.16, -0.22, 0), (sx * 0.86, -0.5, 0))
+    HP.carve(head, [HP.hbox('slit', hc + (0, -0.46, 0.04), (0.23, 0.14, 0.03), 0.006)])
+    brow = HP.hbox('brow', hc + (0, -0.24, 0.16), (0.34, 0.17, 0.06), 0.03, R=R_(-16, 0, 0), material=H)
+    jaws = [HP.hbox(f'jaw{sx}', hc + (sx * 0.17, -0.22, -0.19), (0.09, 0.21, 0.055), 0.025, R=R_(-20, 0, sx * 12), material=H) for sx in (-1, 1)]
+    head_ob = ppart('head', [head, brow, *jaws], parent=torso, pivot=(0, -0.82, 2.5))
     eye_c = hc + (0, -0.33, 0.04)
     part('eye', sdf.ellipsoid(eye_c, (0.22, 0.05, 0.024)), eye_c - (0.3, 0.12, 0.08), eye_c + (0.3, 0.12, 0.08), M['eye'], step=0.006, tris=800,
-         parent=head, pivot=eye_c)
+         parent=head_ob, pivot=eye_c)
 
-    # --- bolt-on armour (the phase transition blows it off): chest plates either side of the bay, the back plate over the hump ----
+    # --- bolt-on armour (the phase transition blows it off): angular chest plates, the back plate, dorsal blades ------------------
     for sx, sd in ((1, 'l'), (-1, 'r')):
-        pc = tc + T @ (sx * 0.52, -0.64, 0.02)
-        PR = T @ R_(0, 0, sx * -16)
-        pf = cbox(pc, (0.3, 0.06, 0.48), 0.07, R=PR)
-        pf = wedge(pf, pc + T @ (sx * 0.12, 0, -0.18), T @ (sx * 0.62, 0, -0.78))  # cut the outer lower corner: an angular plate
-        part(f'plate_chest_{sd}', panel_lines(pf, 0.18), pc - 0.6, pc + 0.6, M['paint'], step=0.008, tris=3500, parent=torso, pivot=pc)
-        # dorsal spines: three blades fanning back off the hump
+        pc = tc + T @ (sx * 0.5, -0.64, 0.02)
+        PR = T @ R_(0, 0, sx * -16) @ R_(0, 0, 180)  # plate frame: local +Y faces out of the chest
+        outline = [(-0.3, -0.5), (0.18, -0.5), (0.3, -0.3), (0.3, 0.46), (-0.22, 0.46), (-0.3, 0.36)]
+        if sx < 0:
+            outline = [(-u, v) for u, v in reversed(outline)]
+        pl = HP.plate(f'pc{sd}', outline, 0.07, pc, R=PR, chamfer=0.022, material=P)
+        bl = HP.bolts(f'pcb{sd}', pc, PR, [(u, 0.0, v) for u in (-0.2, 0.2) for v in (-0.38, 0.0, 0.36)], (0, 1, 0), radius=0.024, material=J)
+        ppart(f'plate_chest_{sd}', [pl, *bl], parent=torso, pivot=pc)
         base = tc + T @ (sx * 0.38, 0.42, 0.62)
         blades = []
         for i in range(3):
-            tip = base + np.array([sx * (0.18 + 0.12 * i), 0.75 - 0.1 * i, 0.55 - 0.32 * i])
-            mid = (base + tip) / 2 + (0, 0, 0.08)
-            blades.append(sdf.tube([base + (sx * 0.04 * i, 0.05 * i, -0.14 * i), mid, tip], [0.09, 0.055, 0.01]))
-        fin = sdf.union(*blades, k=0.03)
-        nrm = np.array([sx * 0.9, 0, -0.42])
-        fin = sdf.intersect(fin, sdf.offset(sdf.plane(base, nrm), 0.035), sdf.offset(sdf.plane(base, -nrm), 0.035))
-        part(f'fin_{sd}', fin, base - (0.9, 0.3, 0.9), base + (0.9, 1.2, 1.0), M['hull'], step=0.008, tris=3000, parent=torso, pivot=base)
+            tip = np.array([sx * (0.18 + 0.12 * i), 0.75 - 0.1 * i, 0.55 - 0.32 * i])
+            L = float(np.linalg.norm(tip))
+            # plate() extrudes along local -Y and outlines in XZ: build a blade frame with local X along the blade, local Y sideways
+            xa = tip / L
+            ya = np.array([sx * 0.9, 0, -0.42])
+            ya = ya - xa * (ya @ xa)
+            ya /= np.linalg.norm(ya)
+            za = np.cross(xa, ya)
+            BR = np.stack([xa, ya, za], 1)
+            outline = [(0.0, -0.08), (L * 0.55, -0.05), (L, 0.0), (L * 0.6, 0.05), (0.0, 0.1)]
+            blades.append(HP.plate(f'fin{sd}{i}', outline, 0.045, base + (sx * 0.04 * i, 0.05 * i, -0.14 * i) + ya * 0.022, R=BR, chamfer=0.012,
+                                   material=H, bevel_back=True))
+        ppart(f'fin_{sd}', blades, parent=torso, pivot=base)
     bp = tc + T @ (0, 0.6, 0.3)
-    bpf = cbox(bp, (0.5, 0.07, 0.4), 0.08, R=T @ R_(-18, 0, 0))
-    part('plate_back', panel_lines(bpf, 0.22), bp - 0.8, bp + 0.8, M['paint'], step=0.009, tris=3000, parent=torso, pivot=bp)
+    BR = TH
+    bpo = [(-0.5, -0.4), (0.5, -0.4), (0.5, 0.25), (0.3, 0.4), (-0.3, 0.4), (-0.5, 0.25)]
+    bpl = HP.plate('bp', bpo, 0.07, bp + BR @ (0, 0.07, 0), R=BR, chamfer=0.022, material=P)
+    bbl = HP.bolts('bpb', bp + BR @ (0, 0.07, 0), BR, [(x, 0.0, z) for x in (-0.4, 0.4) for z in (-0.3, 0.2)], (0, 1, 0), material=J)
+    ppart('plate_back', [bpl, *bbl], parent=torso, pivot=bp)
 
     # --- arms: sloped pauldrons, long arms bowed out at the elbow, heavy gauntleted forearms, three-clawed hammer fists -----------
     for sx, sd in ((1, 'l'), (-1, 'r')):
         sh_c = np.array([sx * 1.08, 0.02, 2.82])
         PD = R_(4, sx * -30, 0)
         pc_ = sh_c + (sx * 0.14, 0.02, 0.22)
-        paul = cbox(pc_, (0.38, 0.46, 0.19), 0.13, R=PD)
-        paul = wedge(paul, pc_ + (0, -0.3, 0), (0, -0.7, 0.7))  # sloped front edge
-        under = cbox(pc_ + PD @ (0, 0, -0.1), (0.3, 0.38, 0.1), 0.08, R=PD)
-        sh = part(f'shoulder_{sd}', sdf.union(sdf.sphere(sh_c, 0.27), under, k=0.03), sh_c - (0.7, 0.7, 0.4), sh_c + (0.7, 0.7, 0.7),
-                  M['joint'], step=0.009, tris=4000, parent=torso, pivot=sh_c)
-        part(f'pauldron_{sd}', panel_lines(paul, 0.14, axis=1), pc_ - 0.7, pc_ + 0.7, M['paint'], step=0.008, tris=5000, parent=sh, pivot=sh_c)
+        ball = sdfo(f'ball{sd}', sdf.sphere(sh_c, 0.27), sh_c - 0.35, sh_c + 0.35, J, step=0.008, tris=2000)
+        under = HP.hbox(f'under{sd}', pc_ + PD @ (0, 0, -0.1), (0.3, 0.38, 0.1), 0.04, R=PD, material=J)
+        sh = ppart(f'shoulder_{sd}', [ball, under], parent=torso, pivot=sh_c)
+        paul = HP.hbox(f'paul{sd}', pc_, (0.38, 0.46, 0.19), 0.09, R=PD, material=P)
+        HP.cut(paul, pc_ + (0, -0.3, 0), (0, -0.7, 0.7))
+        ridge = HP.hbox(f'ridge{sd}', pc_ + PD @ (0, 0.04, 0.2), (0.05, 0.36, 0.035), 0.015, R=PD, material=H)
+        pb = HP.bolts(f'pb{sd}', pc_, PD, [(x, -0.14, 0.19) for x in (-0.26, -0.13, 0.13, 0.26)], (0, 0, 1), radius=0.026, material=J)
+        ppart(f'pauldron_{sd}', [paul, ridge, *pb], parent=sh, pivot=sh_c)
         el_c = np.array([sx * 1.5, -0.24, 1.6])
-        FU = sdf.frame(el_c - sh_c)
-        ua = sdf.union(sdf.cone(sh_c, el_c, 0.19, 0.16), cbox((sh_c + el_c) / 2 + FU @ (0, 0, 0.08), (0.24, 0.25, 0.36), 0.1, R=FU), k=0.04)
-        arm = part(f'arm_{sd}', panel_lines(ua, 0.2), el_c - (0.5, 0.5, 0.3), sh_c + (0.5, 0.5, 0.3), M['hull'], step=0.009, tris=5000,
-                   parent=sh, pivot=sh_c)
+        FU = HP.frame_z(el_c - sh_c, (sx, 0, 0))
+        ua_rod = HP.rod(f'uar{sd}', sh_c, el_c, 0.16, sides=24, material=J)
+        ua_shell = HP.hbox(f'uas{sd}', (sh_c + el_c) / 2 + FU @ (0, 0.03, 0.06), (0.24, 0.25, 0.34), 0.06, R=FU, material=H)
+        HP.cut(ua_shell, (sh_c + el_c) / 2 + FU @ (0, 0, 0.25), FU @ (0, -0.5, 0.86))
+        arm = ppart(f'arm_{sd}', [ua_rod, ua_shell], parent=sh, pivot=sh_c)
         wr = np.array([sx * 1.42, -0.74, 0.62])
-        FR = sdf.frame(wr - el_c)
-        fa = sdf.union(sdf.sphere(el_c, 0.2), sdf.cone(el_c, wr, 0.17, 0.2), k=0.03)
-        # elbow pistons: two rods along the inside of the forearm
-        rods = [sdf.cone(el_c + FR @ (o, 0.16, 0.0), wr + FR @ (o, 0.16, -0.25), 0.035, 0.035) for o in (-0.09, 0.09)]
-        fore = part(f'forearm_{sd}', sdf.union(fa, *rods, k=0.01), wr - (0.5, 0.5, 0.3), el_c + (0.5, 0.5, 0.3), M['joint'], step=0.009, tris=4500,
-                    parent=arm, pivot=el_c)
+        FR = HP.frame_z(wr - el_c, (sx, 0, 0))
+        elbow = sdfo(f'elbow{sd}', sdf.sphere(el_c, 0.2), el_c - 0.25, el_c + 0.25, J, step=0.008, tris=1500)
+        fa_rod = HP.rod(f'far{sd}', el_c, wr, 0.17, sides=24, material=J)
+        rods = [HP.rod(f'pis{sd}{i}', el_c + FR @ (o, 0.17, 0.05), wr + FR @ (o, 0.17, -0.25), 0.032, sides=12, material=H) for i, o in enumerate((-0.09, 0.09))]
+        fore = ppart(f'forearm_{sd}', [elbow, fa_rod, *rods], parent=arm, pivot=el_c)
         gc = (el_c + wr) / 2 + FR @ (0, -0.05, 0.08)
-        guard = cbox(gc, (0.31, 0.29, 0.44), 0.14, R=FR)
-        guard = wedge(guard, gc + FR @ (0, 0, -0.2), FR @ (0, -0.35, -0.94))  # tapered toward the elbow
-        guard = sdf.subtract(guard, sdf.cone(el_c, wr, 0.15, 0.18), k=0.02)
-        part(f'gauntlet_{sd}', panel_lines(guard, 0.15), wr - (0.6, 0.6, 0.3), el_c + (0.6, 0.6, 0.3), M['paint'], step=0.009, tris=5000,
-             parent=fore, pivot=el_c)
+        guard = HP.hbox(f'guard{sd}', gc, (0.31, 0.29, 0.44), 0.08, R=FR, material=P)
+        HP.cut(guard, gc + FR @ (0, 0, -0.2), FR @ (0, -0.35, -0.94))
+        gb = HP.bolts(f'gb{sd}', gc, FR, [(sx * 0.31, y, z) for y in (-0.15, 0.1) for z in (-0.22, 0.05, 0.3)], (sx, 0, 0), material=J)
+        band = HP.hbox(f'gband{sd}', gc + FR @ (0, 0, 0.3), (0.325, 0.305, 0.05), 0.015, R=FR, material=M['hazard'])
+        ppart(f'gauntlet_{sd}', [guard, band, *gb], parent=fore, pivot=el_c)
         fc = wr + FR @ (0, 0, 0.24)
-        fist = cbox(fc, (0.28, 0.27, 0.22), 0.1, R=FR)
-        knuck = cbox(fc + FR @ (0, -0.2, 0.06), (0.26, 0.08, 0.16), 0.05, R=FR)
-        claws = [sdf.tube([fc + FR @ (o, -0.16, 0.14), fc + FR @ (o * 1.08, -0.34, 0.34), fc + FR @ (o * 1.08, -0.24, 0.54)],
-                          [0.07, 0.05, 0.012]) for o in (-0.17, 0.0, 0.17)]
-        part(f'fist_{sd}', panel_lines(sdf.union(fist, knuck, *claws, k=0.02), 0.11, axis=0), fc - 0.8, fc + 0.8, M['hull'], step=0.008, tris=5500,
-             parent=fore, pivot=wr)
+        fist = HP.hbox(f'fist{sd}', fc, (0.28, 0.27, 0.22), 0.06, R=FR, material=H)
+        knuck = HP.hbox(f'knuck{sd}', fc + FR @ (0, -0.2, 0.06), (0.26, 0.08, 0.16), 0.03, R=FR, material=M['hazard'])
+        claws = sdf.union(*[sdf.tube([fc + FR @ (o, -0.16, 0.14), fc + FR @ (o * 1.08, -0.34, 0.34), fc + FR @ (o * 1.08, -0.24, 0.54)],
+                                     [0.07, 0.05, 0.012]) for o in (-0.17, 0.0, 0.17)])
+        cl = sdfo(f'claws{sd}', claws, fc - 0.8, fc + 0.8, H, step=0.006, tris=3000)
+        ppart(f'fist_{sd}', [fist, knuck, cl], parent=fore, pivot=wr)
     return root, M
 
 
-def convexity(ob, iters=1):
-    """Per-vertex convexity: mean over neighbours of n . (p - q) / |p - q| (positive on outer edges, negative in creases)."""
-    me = ob.data
-    n = len(me.vertices)
-    P = np.empty(n * 3)
-    me.vertices.foreach_get('co', P)
-    P = P.reshape(-1, 3)
-    N = np.empty(n * 3)
-    me.vertices.foreach_get('normal', N)
-    N = N.reshape(-1, 3)
-    E = np.empty(len(me.edges) * 2, dtype=np.int64)
-    me.edges.foreach_get('vertices', E)
-    E = E.reshape(-1, 2)
-    a, b = E[:, 0], E[:, 1]
-    d = P[a] - P[b]
-    d /= np.maximum(np.linalg.norm(d, axis=1, keepdims=True), 1e-9)
-    acc = np.zeros(n)
-    cnt = np.zeros(n)
-    np.add.at(acc, a, (N[a] * d).sum(1))
-    np.add.at(acc, b, -(N[b] * d).sum(1))
-    np.add.at(cnt, a, 1)
-    np.add.at(cnt, b, 1)
-    c = acc / np.maximum(cnt, 1)
-    for _ in range(iters):  # one smoothing pass so the wear band has some width
-        s_ = np.zeros(n)
-        np.add.at(s_, a, c[b])
-        np.add.at(s_, b, c[a])
-        c = 0.5 * c + 0.5 * s_ / np.maximum(cnt, 1)
-    return c
-
-
-def bake_masks():
-    """GAME colour per vertex for the engine's armour shader: R = ambient occlusion (Cycles), G = edge convexity."""
-    import lookdev
+def bake_masks(size=2048, png=os.path.join(OUT, 'sentinel_masks.png')):
+    """Baked mask texture (the AAA way, not per-vertex: low-poly faces have no interior vertices):
+    one UV atlas shared by every part, Cycles bakes ambient occlusion (R) and an edge map (G: the bevel shader's rounded normal
+    against the true normal, i.e. how close a texel is to a sharp edge). The engine armour shader wears paint off the edges and
+    settles grime into the occlusion."""
     obs = [o for o in bpy.data.objects if o.type == 'MESH']
-    ao = sdf.bake_ao(obs, distance=0.4, samples=32)
-    for ob in obs:
-        cv = convexity(ob)
-        lookdev.game_color(ob, np.clip(ao[ob.name] * 1.05, 0, 1), np.clip(cv * 3.0 + 0.1, 0, 1), np.ones(len(ob.data.vertices)))
+    bpy.ops.object.select_all(action='DESELECT')
+    for o in obs:
+        o.select_set(True)
+        for uvl in list(o.data.uv_layers):
+            o.data.uv_layers.remove(uvl)
+        o.data.uv_layers.new(name='UVMap')
+    bpy.context.view_layer.objects.active = obs[0]
+    bpy.ops.object.mode_set(mode='EDIT')
+    bpy.ops.mesh.select_all(action='SELECT')
+    bpy.ops.uv.smart_project(angle_limit=math.radians(48), island_margin=0.004, area_weight=0.0, scale_to_bounds=False)
+    bpy.ops.uv.pack_islands(margin=0.003, rotate=True)
+    bpy.ops.object.mode_set(mode='OBJECT')
+    sc = bpy.context.scene
+    sc.render.engine = 'CYCLES'
+    sc.cycles.device = 'CPU'
+    sc.render.bake.margin = 8
+    sc.render.bake.target = 'IMAGE_TEXTURES'
+    if sc.world is None:
+        sc.world = bpy.data.worlds.new('w')
+    sc.world.light_settings.distance = 0.35
+    mats_ = {m for o in obs for m in o.data.materials if m}
+    out = np.zeros((size, size, 4), dtype=np.float32)
+    out[..., 3] = 1
+    for kind, ch_ in (('AO', 0), ('EDGE', 1)):
+        img = bpy.data.images.new(f'mask_{kind}', size, size, float_buffer=True, alpha=False)
+        added = []
+        for m in mats_:
+            nt = m.node_tree
+            n = nt.nodes.new('ShaderNodeTexImage')
+            n.image = img
+            for x in nt.nodes:
+                x.select = False
+            n.select = True
+            nt.nodes.active = n
+            added.append((nt, [n]))
+            if kind == 'EDGE':
+                outn = next(x for x in nt.nodes if x.type == 'OUTPUT_MATERIAL')
+                old = [l_.from_socket for l_ in outn.inputs['Surface'].links]
+                bev = nt.nodes.new('ShaderNodeBevel')
+                bev.inputs['Radius'].default_value = 0.024
+                bev.samples = 16
+                geo = nt.nodes.new('ShaderNodeNewGeometry')
+                dot = nt.nodes.new('ShaderNodeVectorMath')
+                dot.operation = 'DOT_PRODUCT'
+                nt.links.new(bev.outputs['Normal'], dot.inputs[0])
+                nt.links.new(geo.outputs['Normal'], dot.inputs[1])
+                inv = nt.nodes.new('ShaderNodeMath')
+                inv.operation = 'SUBTRACT'
+                inv.inputs[0].default_value = 1.0
+                nt.links.new(dot.outputs['Value'], inv.inputs[1])
+                amp = nt.nodes.new('ShaderNodeMath')
+                amp.operation = 'MULTIPLY'
+                amp.use_clamp = True
+                amp.inputs[1].default_value = 7.0
+                nt.links.new(inv.outputs['Value'], amp.inputs[0])
+                em = nt.nodes.new('ShaderNodeEmission')
+                nt.links.new(amp.outputs['Value'], em.inputs['Strength'])
+                em.inputs['Color'].default_value = (1, 1, 1, 1)
+                nt.links.new(em.outputs['Emission'], outn.inputs['Surface'])
+                added[-1] = (nt, [n, bev, geo, dot, inv, amp, em], outn, old)
+        sc.cycles.samples = 64 if kind == 'AO' else 16
+        if kind == 'AO':
+            bpy.ops.object.bake(type='AO', use_clear=True, margin=8)
+        else:
+            bpy.ops.object.bake(type='EMIT', use_clear=True, margin=8)
+        px = np.empty(size * size * 4, dtype=np.float32)
+        img.pixels.foreach_get(px)
+        out[..., ch_] = px.reshape(size, size, 4)[..., 0]
+        for item in added:
+            nt, nodes = item[0], item[1]
+            if len(item) > 2:
+                outn, old = item[2], item[3]
+                for src in old:
+                    nt.links.new(src, outn.inputs['Surface'])
+            for n in nodes:
+                nt.nodes.remove(n)
+        bpy.data.images.remove(img)
+    res = bpy.data.images.new('sentinel_masks', size, size, alpha=False)
+    res.pixels.foreach_set(np.clip(out, 0, 1).ravel())
+    res.filepath_raw = png
+    res.file_format = 'PNG'
+    res.save()
+    print('MASKS', png)
+    rel = 'bosses/sentinel/sentinel_masks.png'
+    for m in mats_:
+        if 'ft' in m:
+            r = json.loads(m['ft'])
+            if r.get('type') == 'armour':
+                r['masks'] = rel
+                m['ft'] = json.dumps(r)
 
 
 def export():
@@ -291,8 +410,7 @@ def export():
     bpy.ops.object.select_all(action='SELECT')
     path = os.path.join(OUT, 'sentinel.glb')
     bpy.ops.export_scene.gltf(filepath=path, export_format='GLB', use_selection=True, export_yup=True, export_extras=True,
-                              export_normals=True, export_materials='EXPORT', export_vertex_color='NAME', export_vertex_color_name='GAME',
-                              export_all_vertex_colors=False)
+                              export_normals=True, export_materials='EXPORT', export_vertex_color='NONE', export_texcoords=True)
     print('EXPORTED', path, os.path.getsize(path) // 1024, 'KB')
 
 

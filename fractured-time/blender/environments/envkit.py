@@ -46,6 +46,23 @@ def reset():
     return sc
 
 
+def sky_world(hdri, strength=1.0, rot_z=0.0):
+    """An HDRI sky lights exterior bakes (interiors are sealed, so they never see it)."""
+    w = bpy.context.scene.world
+    nt = w.node_tree
+    env = nt.nodes.get('sky_env') or nt.nodes.new('ShaderNodeTexEnvironment')
+    env.name = 'sky_env'
+    env.image = bpy.data.images.load(hdri, check_existing=True)
+    tc = nt.nodes.new('ShaderNodeTexCoord')
+    mp = nt.nodes.new('ShaderNodeMapping')
+    mp.inputs['Rotation'].default_value = (0, 0, rot_z)
+    nt.links.new(tc.outputs['Generated'], mp.inputs['Vector'])
+    nt.links.new(mp.outputs['Vector'], env.inputs['Vector'])
+    bg = nt.nodes['Background']
+    nt.links.new(env.outputs['Color'], bg.inputs['Color'])
+    bg.inputs['Strength'].default_value = strength
+
+
 class Section:
     """Collects the static meshes, collision boxes, lights and markers of one level section."""
 
@@ -92,7 +109,7 @@ def emissive_mat(key, color, strength):
     return MATS[key]
 
 
-def plain_mat(key, color, rough=0.5, metal=0.0):
+def plain_mat(key, color, rough=0.5, metal=0.0, stripes=0.0):
     if key not in MATS:
         m = bpy.data.materials.new(key)
         m.use_nodes = True
@@ -100,7 +117,34 @@ def plain_mat(key, color, rough=0.5, metal=0.0):
         b.inputs['Base Color'].default_value = (*color, 1)
         b.inputs['Roughness'].default_value = rough
         b.inputs['Metallic'].default_value = metal
-        m['ft'] = json.dumps({'type': 'plain', 'color': list(color), 'rough': rough, 'metal': metal})
+        m['ft'] = json.dumps({'type': 'plain', 'color': list(color), 'rough': rough, 'metal': metal, **({'stripes': stripes} if stripes else {})})
+        if stripes:
+            # the same striping for the bake (Cycles): wave texture bands -> black / colour
+            nt = m.node_tree
+            tc = nt.nodes.new('ShaderNodeTexCoord')
+            sep = nt.nodes.new('ShaderNodeSeparateXYZ')
+            nt.links.new(tc.outputs['Object'], sep.inputs[0])
+            add = nt.nodes.new('ShaderNodeMath')
+            add.operation = 'ADD'
+            nt.links.new(sep.outputs['X'], add.inputs[0])
+            nt.links.new(sep.outputs['Y'], add.inputs[1])
+            mul = nt.nodes.new('ShaderNodeMath')
+            mul.operation = 'MULTIPLY'
+            mul.inputs[1].default_value = stripes
+            nt.links.new(add.outputs['Value'], mul.inputs[0])
+            fr = nt.nodes.new('ShaderNodeMath')
+            fr.operation = 'FRACT'
+            nt.links.new(mul.outputs['Value'], fr.inputs[0])
+            gt = nt.nodes.new('ShaderNodeMath')
+            gt.operation = 'GREATER_THAN'
+            gt.inputs[1].default_value = 0.5
+            nt.links.new(fr.outputs['Value'], gt.inputs[0])
+            mix = nt.nodes.new('ShaderNodeMix')
+            mix.data_type = 'RGBA'
+            mix.inputs[6].default_value = (*color, 1)
+            mix.inputs[7].default_value = (0.02, 0.02, 0.022, 1)
+            nt.links.new(gt.outputs['Value'], mix.inputs[0])
+            nt.links.new(mix.outputs[2], b.inputs['Base Color'])
         MATS[key] = m
     return MATS[key]
 
@@ -199,22 +243,49 @@ def join(objs, name):
 
 # --- kit pieces ---------------------------------------------------------------------------------------------------------------
 
-def panel_wall(name, p0, p1, height, z0, M, panel_w=1.2, depth=0.12, inward=(0, 0, 0)):
-    """A structural wall from p0 to p1 (xy) with a row of raised inset panels, a skirting rail and a top rail on its inner face."""
+def panel_wall(name, p0, p1, height, z0, M, panel_w=1.2, depth=0.12, inward=(0, 0, 0), bay=3.0):
+    """A structural wall from p0 to p1 (xy), inner face built in layers like a real facility wall: the core; structural pilasters
+    every `bay` metres (dark chamfered steel, full height); between them a dark painted-metal wainscot (0-1.1 m) under lighter
+    composite panels set back behind shadow gaps; a steel rail with a thin chronal-cyan LED line (M['led_line'], when present);
+    a skirting kick plate. Real depth everywhere, so the lightmap bake gives contact shadows and every edge catches light."""
     p0, p1 = Vector((*p0, 0)), Vector((*p1, 0))
     d = p1 - p0
     L = d.length
     ang = math.atan2(d.y, d.x)
     n_in = Vector(inward).normalized()
+    f = -depth / 2  # inner face (local -Y)
     parts = [box(name + '_core', (L, depth, height), (0, 0, 0), M['wall'], bevel=0.008)]
-    n = max(1, int(L / panel_w))
-    w = L / n
-    for i in range(n):
-        x = -L / 2 + (i + 0.5) * w
-        parts.append(box(f'{name}_p{i}', (w - 0.06, 0.03, height * 0.62), (x, -depth / 2 - 0.015, -height * 0.05), M['panel'], bevel=0.012))
-        parts.append(box(f'{name}_v{i}', (w * 0.5, 0.012, 0.12), (x, -depth / 2 - 0.036, height * 0.18), M['vent'], bevel=0.004))
-    parts.append(box(name + '_skirt', (L, 0.06, 0.16), (0, -depth / 2 - 0.03, -height / 2 + 0.08), M['trim'], bevel=0.01))
-    parts.append(box(name + '_rail', (L, 0.08, 0.1), (0, -depth / 2 - 0.04, height * 0.33), M['trim'], bevel=0.012))
+    nb = max(1, int(round(L / bay)))
+    bw = L / nb
+    wains = 1.1
+    for i in range(nb + 1):
+        x = -L / 2 + i * bw
+        if 0 < i < nb or L > 2.0:
+            px = min(max(x, -L / 2 + 0.16), L / 2 - 0.16)
+            parts.append(box(f'{name}_pil{i}', (0.32, 0.2, height), (px, f - 0.1, 0), M['trim'], bevel=0.03))
+    for i in range(nb):
+        x = -L / 2 + (i + 0.5) * bw
+        w = bw - 0.36
+        if w < 0.3:
+            continue
+        # wainscot: dark painted metal, two plates with a seam
+        for k in range(2):
+            parts.append(box(f'{name}_wa{i}{k}', (w / 2 - 0.02, 0.04, wains - 0.24), (x - w / 4 + k * w / 2, f - 0.02, -height / 2 + 0.16 + (wains - 0.24) / 2),
+                             M['wainscot'] if 'wainscot' in M else M['panel'], bevel=0.008))
+        # upper composite panels, set back behind a shadow gap
+        up_h = height - wains - 0.5
+        nrow = max(1, int(up_h / 1.4))
+        ph = up_h / nrow
+        for r in range(nrow):
+            zc = -height / 2 + wains + 0.12 + (r + 0.5) * ph
+            parts.append(box(f'{name}_up{i}{r}', (w - 0.06, 0.03, ph - 0.05), (x, f - 0.015, zc), M['panel'], bevel=0.01))
+        # a recessed vent grille low in alternate bays
+        if i % 2 == 0 and w > 1.2:
+            parts.append(box(f'{name}_vent{i}', (min(0.9, w * 0.5), 0.012, 0.22), (x, f - 0.042, -height / 2 + 0.5), M['vent'], bevel=0.004))
+    parts.append(box(name + '_skirt', (L, 0.07, 0.14), (0, f - 0.035, -height / 2 + 0.07), M['trim'], bevel=0.01))
+    parts.append(box(name + '_rail', (L, 0.09, 0.08), (0, f - 0.045, -height / 2 + wains), M['trim'], bevel=0.012))
+    if 'led_line' in M:
+        parts.append(box(name + '_led', (L - 0.1, 0.012, 0.018), (0, f - 0.091, -height / 2 + wains + 0.02), M['led_line'], bevel=0.0))
     ob = join(parts, name)
     mid = (p0 + p1) / 2
     ob.matrix_world = Matrix.Translation((mid.x, mid.y, z0 + height / 2)) @ Matrix.Rotation(ang, 4, 'Z')
@@ -473,7 +544,7 @@ def bake_lightmap(ob, path, size=2048, samples=128):
     return img
 
 
-def probe_points(objs, spacing=2.0, heights=(1.1,), clearance=0.25):
+def probe_points(objs, spacing=2.0, heights=(1.1,), clearance=0.25, exterior=False):
     """Light probe positions over the floor of a section: a grid inside its static bounds, kept only where the point is in open air
     (a floor below, something above, no surface within `clearance`, not inside a closed solid)."""
     sc = bpy.context.scene
@@ -498,8 +569,8 @@ def probe_points(objs, spacing=2.0, heights=(1.1,), clearance=0.25):
                 for d in dirs:
                     hit, loc, nrm, _i, ob, _m = sc.ray_cast(dg, p, d, distance=40.0)
                     if not hit:
-                        if d.z <= 0:
-                            ok = False  # open below or sideways: outside the level
+                        if (d.z < 0 if exterior else d.z <= 0):
+                            ok = False  # open below (or sideways, indoors): outside the level
                         continue
                     if nrm.dot(d) > 0 or (loc - p).length < clearance:
                         ok = False  # inside a solid, or hugging a surface
@@ -645,8 +716,19 @@ def room(S, name, x0, x1, y0, y1, H, M, openings=None, beams=True, ceiling=True,
     W, L = x1 - x0, y0 - y1
     cx, cy = (x0 + x1) / 2, (y0 + y1) / 2
     S.add(box(f'{name}_floor', (W, L, 0.2), (cx, cy, -0.1), M[floor_mat], bevel=0.0))
+    if 'floor_band' in M and floor_mat != 'floor_band':
+        # an anti-skid perimeter band along the walls (where the wear and the cables are)
+        for (bx, by, sx_, sy_) in ((cx, y0 - 0.45, W, 0.9), (cx, y1 + 0.45, W, 0.9), (x0 + 0.45, cy, 0.9, L - 1.8), (x1 - 0.45, cy, 0.9, L - 1.8)):
+            S.add(box(f'{name}_band{bx:.1f}_{by:.1f}', (sx_, sy_, 0.012), (bx, by, 0.006), M['floor_band'], bevel=0.0))
     if ceiling:
         S.add(box(f'{name}_ceil', (W + 0.3, L + 0.3, 0.3), (cx, cy, H + 0.15), M['ceiling'], bevel=0.0))
+        if 'ceil_panel' in M:
+            # suspended ceiling panels in a grid with dark reveals between them
+            nx, ny = max(1, int(W / 1.5)), max(1, int(L / 1.5))
+            for i in range(nx):
+                for j in range(ny):
+                    S.add(box(f'{name}_cp{i}_{j}', (W / nx - 0.08, L / ny - 0.08, 0.04), (x0 + (i + 0.5) * W / nx, y1 + (j + 0.5) * L / ny, H - 0.02),
+                              M['ceil_panel'], bevel=0.006))
         if beams:
             for i in range(int(L / 2.5) + 1):
                 S.add(box(f'{name}_beam{i}', (W, 0.3, 0.4), (cx, y0 - i * 2.5, H - 0.2), M['trim'], bevel=0.015))

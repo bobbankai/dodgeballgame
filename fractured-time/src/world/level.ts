@@ -51,7 +51,26 @@ function screen(r: Recipe): THREE.Material {
 
 function plain(r: Recipe): THREE.Material {
   const c = r.color ?? [0.5, 0.5, 0.5];
-  return new THREE.MeshPhysicalNodeMaterial({ color: new THREE.Color(c[0], c[1], c[2]), roughness: r.rough ?? 0.5, metalness: r.metal ?? 0 });
+  const m = new THREE.MeshPhysicalNodeMaterial({ color: new THREE.Color(c[0], c[1], c[2]), roughness: r.rough ?? 0.5, metalness: r.metal ?? 0 });
+  if (r.stripes) {
+    // painted hazard striping (world space diagonal), worn: scuffed toward the bottom, roughness broken up by noise
+    const p = T.positionWorld;
+    const n = T.mx_fractal_noise_float(p.mul(9.0), 3, 2.0, 0.5).mul(0.5).add(0.5);
+    const st = T.smoothstep(0.47, 0.53, T.fract(p.x.add(p.z).add(p.y.mul(0.5)).mul(float(r.stripes))));
+    const scuff = T.smoothstep(0.62, 0.9, n);
+    m.colorNode = T.mix(T.mix(T.vec3(c[0], c[1], c[2]), T.vec3(0.02, 0.02, 0.022), st), T.vec3(0.25, 0.25, 0.24), scuff.mul(0.6));
+    m.roughnessNode = float(r.rough ?? 0.6).add(n.sub(0.5).mul(0.3));
+  }
+  return m;
+}
+
+/** Architectural glass: thin, faintly tinted, almost all reflection (from the section's probe and lights), no lightmap. */
+function glass(r: Recipe): THREE.Material {
+  const t = r.tint ?? [0.75, 0.85, 0.9];
+  const m = new THREE.MeshPhysicalNodeMaterial({ color: new THREE.Color(t[0] * 0.08, t[1] * 0.08, t[2] * 0.08), roughness: Math.max(0.03, r.rough ?? 0.05),
+    metalness: 0, transparent: true, opacity: 0.22, depthWrite: false, side: THREE.DoubleSide });
+  m.specularIntensity = 1;
+  return m;
 }
 
 export async function loadLevel(path: string, physics: Physics | null, scene: THREE.Scene | null, _unused: THREE.Light[] = []): Promise<LoadedLevel> {
@@ -134,6 +153,7 @@ export async function loadLevel(path: string, physics: Physics | null, scene: TH
       else if (r.type === 'emissive') m = emissive(r);
       else if (r.type === 'screen') m = screen(r);
       else if (r.type === 'plain') m = plain(r);
+      else if (r.type === 'glass') m = glass(r);
       else m = old;
       m.name = old.name;
       if (raw) m.userData.ft = raw;
@@ -141,7 +161,7 @@ export async function loadLevel(path: string, physics: Physics | null, scene: TH
     });
     const r0 = (m: THREE.Material) => { const raw = (m.userData as any)?.ft; return raw ? (typeof raw === 'string' ? JSON.parse(raw) : raw).type : ''; };
     const apply = (m: THREE.Material) => {
-      if (isDynamic) return;
+      if (isDynamic || r0(m) === 'glass') return;
       const sm = m as THREE.MeshStandardNodeMaterial;
       if (lightMap && 'lightMap' in sm) {
         sm.lightMap = lightMap;
