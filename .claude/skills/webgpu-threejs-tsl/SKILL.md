@@ -1,9 +1,6 @@
 ---
 name: webgpu-threejs-tsl
 description: Comprehensive guide for developing WebGPU-enabled Three.js applications using TSL (Three.js Shading Language). Covers WebGPU renderer setup, TSL syntax and node materials, compute shaders, post-processing effects, and WGSL integration. Use this skill when working with Three.js WebGPU, TSL shaders, node materials, or GPU compute in Three.js.
-metadata:
-  author: Dgreenheck
-  source: https://github.com/dgreenheck/webgpu-claude-skill/tree/main/skills/webgpu-threejs-tsl
 ---
 
 # WebGPU Three.js with TSL
@@ -35,15 +32,15 @@ material.colorNode = color(0xff0000).mul(oscSine(time));
 - `docs/limits-and-features.md` - WebGPU device limits and optional features
 
 ### Examples
-- `examples/basic-setup.md` - Minimal WebGPU project
-- `examples/custom-material.md` - Custom shader material
-- `examples/particle-system.md` - GPU compute particles
-- `examples/post-processing.md` - Effect pipeline
-- `examples/earth-shader.md` - Complete Earth with atmosphere
+- `examples/basic-setup.js` - Minimal WebGPU project
+- `examples/custom-material.js` - Custom shader material
+- `examples/particle-system.js` - GPU compute particles
+- `examples/post-processing.js` - Effect pipeline
+- `examples/earth-shader.js` - Complete Earth with atmosphere
 
 ### Templates
-- `templates/webgpu-project.md` - Starter project template
-- `templates/compute-shader.md` - Compute shader template
+- `templates/webgpu-project.js` - Starter project template
+- `templates/compute-shader.js` - Compute shader template
 
 ### Reference
 - `REFERENCE.md` - Quick reference cheatsheet

@@ -1,0 +1,481 @@
+{
+  "version": 2,
+  "skills": {
+    "card-grass": {
+      "source": "wolffe/three.js-skills",
+      "sourceType": "github",
+      "skillPath": "skills/outdoor/card-grass/SKILL.md",
+      "computedHash": "6c314785f47e8432b23b933e8ca2ba883565b18cb5dbfd47da0f52bc0fcfe323",
+      "installMode": "copy"
+    },
+    "character-camera": {
+      "source": "wolffe/three.js-skills",
+      "sourceType": "github",
+      "skillPath": "skills/character/character-camera/SKILL.md",
+      "computedHash": "5d61863affd22f767146cd4e01bba41ace52ce190785ca78a012b383633e1511",
+      "installMode": "copy"
+    },
+    "character-input": {
+      "source": "wolffe/three.js-skills",
+      "sourceType": "github",
+      "skillPath": "skills/character/character-input/SKILL.md",
+      "computedHash": "faca9050668a8aa15803bf1d59edb8d9838430a49f4ba6a263f2c3c44dae2537",
+      "installMode": "copy"
+    },
+    "character-kit": {
+      "source": "wolffe/three.js-skills",
+      "sourceType": "github",
+      "skillPath": "skills/character/character-kit/SKILL.md",
+      "computedHash": "3c74076bf3dcae58270aa4d0b2507cdb0f0b9bca3b15f5af718faa452fe0104c",
+      "installMode": "copy"
+    },
+    "character-model": {
+      "source": "wolffe/three.js-skills",
+      "sourceType": "github",
+      "skillPath": "skills/character/character-model/SKILL.md",
+      "computedHash": "dfb801b46c38c1dcf7b927b941309927aeb73c49ecd9b918939f558e7cfd6c8c",
+      "installMode": "copy"
+    },
+    "character-walking": {
+      "source": "wolffe/three.js-skills",
+      "sourceType": "github",
+      "skillPath": "skills/character/character-walking/SKILL.md",
+      "computedHash": "9660899d3ac917d7e11c70652190e5ba6b39c28f02845a2b0e3bf296fe4496ce",
+      "installMode": "copy"
+    },
+    "engineered-environments": {
+      "source": "wolffe/three.js-skills",
+      "sourceType": "github",
+      "skillPath": "skills/environments/engineered-environments/SKILL.md",
+      "computedHash": "8637da0bc42034a7c85891a3e126e7da99a2f7307ab18f1d0a22a309c4689ca1",
+      "installMode": "copy"
+    },
+    "far-shade": {
+      "source": "wolffe/three.js-skills",
+      "sourceType": "github",
+      "skillPath": "skills/outdoor/far-shade/SKILL.md",
+      "computedHash": "25f47646a37d887dde00fe9958fb1b45c8c445d68665583a7030fc1578d7b21c",
+      "installMode": "copy"
+    },
+    "glass": {
+      "source": "wolffe/three.js-skills",
+      "sourceType": "github",
+      "skillPath": "skills/materials/glass/SKILL.md",
+      "computedHash": "119904c17a324ba4094d83bf48189d19d9ab7c0ee4238c0a805c4b74a67bcfac",
+      "installMode": "copy"
+    },
+    "greenhouse": {
+      "source": "wolffe/three.js-skills",
+      "sourceType": "github",
+      "skillPath": "skills/geometry/greenhouse/SKILL.md",
+      "computedHash": "ff6954fbb973bf1056064c4e07b1397b4ad5568f12ff4381d40b59a7ebacf6b5",
+      "installMode": "copy"
+    },
+    "indirect-lighting": {
+      "source": "wolffe/three.js-skills",
+      "sourceType": "github",
+      "skillPath": "skills/lighting/indirect-lighting/SKILL.md",
+      "computedHash": "0c607d9df3cfd185513a8b4d883aa07a0e462fbf13f59bd7bcab82eb32d541cb",
+      "installMode": "copy"
+    },
+    "interior-mapping": {
+      "source": "wolffe/three.js-skills",
+      "sourceType": "github",
+      "skillPath": "skills/materials/interior-mapping/SKILL.md",
+      "computedHash": "6c24f364c0c789c0bc0fc3a49eff479f3b869c663ca1f4727011fedb3c97e22e",
+      "installMode": "copy"
+    },
+    "jolt-driving": {
+      "source": "wolffe/three.js-skills",
+      "sourceType": "github",
+      "skillPath": "skills/physics/jolt-driving/SKILL.md",
+      "computedHash": "aea0bd124b24fb0a8989828fb5017de59f7da52d8152b904215dd3849dcec583",
+      "installMode": "copy"
+    },
+    "lighting": {
+      "source": "wolffe/three.js-skills",
+      "sourceType": "github",
+      "skillPath": "skills/lighting/lighting/SKILL.md",
+      "computedHash": "3c50c52123151265942bfffbf2c3cf01f4e71c153d04bd1a11102d3907d03b17",
+      "installMode": "copy"
+    },
+    "material-composition": {
+      "source": "wolffe/three.js-skills",
+      "sourceType": "github",
+      "skillPath": "skills/materials/material-composition/SKILL.md",
+      "computedHash": "3831517a958b8ee862bcff77113de00bb493d2f2b7dd70901b3dd90077544284",
+      "installMode": "copy"
+    },
+    "megacity": {
+      "source": "wolffe/three.js-skills",
+      "sourceType": "github",
+      "skillPath": "skills/environments/megacity/SKILL.md",
+      "computedHash": "dcbf0afd8cb8e3d24add3fd9c7a0975eeb9b34d45e5f19a52ed8af936c283c29",
+      "installMode": "copy"
+    },
+    "metal": {
+      "source": "wolffe/three.js-skills",
+      "sourceType": "github",
+      "skillPath": "skills/materials/metal/SKILL.md",
+      "computedHash": "5a03d7325b6e6a780ac654b22ac422eb63550de52528719f0a54be59b71a652e",
+      "installMode": "copy"
+    },
+    "ocean-water": {
+      "source": "wolffe/three.js-skills",
+      "sourceType": "github",
+      "skillPath": "skills/outdoor/ocean-water/SKILL.md",
+      "computedHash": "76441a6eada1533363e4e473a93b48f3c321d2aaaf1e6050185d579ee53d5a30",
+      "installMode": "copy"
+    },
+    "paint": {
+      "source": "wolffe/three.js-skills",
+      "sourceType": "github",
+      "skillPath": "skills/materials/paint/SKILL.md",
+      "computedHash": "79caef793c3c2ef805187bc23cd6d167aa2f02f20ec8746ee663267cfe89f0ee",
+      "installMode": "copy"
+    },
+    "photo-sky": {
+      "source": "wolffe/three.js-skills",
+      "sourceType": "github",
+      "skillPath": "skills/outdoor/photo-sky/SKILL.md",
+      "computedHash": "1dd72544ec05f87221d0768ef21582319d53538370bd2f87587f2a2a466a216c",
+      "installMode": "copy"
+    },
+    "pipes": {
+      "source": "wolffe/three.js-skills",
+      "sourceType": "github",
+      "skillPath": "skills/geometry/pipes/SKILL.md",
+      "computedHash": "984168ebac7cd09e5a8f310f7026ccd765510d1a9f5aa02715c4917318879b4a",
+      "installMode": "copy"
+    },
+    "procedural-geometry": {
+      "source": "wolffe/three.js-skills",
+      "sourceType": "github",
+      "skillPath": "skills/geometry/procedural-geometry/SKILL.md",
+      "computedHash": "6da624cfc8cdb8dc9fbaf80a661da8480bb6e1725b142bc7cc5cc15fc64c38dd",
+      "installMode": "copy"
+    },
+    "rust": {
+      "source": "wolffe/three.js-skills",
+      "sourceType": "github",
+      "skillPath": "skills/materials/rust/SKILL.md",
+      "computedHash": "227c72f5f702181717cf5e348e671a864ffb2e8454d46ba30db02342df4874f3",
+      "installMode": "copy"
+    },
+    "signage": {
+      "source": "wolffe/three.js-skills",
+      "sourceType": "github",
+      "skillPath": "skills/geometry/signage/SKILL.md",
+      "computedHash": "980963278d2bfb6e208280249ecf324d2b741a00a32f1d4e61757f80f50f884e",
+      "installMode": "copy"
+    },
+    "snow-weather": {
+      "source": "wolffe/three.js-skills",
+      "sourceType": "github",
+      "skillPath": "skills/outdoor/snow-weather/SKILL.md",
+      "computedHash": "972f9fd15c8c14efe88496d390ca30c2ae82b8ea10fcd2597d352040289998d6",
+      "installMode": "copy"
+    },
+    "station-maglev": {
+      "source": "wolffe/three.js-skills",
+      "sourceType": "github",
+      "skillPath": "skills/environments/station-maglev/SKILL.md",
+      "computedHash": "8f933dfe6b7900dfef4a797f396b3b0d8bcece25c145bf352eb244673997158f",
+      "installMode": "copy"
+    },
+    "threejs-3d-generator": {
+      "source": "majidmanzarpour/threejs-game-skills",
+      "sourceType": "github",
+      "skillPath": "skills/threejs-3d-generator/SKILL.md",
+      "computedHash": "0332cb14bbc03a2a11ad070aa165b2b862fa3f5e816e5eb0edee31a2e09b58cb",
+      "installMode": "copy"
+    },
+    "threejs-aaa-graphics-builder": {
+      "source": "majidmanzarpour/threejs-game-skills",
+      "sourceType": "github",
+      "skillPath": "skills/threejs-aaa-graphics-builder/SKILL.md",
+      "computedHash": "87d316df3d64c7498d65af148c974de5e216e6ef5eee483dbd066ccf9e7ab58d",
+      "installMode": "copy"
+    },
+    "threejs-accessibility": {
+      "source": "cesartevisual/threejs-skills",
+      "sourceType": "github",
+      "skillPath": "skills/threejs-accessibility/SKILL.md",
+      "computedHash": "d270b9c53905f197cb060a6ff92f0498176bc74980435ef8e2d0a8fe414174b1",
+      "installMode": "copy"
+    },
+    "threejs-animation": {
+      "source": "cloudai-x/threejs-skills",
+      "sourceType": "github",
+      "skillPath": "skills/threejs-animation/SKILL.md",
+      "computedHash": "2686d953e17a59121254760b34b3af59c861a29fac28cd5f40f9b054e916ccfb",
+      "installMode": "copy"
+    },
+    "threejs-asset-pipeline": {
+      "source": "cloudai-x/threejs-skills",
+      "sourceType": "github",
+      "skillPath": "skills/threejs-asset-pipeline/SKILL.md",
+      "computedHash": "9187f3f4ccb4961ed13a903a351e8acc84fd3a8fb270d303b38d88f951f4797e",
+      "installMode": "copy"
+    },
+    "threejs-assets": {
+      "source": "cesartevisual/threejs-skills",
+      "sourceType": "github",
+      "skillPath": "skills/threejs-assets/SKILL.md",
+      "computedHash": "e9eff1ef877573695c2d6554a1f8dd693720382fb49f61524c31c38d6ade7e9d",
+      "installMode": "copy"
+    },
+    "threejs-audio": {
+      "source": "cesartevisual/threejs-skills",
+      "sourceType": "github",
+      "skillPath": "skills/threejs-audio/SKILL.md",
+      "computedHash": "db3a51ca543fdcfb2049869019b2730c099e9c01ac3431ee5c869b6438147563",
+      "installMode": "copy"
+    },
+    "threejs-audio-generator": {
+      "source": "majidmanzarpour/threejs-game-skills",
+      "sourceType": "github",
+      "skillPath": "skills/threejs-audio-generator/SKILL.md",
+      "computedHash": "e8ec4eab0a3d7e081da5f7db0456f8ece4983b50e59d65c6fddfd14a02c949dc",
+      "installMode": "copy"
+    },
+    "threejs-debug-profiler": {
+      "source": "majidmanzarpour/threejs-game-skills",
+      "sourceType": "github",
+      "skillPath": "skills/threejs-debug-profiler/SKILL.md",
+      "computedHash": "da8b2a074c5a4dba31342d97831254a5d6ee9a5dac102c354744fa761a115407",
+      "installMode": "copy"
+    },
+    "threejs-debugging": {
+      "source": "cesartevisual/threejs-skills",
+      "sourceType": "github",
+      "skillPath": "skills/threejs-debugging/SKILL.md",
+      "computedHash": "29d5c05f028411a82c75a8d3f797efc00b1d7446833568741608ebdce6de521f",
+      "installMode": "copy"
+    },
+    "threejs-deployment": {
+      "source": "cesartevisual/threejs-skills",
+      "sourceType": "github",
+      "skillPath": "skills/threejs-deployment/SKILL.md",
+      "computedHash": "5c5b6766da3766715023ff53cb8748ece18c291096aec4d3412090eebc8f741e",
+      "installMode": "copy"
+    },
+    "threejs-director": {
+      "source": "wolffe/three.js-skills",
+      "sourceType": "github",
+      "skillPath": "skills/orchestration/threejs-director/SKILL.md",
+      "computedHash": "dbf0d3277f8d0c57ae7678b3929852551bfc1291d3dd7a9afce2b3131607f053",
+      "installMode": "copy"
+    },
+    "threejs-fundamentals": {
+      "source": "cloudai-x/threejs-skills",
+      "sourceType": "github",
+      "skillPath": "skills/threejs-fundamentals/SKILL.md",
+      "computedHash": "268a79c9d3f35bd7deffc65293f4bd1bcc141b496c69b0f67e9886fc28def4b2",
+      "installMode": "copy"
+    },
+    "threejs-game-director": {
+      "source": "majidmanzarpour/threejs-game-skills",
+      "sourceType": "github",
+      "skillPath": "skills/threejs-game-director/SKILL.md",
+      "computedHash": "064ab6c08992e4d6246aa16c04d9b78bb2b3d4b7fe748854a58027c22ba2b5c2",
+      "installMode": "copy"
+    },
+    "threejs-game-ui-designer": {
+      "source": "majidmanzarpour/threejs-game-skills",
+      "sourceType": "github",
+      "skillPath": "skills/threejs-game-ui-designer/SKILL.md",
+      "computedHash": "226a1e6fc2c9d5b6f149b980f9d79653fb745b751ca254a4cf01a31a1e88634a",
+      "installMode": "copy"
+    },
+    "threejs-gameplay-systems": {
+      "source": "majidmanzarpour/threejs-game-skills",
+      "sourceType": "github",
+      "skillPath": "skills/threejs-gameplay-systems/SKILL.md",
+      "computedHash": "62c0a8a9f1488aac549d97748b2a4e49cf15a556e7ebd3154de8425701fa27ae",
+      "installMode": "copy"
+    },
+    "threejs-geometry": {
+      "source": "cloudai-x/threejs-skills",
+      "sourceType": "github",
+      "skillPath": "skills/threejs-geometry/SKILL.md",
+      "computedHash": "4762a54ba7a32357b80135b0c33cca56cccfb708c1e23d2f8aabd3bd8acc8a95",
+      "installMode": "copy"
+    },
+    "threejs-html": {
+      "source": "cesartevisual/threejs-skills",
+      "sourceType": "github",
+      "skillPath": "skills/threejs-html/SKILL.md",
+      "computedHash": "e0fb9630d13b7b9e41be3ff75dc730bfad2292754716ef2522a4f9025576ef18",
+      "installMode": "copy"
+    },
+    "threejs-image-generator": {
+      "source": "majidmanzarpour/threejs-game-skills",
+      "sourceType": "github",
+      "skillPath": "skills/threejs-image-generator/SKILL.md",
+      "computedHash": "e406a8223913bc1447c52e8d2ab1e5b7f575da5dd9b4c27410f281f45e74033f",
+      "installMode": "copy"
+    },
+    "threejs-interaction": {
+      "source": "cloudai-x/threejs-skills",
+      "sourceType": "github",
+      "skillPath": "skills/threejs-interaction/SKILL.md",
+      "computedHash": "160f06e61488f74734eaf75ef51e8a55624777e3ffa3d6a0fd4f325813ceff87",
+      "installMode": "copy"
+    },
+    "threejs-lighting": {
+      "source": "cloudai-x/threejs-skills",
+      "sourceType": "github",
+      "skillPath": "skills/threejs-lighting/SKILL.md",
+      "computedHash": "025264a0e58480fe4a573391d8e7cba119f45ea1a35643a8d938fa44cc8df42e",
+      "installMode": "copy"
+    },
+    "threejs-loaders": {
+      "source": "cloudai-x/threejs-skills",
+      "sourceType": "github",
+      "skillPath": "skills/threejs-loaders/SKILL.md",
+      "computedHash": "9947526431eff5a4e0b3f813ad1c701daf50cbdfeb3c50d116af697e87e8bdbd",
+      "installMode": "copy"
+    },
+    "threejs-materials": {
+      "source": "cloudai-x/threejs-skills",
+      "sourceType": "github",
+      "skillPath": "skills/threejs-materials/SKILL.md",
+      "computedHash": "138b23dd0b365bc6ee2f20eebcf1fcfb426b6acaeeda18c57c88039f8628d9aa",
+      "installMode": "copy"
+    },
+    "threejs-particles": {
+      "source": "cesartevisual/threejs-skills",
+      "sourceType": "github",
+      "skillPath": "skills/threejs-particles/SKILL.md",
+      "computedHash": "011f4cc15a5ea7e04a1a998659cad52ddfe90795e10318ed7f5c9e4deffa3ec7",
+      "installMode": "copy"
+    },
+    "threejs-performance": {
+      "source": "cloudai-x/threejs-skills",
+      "sourceType": "github",
+      "skillPath": "skills/threejs-performance/SKILL.md",
+      "computedHash": "edc078cf2cb729eb4a808ee3c202f4bdbda40a0beb6e34f2cf7b1f5003f11783",
+      "installMode": "copy"
+    },
+    "threejs-physics": {
+      "source": "cesartevisual/threejs-skills",
+      "sourceType": "github",
+      "skillPath": "skills/threejs-physics/SKILL.md",
+      "computedHash": "79b096bbcf7b8a97cd5c238ae3f635737b92284f651d75faf9b8171dd50eff87",
+      "installMode": "copy"
+    },
+    "threejs-postprocessing": {
+      "source": "cloudai-x/threejs-skills",
+      "sourceType": "github",
+      "skillPath": "skills/threejs-postprocessing/SKILL.md",
+      "computedHash": "d64cfe3bd54fe32a7267aa833bdfb320504747576ddc96500e44767792720e86",
+      "installMode": "copy"
+    },
+    "threejs-product-viewer": {
+      "source": "cesartevisual/threejs-skills",
+      "sourceType": "github",
+      "skillPath": "skills/threejs-product-viewer/SKILL.md",
+      "computedHash": "ab43ff0cd69803b251f5a95c129a1bcbe586d68283979791f34f1528e48e83c4",
+      "installMode": "copy"
+    },
+    "threejs-qa-release": {
+      "source": "majidmanzarpour/threejs-game-skills",
+      "sourceType": "github",
+      "skillPath": "skills/threejs-qa-release/SKILL.md",
+      "computedHash": "f5652975eed300af270f6d49e834547f3faafcdb12abfa36ac996909e9b37d8c",
+      "installMode": "copy"
+    },
+    "threejs-r3f": {
+      "source": "cesartevisual/threejs-skills",
+      "sourceType": "github",
+      "skillPath": "skills/threejs-r3f/SKILL.md",
+      "computedHash": "4eca6f00838a79b0ae6a836d189506bfc1ccef733d71cfd34dafea340fc81a95",
+      "installMode": "copy"
+    },
+    "threejs-react-three-fiber": {
+      "source": "cloudai-x/threejs-skills",
+      "sourceType": "github",
+      "skillPath": "skills/threejs-react-three-fiber/SKILL.md",
+      "computedHash": "68a27f2c540653a732e8339b35a51d135fc26acbd9a4258e02cc301e2290f594",
+      "installMode": "copy"
+    },
+    "threejs-scene": {
+      "source": "cesartevisual/threejs-skills",
+      "sourceType": "github",
+      "skillPath": "skills/threejs-scene/SKILL.md",
+      "computedHash": "418dc951505bbce349556d2048860d47cb53ac6c84a14cba7235f18ea4b2c2d3",
+      "installMode": "copy"
+    },
+    "threejs-shaders": {
+      "source": "cloudai-x/threejs-skills",
+      "sourceType": "github",
+      "skillPath": "skills/threejs-shaders/SKILL.md",
+      "computedHash": "4ba49c86b4233fb1fb4321509fd7baefaf05fa139c6ce6090a8ef5096616f38d",
+      "installMode": "copy"
+    },
+    "threejs-spatial-data": {
+      "source": "cesartevisual/threejs-skills",
+      "sourceType": "github",
+      "skillPath": "skills/threejs-spatial-data/SKILL.md",
+      "computedHash": "4669a36aadcdd345061216aea33e15bf6fc713efe9a0c938f6b679a1784664c6",
+      "installMode": "copy"
+    },
+    "threejs-testing": {
+      "source": "cesartevisual/threejs-skills",
+      "sourceType": "github",
+      "skillPath": "skills/threejs-testing/SKILL.md",
+      "computedHash": "ff275c8acfe27bb109ebf10b8765c5cd7ba4c50d7db6ae91ec39a97f72bdafc0",
+      "installMode": "copy"
+    },
+    "threejs-textures": {
+      "source": "cloudai-x/threejs-skills",
+      "sourceType": "github",
+      "skillPath": "skills/threejs-textures/SKILL.md",
+      "computedHash": "c9d53239206d8d152de16bfa630760f289616c86c43b47e94599be3b19c32d05",
+      "installMode": "copy"
+    },
+    "threejs-web": {
+      "source": "cesartevisual/threejs-skills",
+      "sourceType": "github",
+      "skillPath": "skills/threejs-web/SKILL.md",
+      "computedHash": "7ab2ca41ad3e2153904f5ded6761dca148f97b0f715f05737cef5f13d8c5fe86",
+      "installMode": "copy"
+    },
+    "threejs-webgpu": {
+      "source": "cesartevisual/threejs-skills",
+      "sourceType": "github",
+      "skillPath": "skills/threejs-webgpu/SKILL.md",
+      "computedHash": "1bc309d39f48122e4cd791655a4555b9e79eca829a81ac4fc1fe42bdd765d1b0",
+      "installMode": "copy"
+    },
+    "threejs-xr": {
+      "source": "cesartevisual/threejs-skills",
+      "sourceType": "github",
+      "skillPath": "skills/threejs-xr/SKILL.md",
+      "computedHash": "4b212796cc2386b9d487af0f95fef507c3cf4d1b0a702a92d8385877458e5b1b",
+      "installMode": "copy"
+    },
+    "tsl-materials": {
+      "source": "wolffe/three.js-skills",
+      "sourceType": "github",
+      "skillPath": "skills/materials/tsl-materials/SKILL.md",
+      "computedHash": "4c9271aa0c4754ac8a9299c4a56c0cfd95d4af0f4bc7a50ebff7b599043e8a14",
+      "installMode": "copy"
+    },
+    "water": {
+      "source": "wolffe/three.js-skills",
+      "sourceType": "github",
+      "skillPath": "skills/materials/water/SKILL.md",
+      "computedHash": "d99a72af2ffaaeabab1f4cfa42e92ed8a6446a5bfd0084a98c08de3d2d02de25",
+      "installMode": "copy"
+    },
+    "webgpu-threejs-tsl": {
+      "source": "dgreenheck/webgpu-claude-skill",
+      "sourceType": "github",
+      "skillPath": "skills/webgpu-threejs-tsl/SKILL.md",
+      "computedHash": "5c1e62206eb2f8b050c3cc7572e2f898a011c57d4aae1c7e277f98929c21a0b7",
+      "installMode": "copy"
+    }
+  }
+}
