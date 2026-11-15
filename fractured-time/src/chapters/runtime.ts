@@ -508,12 +508,18 @@ export class ChapterRuntime {
   fogTweak: Partial<FogSettings> = {};
   private fogOverride(): Partial<FogSettings> { return this.fogTweak; }
 
+  /** Figures outside the actor lists (NPCs, the Echo in cinematics) lit like everyone else. */
+  private litRoots = new Set<THREE.Object3D>();
+  lightRoot(root: THREE.Object3D): void { this.litRoots.add(root); }
+
   /** Characters: their own SH probe from the baked field (at chest height) + the real-time pool. */
   private lightCharacters(dt: number): void {
     if (!this.probes.size) return;
     const shared = [...this.pool.rects, ...this.pool.points];
     const at = new THREE.Vector3();
-    for (const a of [this.g.player, ...this.g.enemies, ...this.g.echoes]) {
+    for (const r of this.litRoots) if (!r.parent) this.litRoots.delete(r);
+    const extra = [...this.litRoots].map((root) => ({ root, pos: root.position }));
+    for (const a of [this.g.player, ...this.g.enemies, ...this.g.echoes, ...extra]) {
       const root = (a as any).root as THREE.Object3D | undefined;
       if (!root) continue;
       let cl = this.charLights.get(root);

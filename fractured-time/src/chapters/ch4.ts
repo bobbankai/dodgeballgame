@@ -97,8 +97,7 @@ export async function run(g: Game, ch: ChapterRuntime, at: string | null = null)
         ['IMANI', 'Yes, Director.'],
       ]],
     ];
-    const memo = async (id: string, lines: [string, string][]) => {
-      await ch.interact(id);
+    const memo = async (lines: [string, string][]) => {
       g.post.u.fracture.value = 0.8;
       g.sfx.play('echo_on', { pitch: 0.7 });
       // the past speaks through the memory treatment; the present keeps its own
@@ -108,8 +107,13 @@ export async function run(g: Game, ch: ChapterRuntime, at: string | null = null)
       await ch.say(lines);
       fx['IMANI'] = prev.IMANI; fx['DIRECTOR VOSS'] = prev.VOSS; fx['ETHAN'] = prev.ETHAN;
     };
-    // in any order; the conversation after waits for all three
-    await Promise.all(memories.map(([id, lines]) => memo(id, lines)));
+    // in any order, one at a time (a second shard touched mid-memory waits its turn); the conversation after waits for all three
+    let chain: Promise<void> = Promise.resolve();
+    await Promise.all(memories.map(async ([id, lines]) => {
+      await ch.interact(id);
+      chain = chain.then(() => memo(lines));
+      await chain;
+    }));
     ch.objective('');
     await ch.say([
       ['ETHAN', 'Imani. You were there.'],
@@ -241,6 +245,7 @@ export async function run(g: Game, ch: ChapterRuntime, at: string | null = null)
     const { spawnEcho } = await import('@/characters/echo');
     const walk = ch.byId('cp_p4')!.pos.clone();
     const echo = await spawnEcho(g.scene, walk.clone(), Math.PI);
+    ch.lightRoot(echo.root);
     const anim = (dt: number) => echo.update(dt);
     g.tickers.add(anim);
     g.fx.pulse(walk.clone().setY(walk.y + 1), 'echo');

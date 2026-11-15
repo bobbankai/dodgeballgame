@@ -90,6 +90,7 @@ export async function run(g: Game, ch: ChapterRuntime, at: string | null = null)
     const { Companion } = await import('@/characters/companion');
     const p = g.player.pos;
     const fig = await spawnEcho(g.scene, V(p.x + 1.6, p.y, p.z - 0.8), 0);
+    ch.lightRoot(fig.root);
     const mate = new Companion(g, fig);
     const tick = (dt: number) => mate.tick(dt);
     g.tickers.add(tick);
@@ -253,7 +254,7 @@ async function endingA(g: Game, ch: ChapterRuntime, dir: Director): Promise<void
   if (wake) ch.place(wake.pos.clone(), 0);
   await g.wait(0.5);
   const { Npc } = await import('@/characters/npc');
-  const imani = await Npc.spawn(g, 'characters/imani/imani.glb', 'IMANI', wake ? wake.pos.clone().add(V(1.2, -0.75, -2.4)) : V(0, 0, 0), Math.PI);
+  const imani = await Npc.spawn(g, 'imani', 'IMANI', wake ? wake.pos.clone().add(V(1.2, -0.75, -2.4)) : V(0, 0, 0), Math.PI);
   g.sfx.voices.fx['IMANI'] = 'dry';
   await dir.title('14 March 2089', '04:14', 3.0);
   await dir.fade(0, 2.5);
@@ -283,8 +284,9 @@ async function endingB(g: Game, ch: ChapterRuntime, dir: Director): Promise<void
   const { Npc } = await import('@/characters/npc');
   const { spawnEcho } = await import('@/characters/echo');
   const base = cp?.pos.clone() ?? V(0, 0, 0);
-  const imani = await Npc.spawn(g, 'characters/imani/imani.glb', 'IMANI', base.clone().add(V(1.1, 0, 1.4)), Math.PI);
+  const imani = await Npc.spawn(g, 'imani', 'IMANI', base.clone().add(V(1.1, 0, 1.4)), Math.PI);
   const echo = await spawnEcho(g.scene, base.clone().add(V(-1.4, 0, 3.0)), Math.PI);
+  ch.lightRoot(echo.root);
   const tick = (dt: number) => echo.update(dt);
   g.tickers.add(tick);
   g.sfx.voices.fx['IMANI'] = 'dry';

@@ -9,10 +9,12 @@ The owner asked for a restart from scratch against `GRAPHICS_DIRECTIVE_PROMPT.md
 for shaders/lighting; B: MetaHuman-class character, the bar for models). The v0 prototype is archived intact in `archive/v0-prototype/`
 (its systems and lessons are listed further down and will be ported, not rewritten blind).
 
-**Overall:** v1 has a realistic hero, a ported and tested gameplay core, a baked-lighting environment pipeline, Chapter 1's facility
-(7 sections) plus its surface finale (2 sections), three HELIX enemy archetypes, the Sentinel A-07 boss, a cinematic director and a
-scripted Chapter 1 from wake-up to the surface. **Chapter 1 is not yet complete** (see gaps). Chapters 2-5, the cast beyond Ethan and
-the Echo, audio, menus and saves do not exist yet.
+**Overall:** the whole campaign now exists end to end in code: five chapters scripted beat by beat (Chapter 1 facility + surface,
+Chapter 2 district, Chapter 3 arcology, Chapter 4 paradox, Chapter 5 Nexus) with all five bosses (Sentinel A-07, the Rift Marshal, the
+Echo, Commander Nyx, Director Voss), the ending choice, both endings and credits; chapters hand over to the next. **Honest state:**
+Chapters 1 and 2 have been played by script; Chapters 3-5 are written and their levels build, but their final bakes are still in the
+queue and none of their fights has been played through yet, so nothing past Chapter 2 is above level 3. The reference pass (fog,
+rain, wet streets, SSR, water, dusk city, skin, POM, grading) is in; it has been reviewed in the facility and the surface only.
 
 | Area | Status | Evidence / gaps |
 |---|---|---|
@@ -39,7 +41,10 @@ the Echo, audio, menus and saves do not exist yet.
 | HUD v2 | 3 | speaker-coloured subtitles, objective reveal with key glyphs, styled prompts, boss bar with title, damage trail and phase marker |
 | Afterimages (`src/temporal/afterimages.ts`) | 3 | pooled ghost copies of Ethan's pose on dodge / rewind / slow; not yet reviewed in motion |
 | Chapter 1 surface finale (s8 deck, s9 skyline: `citykit.py`, `facades.py`) | 2 | built; bake + engine review pending |
-| Chapters 2-5, Imani/Voss/Nyx, Rift Marshal/Echo/Nyx/Voss bosses, both endings | 1 | planned |
+| Chapter 3 (`ch3_level.py`, `ch3.ts`): lobby, offices, Palimpsest lab (Temporal Echo, plate gate), mirror hall, Palimpsest Core | 3 | per-reality lights/lightmaps/probes/volumes; EchoBoss (`bosses/echo.ts`); 33 voiced lines; quick bake for flow tests, full bake queued; not played through |
+| Chapter 4 (`ch4_level.py`, `ch4.ts`): future terrace (two skies), 2079 memory lab, foundry, crucible | 3 | NyxBoss (`bosses/nyx.ts`) 3 phases; Imani's part revealed; 40 voiced lines; quick bake for flow tests, full bake queued; not played through |
+| Chapter 5 (`ch5_level.py`, `ch5.ts`): Nexus fragments, skybridge with the Echo as ally, the Engine's heart; choice; Endings A and B; credits | 3 | generated Nexus sky (the Engine is its sun); VossBoss (`bosses/voss.ts`) 3 phases + pylons + flips; `characters/companion.ts`; `ui/finale.ts`; voices recording; full bake queued; not played through |
+| Imani, Nyx, Voss models | 4 / 3 / 2 | Imani reviewed; Nyx exported, not yet reviewed in the engine; Voss export re-queued (first attempt killed) |
 | **Reference pass (10 owner photos: rain-wet streets, neon, misty god rays, caves, sea, UE5 skin)** | | |
 | Volumetric fog lit by baked light volumes (`envkit.bake_volume`, `src/rendering/volumetrics.ts`) | 4 | per section a 3D grid of the light filling the air (every fixture, shadowed by ray casts against the section; outdoors the occluded sky + sun visibility), 6-280 KB each; post pass marches every pixel's ray through height fog with drifting fbm, HG sun phase, energy-conserving integration, TRAA-resolved jitter; 40/28/16 steps by preset, classic fog on Performance. Ch1 interiors + c2 baked; engine look review in progress |
 | Rain + wet world (`src/rendering/wet.ts`, `rain.ts`) | 3 | outdoor statics: porous darkening, clear-coat water film, puddles in noise basins with raindrop rings, rivulets on walls; GPU rain streaks lit by the light volume (flare under lamps/neon), splash crowns, a ray-cast shelter map keeps rain from under roofs; rain runs on world time (hangs in the air during time slow); characters soak (skin film + beads, darker cloth) and dry slowly indoors. Not yet seen in a baked dusk street |

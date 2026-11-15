@@ -37,6 +37,7 @@ export class Npc {
     inst.root.position.copy(pos);
     inst.root.rotation.y = yaw;
     g.scene.add(inst.root);
+    (g.chapter as any)?.lightRoot?.(inst.root); // baked probe light like every other character
     const n = new Npc(g, who, inst.root, inst.clips);
     g.tickers.add((dt) => n.update(dt));
     return n;

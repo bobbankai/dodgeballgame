@@ -106,6 +106,7 @@ export async function run(g: Game, ch: ChapterRuntime, at: string | null = null)
     const { ghostify } = await import('@/temporal/ghost');
     const p = g.player;
     const fig = await spawnEcho(g.scene, V(-p.pos.x, p.pos.y, p.pos.z), -p.yaw);
+    ch.lightRoot(fig.root);
     let mirroring = true;
     const mirror = (dt: number) => {
       if (mirroring) {
