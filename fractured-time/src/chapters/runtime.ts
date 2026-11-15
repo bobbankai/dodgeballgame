@@ -4,6 +4,8 @@ import { loadLevel, captureProbe, type Marker, type LoadedLevel } from '@/world/
 import { LightPool } from '@/world/lightpool';
 import { ProbeField, CharacterLight } from '@/world/probes';
 import { setWeather, weather } from '@/rendering/wet';
+import { Sea, SEA_LAYER } from '@/world/sea';
+import { plantSection } from '@/world/foliage';
 import type { GradeName } from '@/rendering/postfx';
 import { loadVolume, INTERIOR_FOG, EXTERIOR_FOG, type LightVolume, type FogSettings } from '@/rendering/volumetrics';
 import { HDRLoader } from 'three/addons/loaders/HDRLoader.js';
@@ -158,8 +160,13 @@ export class ChapterRuntime {
   onSeen: ((laser: LaserSweep) => void) | null = null;
   private charLights = new WeakMap<THREE.Object3D, CharacterLight>();
 
+  /** open sea, when a section of the chapter has one */
+  readonly sea: Sea;
+
   constructor(readonly g: Game) {
     this.pool = new LightPool(g.scene);
+    this.sea = new Sea(g);
+    g.beforeRender.add((dt) => this.sea.frame(dt));
     // Timeline Shift: swap every section's timeline-tagged geometry and collision (state 0 = timeline a, 1 = b)
     g.temporal.onShift((state) => this.setTimeline(state === 0 ? 'a' : 'b'));
   }
@@ -187,7 +194,11 @@ export class ChapterRuntime {
   private applyVolume(): void {
     const cur = this.sections[this.current];
     if (!cur) return;
-    this.g.post.fog.setVolume(this.timeline === 'b' && cur.vol.b ? cur.vol.b : cur.vol.a);
+    const v = this.timeline === 'b' && cur.vol.b ? cur.vol.b : cur.vol.a;
+    this.g.post.fog.setVolume(v);
+    const fu = this.g.post.fog.u as any;
+    this.sea.setPlace(this.current, this.timeline, v?.header.sun ? new THREE.Vector3(...v.header.sun.dir) : null,
+      new THREE.Color(fu.fallback.value.x, fu.fallback.value.y, fu.fallback.value.z));
   }
 
   byId(id: string): Marker | undefined { return this.markers.find((m) => m.data.id === id); }
@@ -203,6 +214,29 @@ export class ChapterRuntime {
     if (lv.timeline.b.meshes.length) await this.probes.load(path.replace(/\.glb$/, '_probes_b.json'), this.sections.length - 1, box, 'b');
     this.pool.add(lv.lightDefs);
     const ms = lv.markers;
+    // foliage: instanced plants (each reality's own group follows Timeline Shift)
+    try {
+      const r = await fetch(assetUrl(path.replace(/\.glb$/, '_foliage.json')));
+      if (r.ok && (r.headers.get('content-type') ?? '').includes('json')) {
+        const data = (await r.json()) as Record<string, Record<string, number[][]>>;
+        for (const [tl, group] of Object.entries(data)) {
+          const holder = new THREE.Group();
+          holder.name = `foliage_${tl || 'shared'}`;
+          lv.root.add(holder);
+          await plantSection(holder, group, this.g.post.fog);
+          if (tl === 'a' || tl === 'b') {
+            lv.timeline[tl].meshes.push(holder as any);
+            holder.visible = tl === this.timeline;
+          }
+        }
+      }
+    } catch (e) { console.warn('[foliage]', path, e); }
+    const seaM = ms.find((m) => m.name === 'sea');
+    if (seaM) {
+      this.sea.register(seaM, this.sections.length - 1, ms.filter((m) => m.name === 'searock'));
+      // the section's structure shows in the sea's mirror
+      lv.root.traverse((o) => { if ((o as THREE.Mesh).isMesh) o.layers.enable(SEA_LAYER); });
+    }
     this.markers.push(...ms);
     // doors: leaves are dynamic objects named <door>_leaf±1 with their slide vectors
     for (const m of ms.filter((x) => x.name === 'door')) {

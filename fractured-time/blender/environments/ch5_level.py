@@ -86,6 +86,8 @@ def materials():
         'n_amber': K.emissive_mat('n_amber', (1.0, 0.55, 0.2), 6.0),
         'n_engine': K.emissive_mat('n_engine', (1.0, 0.86, 0.66), 40.0),
         'n_gate': K.emissive_mat('n_gate', (0.35, 0.85, 1.0), 4.0),
+        'n_forest': K.mat('n_forest', 'forrest_ground_01', 0.45, tint=(0.82, 0.86, 0.8), desat=0.75, pom=0.012),
+        'n_mossrock': K.mat('n_mossrock', 'mossy_rock', 0.35, tint=(0.8, 0.82, 0.78), desat=0.8),
     })
     return M
 
@@ -94,7 +96,8 @@ def fragment(S, B, M, era, cx, cy, cz, w, d, seed, tl=None, collide=True):
     """A floating island torn from one era: its floor on top, a jagged underside of broken slab and rock tapering into the void, a
     thin line of chronal light along the tear, and a few pieces of the place it came from."""
     rng = random.Random(seed)
-    top = {'facility': M['floor_tile'], 'street': M['c_asphalt'], 'arcology': M['a_marble'], 'foundry': M['c_grate'], 'ruin': M['b_ruin']}[era]
+    top = {'facility': M['floor_tile'], 'street': M['c_asphalt'], 'arcology': M['a_marble'], 'foundry': M['c_grate'], 'ruin': M['b_ruin'],
+           'forest': M['n_forest']}[era]
     S.add(K.box(f'fr{seed}_top', (w, d, 0.5), (cx, cy, cz - 0.25), top, bevel=0.03), timeline=tl)
     if collide:
         K.collide_box(S, f'fr{seed}', (w, d, 0.5), (cx, cy, cz - 0.25), timeline=tl)
@@ -122,6 +125,36 @@ def fragment(S, B, M, era, cx, cy, cz, w, d, seed, tl=None, collide=True):
         S.add(K.box(f'fr{seed}_pipe', (w, 0.3, 0.3), (cx, cy - d / 2 + 0.4, cz + 0.5), M['c_metal'], bevel=0.1), timeline=tl)
 
 
+FERNS = [('fern_02_0', 2), ('fern_02_1', 2), ('fern_02_2', 2), ('fern_02_3', 1)]
+GROUND = [('grass_medium_01_0', 2), ('grass_medium_01_1', 2), ('grass_medium_01_2', 2), ('grass_medium_01_3', 2), ('grass_medium_02_1', 2),
+          ('grass_medium_02_3', 2), ('moss_01_0', 2), ('moss_01_1', 2), ('moss_01_2', 1), ('nettle_plant_0', 1), ('weed_plant_02_0', 1)]
+
+
+def forest_fragment(S, cx, cy, z, w, d, seed, path_x=None):
+    """Dress a forest island: firs and a sapling off the path, ferns and grass in patches, mossy rocks, a fallen trunk, a stump."""
+    rng = random.Random(seed)
+    off_path = (lambda x: abs(x - path_x) > 1.4) if path_x is not None else (lambda x: True)
+    trees = 0
+    for _ in range(60):
+        if trees >= 7:
+            break
+        tx, ty = cx + rng.uniform(-w, w) * 0.42, cy + rng.uniform(-d, d) * 0.42
+        if not off_path(tx) or abs(tx - (path_x or 1e9)) < 2.6:
+            continue
+        K.plant(S, f'fir_tree_01_{rng.randint(0, 2)}', (tx, ty, z - 0.05), rng.uniform(0, math.tau), rng.uniform(0.42, 0.58))
+        trees += 1
+    K.plant(S, f'pine_sapling_medium_{rng.randint(0, 2)}', (cx + w * 0.3, cy - d * 0.1, z - 0.02), rng.uniform(0, math.tau), 0.7)
+    K.prop(S, 'rock_moss_set_01', (cx - w * 0.33, cy + d * 0.18, z - 0.35), rng.uniform(0, math.tau), 0.8, node='rock03')
+    K.prop(S, 'rock_moss_set_02', (cx + w * 0.36, cy - d * 0.3, z - 0.2), rng.uniform(0, math.tau), 1.0, node='rock11')
+    K.prop(S, 'rock_moss_set_02', (cx - w * 0.3, cy - d * 0.34, z - 0.25), rng.uniform(0, math.tau), 0.9, node='rock13')
+    K.prop(S, 'dead_tree_trunk', (cx + w * 0.22, cy + d * 0.28, z + 0.12), 0.35, 1.6, budget=6000)
+    K.prop(S, 'tree_stump_01', (cx - w * 0.36, cy - d * 0.05, z - 0.05), 1.1, 0.9, budget=6000)
+    K.scatter(S, FERNS, cx - w / 2 + 0.4, cx + w / 2 - 0.4, cy - d / 2 + 0.4, cy + d / 2 - 0.4, spacing=0.85, seed=seed, density=0.7,
+              scale=(0.8, 1.3), accept=lambda x, y, zz: off_path(x) and abs(zz - z) < 0.3)
+    K.scatter(S, GROUND, cx - w / 2 + 0.3, cx + w / 2 - 0.3, cy - d / 2 + 0.3, cy + d / 2 - 0.3, spacing=0.5, seed=seed + 7, density=0.72,
+              scale=(0.8, 1.4), accept=lambda x, y, zz: (abs(x - path_x) > 0.6 if path_x is not None else True) and abs(zz - z) < 0.3)
+
+
 def s_fragments(M):
     S = K.Section('n1')
     B = CK.Batch('n1b')
@@ -133,7 +166,9 @@ def s_fragments(M):
     fragment(S, B, M, 'arcology', x, -22.0, 0.8, 7.0, 8.0, 3, tl='a')
     fragment(S, B, M, 'foundry', x + 0.5, -28.5, 0.8, 5.0, 7.0, 4, tl='b')
     K.marker(S, 'checkpoint', (x, -14.5, 0.45), yaw=0.0, id='cp_n1b')
-    fragment(S, B, M, 'ruin', x, -40.0, 0.8, 9.0, 11.0, 5)
+    # a fragment of pine forest, torn loose whole: firs, ferns, moss and stone; the Engine's low light rakes through the trunks
+    fragment(S, B, M, 'forest', x, -40.0, 0.8, 15.0, 12.0, 5)
+    forest_fragment(S, x, -40.0, 0.8, 15.0, 12.0, seed=5, path_x=x)
     # the swept walkway: a long narrow causeway; two beams cross it faster than anyone can run (slow time)
     S.add(K.box('n1_walk', (3.0, 18.0, 0.4), (x, -54.5, 0.6), M['trim'], bevel=0.03))
     K.collide_box(S, 'n1_walk', (3.0, 18.0, 0.4), (x, -54.5, 0.6))
@@ -163,8 +198,13 @@ def s_fragments(M):
     for k in range(26):
         a = rng.uniform(0, math.tau)
         r = rng.uniform(30, 90)
-        fragment(S, B, M, rng.choice(('facility', 'street', 'arcology', 'foundry', 'ruin')), x + math.cos(a) * r, -45 + math.sin(a) * r,
-                 rng.uniform(-25, 20), rng.uniform(4, 14), rng.uniform(4, 14), 100 + k, collide=False)
+        era = rng.choice(('facility', 'street', 'arcology', 'foundry', 'ruin', 'forest', 'forest'))
+        fx, fy, fz, fw, fd = x + math.cos(a) * r, -45 + math.sin(a) * r, rng.uniform(-25, 20), rng.uniform(5, 15), rng.uniform(5, 15)
+        fragment(S, B, M, era, fx, fy, fz, fw, fd, 100 + k, collide=False)
+        if era == 'forest':
+            for t in range(rng.randint(2, 6)):
+                K.plant(S, f'fir_tree_01_{rng.randint(0, 2)}', (fx + rng.uniform(-fw, fw) * 0.38, fy + rng.uniform(-fd, fd) * 0.38, fz),
+                        rng.uniform(0, math.tau), rng.uniform(0.4, 0.6))
     K.marker(S, 'trigger', (x, -40.0, -8.0), size=[80.0, 120.0, 3.0], id='n1_fall')
     for o in B.objects():
         S.add(o)
@@ -305,6 +345,7 @@ def export(built, keys, samples):
     for key in keys:
         S = built[key]
         K.export(statics[key] + S.collide + S.markers + S.lights + getattr(S, 'dynamic', []), os.path.join(OUT, f'{key}.glb'))
+        K.write_foliage(S, os.path.join(OUT, f'{key}_foliage.json'))
 
 
 if __name__ == '__main__':
@@ -338,5 +379,8 @@ if __name__ == '__main__':
         probes(built, keys)
     if '--volume' in argv:
         K.bake_volumes(built, keys, 'ch5', NEXUS_HDRI)
+    if '--foliage' in argv:
+        for key in keys:
+            K.write_foliage(built[key], os.path.join(OUT, f'{key}_foliage.json'))
     if '--export' in argv:
         export(built, keys, samples)

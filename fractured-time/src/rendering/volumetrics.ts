@@ -187,6 +187,18 @@ export class VolumetricFog {
 
   /** Light filling the air at world point p (baked volume, or the fallback outside it), for things in the air: rain, dust, sparks.
    *  `dir` (toward the eye) sets the sun's forward scattering. */
+  /** The baked light at world point p, split for surfaces that are not lightmapped (foliage): `iso` = mean radiance arriving
+   *  from all directions (fixtures + sky), `sunVis` = 0..1 sun visibility, plus the sun's direction and colour. */
+  lightTerms(p: any): { iso: any; sunVis: any; sunDir: any; sunCol: any } {
+    const u = this.u as any;
+    const uvw = p.sub(u.volMin).div(u.volSize);
+    const edge = min(min(uvw.x, uvw.y), min(uvw.z, min(float(1).sub(uvw.x), min(float(1).sub(uvw.y), float(1).sub(uvw.z)))));
+    const w = smoothstep(0.0, 0.02, edge).mul(u.hasVol);
+    const v = this.volNode.sample(clamp(uvw, 0.0, 1.0));
+    const raw = v.rgb.mul(v.rgb).mul(u.volScale).mul(u.exposure);
+    return { iso: mix(u.fallback.rgb, raw, w), sunVis: mix(u.fallback.a, v.a, w), sunDir: u.sunDir, sunCol: vec3(u.sunCol) };
+  }
+
   lightAt(p: any, dir: any = null): any {
     const u = this.u as any;
     const uvw = p.sub(u.volMin).div(u.volSize);

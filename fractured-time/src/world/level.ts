@@ -8,6 +8,7 @@ import type { Physics } from '@/physics/physics';
 import type { LightDef } from './lightpool';
 import { wetten } from '@/rendering/wet';
 import { water } from '@/rendering/water';
+import { windowMaterial } from '@/rendering/windows';
 
 const T = TSL as any;
 const { texture, uv, float } = T;
@@ -60,6 +61,11 @@ function screen(r: Recipe): THREE.Material {
 function plain(r: Recipe): THREE.Material {
   const c = r.color ?? [0.5, 0.5, 0.5];
   const m = new THREE.MeshPhysicalNodeMaterial({ color: new THREE.Color(c[0], c[1], c[2]), roughness: r.rough ?? 0.5, metalness: r.metal ?? 0 });
+  if (r.coat) {
+    // lacquer over the paint (vehicles): a sharp second reflection that the street's lights and neon streak across
+    m.clearcoat = Number(r.coat);
+    m.clearcoatRoughness = 0.04;
+  }
   if (r.stripes) {
     // painted hazard striping (world space diagonal), worn: scuffed toward the bottom, roughness broken up by noise
     const p = T.positionWorld;
@@ -190,6 +196,7 @@ export async function loadLevel(path: string, physics: Physics | null, scene: TH
       else if (r.type === 'plain') m = plain(r);
       else if (r.type === 'glass') m = glass(r);
       else if (r.type === 'water') m = water(r as any);
+      else if (r.type === 'window') m = windowMaterial(r);
       else m = old;
       m.name = old.name;
       if (raw) m.userData.ft = raw;
@@ -201,12 +208,15 @@ export async function loadLevel(path: string, physics: Physics | null, scene: TH
       const sm = m as THREE.MeshStandardNodeMaterial;
       if (lightMap && 'lightMap' in sm) {
         sm.lightMap = lightMap;
-        sm.lightMapIntensity = Math.PI; // Cycles' diffuse bake is irradiance without the 1/pi of the Lambert BRDF
+        // Cycles' diffuse bake is irradiance without the 1/pi of the Lambert BRDF. A window pane's lightmap is the irradiance on the
+        // glass; the blinds and curtains it draws hang behind that glass at the back of the bay, so they get roughly half of it
+        // (glass transmission, the reveal and the frame shading the rest)
+        sm.lightMapIntensity = Math.PI * (r0(m) === 'window' ? 0.45 : 1);
       }
       (sm as any).lightsNode = rtLights; // the level's real-time lights: specular only on baked surfaces
       const phys = sm as any;
       if (phys.isMeshStandardNodeMaterial && !(r0(m) === 'emissive' || r0(m) === 'screen')) {
-        const wet = outdoors && wetten(m);
+        const wet = outdoors && r0(m) !== 'window' && wetten(m); // window panes: the kit owns their roughness
         phys.setupLightingModel = () => new (BakedSpecularLightingModel as any)(wet || !!phys.userData.wet, false, false, false, false, false);
       }
       sm.needsUpdate = true;

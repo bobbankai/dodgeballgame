@@ -1,0 +1,182 @@
+[
+ {
+  "src": "/home/user/dodgeballgame/fractured-time/vendor/polyhaven/models/fir_tree_01/textures/fir_tree_01_bark_diff_2k.jpg",
+  "dst": "/home/user/dodgeballgame/fractured-time/public/assets/props/foliage/tex/fir_tree_01_bark.jpg",
+  "size": 1024,
+  "mask": null
+ },
+ {
+  "src": "/home/user/dodgeballgame/fractured-time/vendor/polyhaven/models/fir_tree_01/textures/fir_tree_01_bark_nor_gl_2k.jpg",
+  "dst": "/home/user/dodgeballgame/fractured-time/public/assets/props/foliage/tex/fir_tree_01_bark_nor.jpg",
+  "size": 1024,
+  "mask": null
+ },
+ {
+  "src": "/home/user/dodgeballgame/fractured-time/vendor/polyhaven/models/fir_tree_01/textures/fir_tree_01_trunk_a_diff_2k.jpg",
+  "dst": "/home/user/dodgeballgame/fractured-time/public/assets/props/foliage/tex/fir_tree_01_trunk_a.jpg",
+  "size": 1024,
+  "mask": null
+ },
+ {
+  "src": "/home/user/dodgeballgame/fractured-time/vendor/polyhaven/models/fir_tree_01/textures/fir_tree_01_trunk_a_nor_gl_2k.jpg",
+  "dst": "/home/user/dodgeballgame/fractured-time/public/assets/props/foliage/tex/fir_tree_01_trunk_a_nor.jpg",
+  "size": 1024,
+  "mask": null
+ },
+ {
+  "src": "/home/user/dodgeballgame/fractured-time/vendor/polyhaven/models/fir_tree_01/textures/fir_tree_01_trunk_b_diff_2k.jpg",
+  "dst": "/home/user/dodgeballgame/fractured-time/public/assets/props/foliage/tex/fir_tree_01_trunk_b.jpg",
+  "size": 1024,
+  "mask": null
+ },
+ {
+  "src": "/home/user/dodgeballgame/fractured-time/vendor/polyhaven/models/fir_tree_01/textures/fir_tree_01_trunk_b_nor_gl_2k.jpg",
+  "dst": "/home/user/dodgeballgame/fractured-time/public/assets/props/foliage/tex/fir_tree_01_trunk_b_nor.jpg",
+  "size": 1024,
+  "mask": null
+ },
+ {
+  "src": "/home/user/dodgeballgame/fractured-time/vendor/polyhaven/models/pine_sapling_medium/textures/pine_sapling_medium_bark_diff_2k.jpg",
+  "dst": "/home/user/dodgeballgame/fractured-time/public/assets/props/foliage/tex/pine_sapling_medium_bark.jpg",
+  "size": 1024,
+  "mask": null
+ },
+ {
+  "src": "/home/user/dodgeballgame/fractured-time/vendor/polyhaven/models/pine_sapling_medium/textures/pine_sapling_medium_bark_nor_gl_2k.jpg",
+  "dst": "/home/user/dodgeballgame/fractured-time/public/assets/props/foliage/tex/pine_sapling_medium_bark_nor.jpg",
+  "size": 1024,
+  "mask": null
+ },
+ {
+  "src": "/home/user/dodgeballgame/fractured-time/vendor/polyhaven/models/fern_02/textures/fern_02_diff_2k.jpg",
+  "dst": "/home/user/dodgeballgame/fractured-time/public/assets/props/foliage/tex/fern_02.jpg",
+  "size": 1024,
+  "mask": null
+ },
+ {
+  "src": "/home/user/dodgeballgame/fractured-time/vendor/polyhaven/models/fern_02/textures/fern_02_nor_gl_2k.jpg",
+  "dst": "/home/user/dodgeballgame/fractured-time/public/assets/props/foliage/tex/fern_02_nor.jpg",
+  "size": 1024,
+  "mask": null
+ },
+ {
+  "src": "/home/user/dodgeballgame/fractured-time/vendor/polyhaven/models/grass_medium_01/textures/grass_medium_01_diff_2k.jpg",
+  "dst": "/home/user/dodgeballgame/fractured-time/public/assets/props/foliage/tex/grass_medium_01.jpg",
+  "size": 1024,
+  "mask": null
+ },
+ {
+  "src": "/home/user/dodgeballgame/fractured-time/vendor/polyhaven/models/grass_medium_01/textures/grass_medium_01_nor_gl_2k.jpg",
+  "dst": "/home/user/dodgeballgame/fractured-time/public/assets/props/foliage/tex/grass_medium_01_nor.jpg",
+  "size": 1024,
+  "mask": null
+ },
+ {
+  "src": "/home/user/dodgeballgame/fractured-time/vendor/polyhaven/models/grass_medium_02/textures/grass_medium_02_diff_2k.jpg",
+  "dst": "/home/user/dodgeballgame/fractured-time/public/assets/props/foliage/tex/grass_medium_02.jpg",
+  "size": 1024,
+  "mask": null
+ },
+ {
+  "src": "/home/user/dodgeballgame/fractured-time/vendor/polyhaven/models/grass_medium_02/textures/grass_medium_02_nor_gl_2k.jpg",
+  "dst": "/home/user/dodgeballgame/fractured-time/public/assets/props/foliage/tex/grass_medium_02_nor.jpg",
+  "size": 1024,
+  "mask": null
+ },
+ {
+  "src": "/home/user/dodgeballgame/fractured-time/vendor/polyhaven/models/moss_01/textures/moss_01_diff_2k.jpg",
+  "dst": "/home/user/dodgeballgame/fractured-time/public/assets/props/foliage/tex/moss_01.jpg",
+  "size": 1024,
+  "mask": null
+ },
+ {
+  "src": "/home/user/dodgeballgame/fractured-time/vendor/polyhaven/models/moss_01/textures/moss_01_nor_gl_2k.jpg",
+  "dst": "/home/user/dodgeballgame/fractured-time/public/assets/props/foliage/tex/moss_01_nor.jpg",
+  "size": 1024,
+  "mask": null
+ },
+ {
+  "src": "/home/user/dodgeballgame/fractured-time/vendor/polyhaven/models/shrub_02/textures/shrub_02_diff_2k.jpg",
+  "dst": "/home/user/dodgeballgame/fractured-time/public/assets/props/foliage/tex/shrub_02.jpg",
+  "size": 1024,
+  "mask": null
+ },
+ {
+  "src": "/home/user/dodgeballgame/fractured-time/vendor/polyhaven/models/shrub_02/textures/shrub_02_nor_gl_2k.jpg",
+  "dst": "/home/user/dodgeballgame/fractured-time/public/assets/props/foliage/tex/shrub_02_nor.jpg",
+  "size": 1024,
+  "mask": null
+ },
+ {
+  "src": "/home/user/dodgeballgame/fractured-time/vendor/polyhaven/models/shrub_04/textures/shrub_04_diff_2k.jpg",
+  "dst": "/home/user/dodgeballgame/fractured-time/public/assets/props/foliage/tex/shrub_04.jpg",
+  "size": 1024,
+  "mask": null
+ },
+ {
+  "src": "/home/user/dodgeballgame/fractured-time/vendor/polyhaven/models/shrub_04/textures/shrub_04_nor_gl_2k.jpg",
+  "dst": "/home/user/dodgeballgame/fractured-time/public/assets/props/foliage/tex/shrub_04_nor.jpg",
+  "size": 1024,
+  "mask": null
+ },
+ {
+  "src": "/home/user/dodgeballgame/fractured-time/vendor/polyhaven/models/nettle_plant/textures/nettle_plant_diff_2k.jpg",
+  "dst": "/home/user/dodgeballgame/fractured-time/public/assets/props/foliage/tex/nettle_plant.jpg",
+  "size": 1024,
+  "mask": null
+ },
+ {
+  "src": "/home/user/dodgeballgame/fractured-time/vendor/polyhaven/models/nettle_plant/textures/nettle_plant_nor_gl_2k.jpg",
+  "dst": "/home/user/dodgeballgame/fractured-time/public/assets/props/foliage/tex/nettle_plant_nor.jpg",
+  "size": 1024,
+  "mask": null
+ },
+ {
+  "src": "/home/user/dodgeballgame/fractured-time/vendor/polyhaven/models/weed_plant_02/textures/weed_plant_02_diff_2k.jpg",
+  "dst": "/home/user/dodgeballgame/fractured-time/public/assets/props/foliage/tex/weed_plant_02.jpg",
+  "size": 1024,
+  "mask": null
+ },
+ {
+  "src": "/home/user/dodgeballgame/fractured-time/vendor/polyhaven/models/weed_plant_02/textures/weed_plant_02_nor_gl_2k.jpg",
+  "dst": "/home/user/dodgeballgame/fractured-time/public/assets/props/foliage/tex/weed_plant_02_nor.jpg",
+  "size": 1024,
+  "mask": null
+ },
+ {
+  "src": "/home/user/dodgeballgame/fractured-time/vendor/polyhaven/models/tree_small_02/textures/tree_small_02_leaves_diff_2k.jpg",
+  "dst": "/home/user/dodgeballgame/fractured-time/public/assets/props/foliage/tex/tree_small_02_leaves.jpg",
+  "size": 1024,
+  "mask": null
+ },
+ {
+  "src": "/home/user/dodgeballgame/fractured-time/vendor/polyhaven/models/tree_small_02/textures/tree_small_02_leaves_nor_gl_2k.jpg",
+  "dst": "/home/user/dodgeballgame/fractured-time/public/assets/props/foliage/tex/tree_small_02_leaves_nor.jpg",
+  "size": 1024,
+  "mask": null
+ },
+ {
+  "src": "/home/user/dodgeballgame/fractured-time/vendor/polyhaven/models/tree_small_02/textures/tree_small_02_branch_diff_2k.jpg",
+  "dst": "/home/user/dodgeballgame/fractured-time/public/assets/props/foliage/tex/tree_small_02_branches.jpg",
+  "size": 1024,
+  "mask": null
+ },
+ {
+  "src": "/home/user/dodgeballgame/fractured-time/vendor/polyhaven/models/tree_small_02/textures/tree_small_02_branch_nor_gl_2k.jpg",
+  "dst": "/home/user/dodgeballgame/fractured-time/public/assets/props/foliage/tex/tree_small_02_branches_nor.jpg",
+  "size": 1024,
+  "mask": null
+ },
+ {
+  "src": "/home/user/dodgeballgame/fractured-time/vendor/polyhaven/models/tree_small_02/textures/tree_small_02_diff_2k.jpg",
+  "dst": "/home/user/dodgeballgame/fractured-time/public/assets/props/foliage/tex/tree_small_02_trunk.jpg",
+  "size": 1024,
+  "mask": null
+ },
+ {
+  "src": "/home/user/dodgeballgame/fractured-time/vendor/polyhaven/models/tree_small_02/textures/tree_small_02_nor_gl_2k.jpg",
+  "dst": "/home/user/dodgeballgame/fractured-time/public/assets/props/foliage/tex/tree_small_02_trunk_nor.jpg",
+  "size": 1024,
+  "mask": null
+ }
+]

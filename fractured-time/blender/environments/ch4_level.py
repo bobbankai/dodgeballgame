@@ -101,6 +101,15 @@ def s_terrace(M):
         S.add(K.box(f'p1_soil{i}', (2.0, 2.0, 0.1), (x, y, 0.92), M['b_moss'], bevel=0.0), timeline='a')
         S.add(K.debris(f'p1_over{i}', (x, y, 0.9), M, n=6, seed=410 + i, size=0.5), timeline='b')
         K.collide_box(S, f'p1_planter{i}', (2.2, 2.2, 1.0), (x, y, 0.5))
+        # 2101: a clipped shrub or a young tree in each; the ruin: what the wind seeded
+        if i % 2 == 0:
+            K.plant(S, 'tree_small_02_0', (x, y, 0.97), i * 1.3, 0.55, timeline='a')
+        else:
+            K.plant(S, ('shrub_04_0', 'shrub_02_1')[i % 2], (x, y, 0.97), i * 0.9, 1.1, timeline='a')
+        K.plant(S, f'pine_sapling_medium_{i % 3}', (x + 0.3, y - 0.2, 0.9), i * 2.1, 0.45, timeline='b')
+        for k in range(4):
+            K.plant(S, ('fern_02_1', 'grass_medium_01_0', 'nettle_plant_0', 'fern_02_2')[k], (x + (k % 2 - 0.5) * 1.1, y + (k // 2 - 0.5) * 1.1, 0.9),
+                    k * 1.7 + i, 0.9, timeline='b')
     # the security gate across the far end: whole in a (glass doors closed), smashed open in b
     for side, (xa, xb) in enumerate(((x0, -2.0), (2.0, x1))):
         S.add(K.box(f'p1_gwall{side}', (xb - xa, 0.6, 4.0), ((xa + xb) / 2, -40.0, 2.0), M['a_white'], bevel=0.03), timeline='a')
@@ -132,10 +141,26 @@ def s_terrace(M):
     for i, (x, y, z) in enumerate(((-11.0, -34.0, 0.3), (12.0, -27.0, 0.3))):
         S.add(K.box(f'p1_fire{i}', (0.8, 0.8, 0.2), (x, y, z), M['molten_dim'], bevel=0.05), timeline='b')
         K.area_light(f'p1_fireL{i}', (x, y, z + 0.8), (0.6, 0.6), 160.0, (1.0, 0.5, 0.18), shape='DISK', rot=(math.pi, 0, 0), timeline='b')
+    # the sea the future city stands in, thirty metres down; stacks of rock out in the water (foam wraps them)
+    K.marker(S, 'sea', (0, -20.0, -30.0), preset='Coastal breeze', preset_b='Storm swell', far=1400)
+    for k, (sx, sy, sc_, yaw) in enumerate(((-62, -40, 7.5, 0.4), (58, -76, 9.0, 2.1), (-34, -118, 6.0, 4.0), (84, 6, 8.0, 1.2), (-90, -80, 10.0, 5.2))):
+        K.prop(S, 'rock_face_01', (sx, sy, -40.0), yaw, sc_, budget=18000, collide=False)
+        K.marker(S, 'searock', (sx, sy, -30.0), r=sc_ * 2.6)
     K.marker(S, 'sky', (0, -20.0, 3.0), id='future', hdri='textures/sky/kloofendal.hdr', intensity=CLEAR, fog=[0.62, 0.7, 0.8, 0.0018],
              exposure=1.0, rain=0.0, grade='arcology',
              hdri_b='textures/sky/approaching_storm.hdr', intensity_b=L1.SKY * 0.9, fog_b=[0.062, 0.07, 0.088, 0.0065], exposure_b=1.9,
              rain_b=1.0, grade_b='dusk_storm')
+    # the ruin is going green: ferns and grass in the cracks, nettles along the walls, saplings (timeline b only; rays find the deck)
+    for o in S.static_a:
+        o.hide_render = True
+    bpy.context.view_layer.update()
+    over = [('fern_02_0', 2), ('fern_02_1', 2), ('fern_02_2', 1), ('grass_medium_01_0', 3), ('grass_medium_01_2', 3), ('grass_medium_02_1', 3),
+            ('grass_medium_02_3', 2), ('nettle_plant_0', 2), ('weed_plant_02_0', 2), ('moss_01_0', 2), ('moss_01_1', 2)]
+    for (ya, yb) in ((-0.5, -17.5), (-24.5, -45.5)):
+        K.scatter(S, over, x0 + 0.6, x1 - 0.6, yb, ya, spacing=0.8, seed=int(-ya) + 40, density=0.48, timeline='b',
+                  accept=lambda x, y, z: abs(z) < 0.25 and not (abs(x) < 1.6 and y < -18.5 and y > -40.5))
+    for o in S.static_a:
+        o.hide_render = False
     K.marker(S, 'spawn', (0, -2.5, 0.05), yaw=0.0, id='start')
     K.marker(S, 'checkpoint', (0, -2.5, 0.05), yaw=0.0, id='cp_p1')
     K.marker(S, 'checkpoint', (0, -25.5, 0.05), yaw=0.0, id='cp_p1b')
@@ -369,6 +394,7 @@ def export(built, keys, samples):
     for key in keys:
         S = built[key]
         K.export(statics[key] + S.collide + S.markers + S.lights + getattr(S, 'dynamic', []), os.path.join(OUT, f'{key}.glb'))
+        K.write_foliage(S, os.path.join(OUT, f'{key}_foliage.json'))
 
 
 if __name__ == '__main__':
@@ -403,5 +429,8 @@ if __name__ == '__main__':
         probes(built, keys)
     if '--volume' in argv:
         K.bake_volumes(built, keys, 'ch4', CLEAR_HDRI, skies={'p1': SKIES['p1']})
+    if '--foliage' in argv:
+        for key in keys:
+            K.write_foliage(built[key], os.path.join(OUT, f'{key}_foliage.json'))
     if '--export' in argv:
         export(built, keys, samples)

@@ -129,8 +129,10 @@ def cut(ob, point, normal):
 
 
 def carve(ob, cutters, union=False):
-    """Exact boolean: subtract (or add) the cutter meshes, then delete the cutters."""
+    """Exact boolean: subtract (or add) the cutter meshes, then delete the cutters. Cut faces take the target's own material."""
     for c in cutters:
+        if ob.data.materials and not c.data.materials:
+            c.data.materials.append(ob.data.materials[0])
         m = ob.modifiers.new('bool', 'BOOLEAN')
         m.operation = 'UNION' if union else 'DIFFERENCE'
         m.solver = 'EXACT'
@@ -145,6 +147,8 @@ def carve(ob, cutters, union=False):
 def finish(objs, name, sharp_deg=32.0):
     """Join pieces into one object (multi-material kept), smooth shading, sharp edges above `sharp_deg`, weighted normals applied."""
     objs = [o for o in objs if o is not None]
+    for o in objs:
+        _clean_slots(o)
     bpy.ops.object.select_all(action='DESELECT')
     for o in objs:
         o.select_set(True)
@@ -168,6 +172,33 @@ def finish(objs, name, sharp_deg=32.0):
     wn.weight = 100
     bpy.ops.object.modifier_apply(modifier=wn.name)
     return ob
+
+
+def _clean_slots(ob):
+    """Fold empty and duplicate material slots into the first slot holding that material (an empty slot would leave faces
+    without a material in the bake and the export)."""
+    mats = list(ob.data.materials)
+    if not mats or all(m is not None for m in mats) and len(set(mats)) == len(mats):
+        return
+    keep = []
+    remap = []
+    for m in mats:
+        if m is None:
+            remap.append(None)
+            continue
+        if m not in keep:
+            keep.append(m)
+        remap.append(keep.index(m))
+    first = 0 if keep else None
+    idx = np.empty(len(ob.data.polygons), np.int32)
+    ob.data.polygons.foreach_get('material_index', idx)
+    lut = np.array([first if r is None else r for r in remap] or [0], np.int32)
+    idx = lut[np.clip(idx, 0, len(lut) - 1)]
+    ob.data.materials.clear()
+    for m in keep:
+        ob.data.materials.append(m)
+    ob.data.polygons.foreach_set('material_index', idx)
+    ob.data.update()
 
 
 def triangles(ob):

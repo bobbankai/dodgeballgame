@@ -17,11 +17,12 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 sys.path.insert(0, os.path.join(HERE, '..', 'common'))
 import bpy  # noqa: E402
-from mathutils import Matrix  # noqa: E402
+from mathutils import Matrix, Vector  # noqa: E402
 
 import ch1_level as L1  # noqa: E402  (materials: the facility and city sets are shared)
 import citykit as CK  # noqa: E402
 import envkit as K  # noqa: E402
+import vehicles as VH  # noqa: E402
 
 OUT = os.path.join(K.PUB, 'environments', 'ch2')
 
@@ -63,23 +64,18 @@ def fire_escape(S, B, M, x, y, z_top, flights=6, wall_dir=(1, 0)):
     B.box(M['c_grate'], (1.6, 1.6, 0.06), (x, y - (run_len / 2) * (1 if flights % 2 == 0 else -1), 0.03), bevel=0.01)
 
 
-def van(B, M, x, y, z, rot=None):
-    """A HELIX patrol van (frozen mid-crash in c2): body, cab, glazing, wheels, light bar."""
+def van(S, M, x, y, z, rot=None, crash=0.0, name='c2_helixvan'):
+    """A HELIX patrol van (vehicles.helix_van), placed and, frozen mid-crash, its roof bar still flashing: a red and a blue light
+    on the bar that the bake and the street's wet surfaces pick up."""
     R = rot if rot is not None else Matrix.Identity(4)
-    T = lambda lx, ly, lz: (R @ __import__('mathutils').Vector((lx, ly, lz)))  # noqa: E731
-    def put(mat, size, l, bevel=0.06):  # noqa: E306
-        p = T(*l)
-        B.box(mat, size, (x + p.x, y + p.y, z + p.z), bevel=bevel, rot=R)
-    put(M['c_vanbody'], (2.1, 4.6, 1.9), (0, 0.4, 1.35), 0.12)
-    put(M['c_vanbody'], (2.0, 1.5, 1.3), (0, -2.35, 1.0), 0.18)
-    put(M['c_glass'], (1.9, 0.08, 0.7), (0, -2.85, 1.35), 0.02)
-    for sx in (-1, 1):
-        put(M['c_glass'], (0.05, 1.1, 0.6), (sx * 1.0, -2.2, 1.35), 0.02)
-        put(M['c_vanstripe'], (0.03, 4.4, 0.18), (sx * 1.055, 0.4, 1.05), 0.0)
-        for wy in (-1.9, 1.7):
-            p = T(sx * 0.95, wy, 0.42)
-            B.box(M['c_tyre'], (0.32, 0.84, 0.84), (x + p.x, y + p.y, z + p.z), bevel=0.2, rot=R)
-    put(M['c_vanlight'], (1.4, 0.25, 0.1), (0, -1.6, 2.36), 0.03)
+    W = Matrix.Translation((x, y, z)) @ R
+    VM = {'paint': M['c_vanpaint'], 'trim': M['c_vantrim'], 'glass': M['c_vanglass'], 'tyre': M['c_tyre'], 'rim': M['c_vanrim'],
+          'chrome': M['c_chrome'], 'stripe': M['c_vanstripe'], 'stripe_dark': M['c_vantrim'], 'head': M['c_vanhead'], 'tail': M['c_vantail'],
+          'bar_red': M['c_vanred'], 'bar_blue': M['c_vanblue'], 'bar_white': M['c_vanhead'], 'amber': M['c_vanlight']}
+    S.add(VH.helix_van(name, VM, matrix=W, crash=crash))
+    for k, (lx, col) in enumerate(((-0.5, (1.0, 0.08, 0.06)), (0.5, (0.12, 0.35, 1.0)))):
+        p = W @ Vector((lx, -0.55, VH.ROOF + 0.3))
+        K.area_light(f'{name}_bar{k}', tuple(p), (0.3, 0.3), 60.0, col, shape='DISK')
 
 
 def s_rooftops(M):
@@ -135,15 +131,15 @@ def s_street(M):
         K.collide_box(S, f'c2_bw{k}', (16, 14, 8), (x0 - 9, y, 4))
         K.collide_box(S, f'c2_be{k}', (16, 14, 8), (x1 + 9, y, 4))
     # the anomaly: a HELIX van caught mid-crash, nose down, a metre off the road, with its debris frozen around it
-    van(B, M, -13.0, -78.0, 1.1, rot=Matrix.Rotation(0.45, 4, 'Z') @ Matrix.Rotation(-0.35, 4, 'X') @ Matrix.Rotation(0.2, 4, 'Y'))
+    van(S, M, -13.0, -78.0, 1.85, rot=Matrix.Rotation(0.45, 4, 'Z') @ Matrix.Rotation(0.35, 4, 'X') @ Matrix.Rotation(0.2, 4, 'Y'), crash=0.7)
     rng = random.Random(7)
     for _ in range(18):
         s_ = rng.uniform(0.1, 0.45)
-        B.box(rng.choice([M['c_glass'], M['c_vanbody'], M['c_ruin']]), (s_, s_ * 0.7, s_ * 0.3),
-              (-13 + rng.uniform(-3, 3), -78 + rng.uniform(-3.5, 3.5), rng.uniform(0.4, 3.5)),
+        B.box(rng.choice([M['c_vanglass'], M['c_vanpaint'], M['c_ruin']]), (s_, s_ * 0.7, s_ * 0.3),
+              (-13 + rng.uniform(-3, 3), -78 + rng.uniform(-3.5, 3.5), rng.uniform(0.5, 4.0)),
               rot=Matrix.Rotation(rng.uniform(0, 3), 4, (rng.random(), rng.random(), rng.random())), bevel=0.01)
-    K.collide_box(S, 'c2_van', (3.0, 6.0, 2.5), (-13.0, -78.0, 1.6))
-    K.marker(S, 'anomaly', (-13.0, -78.0, 1.6), id='c2_van', size=[7.0, 8.0, 4.0])
+    K.collide_box(S, 'c2_van', (3.2, 6.2, 3.6), (-13.0, -78.0, 2.8))
+    K.marker(S, 'anomaly', (-13.0, -78.0, 2.6), id='c2_van', size=[7.0, 8.0, 5.0])
     for i, (x, y, r, tip) in enumerate(((-8, -60, 0.2, 0.0), (-18, -66, 1.4, 1.5), (-9, -95, -0.3, 0.0), (-17, -101, 0.4, 0.0))):
         CK.barrier(B, M, x, y, 0.0, rot_z=r, tipped=tip)
     for y in (-56, -76, -96):
@@ -170,11 +166,22 @@ def s_street(M):
     for o in B.objects():
         S.add(o)
     L1.storm_marker(S, (-13, -80, 10))
+    # the abandoned side has been going green for decades: ferns and nettles along the walls, grass and weeds in the pavement and
+    # the gutter, saplings where the kerb broke up, moss in the cracks
+    over = [('fern_02_0', 2), ('fern_02_1', 2), ('fern_02_2', 2), ('grass_medium_01_0', 3), ('grass_medium_01_2', 3), ('grass_medium_01_3', 2),
+            ('grass_medium_02_1', 3), ('grass_medium_02_3', 2), ('nettle_plant_0', 2), ('nettle_plant_1', 1), ('weed_plant_02_0', 2),
+            ('weed_plant_02_1', 1), ('moss_01_0', 2), ('moss_01_1', 2)]
+    K.scatter(S, over, x1 - 3.0, x1 - 0.1, y1 + 1.0, y0 - 1.0, spacing=0.6, seed=211, density=0.62, z_top=3.0,
+              accept=lambda x, y, z: z < 0.4 and abs(y + 104) > 2.6)
+    K.scatter(S, over, x1 - 4.4, x1 - 3.0, y1 + 1.0, y0 - 1.0, spacing=0.8, seed=212, density=0.35, z_top=3.0, accept=lambda x, y, z: z < 0.3)
+    for k, y in enumerate((-61.0, -83.5, -97.0)):
+        K.plant(S, f'pine_sapling_medium_{k % 3}', (x1 - 0.9, y, 0.16), k * 1.9, 0.5)
+    K.plant(S, 'tree_small_02_0', (x1 - 1.2, -69.0, 0.16), 2.4, 0.7)
     K.marker(S, 'checkpoint', (-13.0, -50.0, 0.05), yaw=0.0, id='cp_c2')
     K.marker(S, 'interact', (-6.5, -70.0, 0.2), id='c2_log1', prompt='Play recording', log=1)
     K.marker(S, 'trigger', (-13.0, -72.0, 1.0), size=[16.0, 1.0, 2.0], id='c2_van_seen')
     K.marker(S, 'trigger', (-6.0, -104.0, 1.0), size=[4.0, 4.0, 2.0], id='c2_cafe_door')
-    K.marker(S, 'camera', (-6.0, -66.0, 1.6), id='c2_van_cam', target=[-13.0, -78.0, 1.6])
+    K.marker(S, 'camera', (-6.0, -66.0, 1.6), id='c2_van_cam', target=[-13.0, -78.0, 2.6])
     return S
 
 
@@ -316,6 +323,8 @@ def s_plaza(M):
         B.box(M['c_concrete'], (2.6, 1.0, 0.9), (x, y, 0.45), bevel=0.05)
         B.box(M['c_moss'], (2.4, 0.8, 0.3), (x, y, 1.0), bevel=0.05)
         K.collide_box(S, f'c5_pl{i}', (2.6, 1.0, 1.2), (x, y, 0.6))
+        for k in range(3):
+            K.plant(S, ('shrub_04_0', 'fern_02_1', 'grass_medium_01_0')[(k + i) % 3], (x - 0.8 + k * 0.8, y, 1.15), k * 2.2 + i, 0.75)
     for i, (x, y, r) in enumerate(((cx - 4, cy + 12, 0.0), (cx + 4, cy + 12, 0.0), (cx - 14, cy, 1.57), (cx + 15, cy + 1, 1.3))):
         CK.barrier(B, M, x, y, 0.0, rot_z=r)
         K.collide_box(S, f'c5_bar{i}', (1.0, 3.0, 1.0), (x, y, 0.5))
@@ -448,9 +457,19 @@ SECTIONS = {'c1': s_rooftops, 'c2': s_street, 'c3': s_cafe, 'c4': s_gate, 'c5': 
 def materials():
     M = L1.materials()
     M['c_vanbody'] = K.mat('c_vanbody', 'painted_metal_shutter', 0.8, tint=(0.62, 0.62, 0.6), desat=0.6, rough_add=-0.1, coat=0.4)
-    M['c_vanstripe'] = K.plain_mat('c_vanstripe', (0.62, 0.26, 0.05), rough=0.4)
+    M['c_vanstripe'] = K.plain_mat('c_vanstripe', (0.62, 0.26, 0.05), rough=0.4, coat=1.0)
     M['c_vanlight'] = K.emissive_mat('c_vanlight', (1.0, 0.3, 0.1), 12.0)
     M['c_tyre'] = K.plain_mat('c_tyre', (0.02, 0.02, 0.022), rough=0.8)
+    # the HELIX van: lacquered pale grey paint, black trim, privacy glass, alloy rims; lamps lit
+    M['c_vanpaint'] = K.plain_mat('c_vanpaint', (0.66, 0.67, 0.68), rough=0.32, coat=1.0)
+    M['c_vantrim'] = K.plain_mat('c_vantrim', (0.025, 0.026, 0.028), rough=0.55)
+    M['c_vanglass'] = K.plain_mat('c_vanglass', (0.015, 0.018, 0.022), rough=0.03, coat=1.0)
+    M['c_vanrim'] = K.plain_mat('c_vanrim', (0.62, 0.63, 0.65), rough=0.3, metal=1.0)
+    M['c_chrome'] = K.plain_mat('c_chrome', (0.8, 0.8, 0.82), rough=0.1, metal=1.0)
+    M['c_vanhead'] = K.emissive_mat('c_vanhead', (1.0, 0.94, 0.84), 9.0)
+    M['c_vantail'] = K.emissive_mat('c_vantail', (1.0, 0.04, 0.02), 7.0)
+    M['c_vanred'] = K.emissive_mat('c_vanred', (1.0, 0.05, 0.04), 16.0)
+    M['c_vanblue'] = K.emissive_mat('c_vanblue', (0.1, 0.3, 1.0), 16.0)
     M['c_wood'] = K.mat('c_wood', 'distressed_painted_planks', 1.2, tint=(0.55, 0.45, 0.36), desat=0.5) \
         if os.path.isdir(os.path.join(K.PH, 'distressed_painted_planks')) else K.plain_mat('c_wood', (0.22, 0.15, 0.1), rough=0.55)
     M['c_tile'] = K.mat('c_tile', 'anti_skid_tiles', 1.0, tint=(0.38, 0.33, 0.3), desat=0.5)
@@ -504,6 +523,7 @@ def export(built, keys, samples):
     for key in keys:
         S = built[key]
         K.export([statics[key]] + S.collide + S.markers + S.lights + getattr(S, 'dynamic', []), os.path.join(OUT, f'{key}.glb'))
+        K.write_foliage(S, os.path.join(OUT, f'{key}_foliage.json'))
 
 
 if __name__ == '__main__':
@@ -532,5 +552,8 @@ if __name__ == '__main__':
         probes(built, keys)
     if '--volume' in argv:
         K.bake_volumes(built, keys, 'ch2', L1.STORM_HDRI, sky_strength=L1.SKY)
+    if '--foliage' in argv:
+        for key in keys:
+            K.write_foliage(built[key], os.path.join(OUT, f'{key}_foliage.json'))
     if '--export' in argv:
         export(built, keys, samples)

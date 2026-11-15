@@ -338,6 +338,7 @@ def export(built, keys, samples):
     for key in keys:
         S = built[key]
         K.export(statics[key] + S.collide + S.markers + S.lights + getattr(S, 'dynamic', []), os.path.join(OUT, f'{key}.glb'))
+        K.write_foliage(S, os.path.join(OUT, f'{key}_foliage.json'))
 
 
 def probes(built, keys):
@@ -381,5 +382,8 @@ if __name__ == '__main__':
         probes(built, keys)
     if '--volume' in argv:
         K.bake_volumes(built, keys, 'ch3', os.path.join(K.ROOT, 'vendor', 'polyhaven', 'hdri', 'approaching_storm_2k.hdr'), skip=())
+    if '--foliage' in argv:
+        for key in keys:
+            K.write_foliage(built[key], os.path.join(OUT, f'{key}_foliage.json'))
     if '--export' in argv:
         export(built, keys, samples)

@@ -116,7 +116,8 @@ def emissive_mat(key, color, strength):
     return MATS[key]
 
 
-def plain_mat(key, color, rough=0.5, metal=0.0, stripes=0.0):
+def plain_mat(key, color, rough=0.5, metal=0.0, stripes=0.0, coat=0.0):
+    """A flat-coloured PBR surface; `coat` adds a clear lacquer (car paint, varnish) over it."""
     if key not in MATS:
         m = bpy.data.materials.new(key)
         m.use_nodes = True
@@ -124,7 +125,11 @@ def plain_mat(key, color, rough=0.5, metal=0.0, stripes=0.0):
         b.inputs['Base Color'].default_value = (*color, 1)
         b.inputs['Roughness'].default_value = rough
         b.inputs['Metallic'].default_value = metal
-        m['ft'] = json.dumps({'type': 'plain', 'color': list(color), 'rough': rough, 'metal': metal, **({'stripes': stripes} if stripes else {})})
+        if coat:
+            b.inputs['Coat Weight'].default_value = coat
+            b.inputs['Coat Roughness'].default_value = 0.04
+        m['ft'] = json.dumps({'type': 'plain', 'color': list(color), 'rough': rough, 'metal': metal, **({'stripes': stripes} if stripes else {}),
+                              **({'coat': coat} if coat else {})})
         if stripes:
             # the same striping for the bake (Cycles): wave texture bands -> black / colour
             nt = m.node_tree
@@ -341,7 +346,7 @@ def show_timeline(S, tl):
     """Render state of one reality: the other timeline's dressing and fixtures hidden (None: neither hidden)."""
     for t2 in ('a', 'b'):
         hide = tl is not None and t2 != tl
-        for o in getattr(S, f'static_{t2}') + timeline_lights(t2):
+        for o in getattr(S, f'static_{t2}') + timeline_lights(t2) + getattr(S, 'foliage_objs', {}).get(t2, []):
             o.hide_render = hide
 
 
@@ -489,8 +494,15 @@ def debris(name, loc, M, n=7, seed=1, size=0.25):
 
 def finish_static(ob):
     """Metric UVs for the materials (UV0) + a lightmap UV (UV1, 'LM')."""
-    HS.uv_metric(ob, angle=50.0, margin=0.002)
     me = ob.data
+    # window coordinates (interior-mapped panes) ride in their own layer, kept after the lightmap's (TEXCOORD_2 in the game)
+    win = None
+    if 'WIN' in me.uv_layers:
+        win = np.empty(len(me.loops) * 2, np.float32)
+        me.uv_layers['WIN'].data.foreach_get('uv', win)
+        me.uv_layers.remove(me.uv_layers['WIN'])
+    me.uv_layers.active = me.uv_layers[0]
+    HS.uv_metric(ob, angle=50.0, margin=0.002)
     me.uv_layers[0].name = 'UVMap'
     lm = me.uv_layers.new(name='LM')
     me.uv_layers.active = lm
@@ -504,6 +516,9 @@ def finish_static(ob):
                              scale_to_bounds=False)
     bpy.ops.uv.pack_islands(margin=0.004, rotate=True)
     bpy.ops.object.mode_set(mode='OBJECT')
+    if win is not None:
+        wl = me.uv_layers.new(name='WIN')
+        wl.data.foreach_set('uv', win)
     me.uv_layers.active = me.uv_layers['UVMap']
     me.uv_layers['UVMap'].active_render = True
     return ob
@@ -852,6 +867,8 @@ def bake_volumes(built, keys, chapter, hdri=None, skip=(), sky_strength=1.0, ski
             print('SKY', 'sun', sky[0])
         for tl in ([None] if not (S.static_a or S.static_b) else ['a', 'b']):
             objs = S.static + (getattr(S, f'static_{tl}') if tl else [])
+            fol = getattr(S, 'foliage_objs', {})
+            objs = objs + fol.get(None, []) + (fol.get(tl, []) if tl else [])  # canopies shade the air: shafts between trees
             lights = [m for m in S.lights if m.get('timeline') in (None, tl)]
             if outdoors and skies and key in skies and tl in skies[key]:
                 sky = sky_light(skies[key][tl][0], strength=skies[key][tl][1])  # this reality's own sky
@@ -882,7 +899,7 @@ def export_timeline_section(S, key, out_dir, prefix, samples, lm_size=2048, skie
             hide = t2 != tl
             if t2 in by_tl:
                 by_tl[t2].hide_render = hide
-            for o in timeline_lights(t2):
+            for o in timeline_lights(t2) + getattr(S, 'foliage_objs', {}).get(t2, []):
                 o.hide_render = hide
         if skies and tl in skies:
             sky_world(*skies[tl])  # a section whose two realities have different skies (Chapter 4's terrace)
@@ -898,7 +915,7 @@ def export_timeline_section(S, key, out_dir, prefix, samples, lm_size=2048, skie
     for t2 in ('a', 'b'):
         if t2 in by_tl:
             by_tl[t2].hide_render = False
-        for o in timeline_lights(t2):
+        for o in timeline_lights(t2) + getattr(S, 'foliage_objs', {}).get(t2, []):
             o.hide_render = False
     return [st for _, st in parts]
 
@@ -1154,3 +1171,217 @@ def engine_ring(name, center, R, M, segments=24):
     parts.append(core)
     del sdf
     return join(parts, name)
+
+
+# --- foliage and props (Poly Haven, converted by blender/props/foliage.py) ----------------------------------------------------
+
+FOLIAGE_DIR = os.path.join(PUB, 'props', 'foliage')
+_FOLIAGE = {}
+_PROPS = {}
+
+
+def _bake_material(m):
+    """A foliage recipe material made real for Cycles (its texture, alpha-cut), so the bake sees leaves, not solid cards."""
+    if m is None or 'ft' not in m or m.get('_baked'):
+        return
+    r = json.loads(m['ft'])
+    path = os.path.join(PUB, r.get('tex', ''))
+    if not os.path.exists(path):
+        return
+    nt = m.node_tree
+    b = nt.nodes['Principled BSDF']
+    img = nt.nodes.new('ShaderNodeTexImage')
+    img.image = bpy.data.images.load(path, check_existing=True)
+    nt.links.new(img.outputs['Color'], b.inputs['Base Color'])
+    if r.get('alpha'):
+        img.image.alpha_mode = 'STRAIGHT'
+        nt.links.new(img.outputs['Alpha'], b.inputs['Alpha'])
+    m['_baked'] = 1
+
+
+def foliage_asset(name):
+    """The converted asset's meshes, imported once and kept out of the scene (instances link their data)."""
+    if name not in _FOLIAGE:
+        before = set(bpy.data.objects)
+        bpy.ops.import_scene.gltf(filepath=os.path.join(FOLIAGE_DIR, f'{name}.glb'))
+        objs = [o for o in bpy.data.objects if o not in before]
+        meshes = []
+        for o in objs:
+            if o.type == 'MESH':
+                for sl in o.material_slots:
+                    _bake_material(sl.material)
+                meshes.append((o.data, o.matrix_world.copy()))
+        for o in objs:
+            bpy.data.objects.remove(o)
+        _FOLIAGE[name] = meshes
+    return _FOLIAGE[name]
+
+
+def plant(S, name, loc, yaw=0.0, scale=1.0, timeline=None):
+    """One plant: recorded for the game (instanced at runtime, lit by the light volume, swaying) and linked into the bake scene
+    (its shadow and occlusion land in the lightmap and the light volume). Not part of the exported static mesh."""
+    if not hasattr(S, 'foliage'):
+        S.foliage = {}
+        S.foliage_objs = {}
+    S.foliage.setdefault((timeline or '', name), []).append((tuple(loc), float(yaw), float(scale)))
+    for data, mw in foliage_asset(name):
+        o = bpy.data.objects.new(f'{name}_p', data)
+        bpy.context.scene.collection.objects.link(o)
+        o.matrix_world = Matrix.Translation(Vector(loc)) @ Matrix.Rotation(yaw, 4, 'Z') @ Matrix.Scale(scale, 4) @ mw
+        S.foliage_objs.setdefault(timeline, []).append(o)
+
+
+def ground_z(x, y, z_top=60.0, objs=None):
+    """Height of the first surface below (x, y, z_top), or None."""
+    dg = bpy.context.evaluated_depsgraph_get()
+    hit, loc, nrm, _i, ob, _m = bpy.context.scene.ray_cast(dg, Vector((x, y, z_top)), Vector((0, 0, -1)), distance=200.0)
+    if not hit or (objs is not None and ob not in objs) or nrm.z < 0.6:
+        return None
+    return loc.z
+
+
+def _noise2(x, y, scale, seed):
+    """Value noise in [-1, 1] (integer hash lattice), as in the card-grass skill: patches, not an even carpet."""
+    def h(ix, iy):
+        n = (ix * 374761393 + iy * 668265263 + seed * 2147483647) & 0xFFFFFFFF
+        n = ((n ^ (n >> 13)) * 1274126177) & 0xFFFFFFFF
+        return ((n ^ (n >> 16)) & 0xFFFF) / 65535.0
+    gx, gy = x / scale, y / scale
+    ix, iy = math.floor(gx), math.floor(gy)
+    fx, fy = gx - ix, gy - iy
+    sx, sy = fx * fx * (3 - 2 * fx), fy * fy * (3 - 2 * fy)
+    a = h(ix, iy) + (h(ix + 1, iy) - h(ix, iy)) * sx
+    b = h(ix, iy + 1) + (h(ix + 1, iy + 1) - h(ix, iy + 1)) * sx
+    return (a + (b - a) * sy) * 2 - 1
+
+
+def scatter(S, kinds, x0, x1, y0, y1, spacing=1.2, seed=1, density=0.6, scale=(0.8, 1.2), timeline=None, accept=None, z_top=60.0):
+    """Ground cover over a rectangle: a jittered grid (each cell jittered over its whole extent, fixed random yaw), thinned by
+    two octaves of noise so it grows in patches; `kinds` = [(asset, weight)]; the ground is found by ray casting."""
+    import random as _r
+    rng = _r.Random(seed)
+    names = [k for k, _ in kinds]
+    weights = [w for _, w in kinds]
+    xs = int((x1 - x0) / spacing)
+    ys = int((y1 - y0) / spacing)
+    placed = 0
+    for i in range(xs):
+        for j in range(ys):
+            x = x0 + (i + rng.random()) * spacing
+            y = y0 + (j + rng.random()) * spacing
+            keep = density + 0.45 * _noise2(x, y, 9.0, seed) + 0.3 * _noise2(x, y, 2.6, seed + 1)
+            if rng.random() > keep:
+                continue
+            z = ground_z(x, y, z_top)
+            if z is None or (accept and not accept(x, y, z)):
+                continue
+            plant(S, rng.choices(names, weights)[0], (x, y, z), rng.uniform(0, math.tau), rng.uniform(*scale), timeline)
+            placed += 1
+    return placed
+
+
+def write_foliage(S, path):
+    """The section's plants for the game: {timeline: {asset: [[x, y, z, yaw, scale], ...]}} in three.js space."""
+    out = {}
+    for (tl, name), lst in getattr(S, 'foliage', {}).items():
+        out.setdefault(tl, {})[name] = [[round(l[0], 3), round(l[2], 3), round(-l[1], 3), round(yaw, 3), round(s, 3)] for l, yaw, s in lst]
+    if out:
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, 'w') as fh:
+            json.dump(out, fh)
+        print('FOLIAGE', path, sum(len(v) for d in out.values() for v in d.values()))
+
+
+def prop(S, asset, loc, yaw=0.0, scale=1.0, node=None, timeline=None, budget=12000, collide=True):
+    """A static prop from a Poly Haven model (rocks, stumps, roots, logs): imported once (decimated to `budget` triangles, its
+    maps copied as a 'pbr' set the engine rebuilds), then copied into the section's static mesh (baked like everything else)."""
+    key = (asset, node)
+    if key not in _PROPS:
+        before = set(bpy.data.objects)
+        bpy.ops.import_scene.gltf(filepath=os.path.join(ROOT, 'vendor', 'polyhaven', 'models', asset, f'{asset}_2k.gltf'))
+        objs = [o for o in bpy.data.objects if o not in before and o.type == 'MESH']
+        if node is not None:
+            keep = [o for o in objs if node in o.name] or objs[:1]
+            for o in objs:
+                if o not in keep:
+                    bpy.data.objects.remove(o)
+            objs = keep
+        for o in objs:
+            ntri = sum(len(p.vertices) - 2 for p in o.data.polygons)
+            if ntri > budget:
+                d = o.modifiers.new('dec', 'DECIMATE')
+                d.ratio = budget / ntri
+                bpy.context.view_layer.objects.active = o
+                bpy.ops.object.modifier_apply(modifier='dec')
+            for sl in o.material_slots:
+                sl.material = _prop_material(asset, sl.material)
+        bpy.ops.object.select_all(action='DESELECT')
+        for o in objs:
+            o.select_set(True)
+        bpy.context.view_layer.objects.active = objs[0]
+        if len(objs) > 1:
+            bpy.ops.object.join()
+        t = objs[0]
+        bpy.ops.object.transform_apply(location=True, rotation=True, scale=True)
+        t.hide_render = True
+        for c in list(t.users_collection):
+            c.objects.unlink(t)
+        _PROPS[key] = t
+    t = _PROPS[key]
+    o = t.copy()
+    o.data = t.data.copy()
+    bpy.context.scene.collection.objects.link(o)
+    o.hide_render = False
+    o.matrix_world = Matrix.Translation(Vector(loc)) @ Matrix.Rotation(yaw, 4, 'Z') @ Matrix.Scale(scale, 4)
+    bpy.context.view_layer.objects.active = o
+    bpy.ops.object.select_all(action='DESELECT')
+    o.select_set(True)
+    bpy.ops.object.transform_apply(location=True, rotation=True, scale=True)
+    S.add(o, timeline=timeline)
+    if collide:
+        bb = [o.matrix_world @ Vector(c) for c in o.bound_box]
+        lo = Vector((min(v.x for v in bb), min(v.y for v in bb), min(v.z for v in bb)))
+        hi = Vector((max(v.x for v in bb), max(v.y for v in bb), max(v.z for v in bb)))
+        collide_box(S, f'{o.name}_col', tuple((hi - lo) * 0.85), tuple((hi + lo) / 2), timeline=timeline)
+    return o
+
+
+def _prop_material(asset, src):
+    """A Poly Haven model's material as a 'pbr' recipe on its own UVs (tile 1), its maps copied into textures/pbr/<id>/."""
+    name = src.name if src else asset
+    tid = name.split('.')[0]
+    if tid in MATS:
+        return MATS[tid]
+    texdir = os.path.join(ROOT, 'vendor', 'polyhaven', 'models', asset, 'textures')
+    dst = os.path.join(PUB, 'textures', 'pbr', tid)
+    os.makedirs(dst, exist_ok=True)
+    found = False
+    for f in os.listdir(texdir):
+        if not f.startswith(tid + '_'):
+            continue
+        kind = f[len(tid) + 1:].rsplit('_', 1)[0]
+        if kind in ('diff', 'nor_gl', 'rough', 'arm'):
+            img = bpy.data.images.load(os.path.join(texdir, f))
+            img.scale(1024, 1024)
+            if kind == 'arm':
+                # ambient occlusion (R) and roughness (G) as their own maps (the engine's pbr recipe reads _ao / _rough)
+                px = np.array(img.pixels[:], np.float32).reshape(-1, 4)
+                for ch, nm in ((0, 'ao'), (1, 'rough')):
+                    im2 = bpy.data.images.new(f'{tid}_{nm}', 1024, 1024)
+                    q = np.repeat(px[:, ch:ch + 1], 3, 1)
+                    im2.pixels.foreach_set(np.concatenate([q, np.ones((len(q), 1), np.float32)], 1).ravel())
+                    im2.filepath_raw = os.path.join(dst, f'{tid}_{nm}.jpg')
+                    im2.file_format = 'JPEG'
+                    im2.save()
+                    bpy.data.images.remove(im2)
+            else:
+                img.filepath_raw = os.path.join(dst, f'{tid}_{kind}.jpg')
+                img.file_format = 'JPEG'
+                img.save()
+            bpy.data.images.remove(img)
+            found = True
+    m = src if src is not None else bpy.data.materials.new(tid)
+    m['ft'] = json.dumps({'type': 'pbr', 'tex': tid, 'res': '1k', 'tile': 1.0, 'tint': [1, 1, 1], 'desat': None, 'rough_mul': 1.0,
+                          'rough_add': 0.0, 'normal': 1.0, 'metal': 0.0, 'coat': 0.0, 'own': True})
+    MATS[tid] = m
+    return m

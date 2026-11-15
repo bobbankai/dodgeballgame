@@ -84,6 +84,8 @@ export class Game implements Simulation, GameCtx {
   face: FaceRig | null = null;
   /** per-tick callbacks on game time (cinematic rails, scripted sequences) */
   tickers = new Set<(dt: number) => void>();
+  /** per rendered frame, before the scene pass (top-level passes such as the sea's mirror) */
+  beforeRender = new Set<(dt: number) => void>();
   /** depth-of-field focus override (m) while a cinematic pulls focus */
   focusOverride: number | null = null;
   startScript: (() => Promise<void>) | null = null;
@@ -412,6 +414,7 @@ export class Game implements Simulation, GameCtx {
     const bossAlive = this.enemies.some((e) => e.alive && (e as Enemy).def?.id?.startsWith('boss'));
     const fighting = this.enemies.some((e) => e.alive && ((e as any).noticed || (e as any).state === 'stalk'));
     this.sfx.score.intensity = bossAlive ? 2 : fighting ? 1 : 0;
+    for (const f of this.beforeRender) f(realDt);
     this.post.render();
   }
 

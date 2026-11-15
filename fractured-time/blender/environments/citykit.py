@@ -9,6 +9,7 @@ depth and occlusion; the far skyline uses cheaper massing.
 Geometry is accumulated per material in `Batch` (one bmesh per material) and turned into a few objects, so a whole district builds fast.
 Coordinates are Blender's (x, y, z), metres.
 """
+import json
 import math
 import random
 
@@ -41,8 +42,32 @@ class Batch:
         bm.from_mesh(me)
         bpy.data.meshes.remove(me)
 
+    def pane(self, material, corners, k):
+        """A window pane (4 corners, counter-clockwise from bottom-left as seen from outside) whose WIN uv spans [k, k+1] x [0, 1]:
+        continuous inside the window, a different integer cell per window (the engine's interior-mapping seed)."""
+        lst = self.__dict__.setdefault('panes', {}).setdefault(material.name, ([], material))[0]
+        lst.append((corners, k))
+
     def objects(self):
         out = []
+        for key, (lst, mat) in self.__dict__.pop('panes', {}).items():
+            verts, faces, uvs = [], [], []
+            for corners, k in lst:
+                b = len(verts)
+                verts += [tuple(c) for c in corners]
+                faces.append((b, b + 1, b + 2, b + 3))
+                uvs += [(k, 0.0), (k + 1.0, 0.0), (k + 1.0, 1.0), (k, 1.0)]
+            me = bpy.data.meshes.new(f'{self.name}_{key}')
+            me.from_pydata(verts, [], faces)
+            base = me.uv_layers.new(name='UVMap')
+            win = me.uv_layers.new(name='WIN')
+            flat = [c for uv in uvs for c in uv]
+            base.data.foreach_set('uv', flat)
+            win.data.foreach_set('uv', flat)
+            me.materials.append(mat)
+            ob = bpy.data.objects.new(f'{self.name}_{key}', me)
+            bpy.context.scene.collection.objects.link(ob)
+            out.append(ob)
         for key, (bm, mat) in self.bms.items():
             me = bpy.data.meshes.new(f'{self.name}_{key}')
             bm.to_mesh(me)
@@ -77,36 +102,52 @@ LIT = {'modern': 0.0, 'concrete': 0.0, 'brick': 0.0, 'ruin': 0.0, 'overgrown': 0
 DUSK_LIT = {'modern': 0.3, 'concrete': 0.26, 'brick': 0.3, 'ruin': 0.012, 'overgrown': 0.0}
 
 
-def lit_windows(B, M, era, put, w, d, z0, z1, nf, rng, bay):
-    """Emissive panes just proud of the glazing core in a share of the window bays (warm homes, cool offices, a television)."""
-    p = LIT.get(era, 0.0)
-    if p <= 0:
+_PANES = [0]
+
+
+def window_mat(era):
+    """The window panes of an era: the engine draws rooms behind them (interior mapping); `lit` is the share with lights on."""
+    key = f'winpane_{era}'
+    if key not in K.MATS:
+        m = bpy.data.materials.new(key)
+        m.use_nodes = True
+        b = m.node_tree.nodes['Principled BSDF']
+        b.inputs['Base Color'].default_value = (0.05, 0.06, 0.07, 1)
+        b.inputs['Roughness'].default_value = 0.08
+        m['ft'] = json.dumps({'type': 'window', 'era': era, 'lit': LIT.get(era, 0.0), 'night': 1.0 if LIT.get(era, 0.0) > 0 else 0.0})
+        K.MATS[key] = m
+    return K.MATS[key]
+
+
+def lit_windows(B, M, era, put, w, d, z0, z1, nf, rng, bay, cx=0.0, cy=0.0, R=None):
+    """A glass pane in every window bay, just proud of the glazing core: the engine draws a room behind each (blinds, curtains,
+    furniture masses with parallax, the lights on in a share of them at dusk). Ruined eras keep their black, broken openings."""
+    if era in ('ruin', 'overgrown'):
         return
-    office = era == 'modern'
-    pal = (['win_cool'] * 6 + ['win_neutral'] * 3 + ['win_warm']) if office else (['win_warm'] * 5 + ['win_neutral'] * 3 + ['win_tv'])
-    if era == 'ruin':
-        pal = ['win_fire']
+    mat = window_mat(era)
     h = (z1 - z0) / nf
     for k in range(nf):
-        floor_on = office and rng.random() < p * 1.1
-        floor_mat = rng.choice(pal)
-        zc = z0 + k * h + 0.3 + (h - 0.9) / 2 + 0.15
+        zb = z0 + k * h + 0.45
+        zt = z0 + (k + 1) * h - 0.45
         for along, across, horiz in ((w, d, True), (d, w, False)):
             n = max(2, int(along / bay) + 1)
             ts = [-along / 2 + 0.25 + (along - 0.5) * i / (n - 1) for i in range(n)]
             for i in range(n - 1):
+                ta, tb = ts[i] + 0.3, ts[i + 1] - 0.3
+                if tb - ta < 0.4:
+                    continue
                 for side in (-1, 1):
-                    on = (rng.random() < 0.85) if floor_on else (rng.random() < (p * 0.35 if office else p))
-                    if not on:
-                        continue
-                    mat = M[floor_mat if floor_on else rng.choice(pal)]
-                    wid = ts[i + 1] - ts[i] - 0.62
-                    if wid < 0.4:
-                        continue
-                    t = (ts[i] + ts[i + 1]) / 2
                     o = side * (across / 2 - 0.35 + 0.012)
-                    size = (wid, 0.02, h - 1.0) if horiz else (0.02, wid, h - 1.0)
-                    put(mat, size, (t, o, zc) if horiz else (o, t, zc), bevel=0.0)
+                    # counter-clockwise seen from outside (the face normal points out of the building)
+                    if horiz:
+                        a_, b_ = (ta, tb) if side < 0 else (tb, ta)
+                        loc = [(a_, o, zb), (b_, o, zb), (b_, o, zt), (a_, o, zt)]
+                    else:
+                        a_, b_ = (ta, tb) if side > 0 else (tb, ta)
+                        loc = [(o, a_, zb), (o, b_, zb), (o, b_, zt), (o, a_, zt)]
+                    pts = [(R @ Vector(p_)) if R is not None else Vector(p_) for p_ in loc]
+                    _PANES[0] += 1
+                    B.pane(mat, [(cx + p_.x, cy + p_.y, p_.z) for p_ in pts], _PANES[0] % 4096)
 
 
 def storeys(B, M, era, cx, cy, w, d, z0, z1, rng, rot_z=0.0, floor_h=3.6, bay=3.2, broken=0.0, parapet=True):
@@ -137,7 +178,7 @@ def storeys(B, M, era, cx, cy, w, d, z0, z1, rng, rot_z=0.0, floor_h=3.6, bay=3.
                 put(frame, (0.5, 0.5, h), loc)
     # floor slabs: a band around the building at every storey
     nf = max(1, int(h / floor_h))
-    lit_windows(B, M, era, put, w, d, z0, z1, nf, random.Random(rng.random()), bay)
+    lit_windows(B, M, era, put, w, d, z0, z1, nf, random.Random(rng.random()), bay, cx, cy, R)
     for k in range(1, nf + 1):
         z = z0 + k * h / nf
         for side in (-1, 1):
