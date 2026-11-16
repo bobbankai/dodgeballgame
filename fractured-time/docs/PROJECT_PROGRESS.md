@@ -42,10 +42,10 @@ rain, wet streets, SSR, water, dusk city, skin, POM, grading) is in; it has been
 | HUD v2 | 3 | speaker-coloured subtitles, objective reveal with key glyphs, styled prompts, boss bar with title, damage trail and phase marker |
 | Afterimages (`src/temporal/afterimages.ts`) | 3 | pooled ghost copies of Ethan's pose on dodge / rewind / slow; not yet reviewed in motion |
 | Chapter 1 surface finale (s8 deck, s9 skyline: `citykit.py`, `facades.py`) | 2 | built; bake + engine review pending |
-| Chapter 3 (`ch3_level.py`, `ch3.ts`): lobby, offices, Palimpsest lab (Temporal Echo, plate gate), mirror hall, Palimpsest Core | 3 | per-reality lights/lightmaps/probes/volumes; EchoBoss (`bosses/echo.ts`); 33 voiced lines; quick bake for flow tests, full bake queued; not played through |
+| Chapter 3 (`ch3_level.py`, `ch3.ts`): lobby, offices, Palimpsest lab (Temporal Echo, plate gate), mirror hall, Palimpsest Core | 4 | per-reality lights/lightmaps/probes/volumes; EchoBoss (`bosses/echo.ts`); 33 voiced lines; the ruin (timeline b) overgrown under its broken ceilings. **Played through by script to `chapter3_complete`** (timeline shift, echo ability, plate gate, mirror hall, ambush, the Echo through both phases) on the quick bake; full bake queued |
 | Chapter 4 (`ch4_level.py`, `ch4.ts`): future terrace (two skies), 2079 memory lab, foundry, crucible | 3 | NyxBoss (`bosses/nyx.ts`) 3 phases; Imani's part revealed; 40 voiced lines; quick bake for flow tests, full bake queued; not played through |
 | Chapter 5 (`ch5_level.py`, `ch5.ts`): Nexus fragments, skybridge with the Echo as ally, the Engine's heart; choice; Endings A and B; credits | 3 | generated Nexus sky (the Engine is its sun); VossBoss (`bosses/voss.ts`) 3 phases + pylons + flips; `characters/companion.ts`; `ui/finale.ts`; voices recording; full bake queued; not played through |
-| Imani, Nyx, Voss models | 4 / 3 / 2 | Imani reviewed; Nyx exported, not yet reviewed in the engine; Voss export re-queued (first attempt killed) |
+| Imani, Nyx, Voss models | 4 / 4 / 4 | all three exported and reviewed in the engine lab: Voss with his salt-and-pepper beard, silver hair, grey brows and blue eyes; Nyx's grey and Imani's brown eyes read true. Chapter 4 and 5 play-throughs wait for their bakes (their level meshes were never committed: the full bakes now running export them) |
 | **Reference pass (10 owner photos: rain-wet streets, neon, misty god rays, caves, sea, UE5 skin)** | | |
 | Volumetric fog lit by baked light volumes (`envkit.bake_volume`, `src/rendering/volumetrics.ts`) | 4 | per section a 3D grid of the light filling the air (every fixture, shadowed by ray casts against the section; outdoors the occluded sky + sun visibility), 6-280 KB each; post pass marches every pixel's ray through height fog with drifting fbm, HG sun phase, energy-conserving integration, TRAA-resolved jitter; 40/28/16 steps by preset, classic fog on Performance. Ch1 interiors + c2 baked; engine look review in progress |
 | Rain + wet world (`src/rendering/wet.ts`, `rain.ts`) | 3 | outdoor statics: porous darkening, clear-coat water film, puddles in noise basins with raindrop rings, rivulets on walls; GPU rain streaks lit by the light volume (flare under lamps/neon), splash crowns, a ray-cast shelter map keeps rain from under roofs; rain runs on world time (hangs in the air during time slow); characters soak (skin film + beads, darker cloth) and dry slowly indoors. Not yet seen in a baked dusk street |
@@ -110,6 +110,10 @@ rain, wet streets, SSR, water, dusk city, skin, POM, grading) is in; it has been
     cards. Alpha maps are fetched and merged.
 27. A material named after its own asset with Blender's `.001` suffix produced doubled texture names: the suffix is stripped first.
 28. The window kit's dressing was lit by the pane's lightmap (the light on the outer glass) and every blind glowed white at night.
+29. The eye shader forced every iris brown (Voss's blue and Nyx's grey eyes rendered amber); brow cards were reddish brown on
+    everyone; hair cards were exported dark brown whatever the character's hair colour.
+30. Light volumes held direct light only: plants and the fog sat several times darker than the bounce-lit walls (bounce added).
+31. The flow tests read a cleared objective's faded text and reported Chapter 3's ambush as stuck; the game was right (helper fixed).
 
 ---
 
