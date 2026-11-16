@@ -5,3 +5,6 @@ vendor/
 .cache/
 __pycache__/
 *.pyc
+
+# probe baker scratch renders (older bakes wrote them beside the assets)
+_probe_face.exr
