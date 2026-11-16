@@ -223,6 +223,11 @@ def s_street(M):
     B.box(cross, (0.08, 0.7, 0.22), (fx + 0.9, y0 - 8 + 5.6, 4.6), bevel=0.01)
     B.box(cross, (0.08, 0.22, 0.7), (fx + 0.9, y0 - 8 + 5.6, 4.6), bevel=0.01)
     K.area_light('c2_cross_l', (fx + 1.3, y0 - 8 + 5.6, 4.6), (0.6, 0.6), 30.0, (0.25, 1.0, 0.55), rot=(math.pi / 2, 0, math.atan2(-1, 0)))
+    # projecting blade signs crowd the 2089 side's upper floors; one on the abandoned side, almost all of it dead
+    for (y, z, text, col) in ((-54.0, 4.2, 'HOTEL', (1.0, 0.18, 0.55)), (-69.5, 5.0, 'RAMEN', (1.0, 0.45, 0.12)),
+                              (-86.0, 4.4, 'LOUNGE', (0.3, 0.85, 1.0)), (-101.5, 5.4, 'CLINIC', (0.35, 1.0, 0.6))):
+        CK.blade_sign(S, B, M, text, fx + 0.35, y, z, (1, 0), col, size=0.42, strength=20.0)
+    CK.blade_sign(S, B, M, 'MOTEL', x1 + 1.0 - 0.05, -64.0, 4.0, (-1, 0), (1.0, 0.16, 0.08), size=0.42, strength=9.0, missing='MOEL')
     # the same block decades on: a hotel sign with most of its letters dead
     CK.neon_sign(S, B, M, 'HOTEL ARCADIA', x1 + 1.0 - 0.02, -88.0, 4.4, (-1, 0), (1.0, 0.16, 0.08), size=0.55, strength=9.0,
                  missing='OEARCDI', light=0.6)
@@ -528,7 +533,7 @@ def materials():
     M['c_vanpaint'] = K.plain_mat('c_vanpaint', (0.66, 0.67, 0.68), rough=0.32, coat=1.0)
     # street furniture: painted cast iron, red paper lanterns with lacquered caps
     M['iron'] = K.plain_mat('c_iron', (0.03, 0.032, 0.035), rough=0.4, metal=0.35, coat=0.35)
-    M['lantern'] = K.emissive_mat('c_paperlantern', (1.0, 0.2, 0.07), 5.5)
+    M['lantern'] = K.emissive_mat('c_paperlantern', (1.0, 0.16, 0.05), 2.6)  # saturated red-orange paper, not a white glow
     M['lacquer'] = K.plain_mat('c_lacquer', (0.02, 0.014, 0.012), rough=0.25, coat=1.0)
     M['tassel'] = K.plain_mat('c_tassel', (0.45, 0.03, 0.025), rough=0.85)
     M['c_vantrim'] = K.plain_mat('c_vantrim', (0.025, 0.026, 0.028), rough=0.55)

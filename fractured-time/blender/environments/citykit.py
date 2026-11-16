@@ -301,6 +301,42 @@ def neon_sign(S, B, M, text, x, y, z, facing, color, size=0.42, strength=22.0, b
                      rot=(math.pi / 2, 0.0, math.atan2(-dx, dy)))
 
 
+def blade_sign(S, B, M, text, x, y, z, facing, color, size=0.4, strength=20.0, missing='', depth=0.85):
+    """A projecting vertical sign (the kind that crowds a night street): a dark board standing out from the facade at (x, y) on two
+    bracket arms, the name in neon letters stacked down both faces, a neon tube around its edge, and each face's coloured light
+    thrown up and down the street. `z` is the bottom of the board; `missing` letters are dead."""
+    _SIGNS[0] += 1
+    n = _SIGNS[0]
+    dx, dy = facing
+    tx, ty = -dy, dx                                   # along the facade (the way the street runs)
+    neon = K.emissive_mat(f'neon_{color[0]:.2f}_{color[1]:.2f}_{color[2]:.2f}_{strength:.0f}', color, strength)
+    pitch = size * 1.12
+    H = len(text) * pitch + 0.55
+    cx, cy = x + dx * (0.25 + depth / 2), y + dy * (0.25 + depth / 2)
+    B.box(M['dark'], (abs(dx) * depth + abs(tx) * 0.12, abs(dy) * depth + abs(ty) * 0.12, H), (cx, cy, z + H / 2), bevel=0.02)
+    for zz in (z + 0.25, z + H - 0.25):                # bracket arms back to the wall
+        B.box(M['c_metal'] if 'c_metal' in M else M['dark'], (abs(dx) * 0.3 + abs(tx) * 0.05, abs(dy) * 0.3 + abs(ty) * 0.05, 0.05),
+              (x + dx * 0.15, y + dy * 0.15, zz), bevel=0.005)
+    # the neon tube around the board's edge
+    e = 0.06
+    corners = [(-depth / 2 + e, e), (depth / 2 - e, e), (depth / 2 - e, H - e), (-depth / 2 + e, H - e), (-depth / 2 + e, e)]
+    pts = [(cx + dx * a, cy + dy * a, z + b) for a, b in corners]
+    S.add(K.tube(f'blade{n}_tube', pts, 0.014, neon, sides=8))
+    for side in (1, -1):
+        fx, fy = tx * side, ty * side
+        rot = _facing_rot(fx, fy)
+        for i, ch in enumerate(text):
+            if ch == ' ':
+                continue
+            mat = M['dark'] if ch in missing else neon
+            zc = z + H - 0.32 - (i + 0.75) * pitch
+            S.add(K.sign(f'blade{n}_{side}_{i}', ch, (cx + fx * 0.065, cy + fy * 0.065, zc), rot, size, mat, depth=0.012))
+        lit = len([c for c in text if c != ' ' and c not in missing]) / max(1, len(text.replace(' ', '')))
+        if lit > 0:
+            K.area_light(f'blade{n}_l{side}', (cx + fx * 0.4, cy + fy * 0.4, z + H / 2), (depth * 0.8, H * 0.8), 34.0 * H * lit, color,
+                         rot=(math.pi / 2, 0.0, math.atan2(-fx, fy)))
+
+
 def shopfront(S, B, M, x, y, facing, width, z=0.0, interior=(1.0, 0.86, 0.68), sign=None, neon=(1.0, 0.3, 0.6), strength=2.6,
               awning=True):
     """A lit shop window at street level in a facade facing (dx, dy): a glowing interior plane recessed behind mullions, shelf
