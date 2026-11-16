@@ -690,6 +690,11 @@ def bake_lightmap(ob, path, size=2048, samples=128):
     img.filepath_raw = path
     img.file_format = 'HDR'
     img.save()
+    # registered as linear: tools/assets/linearise_lightmaps.py skips a map it finds here unchanged (no double decode)
+    st = os.stat(path)
+    os.makedirs(os.path.join(ROOT, '.cache'), exist_ok=True)
+    with open(os.path.join(ROOT, '.cache', 'linearised.txt'), 'a') as fh:
+        fh.write(f'{os.path.abspath(path)} {st.st_size} {int(st.st_mtime)}\n')
     for nt, n, uvn in nodes:
         nt.nodes.remove(n)
         nt.nodes.remove(uvn)

@@ -51,14 +51,89 @@ def materials():
     return M
 
 
-def shell(S, name, x0, x1, y0, y1, H, M, openings):
+def shell(S, name, x0, x1, y0, y1, H, M, openings, breaches_b=()):
     """The shared structure of a room (both timelines): walls with openings, ceiling, structural columns. No floor: each timeline
-    lays its own (marble in a, broken concrete in b), so a hole in one reality can be whole in the other."""
+    lays its own (marble in a, broken concrete in b), so a hole in one reality can be whole in the other.
+    `breaches_b`: (x, y, w, l, power) where the ruin's ceiling has come down. The intact slab then belongs to 2101 alone and the
+    ruin gets its own ceiling with ragged holes, each opening into the dark storey above, lit from up there (cold daylight from
+    that floor's broken windows): the light falls in shafts through the dusty air onto the rubble below."""
     K.room(S, name, x0, x1, y0, y1, H, M, openings=openings, beams=False, ceiling=True, floor_mat='wall')
     # K.room adds a floor and its collider: remove both (each timeline brings its own)
     for o in [o for o in S.static if o.name == f'{name}_floor'] + [o for o in S.collide if o.name == f'col_{name}_floor']:
         (S.static if o in S.static else S.collide).remove(o)
         bpy.data.objects.remove(o)
+    if breaches_b:
+        slab = next(o for o in S.static if o.name == f'{name}_ceil')
+        S.static.remove(slab)
+        S.add(slab, timeline='a')
+        # the suspended panels under a breach came down with it (2101 keeps them)
+        for o in [o for o in S.static if o.name.startswith(f'{name}_cp')]:
+            c = o.matrix_world.translation
+            if any(abs(c.x - bx) < bw / 2 + 1.0 and abs(c.y - by) < bl / 2 + 1.0 for (bx, by, bw, bl, _p) in breaches_b):
+                S.static.remove(o)
+                S.add(o, timeline='a')
+        ruined_ceiling(S, name, x0, x1, y0, y1, H, M, breaches_b)
+
+
+def ruined_ceiling(S, name, x0, x1, y0, y1, H, M, breaches):
+    """Reality b's ceiling: the slab as 0.5 m cells, those inside a breach gone and its rim ragged (rim cells drop at random); the
+    cells left at a breach's edge hang as separate broken pieces, sagging and tilted. A shaft into the storey above each breach
+    (its walls and floor slab, rebar hanging from the broken edge) and a cold area light at the shaft's top."""
+    rng = random.Random(sum(map(ord, name)))  # stable across processes (str hash is salted): reused lightmaps need the same edge
+    t, z, c = 0.3, H + 0.15, 0.5
+
+    def gone(cx, cy):
+        for (bx, by, bw, bl, _p) in breaches:
+            dx, dy = abs(cx - bx) - bw / 2, abs(cy - by) - bl / 2
+            if dx < 0 and dy < 0:
+                return True
+            if dx < 1.0 and dy < 1.0 and rng.random() < 0.45:   # the rim: a ragged edge, not a cut rectangle
+                return True
+        return False
+    nx, ny = int(round((x1 - x0) / c)), int(round((y0 - y1) / c))
+    keep = [[not gone(x0 + c * (i + 0.5), y0 - c * (j + 0.5)) for i in range(nx)] for j in range(ny)]
+
+    def rim(i, j):
+        return keep[j][i] and any(0 <= i + di < nx and 0 <= j + dj < ny and not keep[j + dj][i + di]
+                                  for di, dj in ((1, 0), (-1, 0), (0, 1), (0, -1)))
+    for j in range(ny):
+        # the outer rows and columns reach under the walls, as the intact slab does
+        y_hi = y0 - c * j + (0.15 if j == 0 else 0.0)
+        y_lo = y0 - c * (j + 1) - (0.15 if j == ny - 1 else 0.0)
+        whole = [i for i in range(nx) if keep[j][i] and not rim(i, j)]
+        runs = []
+        for i in whole:
+            if runs and i == runs[-1][1] + 1:
+                runs[-1][1] = i
+            else:
+                runs.append([i, i])
+        for a, b in runs:
+            x_lo = x0 + c * a - (0.15 if a == 0 else 0.0)
+            x_hi = x0 + c * (b + 1) + (0.15 if b == nx - 1 else 0.0)
+            S.add(K.box(f'{name}_ceilb{j}_{a}', (x_hi - x_lo, y_hi - y_lo, t), ((x_lo + x_hi) / 2, (y_lo + y_hi) / 2, z), M['ceiling'],
+                        bevel=0.0), timeline='b')
+        for i in range(nx):
+            if rim(i, j):
+                S.add(K.box(f'{name}_ceilr{j}_{i}', (c, c, t), (x0 + c * (i + 0.5), y0 - c * (j + 0.5), z - rng.uniform(0.0, 0.14)),
+                            M['ceiling'], bevel=0.02, rot=(rng.uniform(-0.18, 0.18), rng.uniform(-0.18, 0.18), rng.uniform(-0.12, 0.12))),
+                      timeline='b')
+    for k, (bx, by, bw, bl, power) in enumerate(breaches):
+        hw, hl, top = bw / 2 + 1.2, bl / 2 + 1.2, H + 3.6
+        for sx, sy, size in ((0, hl, (2 * hw, 0.3, 3.3)), (0, -hl, (2 * hw, 0.3, 3.3)), (hw, 0, (0.3, 2 * hl, 3.3)), (-hw, 0, (0.3, 2 * hl, 3.3))):
+            S.add(K.box(f'{name}_shaft{k}_{sx:.1f}_{sy:.1f}', size, (bx + sx, by + sy, H + 0.3 + 1.65), M['b_ruin'], bevel=0.02), timeline='b')
+        S.add(K.box(f'{name}_shaft{k}_top', (2 * hw + 0.3, 2 * hl + 0.3, 0.3), (bx, by, top + 0.15), M['b_ruin'], bevel=0.0), timeline='b')
+        # rebar left hanging from the broken edge
+        for r in range(7):
+            side = rng.choice((-1, 1))
+            along = rng.uniform(-0.45, 0.45)
+            if rng.random() < 0.5:
+                px, py = bx + along * bw, by + side * (bl / 2 + 0.3)
+            else:
+                px, py = bx + side * (bw / 2 + 0.3), by + along * bl
+            L = rng.uniform(0.4, 1.3)
+            S.add(K.box(f'{name}_rebar{k}_{r}', (0.025, 0.025, L), (px, py, H - L / 2 + 0.1), M['c_metal'], bevel=0.0,
+                        rot=(rng.uniform(-0.35, 0.35), rng.uniform(-0.35, 0.35), 0)), timeline='b')
+        K.area_light(f'{name}_breachL{k}', (bx, by, top - 0.05), (bw + 1.6, bl + 1.6), power, (0.62, 0.7, 0.82), timeline='b')
 
 
 def floor_tiles(S, name, x0, x1, y0, y1, M_a, M_b, holes_b=(), holes_a=()):
@@ -107,7 +182,9 @@ def overgrowth(S, cx, cy, rx, ry, seed, saplings=0, density=0.7):
 def s_lobby(M):
     S = K.Section('a1')
     x0, x1, y0, y1, H = -12.0, 12.0, 0.0, -30.0, 9.0
-    shell(S, 'a1', x0, x1, y0, y1, H, M, {'s': [(0, 3.0)], 'n': [(0, 3.0)]})
+    # the ruin's roof: a wide breach over the overgrowth (it grew where the light falls) and a small one over the puddle
+    shell(S, 'a1', x0, x1, y0, y1, H, M, {'s': [(0, 3.0)], 'n': [(0, 3.0)]},
+          breaches_b=((3.0, -15.5, 6.0, 4.5, 650.0), (-6.0, -6.0, 2.5, 2.5, 200.0)))
     # the floor: the pit in front of the lifts exists only in timeline b
     pit = [(x, y) for x in (-3, -1, 1, 3) for y in (-23, -25)]
     floor_tiles(S, 'a1', x0, x1, y0, y1, M['a_marble'], M['b_ruin'], holes_b=pit)
@@ -134,7 +211,7 @@ def s_lobby(M):
     S.add(K.box('a1_moss1', (3.0, 6.0, 0.03), (8, -16, 0.015), M['b_moss'], bevel=0.0), timeline='b')
     S.add(K.box('a1_desk_b', (6.0, 1.2, 1.1), (0.5, -9.3, 0.55), M['b_ruin'], bevel=0.04, rot=(0, 0.12, 0.2)), timeline='b')
     K.collide_box(S, 'a1_desk_b', (6.0, 1.4, 1.1), (0.5, -9.3, 0.55), timeline='b')
-    K.area_light('a1_skylightB', (0, -15, H - 0.3), (6.0, 6.0), 180.0, (0.55, 0.62, 0.72), timeline='b')
+    S.add(K.debris('a1_fallen', (3.0, -15.5, 0), M, n=10, seed=34, size=0.55), timeline='b')
     overgrowth(S, 1.5, -15.0, 5.0, 4.0, seed=11, saplings=1)
     overgrowth(S, 8.0, -16.0, 2.2, 3.2, seed=12)
     # the lifts on the north wall (shared)
@@ -150,7 +227,9 @@ def s_lobby(M):
 def s_offices(M):
     S = K.Section('a2')
     x0, x1, y0, y1, H = -12.0, 12.0, -30.0, -60.0, 4.2
-    shell(S, 'a2', x0, x1, y0, y1, H, M, {'s': [(0, 3.0)], 'n': [(6.0, 2.4)]})
+    # the ruin: the ceiling came down in two places (the collapses below), opening onto the floor above
+    shell(S, 'a2', x0, x1, y0, y1, H, M, {'s': [(0, 3.0)], 'n': [(6.0, 2.4)]},
+          breaches_b=((4.0, -42.0, 8.0, 2.6, 380.0), (-3.5, -50.0, 7.0, 2.6, 340.0)))
     floor_tiles(S, 'a2', x0, x1, y0, y1, M['a_carpet'], M['b_ruin'])
     rng = random.Random(4)
     # timeline a: glass partitions (a maze: the gaps alternate), desks in pods
@@ -187,7 +266,6 @@ def s_offices(M):
         S.add(K.debris(f'a2_cdebris{i}', ((ax + bx) / 2, ay + 1.2, 0), M, n=12, seed=50 + i, size=0.4), timeline='b')
         K.collide_box(S, f'a2_collapse{i}', (L, 1.8, 2.0), ((ax + bx) / 2, ay, 1.0), timeline='b')
     S.add(K.box('a2_moss', (6.0, 10.0, 0.03), (-6, -40, 0.015), M['b_moss'], bevel=0.0), timeline='b')
-    K.area_light('a2_lB', (0, -45, H - 0.3), (10.0, 4.0), 120.0, (0.5, 0.58, 0.68), timeline='b')
     overgrowth(S, -5.0, -42.0, 4.0, 5.0, seed=21)
     overgrowth(S, 1.0, -46.0, 4.0, 2.0, seed=22)
     K.marker(S, 'checkpoint', (0, -32.0, 0.05), yaw=0.0, id='cp_a2')
