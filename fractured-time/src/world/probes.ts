@@ -65,7 +65,7 @@ const lum = (v: THREE.Vector3) => 0.2126 * v.x + 0.7152 * v.y + 0.0722 * v.z;
  * separates the figure from the background and fades out where the place is bright enough to model him itself. Only characters
  * see these lights (their own lights node).
  */
-const FILL_E = 2.1;   // effective irradiance (x the place's exposure) the fill lifts a character's lit side to
+const FILL_E = 2.8;   // effective irradiance (x the place's exposure) the fill lifts a character's lit side to
 const RIM_E = 4.2;    // effective rim strength in a dark place
 
 export class CharacterLight {

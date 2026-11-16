@@ -3,6 +3,12 @@ import type { Game } from '@/game';
 import { loadLevel, captureProbe, type Marker, type LoadedLevel } from '@/world/level';
 import { LightPool } from '@/world/lightpool';
 import { ProbeField, CharacterLight } from '@/world/probes';
+
+/** eye adaptation (`ChapterRuntime.adapt`): the light level that shows at exposure 1, how much of a change the eye takes up, limits */
+const ADAPT_REF = 0.3;
+const ADAPT_K = 0.4;
+const ADAPT_MIN = 0.5;
+const ADAPT_MAX = 6;
 import { setWeather, weather } from '@/rendering/wet';
 import { Sea, SEA_LAYER } from '@/world/sea';
 import { plantSection } from '@/world/foliage';
@@ -148,7 +154,9 @@ export class ChapterRuntime {
   private interactables = new Map<string, { m: Marker; resolve?: () => void; used: boolean }>();
   private anomalies: { pos: THREE.Vector3; obj?: THREE.Object3D }[] = [];
   /** streamed sections: only the current one and its neighbours are in the scene / on the GPU */
-  sections: { path: string; lv: LoadedLevel; box: THREE.Box3; inScene: boolean; probe: THREE.Texture | null;
+  sections: { path: string; lv: LoadedLevel; box: THREE.Box3; inScene: boolean;
+    /** reflection probes captured from the lit section, one per reality where the two differ (a ruin must not mirror 2101's sky) */
+    probes: { a?: THREE.Texture; b?: THREE.Texture };
     /** baked light volumes for the volumetric fog (timeline b has its own where the geometry differs) */
     vol: { a: LightVolume | null; b: LightVolume | null } }[] = [];
   current = -1;
@@ -189,6 +197,7 @@ export class ChapterRuntime {
     this.g.post.u.fracture.value = 1; // the shift ripple
     this.applyVolume();
     this.refreshAtmosphere();
+    this.useProbe();
   }
 
   /** The light volume of the current section in the current timeline. */
@@ -221,7 +230,7 @@ export class ChapterRuntime {
     const box = new THREE.Box3().setFromObject(lv.root).expandByScalar(0.5);
     const vols = await Promise.all([loadVolume(assetUrl(path.replace(/\.glb$/, '_vol.bin'))),
       lv.timeline.b.meshes.length ? loadVolume(assetUrl(path.replace(/\.glb$/, '_vol_b.bin'))) : Promise.resolve(null)]);
-    this.sections.push({ path, lv, box, inScene: false, probe: null, vol: { a: vols[0], b: vols[1] } });
+    this.sections.push({ path, lv, box, inScene: false, probes: {}, vol: { a: vols[0], b: vols[1] } });
     await this.probes.load(path.replace(/\.glb$/, '_probes.json'), this.sections.length - 1, box, lv.timeline.b.meshes.length ? 'a' : undefined);
     if (lv.timeline.b.meshes.length) await this.probes.load(path.replace(/\.glb$/, '_probes_b.json'), this.sections.length - 1, box, 'b');
     this.pool.add(lv.lightDefs);
@@ -479,8 +488,21 @@ export class ChapterRuntime {
     const cur = this.sections[k];
     this.atmosphere(cur.lv.markers.find((m) => m.name === 'sky'), cur.box);
     this.applyVolume();
-    if (!cur.probe) cur.probe = captureProbe(this.g.gfx.renderer, this.g.scene, cur.box.getCenter(new THREE.Vector3()).setY(1.6));
-    this.g.scene.environment = cur.probe;
+    this.useProbe();
+  }
+
+  /** The current section's reflection probe in the current reality, captured the first time it is needed. `recapture`: the
+   *  place changed after its capture (its image sky finished loading). */
+  private useProbe(recapture = false): void {
+    const cur = this.sections[this.current];
+    if (!cur) return;
+    const two = cur.lv.timeline.b.meshes.length > 0 || !!cur.lv.markers.find((m) => m.name === 'sky')?.data.hdri_b;
+    const k = two ? this.timeline : 'a';
+    if (!cur.probes[k] || recapture) {
+      cur.probes[k]?.dispose();
+      cur.probes[k] = captureProbe(this.g.gfx.renderer, this.g.scene, cur.box.getCenter(new THREE.Vector3()).setY(1.6));
+    }
+    this.g.scene.environment = cur.probes[k]!;
   }
 
   private skies = new Map<string, Promise<THREE.Texture>>();
@@ -515,8 +537,11 @@ export class ChapterRuntime {
   private flashPulse = 0;
   private skyBase = 1;
   private fogBase = new THREE.Vector4();
-  /** eye adaptation target for the current place (the sky marker's exposure outdoors, 1 inside) */
+  /** eye adaptation target: from the baked light where Ethan stands (see `adapt`) */
   private exposure = 1;
+  private adaptIn = 0;
+  private readonly adaptSH = Array.from({ length: 9 }, () => new THREE.Vector3());
+  private readonly adaptAt = new THREE.Vector3();
 
   /** Sky + fog of the section Ethan is in: exteriors carry a 'sky' marker (HDRI, intensity, fog colour + density); interiors get a
    * dark, faint haze that gives long rooms their depth. */
@@ -539,7 +564,6 @@ export class ChapterRuntime {
     this.g.post.grade(sky ? ((sky.data.grade as GradeName | undefined) ?? 'dusk_storm')
       : this.g.chapterNumber === 3 ? (this.timeline === 'b' ? 'arcology_ruin' : 'arcology') : isEngine ? 'engine' : 'facility');
     if (!sky) {
-      this.exposure = 1;
       this.wantSky = '';
       this.stormy = false;
       (sc as any).backgroundNode = null;
@@ -574,14 +598,15 @@ export class ChapterRuntime {
       (sc as any).backgroundNode = ready ? this.sky.image(ready, { haze }) : null;
       if (!ready) {
         void this.loadSky(path).then((t) => {
-          if (this.wantSky === path) (this.g.scene as any).backgroundNode = this.sky.image(t, { haze });
+          if (this.wantSky !== path) return;
+          (this.g.scene as any).backgroundNode = this.sky.image(t, { haze });
+          this.useProbe(true); // captured against the empty sky while it loaded
         }).catch(() => {});
       }
     }
     const intensity = storm ? 1 : Number(sky.data.intensity ?? 1);
     (sc as any).backgroundIntensity = intensity;
     this.skyBase = intensity;
-    this.exposure = Number(sky.data.exposure ?? 1);
     sc.fog = vf ? null : new THREE.FogExp2(new THREE.Color(f[0], f[1], f[2]), f[3]);
     if (vf) {
       // outside the light volume the air is lit by the open sky: the marker's fog colour is that in-scatter
@@ -631,6 +656,25 @@ export class ChapterRuntime {
     }
   }
 
+  /**
+   * Eye adaptation, as a camera's auto exposure: the mean radiance of the baked light around Ethan (the probe field's SH DC, the
+   * same linear scale as the lightmaps) sets the exposure, (ADAPT_REF / L)^ADAPT_K. Partial on purpose (K < 1): the light of the
+   * places spans a hundredfold (a ruined office at 0.005, the daylit terrace at 0.5, the crucible at 2), the eye takes up most
+   * of it and a dark place still reads darker than a bright one. Places used to carry a fixed exposure each, tuned while every
+   * lightmap was stored through the sRGB curve (its shadows and bounce lifted several times); with linear maps those values
+   * left the dim interiors black.
+   */
+  private adapt(dt: number): void {
+    this.adaptIn -= dt;
+    if (this.adaptIn > 0 || !this.probes.size) return;
+    this.adaptIn = 0.25;
+    const p = this.g.player.pos;
+    if (!this.probes.sample(this.adaptAt.copy(p).setY(p.y + 1.1), this.adaptSH, 8)) return;
+    const c = this.adaptSH[0];
+    const L = Math.max(1e-4, (0.2126 * c.x + 0.7152 * c.y + 0.0722 * c.z) * 0.282095);
+    this.exposure = THREE.MathUtils.clamp(Math.pow(ADAPT_REF / L, ADAPT_K), ADAPT_MIN, ADAPT_MAX);
+  }
+
   tick(dt: number): void {
     this.stream(this.g.player.pos);
     // the temporal storm: lightning, then the thunder a moment later (distance), every 8-22 s while Ethan is outside
@@ -653,6 +697,7 @@ export class ChapterRuntime {
     sc.backgroundIntensity = this.skyBase * (1 + 9 * pulse);
     const fb = this.g.post.fog.u.fallback.value as THREE.Vector4;
     fb.set(this.fogBase.x * (1 + 14 * pulse), this.fogBase.y * (1 + 14 * pulse), this.fogBase.z * (1 + 15 * pulse), fb.w);
+    this.adapt(dt);
     const r = this.g.gfx.renderer;
     r.toneMappingExposure += (this.exposure - r.toneMappingExposure) * Math.min(1, dt * 1.2);
     // characters soak through in a couple of minutes of rain and dry far more slowly inside

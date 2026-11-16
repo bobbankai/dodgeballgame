@@ -11,7 +11,11 @@ for shaders/lighting; B: MetaHuman-class character, the bar for models). The v0 
 
 **Overall:** the whole campaign now exists end to end in code: five chapters scripted beat by beat (Chapter 1 facility + surface,
 Chapter 2 district, Chapter 3 arcology, Chapter 4 paradox, Chapter 5 Nexus) with all five bosses (Sentinel A-07, the Rift Marshal, the
-Echo, Commander Nyx, Director Voss), the ending choice, both endings and credits; chapters hand over to the next. **Honest state (this pass):** every chapter's full bake has run (Chapter 4's for the first time). Testing them in the engine
+Echo, Commander Nyx, Director Voss), the ending choice, both endings and credits; chapters hand over to the next. **Latest:** the
+storm re-bakes have landed (Chapter 1's surface, Chapter 2, Chapter 4's terrace with its modelled skyline). Reviewing the ruined
+terrace found that every lightmap had been stored through the sRGB curve (bug 49): all maps are linear now and exposure follows
+the baked light where Ethan stands, so every place's contrast, shadows and bounce changed; the places listed under "Linear
+lightmaps" were reviewed after it, the rest of the campaign not yet. **Previous pass:** every chapter's full bake has run (Chapter 4's for the first time). Testing them in the engine
 found that no exterior sky had ever drawn and that every two-reality section lit its shared structure in reality b with the wrong
 lightmap (bugs 37-39); both are fixed in code, the shared maps re-bake section by section, and the storm places (Chapter 1's
 surface, Chapter 2, Chapter 4's ruin) re-bake under a sky that matches the one now drawn. Chapters 3 and 5 have been played
@@ -65,6 +69,7 @@ rain, wet streets, SSR, water, dusk city, skin, POM, grading) is in; it has been
 | Open sea (`src/world/sea.ts`, vendored MIT ocean kit) | 4 | Gerstner sheet + top-level mirror pass + seabed stamps around the sea stacks at the Chapter 4 terrace; reviewed in the engine from the terrace edge in both realities (Coastal breeze / Storm swell), foam wrapping the towers |
 | Skies (`src/rendering/sky.ts`) | 3 | our own background node: HDRIs sampled directly in Blender's orientation (the sun sits where the baked shadows say), horizon melting into the haze; the storm at nightfall procedural (domain-warped fbm cloud deck, darker rifts, undersides lit by the city's sodium glow, rain haze at the horizon matched to the fog). Reviewed on the Chapter 2 street (level and looking up), the Chapter 4 terrace in both realities, the Nexus. Before this pass no sky had ever rendered (bug 37) |
 | Character light rig (`world/probes.ts` CharacterLight) | 3 | per character, on top of its baked probe: a camera-side fill up to a readable minimum and a rim in the colour of the air, both only where the place is dark; reviewed on the night street (Ethan reads from behind and the front) and the corridor (no visible change) |
+| Linear lightmaps + eye adaptation (`envkit.bake_lightmap`, `ChapterRuntime.adapt`) | 4 | lightmaps stored linear (bug 49); exposure = (0.3 / L)^0.4 from the probe field's mean radiance at Ethan, clamped 0.5-6, eased at 1.2/s: a dark place still reads darker than a bright one. Reviewed: Ch1 corridor and lab, Ch2 street, Ch3 lobby (both realities) and offices, Ch4 terrace (both), foundry, memory lab, Ch5. Not yet judged on a real GPU in motion |
 | Level packing (`tools/assets/pack_levels.sh`) | 4 | meshopt compression of every level section (the loader decodes it): 165 MB -> 31 MB; nodes, extras, materials, lightmap and window UVs kept; the Chapter 3 offices rendered identical packed and raw in both realities, the Chapter 2 street and the Nexus smoke-tested |
 | Office kit (`blender/environments/officekit.py`) | 3 | workstation pods (scanned desks, task chairs and flat screens built in Blender, clutter, plants), wall storage, ruined variants; whole-prop triangle budgets. Placed in the Chapter 3 offices and Palimpsest lab, the Chapter 4 memory lab (re-baking) |
 | Voss's beard and hair (`voss.py`) | 3 | a boxed beard in the jaw/chin/moustache zone with a lip guard, salt-and-pepper colour, a short swept-back comb; Cycles review shows the groom; colour pass and engine review pending |
@@ -75,9 +80,11 @@ rain, wet streets, SSR, water, dusk city, skin, POM, grading) is in; it has been
   (white frame) at every quality, with or without the storm sky, the window panes and the rain; the morning build before this pass
   does the same, so it is not a regression. Interiors (Chapter 1), the Nexus and the lab render on WebGPU identically to WebGL2.
   Needs a run on a real GPU; if it reproduces there, bisect with the test switches (`?nostorm`, `?nowin`, `?norain`).
-- **Street prop variants without textures** (fixed in the pipeline, lands with the street's re-export): the security camera's glass,
-  the shutters' graffiti variants and the rusted aircon loaded no maps; a variant's maps now fall back to its base material's and a
-  numbered sibling's, and map-less glass is dark gloss.
+- **Places with no light of their own** (seen once the lightmaps went linear): the Chapter 1 surface lift house is lit only through
+  its doorway at night (Ethan reads as an outline there even at the adaptation limit), and Chapter 3's ruined reality is dim
+  throughout (legible, but murky). These need practicals in the bake (a caged work lamp in the lift house, emergency lights and
+  fires in the ruins), not more exposure. The rest of the campaign has not been re-reviewed since bug 49.
+- Street prop variants without textures: fixed (the street re-exported with the fallbacks; its lens maps no longer embedded).
 - **Skin** is still smoother and flatter than reference B: needs stronger micro detail at mid distance, specular breakup, and a real
   subsurface diffusion (screen-space or pre-integrated) instead of translucency only.
 - **Expressions**: the 75 face shapes exist but no expression set / facial animation has been authored or reviewed.
@@ -172,6 +179,22 @@ rain, wet streets, SSR, water, dusk city, skin, POM, grading) is in; it has been
     a metric projection (right for tiling materials), props included; a desk's drawers and handles read as a grey patchwork.
     Faces with 'own' recipes keep their authored UVs now. The lightmap unwrap does not depend on UV0, so the affected sections
     re-export with every lightmap reused (offices, the forest island; the street, Palimpsest lab and Chapter 4 follow).
+49. **Every lightmap in the game was stored through the sRGB curve.** `bake_lightmap` saved a float image tagged Linear Rec.709,
+    and Blender writes such an image to Radiance HDR through the (extended) sRGB transfer function: measured 0.0245 -> 0.170,
+    0.25 -> 0.535, 1.5 -> 1.19. Every shadow, bounce and dim corner was lifted several times over while the probes and light
+    volumes (written by numpy) stayed linear: rooms looked flat and washed, characters darker than the walls around them, and the
+    ruined terrace's deck shone white under a black storm (0.153 where the storm gives 0.021). Found by baking a test patch in
+    the same scene and comparing with the shipped map. Maps now save as Non-Color data; the 61 shipped maps were decoded in place
+    by the exact inverse (`tools/assets/linearise_lightmaps.py`, no re-bake; a converted map is logged in `.cache/linearised.txt`).
+50. The fixed exposure per place (1 inside, the sky marker's value outside) had been tuned against those lifted maps; with linear
+    maps the dim interiors went black and the ruins unreadable. Replaced by eye adaptation from the baked probes (below).
+51. One reflection probe per section, captured in whichever reality was entered first and before an image sky had loaded: the
+    ruined terrace's wet deck mirrored 2101's daylight (a pale floor under a night sky). Probes are per reality now and recapture
+    when the sky arrives.
+52. Plain recipes kept the glTF importer's image nodes and the exporter embedded them: a security camera's lens carried 7 MB of
+    2K maps into the street (`strip_textures` covers plain materials now; the street is 3.6 MB packed).
+53. The Palimpsest lab was exported before the map fallbacks: the circuit board's second material and the chemistry set's glass
+    asked for maps that did not exist (re-exported with its lightmaps kept).
 
 ---
 

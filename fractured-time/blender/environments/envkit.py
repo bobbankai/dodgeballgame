@@ -653,7 +653,14 @@ def bake_lightmap(ob, path, size=2048, samples=128):
             den = (np.roll(den, 1, ax) + 2 * den + np.roll(den, -1, ax)) / 4
         rgb = np.where(cov[..., None] > 0, num / np.maximum(den[..., None], 1e-6), rgb)
     px[..., :3] = rgb
-    img.pixels.foreach_set(px.ravel())
+    # saved as data: a float image tagged Linear Rec.709 is written to .hdr through the sRGB curve (0.0245 -> 0.17), which lifted
+    # every shadow and bounce in every map while the probes and light volumes (written by numpy) stayed linear.
+    # tools/assets/linearise_lightmaps.py decoded the maps baked before this fix
+    out = bpy.data.images.new(os.path.basename(path) + '_out', size, size, float_buffer=True, alpha=False)
+    out.colorspace_settings.name = 'Non-Color'
+    out.pixels.foreach_set(px.ravel())
+    bpy.data.images.remove(img)
+    img = out
     os.makedirs(os.path.dirname(path), exist_ok=True)
     img.filepath_raw = path
     img.file_format = 'HDR'
@@ -1061,8 +1068,10 @@ def copy_textures():
 
 
 def strip_textures():
+    # pbr recipes load their maps from textures/pbr/; plain ones have none (a scanned prop's lens made plain keeps the importer's
+    # image nodes, which the exporter would otherwise embed: 7 MB of security-camera maps in the street). Screens keep theirs.
     for m in bpy.data.materials:
-        if 'ft' in m and json.loads(m['ft']).get('type') in ('pbr',) and m.node_tree:
+        if 'ft' in m and json.loads(m['ft']).get('type') in ('pbr', 'plain') and m.node_tree:
             for n in [n for n in m.node_tree.nodes if n.type == 'TEX_IMAGE']:
                 m.node_tree.nodes.remove(n)
 
