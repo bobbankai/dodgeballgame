@@ -164,7 +164,7 @@ def chest_plate(S, P, m, heavy=False):
                        blur=8, theta0=-math.pi / 2, r_ref=0.15)
     top, bot = zc - pelvis_z - 0.035, z1 - pelvis_z + 0.08
     w = 0.15 if heavy else 0.13
-    off = 0.036 if heavy else 0.034  # over the carrier's plate bag
+    off = 0.044 if heavy else 0.042  # over the carrier's plate bag and its admin pouch (at 0.034 the pouch broke through the plate)
     outline = [(-w, bot), (w, bot), (w, top - 0.06), (w - 0.05, top), (-w + 0.05, top), (-w, top - 0.06)]
     plate = sdf.intersect(HS.layer(F, off, 0.011 if heavy else 0.008, lambda s_, t_: 0.005 * np.clip(1 - (s_ / w) ** 2, 0, 1)), HS.outline(F, outline),
                           k=0.007)
