@@ -298,7 +298,8 @@ def s_palimpsest(M):
     gutted; the partition is a collapsed wall with the gate jammed in it, so the echo is the only way through either way."""
     S = K.Section('a3')
     x0, x1, y0, y1, H = -12.0, 12.0, -60.0, -92.0, 5.0
-    shell(S, 'a3', x0, x1, y0, y1, H, M, {'s': [(6.0, 2.4)], 'n': [(-4.0, 3.0)]})
+    shell(S, 'a3', x0, x1, y0, y1, H, M, {'s': [(6.0, 2.4)], 'n': [(-4.0, 3.0)]},
+          breaches_b=((-3.0, -70.0, 3.5, 3.0, 300.0), (2.0, -86.0, 2.5, 2.5, 170.0)))
     floor_tiles(S, 'a3', x0, x1, y0, y1, M['floor_tile'], M['b_ruin'])
     # the partition across the room at y = -80, the gate in it at x = 0
     for xa, xb in ((x0, -1.4), (1.4, x1)):
@@ -351,8 +352,8 @@ def s_palimpsest(M):
     for i, y in enumerate((-65.0, -72.0, -86.0)):
         S.add(K.box(f'a3_lampA{i}', (10.0, 0.3, 0.05), (0, y, H - 0.04), M['a_light'], bevel=0.0), timeline='a')
         K.area_light(f'a3_lA{i}', (0, y, H - 0.12), (10.0, 0.3), 260.0, (0.94, 0.97, 1.0), timeline='a')
-    K.area_light('a3_lB', (-3.0, -70.0, H - 0.3), (3.0, 3.0), 160.0, (0.55, 0.62, 0.72), timeline='b')
-    K.area_light('a3_lB2', (2.0, -86.0, H - 0.3), (2.0, 2.0), 80.0, (0.55, 0.62, 0.72), timeline='b')
+    for k, (bx, by) in enumerate(((-3.0, -70.0), (2.0, -86.0))):  # what came down through the breaches
+        S.add(K.debris(f'a3_fallen{k}', (bx, by, 0), M, n=9, seed=70 + k, size=0.5), timeline='b')
     overgrowth(S, -3.0, -70.0, 3.0, 3.0, seed=31, saplings=1)
     overgrowth(S, 2.0, -86.0, 2.0, 2.0, seed=32)
     S.add(K.debris('a3_ceilfall', (-3.0, -70.0, 0), M, n=14, seed=91, size=0.5), timeline='b')
@@ -367,7 +368,8 @@ def s_mirror(M):
     reads as a mirror. Ethan walks the west half; in the east half his reflection walks with him, until it doesn't."""
     S = K.Section('a4')
     x0, x1, y0, y1, H = -8.0, 8.0, -92.0, -124.0, 6.0
-    shell(S, 'a4', x0, x1, y0, y1, H, M, {'s': [(-4.0, 3.0)], 'n': [(-4.0, 3.0)]})
+    shell(S, 'a4', x0, x1, y0, y1, H, M, {'s': [(-4.0, 3.0)], 'n': [(-4.0, 3.0)]},
+          breaches_b=((-4.0, -108.0, 2.0, 10.0, 330.0), (4.0, -109.0, 2.0, 7.0, 250.0)))
     for tl, mat in (('a', M['a_marble']), ('b', M['b_ruin'])):
         S.add(K.box(f'a4_floor{tl}', (x1 - x0, y0 - y1, 0.3), (0, (y0 + y1) / 2, -0.15), mat, bevel=0.0), timeline=tl)
     K.collide_box(S, 'a4_floor', (x1 - x0, y0 - y1, 0.3), (0, (y0 + y1) / 2, -0.15))
@@ -390,8 +392,8 @@ def s_mirror(M):
                 K.collide_box(S, f'a4_col{k}', (0.7, 0.7, H), (-7.4, y, H / 2))
         # the twin's dead-end doorways (the mirror of the real ones)
         S.add(K.box(f'a4_recess{sx}', (3.0, 0.3, 2.9), (4.0, y0 - 0.1 if sx < 0 else y1 + 0.1, 1.45), M['dark'], bevel=0.0))
-    K.area_light('a4_lB', (-4.0, -108.0, H - 0.3), (2.0, 12.0), 140.0, (0.5, 0.58, 0.7), timeline='b')
-    K.area_light('a4_lB2', (4.0, -108.0, H - 0.3), (2.0, 12.0), 140.0, (0.5, 0.58, 0.7), timeline='b')
+    for k, (bx, by) in enumerate(((-4.0, -106.0), (4.0, -111.0))):
+        S.add(K.debris(f'a4_fallen{k}', (bx, by, 0), M, n=8, seed=80 + k, size=0.45), timeline='b')
     overgrowth(S, -4.5, -108.0, 1.4, 5.5, seed=41, density=0.6)
     overgrowth(S, 4.5, -108.0, 1.4, 5.5, seed=42, density=0.6)
     K.marker(S, 'checkpoint', (-4.0, -94.0, 0.05), yaw=0.0, id='cp_a4')
@@ -410,7 +412,7 @@ def s_core(M):
     S = K.Section('a5')
     cx, cy = -4.0, -142.0
     x0, x1, y0, y1, H = cx - 14, cx + 14, -124.0, -160.0, 10.0
-    shell(S, 'a5', x0, x1, y0, y1, H, M, {'s': [(cx, 3.0)]})
+    shell(S, 'a5', x0, x1, y0, y1, H, M, {'s': [(cx, 3.0)]}, breaches_b=((cx + 6, cy + 6, 4.5, 4.5, 450.0),))
     for tl, mat in (('a', M['a_marble']), ('b', M['b_ruin'])):
         S.add(K.box(f'a5_floor{tl}', (x1 - x0, y0 - y1, 0.3), (cx, (y0 + y1) / 2, -0.15), mat, bevel=0.0), timeline=tl)
     K.collide_box(S, 'a5_floor', (x1 - x0, y0 - y1, 0.3), (cx, (y0 + y1) / 2, -0.15))
@@ -437,7 +439,7 @@ def s_core(M):
     for i, y in enumerate((-130.0, -154.0)):
         S.add(K.box(f'a5_lampA{i}', (20.0, 0.4, 0.06), (cx, y, H - 0.04), M['a_light'], bevel=0.0), timeline='a')
         K.area_light(f'a5_lA{i}', (cx, y, H - 0.12), (20.0, 0.4), 520.0, (0.92, 0.96, 1.0), timeline='a')
-    K.area_light('a5_lB', (cx + 6, cy + 6, H - 0.3), (4.0, 4.0), 220.0, (0.5, 0.58, 0.72), timeline='b')
+    S.add(K.debris('a5_fallen', (cx + 6, cy + 6, 0), M, n=12, seed=90, size=0.6), timeline='b')
     overgrowth(S, cx + 6, cy + 6, 3.2, 3.2, seed=51, saplings=1)
     K.marker(S, 'checkpoint', (cx, -127.0, 0.05), yaw=0.0, id='cp_a5')
     K.marker(S, 'trigger', (cx, -129.0, 1.0), size=[6.0, 1.0, 2.0], id='a5_enter')
