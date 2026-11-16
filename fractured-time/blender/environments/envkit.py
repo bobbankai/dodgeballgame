@@ -749,7 +749,21 @@ def sky_light(hdri, rot_z=0.0, res=(256, 128), strength=1.0):
     return sun, sky
 
 
-def bake_volume(objs, lights, path, cell=0.45, pad=0.5, sky=None, max_height=None, max_cells=(160, 48, 160), samples=3, seed=7):
+def _box_blur(a, r, axis):
+    """Running mean of width 2r+1 along an axis (edges clamp)."""
+    if r < 1:
+        return a
+    pad = [(0, 0)] * a.ndim
+    pad[axis] = (r + 1, r)
+    c = np.cumsum(np.pad(a, pad, mode='edge'), axis=axis)
+    n = a.shape[axis]
+    hi = np.take(c, np.arange(2 * r + 1, 2 * r + 1 + n), axis=axis)
+    lo = np.take(c, np.arange(0, n), axis=axis)
+    return (hi - lo) / (2 * r + 1)
+
+
+def bake_volume(objs, lights, path, cell=0.45, pad=0.5, sky=None, max_height=None, max_cells=(160, 48, 160), samples=3, seed=7,
+                bounce=None):
     """Bake the light that fills the air of a section into a 3D grid, for the volumetric fog: at every cell, the light arriving from
     each of the section's fixtures (shadowed by the geometry, soft: several rays over each area light) and, outdoors, from the open
     sky (shadowed) and the sun (visibility). The fog in the game scatters this light, so beams fall from the fixtures, windows throw
@@ -834,6 +848,20 @@ def bake_volume(objs, lights, path, cell=0.45, pad=0.5, sky=None, max_height=Non
             rgb[i] += 0.5 * frac + 0.5 * 0.2 * frac.mean() / max(upmean.mean(), 1e-6) * upmean
             if sdir is not None:
                 sunvis[i] = 1.0 if bvh.ray_cast(p, sdir, 400.0)[0] is None else 0.0
+    # diffuse bounce: the fixtures' light comes back off the walls, floor and ceiling and fills the whole room (the lightmaps have it;
+    # direct light alone left everything lit from the volume, plants and the fog's in-scatter, several times darker than the walls
+    # beside them). Approximated as a wide spatial blur of the direct field (~2 m, three box passes ~ a gaussian) times the light
+    # a typical room sends back (reflectance ~0.4 over most of the sphere, a couple of bounces): ~1.6 indoors; outdoors most of the
+    # sphere is open sky, ~0.35.
+    k = (0.35 if sky is not None else 1.6) if bounce is None else bounce
+    if k > 0:
+        g3 = rgb.reshape(dims[1], dims[2], dims[0], 3)
+        r = max(1, int(round(0.9 / (ext.mean() / np.mean(dims)))))
+        b3 = g3.copy()
+        for _ in range(3):
+            for ax in (0, 1, 2):
+                b3 = _box_blur(b3, r, ax)
+        rgb = (g3 + k * b3).reshape(-1, 3)
     scale = float(np.percentile(rgb.max(1), 99.7)) or 1.0
     enc = np.empty((N, 4), np.uint8)
     enc[:, :3] = np.round(np.sqrt(np.clip(rgb / scale, 0, 1)) * 255)

@@ -89,7 +89,7 @@ SPEC = {
     'pore_strength': 0.6,
     'skin_spec': 0.3,
     'hair': {'mask': mask, 'length': length, 'comb': comb, 'comb_top': True, 'curl': 0.06, 'curl_freq': 1.2, 'count': 100000, 'segments': 6,
-             'melanin': 0.24, 'redness': 0.0, 'random_color': 0.7, 'tint': (0.74, 0.77, 0.82), 'rough': 0.34, 'seed': 41, 'color': (0.3, 0.29, 0.28), 'shells': 20, 'max_len': 0.03,
+             'melanin': 0.24, 'redness': 0.0, 'random_color': 0.7, 'direct_color': (0.42, 0.42, 0.43), 'rough': 0.34, 'seed': 41, 'color': (0.3, 0.29, 0.28), 'shells': 20, 'max_len': 0.03,
              'card_every': 8, 'look': {'strandSpacing': 0.00035, 'coilRadius': 0.00004, 'coilTurns': 0.2}},
     'kit': lambda h, rig, PH: voss_kit.build_kit(h, rig, PH),
 }

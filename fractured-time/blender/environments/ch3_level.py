@@ -87,6 +87,22 @@ def floor_tiles(S, name, x0, x1, y0, y1, M_a, M_b, holes_b=(), holes_a=()):
                 K.collide_box(S, f'{name}_fl{tl}{j}_{a}', (w, 2.0, 0.3), ((a + b) / 2, cy, -0.15), timeline=tl)
 
 
+RUIN_GREEN = [('fern_02_0', 2), ('fern_02_2', 2), ('grass_medium_01_0', 3), ('grass_medium_01_2', 2), ('grass_medium_02_1', 3),
+              ('weed_plant_02_0', 2), ('nettle_plant_0', 2), ('nettle_plant_1', 1), ('moss_01_0', 3), ('moss_01_1', 3), ('shrub_04_0', 1)]
+
+
+def overgrowth(S, cx, cy, rx, ry, seed, saplings=0, density=0.7):
+    """The ruin (timeline b) where daylight comes through the broken ceiling: decades of green in a patch around (cx, cy) on the floor,
+    thinning out toward the shade; a sapling or two where the light is strongest."""
+    import math as _m
+    K.scatter(S, RUIN_GREEN, cx - rx, cx + rx, cy - ry, cy + ry, spacing=0.55, seed=seed, density=density, scale=(0.8, 1.35),
+              timeline='b', z_top=2.4,
+              accept=lambda x, y, z: z < 0.35 and ((x - cx) / rx) ** 2 + ((y - cy) / ry) ** 2 < 1.0 - 0.35 * random.Random(int(x * 97 + y * 13)).random())
+    for k in range(saplings):
+        a = seed * 1.7 + k * 2.4
+        K.plant(S, f'pine_sapling_medium_{k % 3}', (cx + _m.cos(a) * rx * 0.3, cy + _m.sin(a) * ry * 0.3, 0.0), a, 0.55, timeline='b')
+
+
 def s_lobby(M):
     S = K.Section('a1')
     x0, x1, y0, y1, H = -12.0, 12.0, 0.0, -30.0, 9.0
@@ -118,6 +134,8 @@ def s_lobby(M):
     S.add(K.box('a1_desk_b', (6.0, 1.2, 1.1), (0.5, -9.3, 0.55), M['b_ruin'], bevel=0.04, rot=(0, 0.12, 0.2)), timeline='b')
     K.collide_box(S, 'a1_desk_b', (6.0, 1.4, 1.1), (0.5, -9.3, 0.55), timeline='b')
     K.area_light('a1_skylightB', (0, -15, H - 0.3), (6.0, 6.0), 180.0, (0.55, 0.62, 0.72), timeline='b')
+    overgrowth(S, 1.5, -15.0, 5.0, 4.0, seed=11, saplings=1)
+    overgrowth(S, 8.0, -16.0, 2.2, 3.2, seed=12)
     # the lifts on the north wall (shared)
     for x in (-4.5, 4.5):
         S.add(K.box(f'a1_lift{x}', (2.6, 0.3, 3.0), (x, -29.7, 1.5), M['door'], bevel=0.02))
@@ -158,6 +176,8 @@ def s_offices(M):
         K.collide_box(S, f'a2_collapse{i}', (L, 1.8, 2.0), ((ax + bx) / 2, ay, 1.0), timeline='b')
     S.add(K.box('a2_moss', (6.0, 10.0, 0.03), (-6, -40, 0.015), M['b_moss'], bevel=0.0), timeline='b')
     K.area_light('a2_lB', (0, -45, H - 0.3), (10.0, 4.0), 120.0, (0.5, 0.58, 0.68), timeline='b')
+    overgrowth(S, -5.0, -42.0, 4.0, 5.0, seed=21)
+    overgrowth(S, 1.0, -46.0, 4.0, 2.0, seed=22)
     K.marker(S, 'checkpoint', (0, -32.0, 0.05), yaw=0.0, id='cp_a2')
     K.marker(S, 'trigger', (6.0, -59.0, 1.0), size=[2.4, 1.0, 2.0], id='a2_exit')
     return S
@@ -228,6 +248,8 @@ def s_palimpsest(M):
         K.area_light(f'a3_lA{i}', (0, y, H - 0.12), (10.0, 0.3), 260.0, (0.94, 0.97, 1.0), timeline='a')
     K.area_light('a3_lB', (-3.0, -70.0, H - 0.3), (3.0, 3.0), 160.0, (0.55, 0.62, 0.72), timeline='b')
     K.area_light('a3_lB2', (2.0, -86.0, H - 0.3), (2.0, 2.0), 80.0, (0.55, 0.62, 0.72), timeline='b')
+    overgrowth(S, -3.0, -70.0, 3.0, 3.0, seed=31, saplings=1)
+    overgrowth(S, 2.0, -86.0, 2.0, 2.0, seed=32)
     S.add(K.debris('a3_ceilfall', (-3.0, -70.0, 0), M, n=14, seed=91, size=0.5), timeline='b')
     K.marker(S, 'checkpoint', (6.0, -62.0, 0.05), yaw=0.0, id='cp_a3')
     K.marker(S, 'trigger', (-4.0, -90.5, 1.0), size=[3.0, 1.0, 2.0], id='a3_exit')
@@ -265,6 +287,8 @@ def s_mirror(M):
         S.add(K.box(f'a4_recess{sx}', (3.0, 0.3, 2.9), (4.0, y0 - 0.1 if sx < 0 else y1 + 0.1, 1.45), M['dark'], bevel=0.0))
     K.area_light('a4_lB', (-4.0, -108.0, H - 0.3), (2.0, 12.0), 140.0, (0.5, 0.58, 0.7), timeline='b')
     K.area_light('a4_lB2', (4.0, -108.0, H - 0.3), (2.0, 12.0), 140.0, (0.5, 0.58, 0.7), timeline='b')
+    overgrowth(S, -4.5, -108.0, 1.4, 5.5, seed=41, density=0.6)
+    overgrowth(S, 4.5, -108.0, 1.4, 5.5, seed=42, density=0.6)
     K.marker(S, 'checkpoint', (-4.0, -94.0, 0.05), yaw=0.0, id='cp_a4')
     K.marker(S, 'trigger', (-4.0, -99.0, 1.0), size=[6.0, 1.0, 2.0], id='a4_mirror')
     K.marker(S, 'trigger', (-4.0, -116.0, 1.0), size=[6.0, 1.0, 2.0], id='a4_ambush')
@@ -309,6 +333,7 @@ def s_core(M):
         S.add(K.box(f'a5_lampA{i}', (20.0, 0.4, 0.06), (cx, y, H - 0.04), M['a_light'], bevel=0.0), timeline='a')
         K.area_light(f'a5_lA{i}', (cx, y, H - 0.12), (20.0, 0.4), 520.0, (0.92, 0.96, 1.0), timeline='a')
     K.area_light('a5_lB', (cx + 6, cy + 6, H - 0.3), (4.0, 4.0), 220.0, (0.5, 0.58, 0.72), timeline='b')
+    overgrowth(S, cx + 6, cy + 6, 3.2, 3.2, seed=51, saplings=1)
     K.marker(S, 'checkpoint', (cx, -127.0, 0.05), yaw=0.0, id='cp_a5')
     K.marker(S, 'trigger', (cx, -129.0, 1.0), size=[6.0, 1.0, 2.0], id='a5_enter')
     K.marker(S, 'boss', (cx, cy + 8.0, 0.05), yaw=0.0, id='echo')
