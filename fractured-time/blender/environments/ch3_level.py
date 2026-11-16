@@ -195,8 +195,9 @@ def s_offices(M):
     return S
 
 
-def lab_bench(S, name, x, y, rot_z, M, tl):
-    """A lab bench: worktop on a cabinet, a monitor arm, sample racks."""
+def lab_bench(S, name, x, y, rot_z, M, tl, kit=(), B=None, seed=0):
+    """A lab bench: worktop on a cabinet, a monitor arm, sample racks; `kit` = scanned lab equipment on the worktop
+    ((asset, local x, yaw)), a task chair at its front when `B` (a batch) is given."""
     R = __import__('mathutils').Matrix.Rotation(rot_z, 4, 'Z')
     V = __import__('mathutils').Vector
     for size, loc, mat in (((2.4, 0.8, 0.06), (0, 0, 0.92), M['a_white']), ((2.3, 0.7, 0.86), (0, 0.02, 0.45), M['a_panel']),
@@ -204,6 +205,12 @@ def lab_bench(S, name, x, y, rot_z, M, tl):
                            ((0.7, 0.18, 0.2), (0.5, 0.2, 1.05), M['trim'])):
         p = R @ V(loc)
         S.add(K.box(f'{name}_{loc[0]}{loc[2]}', size, (x + p.x, y + p.y, p.z), mat, bevel=0.01, rot=(0, 0, rot_z)), timeline=tl)
+    for asset, lx, yaw in kit:
+        p = R @ V((lx, -0.12, 0))
+        K.prop(S, asset, (x + p.x, y + p.y, 0.95), rot_z + yaw, timeline=tl, collide=False, budget=8000)
+    if B is not None:
+        p = R @ V((random.Random(seed).uniform(-0.5, 0.5), -0.9, 0))
+        OK.task_chair(B, M, x + p.x, y + p.y, rot_z + math.pi, seed=seed)
     K.collide_box(S, name, (2.4 if abs(math.sin(rot_z)) < 0.5 else 0.8, 0.8 if abs(math.sin(rot_z)) < 0.5 else 2.4, 1.0), (x, y, 0.5), timeline=tl)
 
 
@@ -231,9 +238,17 @@ def s_palimpsest(M):
     S.add(K.cylinder('a3_plate_ring', 0.82, 0.02, (-7.0, -74.0, 0.012), M['a_cyan'], verts=48, bevel=0.0))
     K.marker(S, 'plate', (-7.0, -74.0, 0.05), id='a3_plate', door='a3_gate', hold=2.5)
     # benches + consoles (timeline a); stripped frames and fallen panels (b)
+    kits = ((('chemistry_set', 0.2, 0.0),), (('industrial_microscope', 0.5, 0.3), ('circuit_board', -0.1, 0.5)),
+            (('circuit_board', 0.6, -0.2), ('circuit_board', 0.05, 0.9)), (('industrial_microscope', -0.1, -0.4), ('chemistry_set', 0.55, 0.0)))
+    Ba, Bb = CK.Batch('a3ka'), CK.Batch('a3kb')
     for i, (x, y, r) in enumerate(((-9.5, -64, math.pi / 2), (-9.5, -69, math.pi / 2), (9.5, -64, -math.pi / 2), (9.5, -69, -math.pi / 2))):
-        lab_bench(S, f'a3_bench{i}', x, y, r, M, 'a')
+        lab_bench(S, f'a3_bench{i}', x, y, r, M, 'a', kit=kits[i], B=Ba, seed=80 + i)
         S.add(K.debris(f'a3_bdeb{i}', (x * 0.9, y, 0), M, n=6, seed=70 + i, size=0.35), timeline='b')
+        OK.task_chair(Bb, M, x * 0.78, y + (1.2 if i % 2 else -0.8), i * 1.7, fallen=True, seed=90 + i)
+    for o in Ba.objects():
+        S.add(o, timeline='a')
+    for o in Bb.objects():
+        S.add(o, timeline='b')
     S.add(K.console('a3_log1', (-4.0, -63.5, 0), math.pi, M, M['screen0']), timeline='a')
     S.add(K.console('a3_log2', (4.0, -77.5, 0), 0.0, M, M['screen2']), timeline='a')
     K.collide_box(S, 'a3_log1', (1.4, 0.8, 1.0), (-4.0, -63.5, 0.5), timeline='a')
