@@ -206,6 +206,19 @@ def s_street(M):
         K.prop(S, 'concrete_road_barrier_02', (x, y, 0.0 if not tip else 0.22), yaw=r, budget=6000,
                rot=Matrix.Rotation(tip, 4, 'X') if tip else None)
     street_dressing(S, M, x0, x1, y0, y1)
+    # parked traffic on the 2089 side: delivery vans in their own paint, lights off (the street is not empty, just stopped)
+    for k, (y, paint) in enumerate(((-58.5, 'c_van_blue'), (-91.0, 'c_van_white'))):
+        PM = dict(M)
+        PM['c_vanpaint'] = M[paint]
+        PM['c_vanhead'] = M['c_vanglass']
+        PM['c_vantail'] = M['c_vantrim']
+        W = Matrix.Translation((x0 + 4.2, y, 0.0)) @ Matrix.Rotation(math.pi + 0.02 * (k - 0.5), 4, 'Z')
+        VM = {'paint': PM['c_vanpaint'], 'trim': M['c_vantrim'], 'glass': M['c_vanglass'], 'tyre': M['c_tyre'], 'rim': M['c_vanrim'],
+              'chrome': M['c_chrome'], 'stripe': M['c_vanstripe'], 'stripe_dark': M['c_vantrim'], 'head': PM['c_vanhead'],
+              'tail': PM['c_vantail'], 'bar_red': M['c_vanred'], 'bar_blue': M['c_vanblue'], 'bar_white': M['c_vanhead'],
+              'amber': M['c_vantrim']}
+        S.add(VH.helix_van(f'c2_parked{k}', VM, matrix=W, bar=False, livery=False))
+        K.collide_box(S, f'c2_parked{k}_col', (2.1, 6.0, 2.6), (x0 + 4.2, y, 1.3))
     for y in (-56, -76, -96):
         CK.lamp_post(B, M, x0 + 0.6, y, 0.16, rot_z=-math.pi / 2)
         # the abandoned side's lamps died with it
@@ -531,6 +544,8 @@ def materials():
     M['c_tyre'] = K.plain_mat('c_tyre', (0.02, 0.02, 0.022), rough=0.8)
     # the HELIX van: lacquered pale grey paint, black trim, privacy glass, alloy rims; lamps lit
     M['c_vanpaint'] = K.plain_mat('c_vanpaint', (0.66, 0.67, 0.68), rough=0.32, coat=1.0)
+    M['c_van_blue'] = K.plain_mat('c_van_blue', (0.05, 0.12, 0.22), rough=0.3, coat=1.0)
+    M['c_van_white'] = K.plain_mat('c_van_white', (0.72, 0.71, 0.68), rough=0.34, coat=1.0)
     # street furniture: painted cast iron, red paper lanterns with lacquered caps
     M['iron'] = K.plain_mat('c_iron', (0.03, 0.032, 0.035), rough=0.4, metal=0.35, coat=0.35)
     M['lantern'] = K.emissive_mat('c_paperlantern', (1.0, 0.16, 0.05), 2.6)  # saturated red-orange paper, not a white glow

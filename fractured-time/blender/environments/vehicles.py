@@ -100,7 +100,7 @@ def _wheel(name, c, side, M):
     return parts
 
 
-def helix_van(name, M, matrix=None, crash=0.0, lights_on=True):
+def helix_van(name, M, matrix=None, crash=0.0, lights_on=True, bar=True, livery=True):
     """M: materials {'paint', 'trim', 'glass', 'tyre', 'rim', 'chrome', 'stripe', 'stripe_dark', 'head', 'tail', 'bar_red', 'bar_blue',
     'bar_white', 'amber'}. Returns the joined van object."""
     parts = []
@@ -154,16 +154,19 @@ def helix_van(name, M, matrix=None, crash=0.0, lights_on=True):
         parts.append(H.hbox(f'{name}_rail{sx}', (x - sx * 0.002, 0.75, 2.12), (0.008, 0.85, 0.012), chamfer=0.003, material=M['trim']))
         for yy in (-0.15, 0.2):
             parts.append(H.hbox(f'{name}_hd{sx}{yy}', (x + sx * 0.01, yy, 1.28), (0.012, 0.09, 0.022), chamfer=0.008, material=M['chrome']))
-        parts.append(H.hbox(f'{name}_band{sx}', (x + sx * 0.001, 0.25, 1.1), (0.003, 2.55, 0.09), chamfer=0.0, material=M['stripe']))
-        parts.append(H.hbox(f'{name}_band2{sx}', (x + sx * 0.001, 0.25, 0.97), (0.003, 2.55, 0.025), chamfer=0.0, material=M['stripe_dark']))
+        if livery:
+            parts.append(H.hbox(f'{name}_band{sx}', (x + sx * 0.001, 0.25, 1.1), (0.003, 2.55, 0.09), chamfer=0.0, material=M['stripe']))
+            parts.append(H.hbox(f'{name}_band2{sx}', (x + sx * 0.001, 0.25, 0.97), (0.003, 2.55, 0.025), chamfer=0.0,
+                                material=M['stripe_dark']))
         # lower cladding, broken by the wheel arches
         gap = WHEEL_R + 0.17
         for j, (ya, yb) in enumerate(((-2.85, AXLES[0] - gap), (AXLES[0] + gap, AXLES[1] - gap), (AXLES[1] + gap, 2.85))):
             parts.append(H.hbox(f'{name}_clad{sx}{j}', (x - sx * 0.01, (ya + yb) / 2, 0.5), (0.02, (yb - ya) / 2, 0.1), chamfer=0.015,
                                 material=M['trim']))
         # the HELIX mark on the sliding door: a hexagon badge
-        hexo = [(x, 0.6 + math.cos(i * math.pi / 3) * 0.2, 1.72 + math.sin(i * math.pi / 3) * 0.2) for i in range(6)]
-        parts.append(_flush(f'{name}_logo{sx}', hexo, out, M['stripe'], t=0.006))
+        if livery:
+            hexo = [(x, 0.6 + math.cos(i * math.pi / 3) * 0.2, 1.72 + math.sin(i * math.pi / 3) * 0.2) for i in range(6)]
+            parts.append(_flush(f'{name}_logo{sx}', hexo, out, M['stripe'], t=0.006))
         # mirror: arm and housing off the A-pillar
         parts.append(H.rod(f'{name}_ma{sx}', (sx * 0.98, -1.95, 1.5), (sx * 1.2, -2.0, 1.55), 0.02, material=M['trim']))
         parts.append(H.hbox(f'{name}_mh{sx}', (sx * 1.26, -2.0, 1.55), (0.07, 0.05, 0.16), chamfer=0.025, material=M['trim']))
@@ -188,9 +191,10 @@ def helix_van(name, M, matrix=None, crash=0.0, lights_on=True):
         parts.append(H.hbox(f'{name}_grs{k}', (0, -2.955, 0.79 + k * 0.045), (0.46, 0.008, 0.008), chamfer=0.0, material=M['chrome']))
     parts.append(H.hbox(f'{name}_fp', (0, -3.02, 0.55), (0.26, 0.004, 0.06), chamfer=0.0, material=M['stripe_dark']))
     # roof light bar: a black base, red / white / blue lenses (lit: the van froze with its lights on), roof rails
-    parts.append(H.hbox(f'{name}_lbb', (0, -0.55, ROOF + 0.04), (0.72, 0.16, 0.04), chamfer=0.02, material=M['trim']))
-    for i, (xx, mk) in enumerate(((-0.5, 'bar_red'), (-0.2, 'bar_white'), (0.2, 'bar_white'), (0.5, 'bar_blue'))):
-        parts.append(H.hbox(f'{name}_lb{i}', (xx, -0.55, ROOF + 0.115), (0.14, 0.13, 0.045), chamfer=0.03, material=M[mk]))
+    if bar:
+        parts.append(H.hbox(f'{name}_lbb', (0, -0.55, ROOF + 0.04), (0.72, 0.16, 0.04), chamfer=0.02, material=M['trim']))
+        for i, (xx, mk) in enumerate(((-0.5, 'bar_red'), (-0.2, 'bar_white'), (0.2, 'bar_white'), (0.5, 'bar_blue'))):
+            parts.append(H.hbox(f'{name}_lb{i}', (xx, -0.55, ROOF + 0.115), (0.14, 0.13, 0.045), chamfer=0.03, material=M[mk]))
     for sx in (-1, 1):
         parts.append(H.rod(f'{name}_rr{sx}', (sx * 0.78, 0.3, ROOF + 0.06), (sx * 0.78, 2.6, ROOF + 0.06), 0.022, material=M['trim']))
         for yy in (0.35, 1.45, 2.55):
