@@ -89,10 +89,11 @@ function skin(r: Recipe, old: THREE.MeshStandardMaterial): THREE.Material {
   const micro = vec3(n1.xy.add(n2.xy.mul(0.6)), n1.z.mul(n2.z)).normalize(); // whiteout blend
   m.normalNode = normalMap(micro.mul(0.5).add(0.5), vec2(float(r.pore_base ?? 0.22).mul(near)));
   // oily lobe: a little oilier where the bake made the skin smoother (T-zone), none on the scalp; wet skin: a full water film
-  (m as any).clearcoatNode = mix(smoothstep(0.72, 0.5, rough).mul(0.08).add(0.035), float(0.55), soak).mul(notScalp);
-  (m as any).clearcoatRoughnessNode = mix(rough.mul(0.55).clamp(0.22, 0.6), float(0.08), soak.max(bead));
+  // (reference B and the owner's UE5 close-ups: the nose, forehead and cheekbones carry a crisp oily sheen broken up by the pores)
+  (m as any).clearcoatNode = mix(smoothstep(0.72, 0.5, rough).mul(0.13).add(0.05), float(0.55), soak).mul(notScalp);
+  (m as any).clearcoatRoughnessNode = mix(rough.mul(0.45).clamp(0.17, 0.5), float(0.08), soak.max(bead));
   const beadN = vec3(T.dFdx(beadF).mul(-40.0), T.dFdy(beadF).mul(-40.0), 1.0).mul(bead);
-  (m as any).clearcoatNormalNode = normalMap(micro.add(beadN).normalize().mul(0.5).add(0.5), vec2(float(r.pore_strength ?? 0.5).add(bead.mul(0.6))));
+  (m as any).clearcoatNormalNode = normalMap(micro.add(beadN).normalize().mul(0.5).add(0.5), vec2(float(r.pore_strength ?? 0.65).add(bead.mul(0.6))));
   const s = r.sss_color ?? [0.85, 0.3, 0.2];
   (m as any).thicknessColorNode = vec3(s[0], s[1], s[2]).mul(0.06);
   (m as any).thicknessDistortionNode = float(0.1);
