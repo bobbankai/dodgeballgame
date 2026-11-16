@@ -1157,6 +1157,13 @@ def room(S, name, x0, x1, y0, y1, H, M, openings=None, beams=True, ceiling=True,
     o['collision'] = True
     o.hide_render = True
     S.collide.append(S.link(o))
+    if ceiling:
+        # the roof as a collider too: the rain's shelter map and the camera's collision rays both stop at it (rain fell inside the
+        # lift house on the surface deck)
+        o = box(f'col_{name}_ceil', (W, L, 0.3), (cx, cy, H + 0.15), None, bevel=0.0)
+        o['collision'] = True
+        o.hide_render = True
+        S.collide.append(S.link(o))
 
 
 def sliding_door(S, name, center, horiz, width, M, door_h=2.9, state='closed', role='door'):
