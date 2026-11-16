@@ -58,7 +58,9 @@ A chapter is complete only when objectives, interactions, combat, cinematics, tr
 - Hard surface: `blender/common/hardpoly.py` (bevelled boxes, outline plates, bolts, rods, plane cuts, exact booleans, weighted normals);
   SDF (`sdf.py`) only for organic/round forms. `blender/common/masks.py` bakes AO + edge masks on a UV atlas for armour recipes.
 - Levels: `blender/environments/ch1_level.py`, `ch2_level.py` (`--only s3,s4 --probes --export`; `--render KEY out.png` = Cycles preview).
-  Probes (baked SH light for characters) MUST run before export (export joins objects and strips textures). Scanned sets ship their AO
+  Probes (baked SH light for characters) MUST run before export (export joins objects and strips textures). After any level
+  export run `tools/assets/pack_levels.sh [chN ...]` (meshopt; raw exports kept in vendor/levels_raw/, which UV checks read).
+  `FT_REUSE_LM=1` re-exports a level keeping its existing lightmaps (the LM unwrap is deterministic): delete the maps that must change. Scanned sets ship their AO
   map (`tools/assets/ship_ao.py` regenerates `src/rendering/aosets.ts`). City pieces: `citykit.py`, facade sets `facades.py`.
 - Voices: `python3 tools/voices/record.py` records every `['WHO', 'line']` in `src/chapters/*.ts` with Kokoro (model in vendor/kokoro);
   unchanged lines are skipped. Sound recipes are checked offline in `audio.html` (peak / RMS / length per recipe).
