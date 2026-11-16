@@ -26,7 +26,11 @@ Poly Haven models (CC0), converted by `blender/props/foliage.py` or imported by 
 - rocks: rock_moss_set_01, rock_moss_set_02, boulder_01, rock_face_01, coast_rocks_01, coast_rocks_02, coast_land_rocks_02;
 - street (hidden_alley set): exterior_aircon_unit, fire_hydrant, metal_trash_can, concrete_road_barrier_02, covered_car, old_tyre,
   barrel_stove, security_camera_01, utility_box_01/02, water_manhole_cover, rollershutter_door, rollershutter_window_01,
-  modular_airduct_circular_01, modular_street_seating, street_lamp_01/02 (downloaded; the last four are not placed yet).
+  modular_airduct_circular_01, modular_street_seating, street_lamp_01/02 (downloaded; the last four are not placed yet);
+- offices and labs (`blender/environments/officekit.py`, 1k): metal_office_desk, drawer_cabinet, steel_frame_shelves_02, binder_notebook,
+  clipboard, cardboard_box_01, potted_plant_01, potted_plant_02, korean_fire_extinguisher_01 (placed: Chapter 3 offices, Chapter 4 memory
+  lab); industrial_microscope, chemistry_set, circuit_board, steel_frame_shelves_01, modern_arm_chair_01, WetFloorSign_01, planter_box_01
+  (downloaded, not placed yet). Task chairs and flat screens are built in `officekit.py` (no Poly Haven equivalent).
 Poly Haven textures added for the forests and ruins (CC0): forest_floor, forrest_ground_01, mossy_rock, concrete_moss, distressed_painted_planks;
 HDRI kloofendal_48d_partly_cloudy_puresky (daylight skies of Chapters 4 and 5).
 
