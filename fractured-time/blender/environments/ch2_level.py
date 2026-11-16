@@ -98,6 +98,21 @@ def s_rooftops(M):
         B.box(M['c_brick'], (sx, sy, 1.0), (cx, cy, 18.8), bevel=0.03)
         K.collide_box(S, f'c1_parB{cx}{cy}', (sx, sy, 1.2), (cx, cy, 18.9))
     CK.roof_clutter(B, M, 2, -33, 10, 12, 18.3, random.Random(4))
+    # the roofs' own light (the chapter opens here: under the storm alone the decks and Ethan were black). Roof A: the access hut
+    # with a caged sodium work lamp over its door, and a red aviation beacon on a mast; roof B: a cool LED lamp on a post at the
+    # parapet gap where the fire escape goes down (the way on is the lit place)
+    zA, zB = 20.3, 18.3
+    S.add(K.box('c1_hut', (2.4, 2.2, 2.5), (6.0, -9.0, zA + 1.25), M['c_concrete'], bevel=0.03))
+    S.add(K.box('c1_hut_cap', (2.7, 2.5, 0.14), (6.0, -9.0, zA + 2.57), M['trim'], bevel=0.02))
+    S.add(K.box('c1_hut_door', (0.06, 1.0, 2.05), (4.78, -9.0, zA + 1.03), M['door'], bevel=0.01))
+    K.collide_box(S, 'c1_hut', (2.5, 2.3, 2.7), (6.0, -9.0, zA + 1.35))
+    S.add(K.bulkhead_lamp('c1_hutlamp', (4.8, -9.0, zA + 2.25), -math.pi / 2, M, color=(1.0, 0.7, 0.42), power=125.0, tilt=34.0))
+    S.add(K.box('c1_mast', (0.07, 0.07, 3.0), (-8.2, 3.2, zA + 1.5), M['c_metal'], bevel=0.0))
+    S.add(K.cylinder('c1_beacon', 0.07, 0.1, (-8.2, 3.2, zA + 3.05), K.emissive_mat('c1_beacon', (1.0, 0.08, 0.04), 30.0), verts=16))
+    K.area_light('c1_beaconL', (-8.2, 3.2, zA + 2.95), (0.12, 0.12), 6.0, (1.0, 0.1, 0.05), shape='DISK', rot=(math.pi, 0, 0))
+    S.add(K.box('c1_post', (0.1, 0.1, 2.6), (-7.6, -27.6, zB + 1.3), M['c_metal'], bevel=0.01))
+    K.collide_box(S, 'c1_post', (0.2, 0.2, 2.6), (-7.6, -27.6, zB + 1.3))
+    S.add(K.bulkhead_lamp('c1_gaplamp', (-7.6, -27.66, zB + 2.35), 0.0, M, color=(0.82, 0.9, 1.0), power=70.0, tilt=32.0))
     # the fire escape down roof B's west face, opening onto the alley
     fire_escape(S, B, M, -10.2, -31.5, 18.0, flights=6)
     K.collide_box(S, 'c1_alley', (8.0, 40.0, 0.4), (-13.0, -30.0, -0.2))
