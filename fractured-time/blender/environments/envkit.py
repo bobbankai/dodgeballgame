@@ -1504,30 +1504,49 @@ def _prop_material(asset, src):
     dst = os.path.join(PUB, 'textures', 'pbr', tid)
     os.makedirs(dst, exist_ok=True)
     found = False
-    for f in os.listdir(texdir):
-        if not f.startswith(tid + '_'):
+    files = sorted(os.listdir(texdir))
+    # a variant ships only the maps that differ (the graffiti shutters: a diffuse; the rusted aircon's second part: no
+    # diffuse): each map falls back to the base material's (name tokens stripped from the end), then to a numbered sibling's
+    parts = tid.split('_')
+    cands = ['_'.join(parts[:k]) for k in range(len(parts), 0, -1)]
+    if parts[-1].isdigit():
+        cands.append('_'.join(parts[:-1] + ['01']))
+
+    def pick(kind):
+        for c in cands:
+            for f in files:
+                if f.startswith(f'{c}_{kind}_'):
+                    return f
+        return None
+    if 'glass' in tid and not any(f.startswith(tid + '_') for f in files):
+        # a lens or a pane with no maps of its own: dark gloss
+        m = src if src is not None else bpy.data.materials.new(tid)
+        m['ft'] = json.dumps({'type': 'plain', 'color': [0.02, 0.022, 0.025], 'rough': 0.05, 'metal': 0.0})
+        MATS[tid] = m
+        return m
+    for kind in ('diff', 'nor_gl', 'rough', 'arm'):
+        f = pick(kind)
+        if f is None:
             continue
-        kind = f[len(tid) + 1:].rsplit('_', 1)[0]
-        if kind in ('diff', 'nor_gl', 'rough', 'arm'):
-            img = bpy.data.images.load(os.path.join(texdir, f))
-            img.scale(1024, 1024)
-            if kind == 'arm':
-                # ambient occlusion (R) and roughness (G) as their own maps (the engine's pbr recipe reads _ao / _rough)
-                px = np.array(img.pixels[:], np.float32).reshape(-1, 4)
-                for ch, nm in ((0, 'ao'), (1, 'rough')):
-                    im2 = bpy.data.images.new(f'{tid}_{nm}', 1024, 1024)
-                    q = np.repeat(px[:, ch:ch + 1], 3, 1)
-                    im2.pixels.foreach_set(np.concatenate([q, np.ones((len(q), 1), np.float32)], 1).ravel())
-                    im2.filepath_raw = os.path.join(dst, f'{tid}_{nm}.jpg')
-                    im2.file_format = 'JPEG'
-                    im2.save()
-                    bpy.data.images.remove(im2)
-            else:
-                img.filepath_raw = os.path.join(dst, f'{tid}_{kind}.jpg')
-                img.file_format = 'JPEG'
-                img.save()
-            bpy.data.images.remove(img)
-            found = True
+        img = bpy.data.images.load(os.path.join(texdir, f))
+        img.scale(1024, 1024)
+        if kind == 'arm':
+            # ambient occlusion (R) and roughness (G) as their own maps (the engine's pbr recipe reads _ao / _rough)
+            px = np.array(img.pixels[:], np.float32).reshape(-1, 4)
+            for ch, nm in ((0, 'ao'), (1, 'rough')):
+                im2 = bpy.data.images.new(f'{tid}_{nm}', 1024, 1024)
+                q = np.repeat(px[:, ch:ch + 1], 3, 1)
+                im2.pixels.foreach_set(np.concatenate([q, np.ones((len(q), 1), np.float32)], 1).ravel())
+                im2.filepath_raw = os.path.join(dst, f'{tid}_{nm}.jpg')
+                im2.file_format = 'JPEG'
+                im2.save()
+                bpy.data.images.remove(im2)
+        else:
+            img.filepath_raw = os.path.join(dst, f'{tid}_{kind}.jpg')
+            img.file_format = 'JPEG'
+            img.save()
+        bpy.data.images.remove(img)
+        found = True
     m = src if src is not None else bpy.data.materials.new(tid)
     m['ft'] = json.dumps({'type': 'pbr', 'tex': tid, 'res': '1k', 'tile': 1.0, 'tint': [1, 1, 1], 'desat': None, 'rough_mul': 1.0,
                           'rough_add': 0.0, 'normal': 1.0, 'metal': 0.0, 'coat': 0.0, 'own': True})

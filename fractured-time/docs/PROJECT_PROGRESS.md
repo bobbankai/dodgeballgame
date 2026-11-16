@@ -75,8 +75,9 @@ rain, wet streets, SSR, water, dusk city, skin, POM, grading) is in; it has been
   (white frame) at every quality, with or without the storm sky, the window panes and the rain; the morning build before this pass
   does the same, so it is not a regression. Interiors (Chapter 1), the Nexus and the lab render on WebGPU identically to WebGL2.
   Needs a run on a real GPU; if it reproduces there, bisect with the test switches (`?nostorm`, `?nowin`, `?norain`).
-- **Street prop variants without textures:** the security camera's glass, the shutters' graffiti variants and the rusted aircon load
-  no maps (their material names do not match the scan's file prefixes in `envkit._prop_material`).
+- **Street prop variants without textures** (fixed in the pipeline, lands with the street's re-export): the security camera's glass,
+  the shutters' graffiti variants and the rusted aircon loaded no maps; a variant's maps now fall back to its base material's and a
+  numbered sibling's, and map-less glass is dark gloss.
 - **Skin** is still smoother and flatter than reference B: needs stronger micro detail at mid distance, specular breakup, and a real
   subsurface diffusion (screen-space or pre-integrated) instead of translucency only.
 - **Expressions**: the 75 face shapes exist but no expression set / facial animation has been authored or reviewed.
