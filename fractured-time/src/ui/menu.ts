@@ -4,6 +4,7 @@
  * Settings and progress persist in localStorage (wrapped: private windows and blocked storage just do not persist).
  */
 import { detectQuality } from '@/rendering/quality';
+import { isTouch } from '@/ui/device';
 export interface Settings {
   quality: 'ultra' | 'high' | 'balanced' | 'performance';
   master: number; music: number; sfx: number; voice: number;
@@ -221,7 +222,7 @@ export function loadingScreen(chapter: number): { done: () => void; progress: (k
     ready: () => new Promise<void>((res) => {
       const go = document.createElement('div');
       go.className = 'ld-go';
-      go.textContent = 'Press any key';
+      go.textContent = isTouch() ? 'Tap to continue' : 'Press any key';
       el.insertBefore(go, el.querySelector('.ld-tip'));
       const fire = () => { removeEventListener('keydown', fire); removeEventListener('pointerdown', fire); res(); };
       addEventListener('keydown', fire);
