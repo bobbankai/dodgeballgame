@@ -33,7 +33,7 @@ def materials():
     M = L1.materials()
     M.update({
         'a_marble': K.mat('a_marble', 'marble_01', 0.35, tint=(0.82, 0.8, 0.78), desat=0.6, rough_mul=0.5, coat=0.3),
-        'a_stone': K.mat('a_stone', 'grey_cartago_01', 0.5, tint=(0.62, 0.6, 0.58), desat=0.7, rough_mul=0.7),
+        'a_stone': K.mat('a_stone', 'grey_cartago_01', 0.5, tint=(0.62, 0.6, 0.58), desat=0.12, rough_mul=0.7),  # desat = saturation kept: the scan's slate is veined rust-orange
         'a_wood': K.mat('a_wood', 'wood_floor', 0.6, tint=(0.62, 0.48, 0.36), desat=0.6),
         'a_carpet': K.mat('a_carpet', 'dirty_carpet', 1.2, tint=(0.18, 0.2, 0.22), desat=0.9),
         'a_panel': K.plain_mat('a_panel', (0.72, 0.72, 0.7), rough=0.35),

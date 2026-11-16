@@ -43,7 +43,7 @@ def materials():
     M = L3.materials()
     M.update({
         'f_pool': K.water_mat('f_pool', tint=(0.55, 0.72, 0.76), dist=2.5, waves=0.18, scale=1.6, flow=1.0),
-        'f_basin': K.mat('f_basin', 'grey_cartago_01', 0.5, tint=(0.7, 0.7, 0.68), desat=0.7, rough_mul=0.6),
+        'f_basin': K.mat('f_basin', 'grey_cartago_01', 0.5, tint=(0.7, 0.7, 0.68), desat=0.12, rough_mul=0.6),
         'm_wood': K.mat('m_wood', 'wood_floor', 0.6, tint=(0.7, 0.52, 0.36), desat=0.7),
         'm_plaster': K.mat('m_plaster', 'red_brick_plaster_patch_02', 0.45, tint=(0.78, 0.72, 0.62), desat=0.3),
         'm_paper': K.plain_mat('m_paper', (0.78, 0.76, 0.68), rough=0.8),
