@@ -82,3 +82,9 @@ kbd { display: inline-grid; place-items: center; min-width: 20px; height: 20px; 
 
 .ability.locked { opacity: 0.15; filter: grayscale(1); }
 .ability.locked b::after { content: ''; }
+
+/* the GPU was reclaimed (a backgrounded phone tab, a driver reset): a notice before the reload at the last checkpoint */
+.device-lost { position: fixed; inset: 0; z-index: 80; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;
+  background: #05080c; color: var(--ink); text-transform: uppercase; letter-spacing: 0.3em; font-size: 12px; text-align: center; padding: 0 8vw; }
+.device-lost b { font-weight: 400; font-size: 15px; color: var(--cy); }
+.device-lost span { opacity: 0.6; font-size: 10px; letter-spacing: 0.24em; }

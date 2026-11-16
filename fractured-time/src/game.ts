@@ -140,6 +140,17 @@ export class Game implements Simulation, GameCtx {
       const unlock = () => g.sfx.unlock();
       addEventListener('pointerdown', unlock);
       addEventListener('keydown', unlock);
+      // away from the tab (another app, a locked phone): silence and pause; back: sound, and the pause menu waits for the player
+      document.addEventListener('visibilitychange', () => {
+        const ctx = (g.sfx.engine as unknown as { ctx?: AudioContext }).ctx;
+        if (document.hidden) {
+          void ctx?.suspend();
+          if (g.chapter) g.openPause();
+        } else void ctx?.resume();
+      });
+      // a phone reclaims the GPU of a backgrounded tab (and a driver can reset): the context does not come back, so reload at the
+      // last checkpoint instead of leaving a dead black canvas (a guard stops a loop if the device keeps failing)
+      g.gfx.renderer.onDeviceLost = () => g.recoverFromDeviceLoss();
     }
 
     // the post chain exists before the level: section streaming sets its fog
@@ -363,7 +374,24 @@ export class Game implements Simulation, GameCtx {
     void import('@/ui/menu').then((m) => m.saves.set(chapter, beat));
   }
 
-  private openPause(): void {
+  /** The GPU device or WebGL context is gone: tell the player and reload at the last checkpoint. */
+  recoverFromDeviceLoss(): void {
+    if (document.querySelector('.device-lost')) return;
+    const n = Number(sessionStorage.getItem('ft.deviceLost') ?? 0);
+    try { sessionStorage.setItem('ft.deviceLost', String(n + 1)); } catch { /* storage unavailable */ }
+    const el = document.createElement('div');
+    el.className = 'device-lost';
+    el.innerHTML = n < 2 ? '<b>Graphics reset by the device</b><span>Returning to your last checkpoint</span>'
+      : '<b>The graphics device keeps resetting</b><span>Try the Performance preset, or close other apps and reload</span>';
+    document.body.appendChild(el);
+    if (n >= 2) return;
+    void import('@/ui/menu').then((m) => {
+      const sv = m.saves.get();
+      setTimeout(() => { location.href = sv ? `${location.pathname}?chapter=${sv.chapter}&at=${sv.at}` : location.href; }, 1400);
+    });
+  }
+
+  openPause(): void {
     if (this.paused) return;
     this.paused = true;
     if (document.pointerLockElement) document.exitPointerLock();
@@ -425,6 +453,8 @@ export class Game implements Simulation, GameCtx {
   }
 
   start(): void {
+    // two minutes of healthy play clear the device-loss guard (recoverFromDeviceLoss)
+    setTimeout(() => { try { sessionStorage.removeItem('ft.deviceLost'); } catch { /* storage unavailable */ } }, 120000);
     this.loop.start();
     this.runScript();
   }
