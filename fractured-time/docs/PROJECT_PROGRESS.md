@@ -118,6 +118,12 @@ rain, wet streets, SSR, water, dusk city, skin, POM, grading) is in; it has been
 32. Voss's long coat was a 3.5 mm shell meshed at a 1.8 mm grid: it exported shattered (torn triangles on the back, shards in front).
     Now 7 mm of heavy wool with a larger triangle budget; the placket and pin moved out to sit on it.
 33. Chapters 4 and 5 failed at export on statics with no UV map at all (a reality holding only curves/text): one is created.
+34. The skybridge's overhead ribs hung at 3.3 m, the third-person camera's height, with no camera collision: walking the bridge
+    the camera passed through rib after rib (black frames), and a respawn at the heart's checkpoint parked it behind the last one.
+    Ribs raised to 5.3 m on taller fins; the bridge rebaked.
+35. The Nexus heart whited out toward the Engine (bounce-lit volume + forward scattering at 2x exterior density): thinned.
+36. Chapter 5 played by script from the first fragment to both endings (`tests/scripts/flows/ch5_*.json`): island puzzles (shift,
+    slow, echo gate), the fight, the bridge with the Echo as ally, Voss through three phases, the Engine, Ending A and Ending B.
 
 ---
 

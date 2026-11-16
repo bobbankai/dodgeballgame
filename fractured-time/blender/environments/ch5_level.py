@@ -239,13 +239,14 @@ def s_bridge(M):
     for sx in (-3.0, 3.0):
         for k in range(int((y0 - y1) / 4)):
             y = y0 - 2 - k * 4
-            S.add(K.box(f'n2_fin{sx}{k}', (0.12, 0.12, 2.4), (x + sx, y, 2.0), M['trim'], bevel=0.02))
+            # tall fins carrying the overhead ribs: the ribs must clear the third-person camera (~3-3.6 m above the deck)
+            S.add(K.box(f'n2_fin{sx}{k}', (0.12, 0.12, 4.6), (x + sx, y, 3.1), M['trim'], bevel=0.02))
             if k % 3 != 1:
                 S.add(K.box(f'n2_glass{sx}{k}', (0.04, 3.9, 2.2), (x + sx, y - 2, 1.9), M['glass'], bevel=0.0))
         K.collide_box(S, f'n2_side{sx}', (0.4, y0 - y1, 3.0), (x + sx, (y0 + y1) / 2, 2.3))
     for k in range(6):
         y = y0 - 4 - k * 7.5
-        S.add(K.box(f'n2_rib{k}', (6.6, 0.4, 0.4), (x, y, 3.3), M['trim'], bevel=0.04))
+        S.add(K.box(f'n2_rib{k}', (6.6, 0.4, 0.4), (x, y, 5.3), M['trim'], bevel=0.04))
     S.add(K.join([K.box(f'n2_under{k}', (5.0, 7.0, 1.2), (x, y0 - 4 - k * 8.5, -0.5 - (k % 2) * 0.4), M['n_rock'], bevel=0.3)
                   for k in range(5)], 'n2_under'))
     fragment(S, B, M, 'arcology', x, y0 + 2.0, 0.8, 8.0, 4.0, 20)

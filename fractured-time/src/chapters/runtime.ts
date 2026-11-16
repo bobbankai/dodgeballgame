@@ -524,7 +524,10 @@ export class ChapterRuntime {
     sc.fog = vf ? null : new THREE.FogExp2(new THREE.Color(f[0], f[1], f[2]), f[3]);
     if (vf) {
       // outside the light volume the air is lit by the open sky: the marker's fog colour is that in-scatter
-      this.g.post.fog.apply({ ...EXTERIOR_FOG, density: f[3] * 1.1, baseY: box.min.y + 0.3,
+      // the Nexus is a void lit by the Engine itself: its light volumes carry bounce now, and at the marker's density the air
+      // whited out every view toward the Engine (forward scattering); the void reads thinner so the platform and the ring hold
+      const nexusThin = sky.data.nexus ? 0.55 : 1;
+      this.g.post.fog.apply({ ...EXTERIOR_FOG, density: f[3] * 1.1 * nexusThin, baseY: box.min.y + 0.3,
         fallback: new THREE.Vector4(f[0], f[1], f[2], 1), ...this.fogOverride() });
     }
     this.captureFogBase();
