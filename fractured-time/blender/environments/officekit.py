@@ -147,7 +147,7 @@ def workstation_pod(S, B, M, cx, cy, yaw, tl, seed, screens=('screen0', 'screen1
 
 def wall_storage(S, M, x, y, yaw, tl, n=3, seed=0, ruined=False):
     """Along a wall: filing cabinets and a steel shelf unit with archive boxes and binders. Ruined: a cabinet face down, boxes
-    split across the floor."""
+    split across the floor. The scans' fronts face -Y at yaw 0: on a west wall yaw = +pi/2, on an east wall -pi/2."""
     rng = random.Random(seed)
     R = Matrix.Rotation(yaw, 4, 'Z')
     for i in range(n):

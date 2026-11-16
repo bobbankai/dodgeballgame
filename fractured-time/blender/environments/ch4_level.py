@@ -29,6 +29,7 @@ import ch1_level as L1  # noqa: E402
 import ch3_level as L3  # noqa: E402
 import citykit as CK  # noqa: E402
 import envkit as K  # noqa: E402
+import officekit as OK  # noqa: E402
 
 OUT = os.path.join(K.PUB, 'environments', 'ch4')
 CLEAR_HDRI = os.path.join(K.ROOT, 'vendor', 'polyhaven', 'hdri', 'kloofendal_48d_partly_cloudy_puresky_2k.hdr')
@@ -289,22 +290,37 @@ def s_memory(M):
         S.add(K.sign(f'p2_chalk{i}', line, (ox, y0 - 0.29, 2.25 - i * 0.32), (math.radians(90), 0, 0), 0.16, M['m_chalk']))
     # desks, papers, lamps, a briefing table, filing cabinets, old monitors
     rng = random.Random(21)
+    # (the desks face the board at the south wall: their users sit on the north side)
     for i, (x, y) in enumerate(((ox - 5, -6), (ox - 5, -11), (ox + 5, -6), (ox + 5, -11))):
-        B.box(M['m_wood'], (1.8, 0.9, 0.06), (x, y, 0.76), bevel=0.01)
-        B.box(M['m_wood'], (1.7, 0.8, 0.7), (x, y, 0.36), bevel=0.01)
+        K.prop(S, 'metal_office_desk', (x, y, 0.0), 0.0, collide=False)
+        OK.task_chair(B, M, x + rng.uniform(-0.3, 0.3), y - 0.95, math.pi, seed=300 + i)
         for _ in range(4):
-            B.box(M['m_paper'], (0.21, 0.3, 0.004), (x + rng.uniform(-0.6, 0.6), y + rng.uniform(-0.3, 0.3), 0.792), rot_z=rng.uniform(-0.4, 0.4), bevel=0.0)
+            B.box(M['m_paper'], (0.21, 0.3, 0.004), (x + rng.uniform(-0.7, 0.3), y + rng.uniform(-0.3, 0.3), 0.792), rot_z=rng.uniform(-0.4, 0.4), bevel=0.0)
+        # an old cathode-ray monitor, its screen toward the chair
         B.box(M['trim'], (0.45, 0.4, 0.38), (x + 0.5, y + 0.15, 0.98), bevel=0.03)
         B.box(M['screen2'], (0.36, 0.01, 0.26), (x + 0.5, y - 0.06, 1.0), bevel=0.0)
-        B.box(M['m_lamp'], (0.16, 0.16, 0.06), (x - 0.6, y + 0.2, 1.12), bevel=0.02)
+        # the desk lamp on its stem
+        B.box(M['trim'], (0.14, 0.14, 0.02), (x - 0.6, y + 0.25, 0.8), bevel=0.006)
+        B.box(M['trim'], (0.02, 0.02, 0.3), (x - 0.6, y + 0.25, 0.95), bevel=0.0)
+        B.box(M['trim'], (0.2, 0.18, 0.08), (x - 0.6, y + 0.2, 1.13), bevel=0.02)
+        B.box(M['m_lamp'], (0.16, 0.14, 0.01), (x - 0.6, y + 0.2, 1.088), bevel=0.0)
         K.area_light(f'p2_desk{i}', (x - 0.6, y + 0.2, 1.05), (0.15, 0.15), 18.0, (1.0, 0.72, 0.42), shape='DISK', rot=(0, 0, 0))
-        K.collide_box(S, f'p2_desk{i}', (1.8, 0.9, 0.8), (x, y, 0.4))
+        K.prop(S, 'binder_notebook', (x - 0.1, y + 0.05, 0.79), rng.uniform(-0.3, 0.3), node='binder_notebook_closed', collide=False, budget=3000)
+        K.collide_box(S, f'p2_desk{i}', (2.0, 0.95, 0.8), (x, y, 0.4))
+    # the briefing table and its chairs
     B.box(M['m_wood'], (4.0, 1.6, 0.08), (ox, -16.0, 0.78), bevel=0.02)
     B.box(M['trim'], (0.3, 0.3, 0.74), (ox - 1.6, -16.0, 0.37), bevel=0.02)
     B.box(M['trim'], (0.3, 0.3, 0.74), (ox + 1.6, -16.0, 0.37), bevel=0.02)
+    for k, (dx, side) in enumerate(((-1.3, -1), (0.0, -1), (1.3, -1), (-1.3, 1), (0.0, 1), (1.3, 1))):
+        OK.task_chair(B, M, ox + dx, -16.0 + side * 1.15, 0.0 if side > 0 else math.pi, seed=320 + k)
+    K.prop(S, 'clipboard', (ox - 0.8, -15.8, 0.82), 0.3, collide=False, budget=3000)
+    K.prop(S, 'binder_notebook', (ox + 0.6, -16.2, 0.82), -0.2, node='binder_notebook', collide=False, budget=3000)
     K.collide_box(S, 'p2_table', (4.0, 1.6, 0.85), (ox, -16.0, 0.42))
-    for k in range(3):
-        B.box(M['trim'], (0.5, 0.6, 1.3), (x1 - 0.5, -15 - k * 0.55, 0.65), bevel=0.02)
+    # the records: filing cabinets and an archive shelf along the east wall, plants by the windows, the extinguisher at the door
+    OK.wall_storage(S, M, x1 - 0.45, -15.6, -math.pi / 2, None, n=3, seed=330)
+    K.prop(S, 'potted_plant_01', (x0 + 0.7, -1.0, 0.0), 0.4, collide=False, budget=5000)
+    K.prop(S, 'potted_plant_02', (x0 + 0.7, -20.8, 0.0), 1.9, collide=False, budget=5000)
+    K.prop(S, 'korean_fire_extinguisher_01', (ox + 1.4, y1 + 0.3, 0.0), math.pi, collide=False, budget=4000)
     for k in range(3):
         S.add(K.box(f'p2_pend{k}', (0.4, 0.4, 0.12), (ox, -5 - k * 5.5, H - 0.5), M['m_lamp'], bevel=0.04))
         K.area_light(f'p2_pendL{k}', (ox, -5 - k * 5.5, H - 0.6), (0.38, 0.38), 120.0, (1.0, 0.76, 0.48))

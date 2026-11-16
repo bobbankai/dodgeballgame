@@ -167,9 +167,9 @@ def s_offices(M):
         OK.workstation_pod(S, Ba, M, px, py, 0.0, 'a', seed=20 + i)
         if i in (0, 3):
             OK.workstation_pod(S, Bb, M, px, py, 0.0, 'b', seed=40 + i, ruined=True)
-    OK.wall_storage(S, M, -11.6, -41.5, -math.pi / 2, 'a', n=3, seed=60)
-    OK.wall_storage(S, M, 11.6, -49.0, math.pi / 2, 'a', n=3, seed=61)
-    OK.wall_storage(S, M, -11.6, -41.5, -math.pi / 2, 'b', n=3, seed=62, ruined=True)
+    OK.wall_storage(S, M, -11.6, -41.5, math.pi / 2, 'a', n=3, seed=60)
+    OK.wall_storage(S, M, 11.6, -49.0, -math.pi / 2, 'a', n=3, seed=61)
+    OK.wall_storage(S, M, -11.6, -41.5, math.pi / 2, 'b', n=3, seed=62, ruined=True)
     K.prop(S, 'korean_fire_extinguisher_01', (-3.2, -30.35, 0.9), 0.0, timeline='a', collide=False, budget=4000)
     for o in Ba.objects():
         S.add(o, timeline='a')
