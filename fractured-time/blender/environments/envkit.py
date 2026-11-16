@@ -1420,11 +1420,13 @@ def prop(S, asset, loc, yaw=0.0, scale=1.0, node=None, timeline=None, budget=120
                 if o not in keep:
                     bpy.data.objects.remove(o)
             objs = keep
+        # the budget is the whole prop's (a scanned desk is nine objects: body, drawers, handles), shared in proportion
+        total = sum(sum(len(p.vertices) - 2 for p in o.data.polygons) for o in objs)
         for o in objs:
             ntri = sum(len(p.vertices) - 2 for p in o.data.polygons)
-            if ntri > budget:
+            if total > budget and ntri > 24:
                 d = o.modifiers.new('dec', 'DECIMATE')
-                d.ratio = budget / ntri
+                d.ratio = max(budget / total, 24 / ntri)
                 bpy.context.view_layer.objects.active = o
                 bpy.ops.object.modifier_apply(modifier='dec')
             for sl in o.material_slots:

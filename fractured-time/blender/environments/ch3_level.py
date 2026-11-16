@@ -170,7 +170,7 @@ def s_offices(M):
     OK.wall_storage(S, M, -11.6, -41.5, math.pi / 2, 'a', n=3, seed=60)
     OK.wall_storage(S, M, 11.6, -49.0, -math.pi / 2, 'a', n=3, seed=61)
     OK.wall_storage(S, M, -11.6, -41.5, math.pi / 2, 'b', n=3, seed=62, ruined=True)
-    K.prop(S, 'korean_fire_extinguisher_01', (-3.2, -30.35, 0.9), 0.0, timeline='a', collide=False, budget=4000)
+    K.prop(S, 'korean_fire_extinguisher_01', (-3.2, -30.35, 0.9), 0.0, timeline='a', collide=False, budget=900)
     for o in Ba.objects():
         S.add(o, timeline='a')
     for o in Bb.objects():
@@ -207,7 +207,7 @@ def lab_bench(S, name, x, y, rot_z, M, tl, kit=(), B=None, seed=0):
         S.add(K.box(f'{name}_{loc[0]}{loc[2]}', size, (x + p.x, y + p.y, p.z), mat, bevel=0.01, rot=(0, 0, rot_z)), timeline=tl)
     for asset, lx, yaw in kit:
         p = R @ V((lx, -0.12, 0))
-        K.prop(S, asset, (x + p.x, y + p.y, 0.95), rot_z + yaw, timeline=tl, collide=False, budget=8000)
+        OK.prop(S, asset, (x + p.x, y + p.y, 0.95), rot_z + yaw, timeline=tl, collide=False)
     if B is not None:
         p = R @ V((random.Random(seed).uniform(-0.5, 0.5), -0.9, 0))
         OK.task_chair(B, M, x + p.x, y + p.y, rot_z + math.pi, seed=seed)

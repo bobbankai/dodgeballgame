@@ -12,6 +12,16 @@ from mathutils import Matrix, Vector
 import envkit as K
 
 DESK_W, DESK_D, DESK_H = 2.0, 0.95, 0.79
+# triangles per prop (whole prop): seen from a third-person camera across a room, a desk needs ~2.5k, a binder a few hundred
+BUDGET = {'metal_office_desk': 2600, 'drawer_cabinet': 2200, 'steel_frame_shelves_02': 1600, 'binder_notebook': 700, 'clipboard': 500,
+          'cardboard_box_01': 500, 'potted_plant_01': 3000, 'potted_plant_02': 2600, 'korean_fire_extinguisher_01': 900,
+          'industrial_microscope': 1800, 'chemistry_set': 3500, 'circuit_board': 500}
+
+
+def prop(S, asset, loc, yaw=0.0, **kw):
+    """envkit.prop with the kit's triangle budget for the asset."""
+    kw.setdefault('budget', BUDGET.get(asset, 2000))
+    return K.prop(S, asset, loc, yaw, **kw)
 
 
 def _mats(M):
@@ -104,19 +114,18 @@ def workstation_pod(S, B, M, cx, cy, yaw, tl, seed, screens=('screen0', 'screen1
                 jx, jy = rng.uniform(-0.6, 0.6), rng.uniform(-0.5, 0.5)
                 x, y = at(lx + jx, ly + jy + row * 0.4)
                 if rng.random() < 0.5:   # on its back, legs toward the room
-                    K.prop(S, 'metal_office_desk', (x, y, DESK_D / 2), dyaw + rng.uniform(-0.4, 0.4), timeline=tl, collide=False,
+                    prop(S, 'metal_office_desk', (x, y, DESK_D / 2), dyaw + rng.uniform(-0.4, 0.4), timeline=tl, collide=False,
                            rot=Matrix.Rotation(math.radians(90 * -row), 4, 'X'))
                 else:
-                    K.prop(S, 'metal_office_desk', (x, y, 0.0), dyaw + rng.uniform(-0.5, 0.5), timeline=tl, collide=False)
+                    prop(S, 'metal_office_desk', (x, y, 0.0), dyaw + rng.uniform(-0.5, 0.5), timeline=tl, collide=False)
                     monitor(B, M, x, y, DESK_H, dyaw, None, smashed=True)
                 cxh, cyh = at(lx + rng.uniform(-1.2, 1.2), ly + row * rng.uniform(1.4, 2.6))
                 task_chair(B, M, cxh, cyh, rng.uniform(0, math.tau), fallen=True, seed=seed * 10 + k)
                 bx, by = at(lx + rng.uniform(-1.0, 1.0), ly + row * rng.uniform(1.0, 2.2))
-                K.prop(S, 'binder_notebook', (bx, by, 0.0), rng.uniform(0, math.tau), node='binder_notebook', timeline=tl, collide=False,
-                       budget=3000)
+                prop(S, 'binder_notebook', (bx, by, 0.0), rng.uniform(0, math.tau), node='binder_notebook', timeline=tl, collide=False)
                 continue
             x, y = at(lx, ly)
-            K.prop(S, 'metal_office_desk', (x, y, 0.0), dyaw, timeline=tl, collide=False)
+            prop(S, 'metal_office_desk', (x, y, 0.0), dyaw, timeline=tl, collide=False)
             ux, uy = at(lx, ly + row * 0.95)
             task_chair(B, M, ux, uy, dyaw + math.pi, seed=seed * 10 + k)
             two = rng.random() < 0.45
@@ -128,17 +137,17 @@ def workstation_pod(S, B, M, cx, cy, yaw, tl, seed, screens=('screen0', 'screen1
             r = rng.random()
             px, py = at(lx + rng.uniform(-0.75, -0.35) * (1 if row < 0 else -1), ly + row * 0.12)
             if r < 0.5:
-                K.prop(S, 'binder_notebook', (px, py, DESK_H), dyaw + rng.uniform(-0.3, 0.3), node='binder_notebook_closed', timeline=tl,
-                       collide=False, budget=3000)
+                prop(S, 'binder_notebook', (px, py, DESK_H), dyaw + rng.uniform(-0.3, 0.3), node='binder_notebook_closed', timeline=tl,
+                       collide=False)
             elif r < 0.8:
-                K.prop(S, 'clipboard', (px, py, DESK_H), dyaw + rng.uniform(-0.4, 0.4), timeline=tl, collide=False, budget=3000)
+                prop(S, 'clipboard', (px, py, DESK_H), dyaw + rng.uniform(-0.4, 0.4), timeline=tl, collide=False)
             if rng.random() < 0.3:
                 qx, qy = at(lx + 0.75 * (1 if row < 0 else -1), ly + row * 0.6)
-                K.prop(S, 'cardboard_box_01', (qx, qy, 0.0), rng.uniform(0, math.tau), timeline=tl, collide=False, budget=2500)
+                prop(S, 'cardboard_box_01', (qx, qy, 0.0), rng.uniform(0, math.tau), timeline=tl, collide=False)
     if not ruined:
         ex, ey = at(DESK_W + 0.45, 0.0)
-        K.prop(S, 'potted_plant_01' if rng.random() < 0.5 else 'potted_plant_02', (ex, ey, 0.0), rng.uniform(0, math.tau), timeline=tl,
-               collide=False, budget=5000)
+        prop(S, 'potted_plant_01' if rng.random() < 0.5 else 'potted_plant_02', (ex, ey, 0.0), rng.uniform(0, math.tau), timeline=tl,
+               collide=False)
     if collide:
         w, d = 2 * DESK_W, 2 * DESK_D
         size = (w, d, 0.9) if abs(math.sin(yaw)) < 0.5 else (d, w, 0.9)
@@ -154,16 +163,15 @@ def wall_storage(S, M, x, y, yaw, tl, n=3, seed=0, ruined=False):
         v = R @ Vector(((i - (n - 1) / 2) * 1.2, 0, 0))
         px, py = x + v.x, y + v.y
         if i % 3 == 2:
-            K.prop(S, 'steel_frame_shelves_02', (px, py, 0.0), yaw, timeline=tl, collide=False, budget=3000)
+            prop(S, 'steel_frame_shelves_02', (px, py, 0.0), yaw, timeline=tl, collide=False)
             for z in (0.36, 0.98, 1.6):
                 if rng.random() < 0.8 and not (ruined and z > 1):
-                    K.prop(S, 'cardboard_box_01', (px, py, z), yaw + rng.uniform(-0.2, 0.2), scale=0.85, timeline=tl, collide=False, budget=2500)
+                    prop(S, 'cardboard_box_01', (px, py, z), yaw + rng.uniform(-0.2, 0.2), scale=0.85, timeline=tl, collide=False)
         elif ruined and rng.random() < 0.5:
-            K.prop(S, 'drawer_cabinet', (px, py, 0.25), yaw, timeline=tl, collide=False, budget=6000,
+            prop(S, 'drawer_cabinet', (px, py, 0.25), yaw, timeline=tl, collide=False,
                    rot=Matrix.Rotation(math.radians(-90), 4, 'X'))
         else:
-            K.prop(S, 'drawer_cabinet', (px, py, 0.0), yaw + (rng.uniform(-0.15, 0.15) if ruined else 0.0), timeline=tl, collide=False,
-                   budget=6000)
+            prop(S, 'drawer_cabinet', (px, py, 0.0), yaw + (rng.uniform(-0.15, 0.15) if ruined else 0.0), timeline=tl, collide=False)
     w = n * 1.2
     size = (w, 0.6, 2.0) if abs(math.sin(yaw)) < 0.5 else (0.6, w, 2.0)
     K.collide_box(S, f'store_{seed}_{tl}', size, (x, y, 1.0), timeline=tl)
