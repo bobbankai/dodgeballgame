@@ -156,6 +156,9 @@ rain, wet streets, SSR, water, dusk city, skin, POM, grading) is in; it has been
     (closed with a brick block), and the Chapter 4 skyline's textured boxes read as boxes (modelled towers now).
 46. Rooms had no ceiling collider: rain fell inside the surface lift house (the shelter map rays went through the roof), and the
     camera could rise through ceilings.
+47. Moving the probe baker's scratch render out of the asset folders put every bake on one file: bakes run side by side read
+    each other's cube faces (Chapter 2's storm bake and the offices' failed on an empty face; others could have read a wrong
+    one). The scratch file is per process now; the affected probe sets re-bake.
 
 ---
 

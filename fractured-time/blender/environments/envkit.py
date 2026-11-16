@@ -697,7 +697,7 @@ def bake_probes(points, path, res=16, samples=48):
     sc.view_settings.view_transform = 'Standard'
     sc.render.image_settings.file_format = 'OPEN_EXR'
     sc.render.image_settings.color_depth = '32'
-    tmp = os.path.join(ROOT, '.cache', '_probe_face.exr')  # scratch: never beside the shipped assets
+    tmp = os.path.join(ROOT, '.cache', f'_probe_face_{os.getpid()}.exr')  # scratch: per process (bakes run side by side), never beside the assets
     faces = [((1, 0, 0), (0, 0, 1)), ((-1, 0, 0), (0, 0, 1)), ((0, 1, 0), (0, 0, 1)), ((0, -1, 0), (0, 0, 1)), ((0, 0, 1), (0, -1, 0)),
              ((0, 0, -1), (0, 1, 0))]
     # per-pixel directions (camera space) and solid angles, shared by every face
