@@ -420,6 +420,31 @@ def light_strip(name, length, loc, rot_z, M, on=True, color=(0.85, 0.92, 1.0), s
     return ob
 
 
+def bulkhead_lamp(name, loc, yaw, M, color=(1.0, 0.78, 0.52), power=60.0, strength=14.0, cage=True, scale=1.0, tilt=20.0):
+    """A wall-mounted bulkhead lamp (a work lamp or an emergency light): back plate, round body, a glowing glass lens, a wire cage
+    over it, and a disk light just in front of the lens aimed out of the wall and `tilt` degrees down. At yaw 0 it faces -Y (mounted
+    on a wall whose face looks -Y); `loc` is the back plate's centre on the wall."""
+    s = scale
+    parts = [box(name + '_plate', (0.24 * s, 0.035 * s, 0.32 * s), (0, 0.0175 * s, 0), M['trim'], bevel=0.006 * s),
+             cylinder(name + '_body', 0.1 * s, 0.07 * s, (0, -0.035 * s, 0), M['trim'], axis='Y', verts=28, bevel=0.008 * s),
+             cylinder(name + '_lens', 0.082 * s, 0.05 * s, (0, -0.09 * s, 0), emissive_mat(f'bulk_{color}_{strength}', color, strength),
+                      axis='Y', verts=28, bevel=0.012 * s)]
+    if cage:
+        for k, dx in enumerate((-0.05, 0.0, 0.05)):
+            parts.append(box(f'{name}_cv{k}', (0.01 * s, 0.01 * s, 0.2 * s), (dx * s, -0.13 * s, 0), M['trim'], bevel=0.0))
+        parts.append(box(name + '_ch', (0.2 * s, 0.01 * s, 0.01 * s), (0, -0.13 * s, 0), M['trim'], bevel=0.0))
+        for sz in (-1, 1):
+            parts.append(box(f'{name}_cr{sz}', (0.01 * s, 0.1 * s, 0.01 * s), (0, -0.08 * s, sz * 0.1 * s), M['trim'], bevel=0.0))
+    ob = join(parts, name)
+    ob.location = loc
+    ob.rotation_euler = (0, 0, yaw)
+    R = Matrix.Rotation(yaw, 4, 'Z')
+    p = Vector(loc) + R @ Vector((0, -0.17 * s, 0))
+    # area lights emit along their local -Z: pitched -(90 - tilt) degrees about X it points out of the wall (-Y) and down
+    area_light(name + '_area', tuple(p), (0.15 * s, 0.15 * s), power, color, shape='DISK', rot=(-math.radians(90 - tilt), 0, yaw))
+    return ob
+
+
 def pipe_run(name, pts, r, M, flange_every=2.0):
     parts = [tube(name, pts, r, M['pipe'])]
     P = [Vector(p) for p in pts]

@@ -571,7 +571,7 @@ export class ChapterRuntime {
       // volumetric: dusty air lit by the fixtures (the classic exponential haze when the preset has no volumetrics)
       sc.fog = vf ? null : new THREE.FogExp2(0x0a0d11, 0.016);
       // the engine chamber is a dusty drum: thicker air, so the fixtures and the engine throw visible beams
-      if (vf) this.g.post.fog.apply({ ...INTERIOR_FOG, baseY: box.min.y + 0.5, ...(isEngine ? { density: 0.0055 } : {}), ...this.fogOverride() });
+      if (vf) this.g.post.fog.apply({ ...INTERIOR_FOG, baseY: box.min.y + 0.5, ...(isEngine ? { density: 0.0042 } : {}), ...this.fogOverride() });
       this.captureFogBase();
       this.g.sfx.ambience('amb_facility', this.current === this.sections.findIndex((x) => /s6\.glb$/.test(x.path)) ? 'hall' : 'interior');
       return;

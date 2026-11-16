@@ -312,6 +312,11 @@ def s8_surface(M):
     B = CK.Batch('s8c')
     # lift head house (the lift arrives inside, the deck opens north)
     K.room(S, 's8_lift', ox - 4, ox + 4, oy + 8, oy, 4.5, M, openings={'n': [(ox, 3.2)]}, beams=False, floor_mat='grate')
+    # the head house's own light (the grid is down; the lift's circuit still runs): a caged work lamp over the lift doors and an
+    # amber emergency lamp inside the door. Without them the house was lit only through its door by the night sky
+    S.add(K.bulkhead_lamp('s8_worklamp', (ox, oy + 8 - 0.16, 3.4), 0.0, M, color=(1.0, 0.76, 0.48), power=70.0))
+    S.add(K.bulkhead_lamp('s8_emerg', (ox + 2.4, oy + 0.16, 2.7), math.pi, M, color=(1.0, 0.42, 0.12), power=14.0, strength=9.0,
+                          cage=False, scale=0.75, tilt=35.0))
     # the deck: 40 x 22 m slab, kerb, a broken railing over a 30 m drop
     S.add(K.box('s8_deck', (40.0, 22.4, 1.2), (ox, oy - 11.2, -0.6), M['c_deck'], bevel=0.04))
     S.add(K.box('s8_deck_kerb', (40.0, 0.4, 0.25), (ox, oy - 22.2, 0.12), M['c_concrete'], bevel=0.03))
