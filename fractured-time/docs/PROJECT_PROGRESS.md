@@ -69,6 +69,7 @@ rain, wet streets, SSR, water, dusk city, skin, POM, grading) is in; it has been
 | Open sea (`src/world/sea.ts`, vendored MIT ocean kit) | 4 | Gerstner sheet + top-level mirror pass + seabed stamps around the sea stacks at the Chapter 4 terrace; reviewed in the engine from the terrace edge in both realities (Coastal breeze / Storm swell), foam wrapping the towers |
 | Skies (`src/rendering/sky.ts`) | 3 | our own background node: HDRIs sampled directly in Blender's orientation (the sun sits where the baked shadows say), horizon melting into the haze; the storm at nightfall procedural (domain-warped fbm cloud deck, darker rifts, undersides lit by the city's sodium glow, rain haze at the horizon matched to the fog). Reviewed on the Chapter 2 street (level and looking up), the Chapter 4 terrace in both realities, the Nexus. Before this pass no sky had ever rendered (bug 37) |
 | Character light rig (`world/probes.ts` CharacterLight) | 3 | per character, on top of its baked probe: a camera-side fill up to a readable minimum and a rim in the colour of the air, both only where the place is dark; reviewed on the night street (Ethan reads from behind and the front) and the corridor (no visible change) |
+| Chapter flow tests on the final assets (`tests/scripts/flows/`) | 4 | after the linear-lightmap pass, on a static build: Chapter 3 -> `chapter3_complete`, Chapter 4 -> `chapter4_complete` (Nyx defeated), Chapter 5 -> `chapter5_complete` (ending B), from the Voss beat ending A and ending B. Chapters 1-2 by their own scripts earlier |
 | Linear lightmaps + eye adaptation (`envkit.bake_lightmap`, `ChapterRuntime.adapt`) | 4 | lightmaps stored linear (bug 49); exposure = (0.3 / L)^0.4 from the probe field's mean radiance at Ethan, clamped 0.5-6, eased at 1.2/s: a dark place still reads darker than a bright one. Reviewed: Ch1 corridor, lab, engine chamber (its dusty air thinned for the higher exposure), surface; Ch2 street, plaza; Ch3 lobby (both realities), offices (both), Palimpsest lab, mirror hall; Ch4 terrace (both), memory lab, foundry, crucible; Ch5 Nexus. Not yet judged on a real GPU in motion |
 | Level packing (`tools/assets/pack_levels.sh`) | 4 | meshopt compression of every level section (the loader decodes it): 165 MB -> 31 MB; nodes, extras, materials, lightmap and window UVs kept; the Chapter 3 offices rendered identical packed and raw in both realities, the Chapter 2 street and the Nexus smoke-tested |
 | Office kit (`blender/environments/officekit.py`) | 3 | workstation pods (scanned desks, task chairs and flat screens built in Blender, clutter, plants), wall storage, ruined variants; whole-prop triangle budgets. Placed in the Chapter 3 offices and Palimpsest lab, the Chapter 4 memory lab (re-baking) |
@@ -80,10 +81,11 @@ rain, wet streets, SSR, water, dusk city, skin, POM, grading) is in; it has been
   (white frame) at every quality, with or without the storm sky, the window panes and the rain; the morning build before this pass
   does the same, so it is not a regression. Interiors (Chapter 1), the Nexus and the lab render on WebGPU identically to WebGL2.
   Needs a run on a real GPU; if it reproduces there, bisect with the test switches (`?nostorm`, `?nowin`, `?norain`).
-- **Places with no light of their own** (seen once the lightmaps went linear): the Chapter 1 surface lift house is lit only through
-  its doorway at night (Ethan reads as an outline there even at the adaptation limit), and Chapter 3's ruined reality is dim
-  throughout (legible, but murky). These need practicals in the bake (a caged work lamp in the lift house, emergency lights and
-  fires in the ruins), not more exposure. The rest of the campaign has not been re-reviewed since bug 49.
+- **Places with no light of their own** (seen once the lightmaps went linear): the Chapter 1 surface lift house now has a work
+  lamp and an emergency lamp in its bake, and Chapter 3's ruined lobby and offices have ceiling breaches with cold light falling
+  through (both reviewed). The ruin's other rooms (Palimpsest lab, mirror hall, core) are still lit by fills under an intact
+  ceiling: legible, but the same treatment would serve them. The god-ray shafts under the breaches have not been looked at from
+  below yet.
 - Street prop variants without textures: fixed (the street re-exported with the fallbacks; its lens maps no longer embedded).
 - **Skin** is still smoother and flatter than reference B: needs stronger micro detail at mid distance, specular breakup, and a real
   subsurface diffusion (screen-space or pre-integrated) instead of translucency only.
@@ -198,6 +200,9 @@ rain, wet streets, SSR, water, dusk city, skin, POM, grading) is in; it has been
 54. Every sliding door's leaves were exported with no UV set (dynamic objects skip `finish_static`): their tiled painted-metal
     material sampled one texel, so every door in the game was a flat slab of paint. The loader now box-projects metric UVs onto
     any mesh that arrives without them, and `sliding_door` unwraps its leaves for future exports.
+55. 2101's stone was rust: the "grey_cartago_01" scan is slate veined rust-orange and `desat` is the saturation kept (Blender
+    and the engine agree), so at 0.7 the reception desk, planters, plinths and pool basin of the clean future read as rusted
+    metal. Saturation 0.12; Chapters 3-5 re-exported with every lightmap kept (UVs checked identical).
 
 ---
 
