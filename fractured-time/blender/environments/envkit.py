@@ -501,6 +501,8 @@ def finish_static(ob):
         win = np.empty(len(me.loops) * 2, np.float32)
         me.uv_layers['WIN'].data.foreach_get('uv', win)
         me.uv_layers.remove(me.uv_layers['WIN'])
+    if not me.uv_layers:  # statics built only from curves or text (cables, signs) carry no UV map: one is unwrapped below
+        me.uv_layers.new(name='UVMap')
     me.uv_layers.active = me.uv_layers[0]
     HS.uv_metric(ob, angle=50.0, margin=0.002)
     me.uv_layers[0].name = 'UVMap'
