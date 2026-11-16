@@ -23,6 +23,7 @@ import ch1_level as L1  # noqa: E402  (materials: the facility and city sets are
 import citykit as CK  # noqa: E402
 import envkit as K  # noqa: E402
 import vehicles as VH  # noqa: E402
+import streetkit as SK  # noqa: E402
 
 OUT = os.path.join(K.PUB, 'environments', 'ch2')
 
@@ -113,6 +114,65 @@ def s_rooftops(M):
     return S
 
 
+def street_dressing(S, M, x0, x1, y0, y1):
+    """What makes the street read as lived in (and, on the east side, as left behind): the 2089 side gets cast-iron bollards and
+    chains along the kerb, bins, a hydrant, a utility cabinet and cameras; the abandoned side a tarp-covered car that never moved,
+    tyres, a barrel stove someone still lights, roller shutters tagged with graffiti, rusted aircon units; manholes in the road;
+    overhead, cables slung between the towers and a string of red paper lanterns."""
+    rng = random.Random(23)
+    wx = x0 + 2.75                     # the west kerb line (pavement 3 m wide)
+    # bollards and chains: two runs in front of the shops, broken where people cross
+    for ya, yb in ((-50.5, -64.5), (-84.0, -98.0)):
+        n = int((ya - yb) / 1.75) + 1
+        eyes = []
+        for k in range(n):
+            y = ya - k * (ya - yb) / (n - 1)
+            ob, ez = SK.bollard(f'c2_bol{int(-ya)}_{k}', wx, y, 0.16, M)
+            S.add(ob)
+            eyes.append((wx, y, ez))
+            K.collide_box(S, f'c2_bolc{int(-ya)}_{k}', (0.24, 0.24, 1.0), (wx, y, 0.66))
+        for k in range(n - 1):
+            a, b = eyes[k], eyes[k + 1]
+            S.add(SK.chain(f'c2_ch{int(-ya)}_{k}', (a[0], a[1] - 0.095, a[2]), (b[0], b[1] + 0.095, b[2]), M, sag=0.16 + 0.04 * rng.random()))
+    # the 2089 side: bins by the shop doors, a hydrant at the kerb, a utility cabinet, cameras over the shops
+    K.prop(S, 'metal_trash_can', (x0 + 0.55, -61.5, 0.16), yaw=math.pi / 2, node=lambda n: 'rust' not in n, budget=5000)
+    K.prop(S, 'metal_trash_can', (x0 + 0.55, -93.6, 0.16), yaw=math.pi / 2 + 0.1, node=lambda n: 'rust' not in n, budget=5000)
+    K.prop(S, 'fire_hydrant', (wx - 0.35, -73.0, 0.16), yaw=math.pi / 2, node=lambda n: 'aged' not in n, budget=8000)
+    K.prop(S, 'utility_box_02', (x0 + 0.4, -80.5, 0.16), yaw=math.pi / 2, budget=4000)
+    for y in (-62.0, -95.5):
+        K.prop(S, 'security_camera_01', (x0 - 0.95, y, 4.2), yaw=-math.pi / 2 + 0.35, budget=3000, collide=False)
+    # the abandoned side: the car nobody came back for, tyres, a barrel stove, shutters and rusted aircon units on the ruins
+    K.prop(S, 'covered_car', (x1 - 4.25, -88.0, 0.0), yaw=0.04, budget=9000)
+    for (x, y, z, yaw, tip) in ((x1 - 0.7, -57.2, 0.46, 0.3, 1.5708), (x1 - 0.72, -57.3, 0.62, 1.1, 1.5708), (x1 - 1.4, -91.8, 0.3, 0.9, 0.0),
+                                (x1 - 5.0, -84.4, 0.08, 0.2, 1.5708)):
+        K.prop(S, 'old_tyre', (x, y, z), yaw=yaw, budget=1500, rot=Matrix.Rotation(tip, 4, 'X') if tip else None, collide=(z < 0.4))
+    K.prop(S, 'barrel_stove', (x1 - 0.9, -74.5, 0.16), yaw=0.6, budget=5000)
+    ember = K.emissive_mat('c2_embers', (1.0, 0.36, 0.08), 6.0)
+    S.add(K.cylinder('c2_embers', 0.26, 0.02, (x1 - 0.9, -74.5, 0.16 + 0.8), ember, verts=20))
+    K.area_light('c2_stove', (x1 - 0.9, -74.5, 0.16 + 1.05), (0.5, 0.5), 45.0, (1.0, 0.42, 0.14), shape='DISK', rot=(math.pi, 0, 0))
+    for y, node in ((-60.5, 'rollershutter_door_graffiti'), (-93.0, 'rollershutter_window_01_graffiti')):
+        K.prop(S, node.rsplit('_graffiti', 1)[0], (x1 + 1.02, y, 0.16), yaw=math.pi / 2, node=node, budget=1200, collide=False)
+    for k, (y, z) in enumerate(((-55.0, 4.6), (-63.5, 8.2), (-71.0, 5.0), (-86.5, 8.6), (-99.0, 4.8), (-104.0, 11.8))):
+        K.prop(S, 'exterior_aircon_unit', (x1 + 0.95, y, z), yaw=math.pi / 2 + rng.uniform(-0.04, 0.04), node='exterior_aircon_unit_rusted',
+               budget=4000, collide=False)
+    # manholes in the carriageway
+    for (x, y) in ((-13.2, -57.5), (-15.8, -97.0), (-10.5, -83.0)):
+        K.prop(S, 'water_manhole_cover', (x, y, 0.005), yaw=rng.uniform(0, 3), budget=3000, collide=False)
+    # overhead: cables between the towers, sagging, and a string of lanterns across the 2089 half
+    for k, (ya, yb, za, zb) in enumerate(((-52.0, -55.0, 9.0, 11.5), (-66.0, -64.0, 12.5, 10.0), (-79.0, -82.0, 8.5, 9.5),
+                                          (-90.0, -89.0, 13.0, 11.0), (-101.0, -103.5, 9.8, 12.2))):
+        S.add(K.cable_run(f'c2_cab{k}', (x0 - 0.9, ya, za), (x1 + 0.9, yb, zb), M, n=2 + k % 3, sag=0.9 + 0.3 * (k % 2)))
+    for k, (ya, za, zb) in enumerate(((-58.5, 7.6, 7.2), (-87.5, 7.9, 7.4))):
+        a, b = (x0 - 0.9, ya, za), (x1 + 0.9, ya - 1.0, zb)
+        S.add(K.tube(f'c2_lw{k}', [a, b], 0.008, M['cable'], sides=6, sag=1.1))
+        for j, t in enumerate((0.12, 0.24, 0.36, 0.48)):
+            p = SK.sag_point(a, b, t, 1.1)
+            ob, glow = SK.lantern(f'c2_lan{k}_{j}', (p[0], p[1], p[2] - 0.02), M, radius=0.22 + 0.03 * (j % 2))
+            S.add(ob)
+            if j % 2 == 0:
+                K.area_light(f'c2_lanl{k}_{j}', glow, (0.3, 0.3), 22.0, (1.0, 0.3, 0.12), shape='DISK', rot=(math.pi, 0, 0))
+
+
 def s_street(M):
     S = K.Section('c2')
     B = CK.Batch('c2b')
@@ -140,8 +200,12 @@ def s_street(M):
               rot=Matrix.Rotation(rng.uniform(0, 3), 4, (rng.random(), rng.random(), rng.random())), bevel=0.01)
     K.collide_box(S, 'c2_van', (3.2, 6.2, 3.6), (-13.0, -78.0, 2.8))
     K.marker(S, 'anomaly', (-13.0, -78.0, 2.6), id='c2_van', size=[7.0, 8.0, 5.0])
-    for i, (x, y, r, tip) in enumerate(((-8, -60, 0.2, 0.0), (-18, -66, 1.4, 1.5), (-9, -95, -0.3, 0.0), (-17, -101, 0.4, 0.0))):
-        CK.barrier(B, M, x, y, 0.0, rot_z=r, tipped=tip)
+    # HELIX's cordon: scanned concrete barriers, one knocked flat by the van
+    for i, (x, y, r, tip) in enumerate(((-8, -60, 0.2, 0.0), (-18, -66, 1.4, 1.5), (-9, -95, -0.3, 0.0), (-17, -101, 0.4, 0.0),
+                                        (-15.6, -70.5, 0.1, 0.0), (-10.4, -70.2, -0.15, 0.0))):
+        K.prop(S, 'concrete_road_barrier_02', (x, y, 0.0 if not tip else 0.22), yaw=r, budget=6000,
+               rot=Matrix.Rotation(tip, 4, 'X') if tip else None)
+    street_dressing(S, M, x0, x1, y0, y1)
     for y in (-56, -76, -96):
         CK.lamp_post(B, M, x0 + 0.6, y, 0.16, rot_z=-math.pi / 2)
         # the abandoned side's lamps died with it
@@ -462,6 +526,11 @@ def materials():
     M['c_tyre'] = K.plain_mat('c_tyre', (0.02, 0.02, 0.022), rough=0.8)
     # the HELIX van: lacquered pale grey paint, black trim, privacy glass, alloy rims; lamps lit
     M['c_vanpaint'] = K.plain_mat('c_vanpaint', (0.66, 0.67, 0.68), rough=0.32, coat=1.0)
+    # street furniture: painted cast iron, red paper lanterns with lacquered caps
+    M['iron'] = K.plain_mat('c_iron', (0.03, 0.032, 0.035), rough=0.4, metal=0.35, coat=0.35)
+    M['lantern'] = K.emissive_mat('c_paperlantern', (1.0, 0.2, 0.07), 5.5)
+    M['lacquer'] = K.plain_mat('c_lacquer', (0.02, 0.014, 0.012), rough=0.25, coat=1.0)
+    M['tassel'] = K.plain_mat('c_tassel', (0.45, 0.03, 0.025), rough=0.85)
     M['c_vantrim'] = K.plain_mat('c_vantrim', (0.025, 0.026, 0.028), rough=0.55)
     M['c_vanglass'] = K.plain_mat('c_vanglass', (0.015, 0.018, 0.022), rough=0.03, coat=1.0)
     M['c_vanrim'] = K.plain_mat('c_vanrim', (0.62, 0.63, 0.65), rough=0.3, metal=1.0)
@@ -541,6 +610,11 @@ if __name__ == '__main__':
         cam.location = (base[0] + 1.0, base[1] + 3.0, base[2] + 1.8)
         cam.rotation_euler = (math.radians(84), 0, math.radians(172))
         cam.data.lens = 20
+        if '--cam' in argv:  # --cam x,y,z,tx,ty,tz[,lens]: a framed shot instead of the spawn view
+            v = [float(c) for c in argv[argv.index('--cam') + 1].split(',')]
+            cam.location = v[:3]
+            cam.rotation_euler = (Vector(v[3:6]) - Vector(v[:3])).to_track_quat('-Z', 'Y').to_euler()
+            cam.data.lens = v[6] if len(v) > 6 else 24
         bpy.context.scene.camera = cam
         sc = bpy.context.scene
         sc.cycles.samples = samples

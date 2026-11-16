@@ -25,7 +25,7 @@ export function windowMaterial(r: Recipe): THREE.Material {
     warm: office ? 0xffe0b5 : 0xffb066,
     cool: office ? 0xcfdcff : 0x9fc4ff,
     coolChance: office ? 0.4 : 0.12,
-    lightLevel: office ? 1.0 : 1.25,
+    lightLevel: office ? 1.5 : 1.8,
     transmission: 0.3,
     dressing: office ? { venetian: 2, roller: 1.2, bare: 1.6 } : { curtains: 2, roller: 1, venetian: 1, bare: 0.6 },
     dressingColorA: office ? 0xb9b6ae : 0xc4b7a2,

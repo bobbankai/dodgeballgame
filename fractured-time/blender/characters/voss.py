@@ -16,7 +16,7 @@ import voss_kit  # noqa: E402
 from person import sm  # noqa: E402
 
 
-def mask(c, n, top):
+def scalp(c, n, top):
     hz = c[:, 2] - top
     front = np.clip(-c[:, 1] / 0.09, 0, 1)
     thr = -0.11 + 0.052 * front          # a slightly receding hairline
@@ -26,15 +26,46 @@ def mask(c, n, top):
     return sm(thr, thr + 0.012, hz) * (1 - ears) * (n[:, 2] > -0.35)
 
 
+def beard(c, n, top):
+    """A short, boxed beard kept by a barber: jaw, chin and moustache joined, a crisp cheek line and neckline (the skin's stubble
+    zone, lookdev.region_masks, with harder edges)."""
+    hz = c[:, 2] - (top - 0.24)
+    front = -c[:, 1]
+    ax = np.abs(c[:, 0])
+    jaw = sm(-0.036, -0.026, hz) * (1 - sm(0.046, 0.056, hz)) * sm(-0.02, 0.005, front) * (1 - sm(0.066, 0.076, ax))
+    # the cheek line climbs toward the sideburns, which join the scalp hair in front of the ears
+    side = sm(0.04, 0.068, ax) * sm(0.04, 0.11, hz) * (1 - sm(0.115, 0.13, hz)) * sm(-0.035, -0.01, front) * (1 - sm(0.02, 0.04, front))
+    moust = sm(0.054, 0.058, hz) * (1 - sm(0.072, 0.077, hz)) * sm(0.07, 0.085, front) * (1 - sm(0.028, 0.036, ax))
+    return np.maximum(np.maximum(jaw, side), moust)
+
+
+def mask(c, n, top):
+    return np.maximum(scalp(c, n, top), beard(c, n, top))
+
+
 def length(c, top):
     hz = c[:, 2] - top
-    return 0.006 + 0.022 * sm(-0.08, -0.03, hz)
+    head = 0.006 + 0.022 * sm(-0.08, -0.03, hz)
+    # beard: 8 mm on the jaw, 12 mm at the chin, 6 mm on the moustache and the neck
+    hzb = c[:, 2] - (top - 0.24)
+    chin = (1 - sm(0.012, 0.03, np.abs(c[:, 0]))) * (1 - sm(0.0, 0.03, hzb))
+    bl = 0.008 + 0.004 * chin - 0.002 * sm(0.054, 0.058, hzb) - 0.002 * (1 - sm(-0.03, -0.01, hzb))
+    w = beard(c, np.zeros_like(c), top)
+    return np.where(w > 0.02, bl, head)
 
 
-def comb(c, n):
+def comb(c, n, top=None):
     d = n * 0.25
     d[:, 1] += 0.9   # swept straight back
-    return d
+    if top is None:
+        return d
+    w = beard(c, n, top)[:, None]
+    # beard hair lies down the face and a little outward; the moustache sweeps down and to the sides
+    hzb = c[:, 2] - (top - 0.24)
+    must = (sm(0.054, 0.058, hzb) * (1 - sm(0.072, 0.077, hzb)))[:, None]
+    bd = n * 0.35 + np.array([0.0, 0.0, -0.85])
+    bd[:, 0] += np.sign(c[:, 0]) * 0.25 * must[:, 0]
+    return d * (1 - w) + bd * w
 
 
 SPEC = {
@@ -56,7 +87,7 @@ SPEC = {
     'skin_params': {'sss_radius': (1.0, 0.4, 0.24), 'sss_scale': 0.0045, 'sat': 0.85, 'value': 1.0, 'scalp_color': (0.45, 0.42, 0.4)},
     'pore_strength': 0.6,
     'skin_spec': 0.3,
-    'hair': {'mask': mask, 'length': length, 'comb': comb, 'curl': 0.06, 'curl_freq': 1.2, 'count': 80000, 'segments': 6,
+    'hair': {'mask': mask, 'length': length, 'comb': comb, 'comb_top': True, 'curl': 0.06, 'curl_freq': 1.2, 'count': 100000, 'segments': 6,
              'melanin': 0.12, 'redness': 0.02, 'rough': 0.34, 'seed': 41, 'color': (0.36, 0.35, 0.34), 'shells': 20, 'max_len': 0.03,
              'card_every': 8, 'look': {'strandSpacing': 0.00035, 'coilRadius': 0.00004, 'coilTurns': 0.2}},
     'kit': lambda h, rig, PH: voss_kit.build_kit(h, rig, PH),

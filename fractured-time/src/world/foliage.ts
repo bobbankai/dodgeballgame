@@ -59,9 +59,9 @@ function foliageMaterial(r: Recipe, fog: VolumetricFog): THREE.Material {
     // for the sky and the fixtures) and a tight highlight of the sun or moon, both strongest on the outer, exposed leaves
     const wetK = weather.wet;
     const nv = max(dot(n, v), 0.0);
-    const fres = pow(float(1).sub(nv), 5.0).mul(0.96).add(0.04);
-    const sheen = L.iso.mul(3.2).mul(fres).mul(occl);
-    const glint = pow(max(dot(reflect(l.negate(), n), v), 0.0), 48.0).mul(1.6);
+    const fres = pow(float(1).sub(nv), 5.0).mul(0.96).add(0.04).mul(0.6); // rough leaf cuticle: the film is broken up
+    const sheen = L.iso.mul(1.1).mul(fres).mul(occl);
+    const glint = pow(max(dot(reflect(l.negate(), n), v), 0.0), 48.0).mul(0.8);
     const spec = sheen.add(L.sunCol.mul(L.sunVis).mul(glint)).mul(wetK).mul(occl);
     const wet = mix(float(1), float(0.78), wetK);
     return vec4(albedo.mul(amb.add(sun)).mul(wet).add(spec), 1.0);

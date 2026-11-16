@@ -71,7 +71,25 @@ def build(spec):
         m.show_viewport = vis
     top = float(co[:, 2].max())
     hs = spec['hair']
-    mask = lambda c, n: hs['mask'](c, n, top)  # noqa: E731
+    # no hair within a few millimetres of the lips (beards, moustaches): distance to the nearest lip vertex
+    lip_vg = h.vertex_groups.get('lips')
+    lip_pts = None
+    if lip_vg is not None:
+        li = [v.index for v in h.data.vertices if any(g.group == lip_vg.index and g.weight > 0.3 for g in v.groups)]
+        if li:
+            from mathutils.kdtree import KDTree
+            lip_pts = KDTree(len(li))
+            for k, i in enumerate(li):
+                lip_pts.insert(co[i], k)
+            lip_pts.balance()
+
+    def lip_guard(c):
+        if lip_pts is None:
+            return 1.0
+        d = np.array([lip_pts.find(p)[2] for p in c])
+        return sm(0.003, 0.009, d)
+
+    mask = lambda c, n: hs['mask'](c, n, top) * lip_guard(c)  # noqa: E731
     length = lambda c: hs['length'](c, top)  # noqa: E731
     # hair base: the scalp under the hair painted toward the hair colour where it grows (the standard hair-cap trick)
     base = mask(co, nr) * (0.55 + 0.45 * np.clip(length(co) / max(1e-6, float(length(co).max())), 0, 1))
@@ -87,7 +105,7 @@ def build(spec):
     hd = h.data.attributes.get('hair_mask') or h.data.attributes.new('hair_mask', 'FLOAT', 'POINT')
     hd.data.foreach_set('value', hm.astype(np.float32))
     lookdev.hair_curves(h, f"{spec['name']}_hair", count=hs.get('count', 70000), segments=hs.get('segments', 6), length_fn=length,
-                        comb_fn=hs['comb'], curl=hs.get('curl', 0.38), curl_freq=hs.get('curl_freq', 2.2), radius=hs.get('radius', 0.00007),
+                        comb_fn=(lambda c, n: hs['comb'](c, n, top)) if hs.get('comb_top') else hs['comb'], curl=hs.get('curl', 0.38), curl_freq=hs.get('curl_freq', 2.2), radius=hs.get('radius', 0.00007),
                         melanin=hs.get('melanin', 0.97), redness=hs.get('redness', 0.12), rough=hs.get('rough', 0.36), mask_fn=mask,
                         seed=hs.get('seed', 11))
     spec['kit'](h, rig, PH)

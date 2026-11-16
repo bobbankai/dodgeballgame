@@ -206,12 +206,12 @@ export async function loadLevel(path: string, physics: Physics | null, scene: TH
     const apply = (m: THREE.Material) => {
       if (isDynamic || r0(m) === 'glass' || r0(m) === 'water') return;
       const sm = m as THREE.MeshStandardNodeMaterial;
-      if (lightMap && 'lightMap' in sm) {
+      // Cycles' diffuse bake is irradiance without the 1/pi of the Lambert BRDF. Window panes take none: the lightmap is the light on
+      // the outer glass, while the blinds and rooms the pane draws are lit by the kit's own room model (the room's ambient and lamps,
+      // transmitted through the fabric); the glass itself reflects the section's environment probe
+      if (lightMap && 'lightMap' in sm && r0(m) !== 'window') {
         sm.lightMap = lightMap;
-        // Cycles' diffuse bake is irradiance without the 1/pi of the Lambert BRDF. A window pane's lightmap is the irradiance on the
-        // glass; the blinds and curtains it draws hang behind that glass at the back of the bay, so they get roughly half of it
-        // (glass transmission, the reveal and the frame shading the rest)
-        sm.lightMapIntensity = Math.PI * (r0(m) === 'window' ? 0.45 : 1);
+        sm.lightMapIntensity = Math.PI;
       }
       (sm as any).lightsNode = rtLights; // the level's real-time lights: specular only on baked surfaces
       const phys = sm as any;

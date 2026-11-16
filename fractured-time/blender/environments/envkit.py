@@ -1292,16 +1292,22 @@ def write_foliage(S, path):
         print('FOLIAGE', path, sum(len(v) for d in out.values() for v in d.values()))
 
 
-def prop(S, asset, loc, yaw=0.0, scale=1.0, node=None, timeline=None, budget=12000, collide=True):
-    """A static prop from a Poly Haven model (rocks, stumps, roots, logs): imported once (decimated to `budget` triangles, its
-    maps copied as a 'pbr' set the engine rebuilds), then copied into the section's static mesh (baked like everything else)."""
-    key = (asset, node)
+def prop(S, asset, loc, yaw=0.0, scale=1.0, node=None, timeline=None, budget=12000, collide=True, rot=None):
+    """A static prop from a Poly Haven model (rocks, stumps, roots, logs, street furniture): imported once (decimated to `budget`
+    triangles, its maps copied as a 'pbr' set the engine rebuilds), then copied into the section's static mesh (baked like
+    everything else). Models that ship variants side by side (clean / aged / rusted) pick theirs with `node`: an object name
+    (exact match first, else every object containing it) or a predicate on the name. `rot` (a 4x4 Matrix) tips the prop over
+    after the yaw."""
+    key = (asset, node if not callable(node) else node.__name__ + str(id(node)))
     if key not in _PROPS:
         before = set(bpy.data.objects)
         bpy.ops.import_scene.gltf(filepath=os.path.join(ROOT, 'vendor', 'polyhaven', 'models', asset, f'{asset}_2k.gltf'))
         objs = [o for o in bpy.data.objects if o not in before and o.type == 'MESH']
         if node is not None:
-            keep = [o for o in objs if node in o.name] or objs[:1]
+            if callable(node):
+                keep = [o for o in objs if node(o.name)] or objs[:1]
+            else:
+                keep = [o for o in objs if o.name == node] or [o for o in objs if node in o.name] or objs[:1]
             for o in objs:
                 if o not in keep:
                     bpy.data.objects.remove(o)
@@ -1323,6 +1329,14 @@ def prop(S, asset, loc, yaw=0.0, scale=1.0, node=None, timeline=None, budget=120
             bpy.ops.object.join()
         t = objs[0]
         bpy.ops.object.transform_apply(location=True, rotation=True, scale=True)
+        if node is not None:
+            # a variant picked out of a side-by-side sheet: centre it on its own footprint (its base stays where it was)
+            co = np.empty(len(t.data.vertices) * 3)
+            t.data.vertices.foreach_get('co', co)
+            co = co.reshape(-1, 3)
+            off = np.array([(co[:, 0].min() + co[:, 0].max()) / 2, (co[:, 1].min() + co[:, 1].max()) / 2, 0.0])
+            t.data.vertices.foreach_set('co', (co - off).ravel())
+            t.data.update()
         t.hide_render = True
         for c in list(t.users_collection):
             c.objects.unlink(t)
@@ -1332,7 +1346,8 @@ def prop(S, asset, loc, yaw=0.0, scale=1.0, node=None, timeline=None, budget=120
     o.data = t.data.copy()
     bpy.context.scene.collection.objects.link(o)
     o.hide_render = False
-    o.matrix_world = Matrix.Translation(Vector(loc)) @ Matrix.Rotation(yaw, 4, 'Z') @ Matrix.Scale(scale, 4)
+    o.matrix_world = Matrix.Translation(Vector(loc)) @ Matrix.Rotation(yaw, 4, 'Z') @ (rot if rot is not None else Matrix.Identity(4)) \
+        @ Matrix.Scale(scale, 4)
     bpy.context.view_layer.objects.active = o
     bpy.ops.object.select_all(action='DESELECT')
     o.select_set(True)

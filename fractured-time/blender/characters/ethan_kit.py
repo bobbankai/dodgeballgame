@@ -312,7 +312,8 @@ def boot(S, P, mat, sd, shaft_top=0.19):
     hi = ends.max(0) + np.array([0.08, 0.08, 0.0])
     hi[2] = ankle[2] + shaft_top + 0.03
     HS.make(S, f'{P}_boot_{sd}', sdf.union(upper, tongue, k=0.003), lo, hi, mat['leather'], step=0.002, tris=11000)
-    HS.make(S, f'{P}_laces_{sd}', sdf.union(*laces, *eyelets), lo, hi, mat['webbing'], step=0.0009, tris=3000)
+    if laces:  # a low dress boot (Voss) has no lacing
+        HS.make(S, f'{P}_laces_{sd}', sdf.union(*laces, *eyelets), lo, hi, mat['webbing'], step=0.0009, tris=3000)
     HS.make(S, f'{P}_sole_{sd}', sole_f, lo, hi, mat['rubber'], step=0.0015, tris=7000)
 
 

@@ -66,9 +66,12 @@ def build_kit(h, rig, PH, P='voss'):
     HS.make(S, f'{P}_coat', coat, lo, hi, mat['coat'], step=0.0018, tris=26000)
     # concealed placket line down the front, the HELIX pin on the left lapel
     plack = sdf.intersect(HS.layer(F, 0.0205, 0.0012), HS.band(F, hem_t + 0.01, neck_t - 0.02, 0.012, 0.016), k=0.0006)
-    HS.make(S, f'{P}_placket', plack, lo, hi, mat['knit'], step=0.0009, tris=3000)
+    # fine parts get boxes of their own: meshing them at their fine step over the whole coat's box needs gigabytes
+    plo, phi = HS.bounds(F, 0.0, 0.03, hem_t, neck_t, 0.012, 0.03, pad=0.006)
+    HS.make(S, f'{P}_placket', plack, plo, phi, mat['knit'], step=0.0009, tris=3000)
     pin = HS.solid_at(F, 0.07, neck_t - 0.11, 0.0215, sdf.cylinder((0, 0, 0), 0.006, 0.0015, 0.0005))
-    HS.make(S, f'{P}_pin', pin, lo, hi, mat['pin'], step=0.0005, tris=400)
+    nlo, nhi = HS.bounds(F, 0.06, 0.08, neck_t - 0.12, neck_t - 0.10, 0.012, 0.03, pad=0.004)
+    HS.make(S, f'{P}_pin', pin, nlo, nhi, mat['pin'], step=0.0005, tris=400)
     # mandarin collar
     na, nb = np.array(B['neck_01'][0]), np.array(B['head'][0])
     Nf = HS.RadialField(S, na, nb - na, (1, 0, 0), -0.03, 0.06, n_theta=120, step_t=0.003, only=('neck',), r_max=0.12, blur=5)
