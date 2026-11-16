@@ -23,6 +23,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 sys.path.insert(0, os.path.join(HERE, '..', 'common'))
 import bpy  # noqa: E402
+from mathutils import Matrix, Vector  # noqa: E402
 
 import ch1_level as L1  # noqa: E402
 import ch3_level as L3  # noqa: E402
@@ -58,6 +59,85 @@ def materials():
 
 
 # --- p1: the terrace (two skies) ---------------------------------------------------------------------------------------------
+
+def terrace_dressing(S, M, B_a, B_b, x0, x1):
+    """What makes the terrace a place in 2101 and a ruin after Voss wins: paving bands, benches of white composite and timber,
+    slim lamp posts along both balustrades, a wayfinding totem at the bridge, and a ring of polished metal on a plinth (the
+    Engine's emblem). The ruin keeps their remains: bare pedestals, seats on the ground, posts down or headless, the ring fallen."""
+    chrome = K.plain_mat('p1_chrome', (0.82, 0.83, 0.85), rough=0.12, metal=1.0)
+    lamp = K.emissive_mat('p1_lamp', (0.92, 0.96, 1.0), 2.5)
+    rust = M['c_metal']
+    # paving bands across the deck (2101 only; the ruin's deck is its own cracked surface)
+    for (ya, yb) in ((0.0, -18.0), (-24.0, -46.0)):
+        y = ya - 3.0
+        while y > yb + 1.0:
+            B_a.box(M['a_panel'], (x1 - x0 - 0.6, 0.22, 0.012), (0, y, 0.006), bevel=0.0)
+            y -= 6.0
+    # benches: (x, y, along-y)
+    for i, (x, y, along_y) in enumerate(((-12.6, -8.5, True), (3.4, -9.0, True), (-12.6, -33.0, True), (6.0, -29.0, False))):
+        rz = math.pi / 2 if along_y else 0.0
+        R = Matrix.Rotation(rz, 4, 'Z')
+
+        def at(dx, dy):
+            v = R @ Vector((dx, dy, 0))
+            return x + v.x, y + v.y
+        for px in (-0.7, 0.7):
+            B_a.box(M['a_white'], (0.12, 0.46, 0.42), (*at(px, 0), 0.21), rot_z=rz, bevel=0.03)
+            B_b.box(M['b_ruin'], (0.12, 0.46, 0.42 * (0.6 if (i + px > 0) else 1.0)), (*at(px, 0), 0.21 * (0.6 if (i + px > 0) else 1.0)),
+                    rot_z=rz, bevel=0.04)
+        B_a.box(M['a_white'], (1.9, 0.5, 0.06), (*at(0, 0), 0.45), rot_z=rz, bevel=0.02)
+        for k in range(4):
+            B_a.box(M['a_wood'], (1.86, 0.1, 0.04), (*at(0, -0.18 + k * 0.12), 0.5), rot_z=rz, bevel=0.012)
+        # the ruin: the seat slid off and lies on the deck, tilted
+        B_b.box(M['b_ruin'], (1.9, 0.5, 0.06), (*at(0.3, 0.55), 0.08), rot_z=rz + 0.35, bevel=0.03)
+        for tl in ('a', 'b'):
+            K.collide_box(S, f'p1_bench{i}{tl}', (1.9, 0.55, 0.55) if not along_y else (0.55, 1.9, 0.55), (x, y, 0.27), timeline=tl)
+    # lamp posts along both balustrades
+    k = 0
+    for (ya, yb) in ((0.0, -18.0), (-24.0, -46.0)):
+        for y in (ya - 2.5, (ya + yb) / 2, yb + 2.5):
+            if abs(y + 40.0) < 1.5:
+                continue
+            for sx in (x0 + 0.7, x1 - 0.7):
+                B_a.box(M['a_white'], (0.11, 0.11, 3.4), (sx, y, 1.7), bevel=0.02)
+                B_a.box(M['a_panel'], (0.42, 0.16, 0.08), (sx - 0.12 * (1 if sx > 0 else -1), y, 3.42), bevel=0.02)
+                B_a.box(lamp, (0.36, 0.1, 0.02), (sx - 0.12 * (1 if sx > 0 else -1), y, 3.37), bevel=0.0)
+                K.collide_box(S, f'p1_post{k}a', (0.2, 0.2, 3.4), (sx, y, 1.7), timeline='a')
+                r = random.Random(500 + k).random()
+                if r < 0.45:  # down across the deck
+                    d = 1 if sx < 0 else -1
+                    B_b.box(rust, (0.11, 0.11, 3.4), (sx + d * 1.6, y + 0.3, 0.12), rot=Matrix.Rotation(d * math.radians(86), 4, 'Y'),
+                            bevel=0.02)
+                elif r < 0.8:  # standing, its head gone
+                    B_b.box(rust, (0.11, 0.11, 2.6), (sx, y, 1.3), bevel=0.02)
+                    K.collide_box(S, f'p1_post{k}b', (0.2, 0.2, 2.6), (sx, y, 1.3), timeline='b')
+                k += 1
+    # the wayfinding totem at the bridge
+    # (faces north, toward Ethan coming from the spawn; text stands up facing +y as the gate's sign does)
+    S.add(K.box('p1_totem', (0.62, 0.16, 2.3), (3.4, -16.4, 1.15), M['a_white'], bevel=0.03), timeline='a')
+    S.add(K.box('p1_totem_face', (0.5, 0.01, 1.7), (3.4, -16.317, 1.3), M['a_panel'], bevel=0.0), timeline='a')
+    S.add(K.sign('p1_totem_t1', 'TERRACE  7', (3.4, -16.308, 1.85), (math.radians(90), 0, math.pi), 0.075, M['a_brand']), timeline='a')
+    S.add(K.sign('p1_totem_t2', 'SECURE GATE', (3.4, -16.308, 1.62), (math.radians(90), 0, math.pi), 0.06, M['a_brand']), timeline='a')
+    S.add(K.box('p1_totem_b', (0.62, 0.16, 0.9), (3.4, -16.4, 0.45), M['b_ruin'], bevel=0.06), timeline='b')
+    K.collide_box(S, 'p1_totem', (0.7, 0.3, 2.3), (3.4, -16.4, 1.15), timeline='a')
+    K.collide_box(S, 'p1_totem_b', (0.7, 0.3, 0.9), (3.4, -16.4, 0.45), timeline='b')
+    # the ring on its plinth, west of the path (the Engine's emblem in HELIX's own garden)
+    cx, cy, base, R0 = -5.6, -9.0, 0.6, 1.55
+    # (one per reality: the shared structure keeps its baked lightmap)
+    S.add(K.box('p1_plinth_a', (1.6, 1.0, base), (cx, cy, base / 2), M['a_stone'], bevel=0.04), timeline='a')
+    S.add(K.box('p1_plinth_b', (1.6, 1.0, base * 0.8), (cx, cy, base * 0.4), M['a_stone'], bevel=0.06), timeline='b')
+    K.collide_box(S, 'p1_plinth', (1.6, 1.0, base + 3.4), (cx, cy, (base + 3.4) / 2), timeline='a')
+    K.collide_box(S, 'p1_plinth_b', (1.6, 1.0, base), (cx, cy, base / 2), timeline='b')
+    n = 32
+    for j in range(n):
+        t = j / n * math.tau
+        L = 2 * R0 * math.sin(math.pi / n) + 0.02
+        S.add(K.box(f'p1_ring{j}', (L, 0.14, 0.12), (cx + math.cos(t) * R0, cy, base + R0 + 0.15 + math.sin(t) * R0), chrome, bevel=0.02,
+                    rot=(0, -(t + math.pi / 2), 0)), timeline='a')
+        if j < 13:  # the ruin: an arc of it on the deck beside the plinth
+            S.add(K.box(f'p1_ringb{j}', (L, 0.14, 0.12), (cx + 0.4 + math.cos(t) * R0, cy + math.sin(t) * R0 * 0.9 - 0.4, 0.07),
+                        M['b_ruin'] if j % 3 else rust, bevel=0.02, rot=(0, 0, t + math.pi / 2)), timeline='b')
+
 
 def s_terrace(M):
     S = K.Section('p1')
@@ -144,6 +224,7 @@ def s_terrace(M):
         tb = top * rng.uniform(0.3, 0.8)
         CK.tower(F_b, M, cx, cy, w, dd, base, max(tb, base + 14.0), 'ruin', 900 + k, rot_z=rot)
     S.far = {'a': list(F_a.objects()), 'b': list(F_b.objects())}
+    terrace_dressing(S, M, B_a, B_b, x0, x1)
     for o in B_a.objects():
         S.add(o, timeline='a')
     for o in B_b.objects():
