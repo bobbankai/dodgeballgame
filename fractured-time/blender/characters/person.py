@@ -107,7 +107,7 @@ def build(spec):
     lookdev.hair_curves(h, f"{spec['name']}_hair", count=hs.get('count', 70000), segments=hs.get('segments', 6), length_fn=length,
                         comb_fn=(lambda c, n: hs['comb'](c, n, top)) if hs.get('comb_top') else hs['comb'], curl=hs.get('curl', 0.38), curl_freq=hs.get('curl_freq', 2.2), radius=hs.get('radius', 0.00007),
                         melanin=hs.get('melanin', 0.97), redness=hs.get('redness', 0.12), rough=hs.get('rough', 0.36), mask_fn=mask,
-                        seed=hs.get('seed', 11), random_color=hs.get('random_color', 0.12))
+                        seed=hs.get('seed', 11), random_color=hs.get('random_color', 0.12), tint=hs.get('tint'))
     spec['kit'](h, rig, PH)
     print('built', spec['name'], round(time.time() - t0, 1), 's')
     return h, rig, parts, top
@@ -193,7 +193,8 @@ def export(spec, h, rig, parts):
         bpy.data.objects.remove(hc)  # coily volumes are all shell: strand cards would read as spikes
         hc = None
     if hc is not None:
-        cards = lookdev.hair_cards(hc, every=hs.get('card_every', 10), width=0.0012, name=f'{name}_hair_cards', surface=h)
+        cards = lookdev.hair_cards(hc, every=hs.get('card_every', 10), width=0.0012, name=f'{name}_hair_cards', surface=h,
+                                   melanin_color=tuple(hs.get('color', (0.018, 0.013, 0.011))))
         cards.parent = rig
         cards.matrix_parent_inverse = rig.matrix_world.inverted()
         a = cards.modifiers.new('Armature', 'ARMATURE')

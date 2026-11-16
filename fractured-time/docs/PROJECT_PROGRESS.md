@@ -11,7 +11,8 @@ for shaders/lighting; B: MetaHuman-class character, the bar for models). The v0 
 
 **Overall:** the whole campaign now exists end to end in code: five chapters scripted beat by beat (Chapter 1 facility + surface,
 Chapter 2 district, Chapter 3 arcology, Chapter 4 paradox, Chapter 5 Nexus) with all five bosses (Sentinel A-07, the Rift Marshal, the
-Echo, Commander Nyx, Director Voss), the ending choice, both endings and credits; chapters hand over to the next. **Honest state:**
+Echo, Commander Nyx, Director Voss), the ending choice, both endings and credits; chapters hand over to the next. **Honest state (this pass):** Chapter 2 has never had its full bake (running now, with the new street dressing); Chapter 4 is
+baking; Chapters 5, 3 and the Chapter 1 sections s6/s8 follow in the queue. **Earlier state:**
 Chapters 1 and 2 have been played by script; Chapters 3-5 are written and their levels build, but their final bakes are still in the
 queue and none of their fights has been played through yet, so nothing past Chapter 2 is above level 3. The reference pass (fog,
 rain, wet streets, SSR, water, dusk city, skin, POM, grading) is in; it has been reviewed in the facility and the surface only.
@@ -32,7 +33,7 @@ rain, wet streets, SSR, water, dusk city, skin, POM, grading) is in; it has been
 | Sentinel A-07 (`blender/characters/sentinel.py`, `src/bosses/sentinel.ts`) | 5 | rebuilt as polygonal hard surface (`blender/common/hardpoly.py`), 65k tris, baked AO + edge masks, scanned breakup, hazard bands; two phases, telegraphed attacks, armour shed; fight not yet played through by hand |
 | The Echo (`src/characters/echo.ts`) | 5 | Ethan's own model with an amber chronal signature (rim + amber light-lines), reviewed in the lab; appears in the Chapter 1 finale |
 | Dr. Imani Reyes (`blender/characters/imani.py`, `imani_kit.py`, shared `person.py`) | 4 | built and reviewed in Cycles + WebGPU (body); jacket rebuilt as bridged cloth with finished edges (re-export pending); face close-up not verifiable on the headless software GPU (device loss with hair shells filling the screen) |
-| Commander Nyx, Director Voss (`nyx.py`, `voss.py` + kits) | 2 | specs and kits written; not yet built or reviewed |
+| Commander Nyx, Director Voss (`nyx.py`, `voss.py` + kits) | 3 | built; Nyx reviewed in the engine lab; Voss's builds were OOM-killed by a kit bug (fixed, below), re-export pending |
 | HELIX enemies v2 (`helix_kit.py`) | 5 | sculpted helmet (flat sides, crest, brow) + full smoked visor and slit, chest plate with the HELIX chevron, layered pauldrons; heavy: bigger plates + backpack; operative: dark, swept plate, cyan bracers; baked masks; ~90-97k tris; reviewed in the engine lab |
 | The Rift Marshal (`bosses/marshal.ts`, helix `marshal` variant) | 2 | temporal armour cracked by parries, acceleration bursts with afterimages, blink recovery, counters repeated attacks, phase 2; pursuer in the underpass; model export queued; not yet fought |
 | Chapter 2 (`ch2_level.py`, `ch2.ts`) | 2 | 7 sections built in code (rooftops, street, cafe, gate, plaza, underpass, helipad), 7 scripted beats with 59 voiced lines across both chapters, laser-sweep rewind puzzle, plaza waves, pursuit, boss, recovered-footage ending; bake + play-through pending |
@@ -52,6 +53,13 @@ rain, wet streets, SSR, water, dusk city, skin, POM, grading) is in; it has been
 | Water medium (`src/rendering/water.ts`, `envkit.water_mat`) | 3 | transmissive IOR 1.33 with per-pixel depth absorption (scene depth behind the surface), layered swells + noise ripples + rain rings, shoreline foam, `flow` 0 freezes it (the plaza fountain) |
 | The storm at nightfall (Ch1 surface, Ch2) | 3 | sky at 0.24 in bakes/volumes/background, eye adaptation per place; lit windows (skyline emission maps on a 48 m tile; real panes on near towers), working street lights with luminaires and lights, shopfronts with lit interiors, neon names and spill light, a dead hotel sign on the abandoned side, lit checkpoint booths; lightning lights the sky and the air. Rebake running |
 | Skin v2 (`charmat.ts` skin) | 3 | pores in the base normal (distance-faded) + a finer micro layer (whiteout blend), specular occlusion in pores, rain soak; stubble/beard shells not done |
+| Eyes v2 (`charmat.ts` eye, cornea) | 4 | the iris had its own gloss and its low-poly dish mirrored the studio/sky in big pale facets (every cast member's eyes read grey): iris specular off (the cornea carries the reflection), cornea sharper and weaker, sclera warmer and darker; cornea normals welded. Reviewed in the lab close-up (Imani, Ethan) |
+| Foliage (`blender/props/foliage.py`, `src/world/foliage.ts`) | 4 | Poly Haven CC0 plants/trees for real time: conifer twigs to cards textured by a Cycles-rendered atlas of the tree's own clusters (tinted dark blue-green), plants decimated with their Alpha maps merged in (colour bled under the cut-outs); instanced per section with light-volume lighting, wind, a broken wet film; twig cards keep their coverage at distance (mip-scaled, sharpened alpha + alpha-to-coverage). Reviewed in the engine on the Chapter 5 island (quick bake) and the Chapter 2 overgrowth |
+| Interior-mapped windows (`src/rendering/windows/`, vendored MIT kit) | 4 | a pane in every bay of the city's towers: blinds, curtains, rooms with parallax, a share lit; the panes skip the lightmap (the kit lights its own dressing: the lightmap made every blind glow white), far facades fade to the mean. Reviewed on the Chapter 2 street at night |
+| HELIX van (`blender/environments/vehicles.py`) | 4 | hard-surface panel van replacing the box van: profile shell with rounded silhouette, arches with lips, five-spoke wheels, glazing, seams, livery, lamps, roof light bar (red/blue lights baked), crumpled nose; reviewed in Cycles and the engine |
+| Chapter 2 street dressing (`streetkit.py`, Poly Haven hidden-alley set) | 3 | cast-iron bollards with chains, paper lanterns, cables, bins, hydrant, cameras, covered car, tyres, barrel stove, graffiti shutters, rusted aircon, manholes, scanned barriers; Cycles preview reviewed; in the full Chapter 2 bake now running |
+| Open sea (`src/world/sea.ts`, vendored MIT ocean kit) | 3 | Gerstner sheet + top-level mirror pass + seabed stamps around the sea stacks at the Chapter 4 terrace; not yet seen in the engine (needs the Chapter 4 export, running) |
+| Voss's beard and hair (`voss.py`) | 3 | a boxed beard in the jaw/chin/moustache zone with a lip guard, salt-and-pepper colour, a short swept-back comb; Cycles review shows the groom; colour pass and engine review pending |
 
 
 ### v1 known quality gaps (must be fixed; do not forget)
@@ -94,6 +102,14 @@ rain, wet streets, SSR, water, dusk city, skin, POM, grading) is in; it has been
 21. The Sentinel had no rewind snapshot: time recording during its fight threw every tick. It now snapshots (never across its phase change).
 22. Section light volumes were requested without the asset prefix (404): fixed.
 23. Source edits hot-reloaded the dev page in the middle of scripted tests: tests now run against a separate static build.
+24. Voss's lapel pin and placket were meshed at 0.5-0.9 mm over the whole coat's bounding box (a 13.6 GB grid): every Voss build was
+    OOM-killed. Fine parts now get boxes of their own. His low boots had no lacing and crashed the boot builder: laces are optional.
+25. Exact booleans in `hardpoly.carve` left an empty material slot per cut (the Chapter 2 bake crashed on it): cut faces take the
+    target's material; `finish` folds empty and duplicate slots.
+26. Poly Haven's cut-out plants keep their opacity in a separate Alpha map that was never fetched: grass, moss and nettles drew as dark
+    cards. Alpha maps are fetched and merged.
+27. A material named after its own asset with Blender's `.001` suffix produced doubled texture names: the suffix is stripped first.
+28. The window kit's dressing was lit by the pane's lightmap (the light on the outer glass) and every blind glowed white at night.
 
 ---
 

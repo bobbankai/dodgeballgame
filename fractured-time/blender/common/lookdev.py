@@ -318,7 +318,7 @@ def _surface_samples(obj, weight_fn, count, seed):
 
 
 def hair_curves(basemesh, name, *, count=60000, segments=6, length_fn, comb_fn, curl=0.0, curl_freq=2.5, radius=0.00009,
-                melanin=0.92, redness=0.25, rough=0.38, mask_fn, seed=7, clump=0.3, random_color=0.12):
+                melanin=0.92, redness=0.25, rough=0.38, mask_fn, seed=7, clump=0.3, random_color=0.12, tint=None):
     pts, nrm = _surface_samples(basemesh, mask_fn, count, seed)
     r = np.random.default_rng(seed + 1)
     L = length_fn(pts) * r.uniform(0.75, 1.15, count)
@@ -366,6 +366,8 @@ def hair_curves(basemesh, name, *, count=60000, segments=6, length_fn, comb_fn, 
     h.inputs['Radial Roughness'].default_value = 0.45
     h.inputs['Coat'].default_value = 0.08
     h.inputs['Random Color'].default_value = random_color  # per-strand melanin spread: high for greying (salt-and-pepper) hair
+    if tint is not None:
+        h.inputs['Tint'].default_value = (*tint, 1)  # cools the warm cast low-melanin (greying) hair otherwise has
     h.inputs['Random Roughness'].default_value = 0.2
     nt.links.new(h.outputs[0], o.inputs['Surface'])
     cv.materials.append(m)

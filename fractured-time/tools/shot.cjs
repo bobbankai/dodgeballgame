@@ -16,7 +16,7 @@ const { chromium } = require('playwright');
   const t0 = Date.now();
   await p.waitForFunction(() => window.__probe && (window.__probe.rendered || window.__probe.error), null, { timeout: 120000 }).catch(() => {});
   await p.waitForTimeout(+wait);
-  await p.screenshot({ path: out });
+  await p.screenshot({ path: out, timeout: 300000 });
   const probe = await p.evaluate(() => JSON.stringify(window.__probe || {}));
   console.log(probe, '\nelapsed ms:', Date.now() - t0);
   const uniq = [...new Set(logs)].filter((l) => !/GPU stall|ReadPixels|GL Driver/.test(l));

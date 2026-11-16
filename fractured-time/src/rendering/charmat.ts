@@ -288,13 +288,41 @@ function hair(r: Recipe): THREE.Material {
   return m;
 }
 
+/**
+ * Smooth vertex normals across a mesh's split seams (the cornea shell is low-poly and exported with split normals: a mirror-sharp
+ * reflection then breaks into polygon facets). Coincident vertices share the average of their normals; skinning is untouched.
+ */
+function smoothNormals(mesh: THREE.Mesh): void {
+  const g = mesh.geometry;
+  const pos = g.getAttribute('position') as THREE.BufferAttribute;
+  const nor = g.getAttribute('normal') as THREE.BufferAttribute | undefined;
+  if (!pos || !nor || g.userData.smoothed) return;
+  const key = (i: number) => `${Math.round(pos.getX(i) * 1e5)},${Math.round(pos.getY(i) * 1e5)},${Math.round(pos.getZ(i) * 1e5)}`;
+  const sum = new Map<string, THREE.Vector3>();
+  const v = new THREE.Vector3();
+  for (let i = 0; i < pos.count; i++) {
+    const k = key(i);
+    const a = sum.get(k) ?? new THREE.Vector3();
+    a.add(v.fromBufferAttribute(nor, i));
+    sum.set(k, a);
+  }
+  for (let i = 0; i < pos.count; i++) {
+    const n = sum.get(key(i))!.clone().normalize();
+    nor.setXYZ(i, n.x, n.y, n.z);
+  }
+  nor.needsUpdate = true;
+  g.userData.smoothed = true;
+}
+
 function cornea(): THREE.Material {
   // The wet cornea adds only its reflection (lights + environment) on top of the eye: black diffuse, additive blending. A real cornea
   // transmits ~97% of light (F0 ~0.025 at IOR 1.376), so a "transparent white" layer reads as cataract milk; this does not.
   // a little roughness hides the facets of the low-poly cornea shell in reflections of big studio area lights
-  const m = new THREE.MeshPhysicalNodeMaterial({ color: 0x000000, roughness: 0.1, metalness: 0 });
+  // Sharp (a tight catchlight, as in close-up photography) and physically weak: a broad, strong reflection smears the studio or sky
+  // across the iris and the eye reads grey from a few metres away.
+  const m = new THREE.MeshPhysicalNodeMaterial({ color: 0x000000, roughness: 0.035, metalness: 0 });
   m.ior = 1.376;
-  m.specularIntensity = 0.7;
+  m.specularIntensity = 0.4;
   m.transparent = true;
   m.blending = THREE.AdditiveBlending;
   m.depthWrite = false;
@@ -321,11 +349,15 @@ function eye(old: THREE.MeshStandardMaterial, hasAO: boolean): THREE.Material {
     const limbal = smoothstep(0.07, 0.112, d).mul(0.65).oneMinus(); // darker ring at the iris edge, as in real eyes
     const fibres = lum.mul(2.2).pow(1.1).min(0.32); // clamp: the stock texture has a painted highlight in the iris
     const iris = vec3(0.52, 0.3, 0.155).mul(fibres.mul(2.2)).mul(limbal).add(vec3(0.006, 0.0035, 0.002));
-    const sclera = mix(vec3(lum), c, float(0.8)).mul(vec3(0.72, 0.68, 0.65));
+    // sclera: never paper-white in life (warm, faintly pink, shaded by the lids); the AO below darkens its corners further
+    const sclera = mix(vec3(lum), c, float(0.8)).mul(vec3(0.6, 0.54, 0.5));
     const ao = bakedAO(hasAO);
     m.colorNode = mix(sclera.mul(ao.mul(ao)), iris.mul(ao), irisMask);
     m.opacityNode = t.a;
     m.alphaTest = 0.5;
+    // the iris sits behind the cornea and has no gloss of its own (the cornea shell carries the reflection); left glossy, the low-poly
+    // iris dish mirrors the studio or sky in big pale facets and the eye reads grey
+    m.specularIntensityNode = mix(float(0.25), float(0.0), irisMask);
   }
   m.roughness = 0.35;
   m.specularIntensity = 0.25;
@@ -382,7 +414,7 @@ export function dressCharacter(root: THREE.Object3D, opts: { hide?: string[] } =
         else if (r.type === 'armour') made = armour(r, hasAO);
         else if (r.type === 'emissive') made = emissive(r);
         else if (r.type === 'hair') made = hair(r);
-        else if (r.type === 'cornea') made = cornea();
+        else if (r.type === 'cornea') { made = cornea(); smoothNormals(mesh); }
         else if (r.type === 'eye') made = eye(old as THREE.MeshStandardMaterial, hasAO);
         else if (r.type === 'teeth') made = teeth(old as THREE.MeshStandardMaterial, hasAO);
         else if (r.type === 'hairshell') {
