@@ -497,6 +497,19 @@ def s_underpass(M):
     for i, (x, y, r) in enumerate(((8.0, -214.0, 0.3), (15.0, -230.0, -0.4), (10.0, -247.0, 0.1))):
         B.box(M['c_concrete'], (4.0, 2.0, 0.8), (x, y, 0.4), bevel=0.08, rot=Matrix.Rotation(r, 4, 'Z'))
         K.collide_box(S, f'c6_slab{i}', (4.0, 2.0, 0.9), (x, y, 0.45))
+    # sodium lamps hung under the deck spans (one dead; none on the broken span), and a caged lamp on the last pillar by the
+    # stairwell: the chase runs toward the light. Under the deck the storm sky never reached the road: it was black
+    sodium = K.emissive_mat('c6_sodium', (1.0, 0.56, 0.22), 14.0)
+    for k in range(6):
+        if k in (1, 3):
+            continue
+        y = y0 - 6 - k * 12
+        cx = (x0 + x1) / 2 + (2.5 if k % 2 else -2.5)
+        B.box(M['trim'], (0.5, 1.0, 0.18), (cx, y, 8.91), bevel=0.02)
+        S.add(K.box(f'c6_lamp{k}', (0.42, 0.9, 0.02), (cx, y, 8.81), sodium, bevel=0.0))
+        K.area_light(f'c6_lampL{k}', (cx, y, 8.78), (0.42, 0.9), 320.0, (1.0, 0.56, 0.22))
+    S.add(K.bulkhead_lamp('c6_stairlamp', (x1 - 2.6 - 0.01, y0 - 6 - 5 * 12, 3.0), -math.pi / 2, M, color=(0.82, 0.9, 1.0), power=110.0,
+                          tilt=25.0))
     for k in range(3):
         y = y0 - 12 - k * 24
         CK.tower(B, M, x0 - 9, y, 14, 22, 0.0, 22 + 6 * k, 'concrete', 50 + k)
