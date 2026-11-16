@@ -188,7 +188,8 @@ export async function run(g: Game, ch: ChapterRuntime, at: string | null = null)
     await dir.end();
     boss.held = false;
     ch.objective('Defeat Commander Nyx');
-    const centre = ch.byId('cp_p4')!.pos.clone().add(V(0, 0, -12));
+    // a fall into the crucible puts him back on the platform's centre disc (the pit trigger sits under it)
+    const centre = ch.byId('p4_fall')!.pos.clone().setY(ch.byId('cp_p4')!.pos.y);
     ch.repeat('p4_fall', async () => {
       (g.player as any).receiveHit?.({ attacker: null, damage: 20, stagger: 1, heavy: false, point: g.player.pos.clone(), dir: V(0, 0, 1), launch: 0 });
       ch.place(centre);

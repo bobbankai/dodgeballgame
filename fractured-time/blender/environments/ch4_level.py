@@ -304,9 +304,9 @@ def s_foundry(M):
 def s_crucible(M):
     S = K.Section('p4')
     cx, cy, R = 400.0, -62.0, 12.0
-    # the walk out from the foundry door to the platform
-    S.add(K.box('p4_walk', (3.6, 9.0, 0.4), (cx, -44.5, -0.2), M['c_grate'], bevel=0.02))
-    K.collide_box(S, 'p4_walk', (3.6, 9.0, 0.4), (cx, -44.5, -0.2))
+    # the walk out from the foundry door onto the platform (it overlaps the rim: it used to stop a metre short, over the pit)
+    S.add(K.box('p4_walk', (3.6, 11.2, 0.4), (cx, -45.6, -0.2), M['c_grate'], bevel=0.02))
+    K.collide_box(S, 'p4_walk', (3.6, 11.2, 0.4), (cx, -45.6, -0.2))
     for sx in (-1.8, 1.8):
         S.add(K.railing(f'p4_wrail{sx}', (cx + sx, -40.0, 0.0), (cx + sx, -49.0, 0.0), M))
         K.collide_box(S, f'p4_wrail{sx}', (0.2, 9.0, 1.2), (cx + sx, -44.5, 0.6))

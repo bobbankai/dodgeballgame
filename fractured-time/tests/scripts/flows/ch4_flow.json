@@ -71,8 +71,8 @@
   "log": "[g.chapter.timeline]"
  },
  {
-  "do": "BH(400); return await U(()=>g.flags.get('chapter4_complete'),900)",
+  "do": "for(let i=0;i<6&&BOSS()&&!BOSS().defeated;i++){BH(400); g.step(8);} return await U(()=>g.flags.get('chapter4_complete'),900)",
   "shot": "f_end",
-  "log": "[g.flags.get('chapter4_complete')]"
+  "log": "[g.flags.get('chapter4_complete'), BOSS()&&BOSS().defeated]"
  }
 ]
