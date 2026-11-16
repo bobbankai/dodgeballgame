@@ -1406,7 +1406,10 @@ def prop(S, asset, loc, yaw=0.0, scale=1.0, node=None, timeline=None, budget=120
     key = (asset, node if not callable(node) else node.__name__ + str(id(node)))
     if key not in _PROPS:
         before = set(bpy.data.objects)
-        bpy.ops.import_scene.gltf(filepath=os.path.join(ROOT, 'vendor', 'polyhaven', 'models', asset, f'{asset}_2k.gltf'))
+        base = os.path.join(ROOT, 'vendor', 'polyhaven', 'models', asset)
+        path = next((os.path.join(base, f'{asset}_{r}.gltf') for r in ('2k', '1k', '4k') if os.path.exists(os.path.join(base, f'{asset}_{r}.gltf'))),
+                    os.path.join(base, f'{asset}_2k.gltf'))
+        bpy.ops.import_scene.gltf(filepath=path)
         objs = [o for o in bpy.data.objects if o not in before and o.type == 'MESH']
         if node is not None:
             if callable(node):

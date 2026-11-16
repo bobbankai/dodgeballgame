@@ -24,6 +24,7 @@ import bpy  # noqa: E402
 import ch1_level as L1  # noqa: E402
 import citykit as CK  # noqa: E402
 import envkit as K  # noqa: E402
+import officekit as OK  # noqa: E402
 
 OUT = os.path.join(K.PUB, 'environments', 'ch3')
 
@@ -159,10 +160,21 @@ def s_offices(M):
         S.add(K.box(f'a2_glass{i}', (L, 0.06, 2.4), ((ax + bx) / 2, ay, 1.2), M['glass'], bevel=0.0), timeline='a')
         S.add(K.box(f'a2_gframe{i}', (L, 0.1, 0.08), ((ax + bx) / 2, ay, 2.42), M['a_panel'], bevel=0.0), timeline='a')
         K.collide_box(S, f'a2_glass{i}', (L, 0.3, 2.6), ((ax + bx) / 2, ay, 1.3), timeline='a')
-    for k in range(10):
-        x, y = rng.uniform(-10, 10), rng.uniform(-57, -33)
-        S.add(K.box(f'a2_desk{k}', (1.6, 0.8, 0.75), (x, y, 0.375), M['a_wood'], bevel=0.02), timeline='a')
-        S.add(K.box(f'a2_screen{k}', (0.6, 0.04, 0.36), (x, y + 0.2, 0.95), M['screen0'], bevel=0.005), timeline='a')
+    # workstation pods between the partitions, clear of both realities' routes (a: the gaps east, west, east; b: around the two
+    # collapses); filing and shelving along the walls; the ruin keeps two pods, shoved and tipped
+    Ba, Bb = CK.Batch('a2ka'), CK.Batch('a2kb')
+    for i, (px, py) in enumerate(((-6.5, -34.5), (1.0, -42.0), (-1.0, -49.5), (-6.5, -56.5))):
+        OK.workstation_pod(S, Ba, M, px, py, 0.0, 'a', seed=20 + i)
+        if i in (0, 3):
+            OK.workstation_pod(S, Bb, M, px, py, 0.0, 'b', seed=40 + i, ruined=True)
+    OK.wall_storage(S, M, -11.6, -41.5, -math.pi / 2, 'a', n=3, seed=60)
+    OK.wall_storage(S, M, 11.6, -49.0, math.pi / 2, 'a', n=3, seed=61)
+    OK.wall_storage(S, M, -11.6, -41.5, -math.pi / 2, 'b', n=3, seed=62, ruined=True)
+    K.prop(S, 'korean_fire_extinguisher_01', (-3.2, -30.35, 0.9), 0.0, timeline='a', collide=False, budget=4000)
+    for o in Ba.objects():
+        S.add(o, timeline='a')
+    for o in Bb.objects():
+        S.add(o, timeline='b')
     for i in range(3):
         S.add(K.box(f'a2_lightA{i}', (8.0, 0.3, 0.05), (0, -36 - i * 9, H - 0.04), M['a_light'], bevel=0.0), timeline='a')
         K.area_light(f'a2_lA{i}', (0, -36 - i * 9, H - 0.12), (8.0, 0.3), 220.0, (1.0, 0.96, 0.9), timeline='a')
