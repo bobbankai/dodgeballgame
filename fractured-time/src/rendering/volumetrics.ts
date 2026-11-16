@@ -36,8 +36,10 @@ export interface FogSettings {
   maxDist: number;
 }
 
+// interiors: the light volumes carry bounce light since the bake added it (2-3x the in-scatter of direct light alone), so the air is
+// thinner than before for the same look: a clear room, haze only where the light is strong
 export const INTERIOR_FOG: FogSettings = {
-  density: 0.0042, heightFalloff: 0.05, baseY: 0, noise: 0.55, noiseScale: 0.22, wind: new THREE.Vector3(0.12, 0.03, 0.05), anisotropy: 0.45,
+  density: 0.0024, heightFalloff: 0.05, baseY: 0, noise: 0.55, noiseScale: 0.22, wind: new THREE.Vector3(0.12, 0.03, 0.05), anisotropy: 0.45,
   albedo: new THREE.Color(0.9, 0.92, 0.95), exposure: 1, fallback: new THREE.Vector4(0.004, 0.005, 0.006, 0), maxDist: 60,
 };
 
