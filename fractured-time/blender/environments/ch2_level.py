@@ -103,6 +103,9 @@ def s_rooftops(M):
     K.collide_box(S, 'c1_alley', (8.0, 40.0, 0.4), (-13.0, -30.0, -0.2))
     S.add(K.box('c1_alley_floor', (8.0, 40.0, 0.4), (-13.0, -30.0, -0.2), M['c_asphalt'], bevel=0.0))
     CK.tower(B, M, -24, -26, 14, 30, -0.0, 26, 'ruin', 5)
+    # the alley's north end, closed by a brick block (it opened onto nothing; the night sky used to hide it)
+    CK.tower(B, M, -15.5, -2.0, 13.0, 16.0, -0.0, 24.0, 'brick', 6)
+    K.collide_box(S, 'c1_alley_end', (13.0, 16.0, 24.0), (-15.5, -2.0, 12.0))
     for o in B.objects():
         S.add(o)
     L1.storm_marker(S, (0, 0, 22))
