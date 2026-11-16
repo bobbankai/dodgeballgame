@@ -571,7 +571,11 @@ export class ChapterRuntime {
       // volumetric: dusty air lit by the fixtures (the classic exponential haze when the preset has no volumetrics)
       sc.fog = vf ? null : new THREE.FogExp2(0x0a0d11, 0.016);
       // the engine chamber is a dusty drum: thicker air, so the fixtures and the engine throw visible beams
-      if (vf) this.g.post.fog.apply({ ...INTERIOR_FOG, baseY: box.min.y + 0.5, ...(isEngine ? { density: 0.0042 } : {}), ...this.fogOverride() });
+      // the arcology's ruin is open to the storeys above through its breaches: dusty, still air, so the light falling through
+      // stands in the room as shafts (at the facility's clean-room density it reached the floor without lighting the air)
+      const ruin = this.g.chapterNumber === 3 && this.timeline === 'b';
+      if (vf) this.g.post.fog.apply({ ...INTERIOR_FOG, baseY: box.min.y + 0.5, ...(isEngine ? { density: 0.0042 } : {}),
+        ...(ruin ? { density: 0.011, heightFalloff: 0.02, noise: 0.7 } : {}), ...this.fogOverride() });
       this.captureFogBase();
       this.g.sfx.ambience('amb_facility', this.current === this.sections.findIndex((x) => /s6\.glb$/.test(x.path)) ? 'hall' : 'interior');
       return;
