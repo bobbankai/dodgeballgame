@@ -171,8 +171,8 @@ def chest_plate(S, P, m, heavy=False):
     lo, hi = HS.bounds(F, -w - 0.02, w + 0.02, bot - 0.02, top + 0.02, 0.0, 0.08)
     make(S, f'{P}_chestplate', plate, lo, hi, m['shell'], step=0.0016, tris=7000)
     tc = (top + bot) / 2 + 0.02
-    chev = sdf.union(*[HS.solid_at(F, sx * 0.022, tc, off + (0.011 if heavy else 0.008) + 0.001,
-                                   sdf.box((0, 0, 0), (0.028, 0.006, 0.0016), 0.001, R=sdf.rot(0, 0, sx * 35))) for sx in (-1, 1)])
+    chev = sdf.union(*[HS.solid_at(F, sx * 0.031, tc, off + (0.011 if heavy else 0.008) + 0.001,
+                                   sdf.box((0, 0, 0), (0.04, 0.008, 0.0018), 0.001, R=sdf.rot(0, 0, sx * 35))) for sx in (-1, 1)])
     make(S, f'{P}_chevron', chev, lo, hi, m['mark'], step=0.0008, tris=1500)
 
 
@@ -210,6 +210,52 @@ def rift_blades(S, P, m):
         HS.make(S, f'{P}_bladeglow_{sd}', edge, lo, hi, m['glow'], step=0.0012, tris=1500)
 
 
+def field_gear(S, P, m, kit):
+    """Load-bearing gear every HELIX soldier carries over the suit: elbow pads, a drop-leg pouch on the right thigh, and a radio with
+    a whip antenna on the left shoulder strap (`kit`: the field-kit materials: cordura, webbing, hardware)."""
+    B = S.bones
+    # elbow pads: a moulded cap over each elbow on two straps (as the knee pads)
+    for sd in ('l', 'r'):
+        a = (np.array(B[f'upperarm_{sd}'][0]) + np.array(B[f'upperarm_{sd}'][1])) / 2
+        b = (np.array(B[f'lowerarm_{sd}'][0]) + np.array(B[f'lowerarm_{sd}'][1])) / 2
+        ax = b - a
+        et = float(np.linalg.norm(np.array(B[f'lowerarm_{sd}'][0]) - a))
+        E = HS.RadialField(S, a, ax, (0, 0, 1), et - 0.09, et + 0.09, n_theta=96, step_t=0.004, only=(f'upperarm_{sd}', f'lowerarm_{sd}'),
+                           r_max=0.12, blur=3)
+        E = E.view(E.theta_of((0, 1, 0)))   # the point of the elbow faces back in the A-pose
+        E.r_ref = 0.045
+        cap = sdf.intersect(HS.layer(E, 0.008, 0.011, lambda s_, t_: 0.003 * np.clip(1 - (s_ / 0.045) ** 2, 0, 1)),
+                            HS.outline(E, [(-0.042, et - 0.055), (0.042, et - 0.055), (0.045, et + 0.05), (-0.045, et + 0.05)]), k=0.006)
+        straps = sdf.union(*[sdf.intersect(HS.layer(E, 0.0075, 0.003), HS.band(E, tt - 0.009, tt + 0.009), k=0.001)
+                             for tt in (et - 0.045, et + 0.04)])
+        lo, hi = HS.bounds(E, -math.pi * E.r_ref, math.pi * E.r_ref, et - 0.07, et + 0.07, -0.01, 0.04)
+        make(S, f'{P}_elbowpad_{sd}', sdf.union(cap, straps, k=0.002), lo, hi, kit['webbing'], step=0.0016, tris=3500)
+    # drop-leg pouch on the right thigh, on two leg straps
+    a, b = np.array(B['thigh_r'][0]), np.array(B['thigh_r'][1])
+    L = float(np.linalg.norm(b - a))
+    G = HS.RadialField(S, a, b - a, (0, 0, 1), 0.0, L, n_theta=96, step_t=0.004, only=('thigh_r',), r_max=0.16, blur=4)
+    G = G.view(G.theta_of((-1, -0.35, 0)))  # the outside of the thigh, a little forward
+    G.r_ref = 0.07
+    tp = L * 0.36
+    body = HS.solid_at(G, 0.0, tp, 0.012 + 0.024, sdf.union(HS.rbox((0.055, 0.075, 0.022), 0.008),
+                                                         sdf.box((0, 0.06, 0.004), (0.058, 0.022, 0.022), 0.006), k=0.003))
+    # straps ride on the trousers (the cloth shell stands 9-11 mm off the body): at 6 mm they were buried and showed as broken dashes
+    legstraps = sdf.union(*[sdf.intersect(HS.layer(G, 0.0125, 0.003), HS.band(G, tt - 0.012, tt + 0.012), k=0.001) for tt in (tp - 0.05, tp + 0.045)])
+    lo, hi = HS.bounds(G, -math.pi * G.r_ref, math.pi * G.r_ref, tp - 0.12, tp + 0.12, -0.01, 0.09)
+    make(S, f'{P}_legpouch', sdf.union(body, legstraps, k=0.002), lo, hi, kit['cordura'], step=0.0016, tris=5000)
+    # radio on the left shoulder strap, a whip antenna up past the helmet
+    zc = B['clavicle_l'][0][2]
+    loc, *_ = S.bvh.ray_cast((0.1, -0.6, zc - 0.05), (0, 1, 0), 1.2)
+    if loc is not None:
+        y = loc.y - 0.035
+        radio = sdf.box((0.1, y, zc - 0.05), (0.028, 0.018, 0.045), 0.004)
+        knob = sdf.cylinder((0.112, y, zc - 0.002), 0.006, 0.008, 0.001)
+        rlo, rhi = (0.05, y - 0.05, zc - 0.12), (0.16, y + 0.05, zc + 0.05)
+        make(S, f'{P}_radio', sdf.union(radio, knob, k=0.002), rlo, rhi, kit['metal'], step=0.0012, tris=2500)
+        ant = sdf.cone((0.12, y + 0.004, zc - 0.005), (0.15, y + 0.03, zc + 0.24), 0.0024, 0.0016)
+        make(S, f'{P}_antenna', ant, (0.1, y - 0.02, zc - 0.02), (0.17, y + 0.06, zc + 0.27), kit['metal'], step=0.0009, tris=800)
+
+
 def armour(S, h, base_mat, P, variant):
     ARMOUR.clear()
     m = mats(P, variant)
@@ -221,6 +267,7 @@ def armour(S, h, base_mat, P, variant):
         for sd in ('l', 'r'):
             pauldron(S, P, m, sd, layers=3 if variant in ('heavy', 'marshal') else 2, big=big)
         chest_plate(S, P, m, heavy=variant == 'heavy')
+    field_gear(S, P, m, base_mat)
     if variant == 'heavy':
         backpack(S, P, m)
     if variant == 'marshal':
