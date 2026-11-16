@@ -20,7 +20,8 @@ export class ProbeField {
   async load(path: string, section: number, box: THREE.Box3, timeline?: 'a' | 'b'): Promise<void> {
     this.boxes[section] = box;
     const r = await fetch(assetUrl(path));
-    if (!r.ok) return;
+    // a section without probes (a skyline nobody walks): the dev server answers a missing file with the app's HTML page
+    if (!r.ok || !(r.headers.get('content-type') ?? '').includes('json')) return;
     const j = (await r.json()) as { probes: { p: number[]; sh: number[][] }[] };
     for (const q of j.probes) {
       this.probes.push({ p: new THREE.Vector3(q.p[0], q.p[1], q.p[2]), sh: q.sh.map((c) => new THREE.Vector3(c[0], c[1], c[2])), section, timeline });

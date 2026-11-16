@@ -30,6 +30,8 @@ export interface LoadedLevel { root: THREE.Group; markers: Marker[]; staticMeshe
   /** Timeline Shift: objects and colliders that exist only in timeline 'a' or 'b' (Chapter 3's arcology) */
   timeline: { a: { meshes: THREE.Object3D[]; colliders: unknown[] }; b: { meshes: THREE.Object3D[]; colliders: unknown[] } } }
 
+/** `?nowin`: plain dark glass instead of the interior-mapped panes (a test switch). */
+const TEST_NOWIN = typeof location !== 'undefined' && new URLSearchParams(location.search).has('nowin');
 const hdr = new HDRLoader();
 
 /**
@@ -196,7 +198,7 @@ export async function loadLevel(path: string, physics: Physics | null, scene: TH
       else if (r.type === 'plain') m = plain(r);
       else if (r.type === 'glass') m = glass(r);
       else if (r.type === 'water') m = water(r as any);
-      else if (r.type === 'window') m = windowMaterial(r);
+      else if (r.type === 'window') m = TEST_NOWIN ? plain({ type: 'plain', color: [0.03, 0.035, 0.04], rough: 0.1 } as any) : windowMaterial(r);
       else m = old;
       m.name = old.name;
       if (raw) m.userData.ft = raw;

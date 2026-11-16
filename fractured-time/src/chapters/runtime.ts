@@ -531,7 +531,7 @@ export class ChapterRuntime {
     this.outdoors = !!sky;
     const vf = this.g.post.volumetric;
     this.g.post.fog.u.on.value = vf ? 1 : 0;
-    this.g.rain.intensity = sky ? Number(sky.data.rain ?? 1) : 0;
+    this.g.rain.intensity = sky && !new URLSearchParams(location.search).has('norain') ? Number(sky.data.rain ?? 1) : 0; // ?norain: test switch
     this.nexus = !!sky?.data.nexus;
     if (sky) setWeather(Number(sky.data.rain ?? 1) > 0 ? 'storm' : 'dry');
     // the place's grade
@@ -566,7 +566,9 @@ export class ChapterRuntime {
     sc.background = haze;
     if (storm) {
       // the storm at nightfall is procedural; over the ruined future terrace no one is left to light the city under it
-      (sc as any).backgroundNode = this.sky.storm({ haze, glow: sky.data.id === 'future' ? 0.08 : 1 });
+      // (`?nostorm`: the fog colour instead, a test switch)
+      (sc as any).backgroundNode = new URLSearchParams(location.search).has('nostorm') ? null
+        : this.sky.storm({ haze, glow: sky.data.id === 'future' ? 0.08 : 1 });
     } else {
       const ready = this.skyReady.get(path);
       (sc as any).backgroundNode = ready ? this.sky.image(ready, { haze }) : null;
