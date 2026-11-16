@@ -1,0 +1,35 @@
+[
+ {
+  "do": "window.KA=async()=>{const alive=()=>g.enemies.filter(e=>e.alive&&!String(e.def.id).startsWith('boss')).length; for(let i=0;i<12;i++){ await U(()=>alive()>0,240); if(!alive()) break; K(); g.step(40); } return alive()};window.K=()=>{for(const e of g.enemies) if(e.alive && !String(e.def.id).startsWith(\"boss\")) e.receiveHit({attacker:g.player,damage:9999,stagger:2,heavy:true,guardbreak:true,unblockable:true,launch:0,point:e.pos.clone(),dir:{x:0,y:0,z:1,clone(){return this}},clip:\"heavy1\"}); return g.enemies.filter(e=>e.alive).length}; window.T=(x,z,yaw,y)=>{g.physics.teleport(g.player.body,{x,y:(y??0)+0.3,z}); g.player.pos.set(x,(y??0)+0.05,z); g.player.prev.copy(g.player.pos); g.player.yaw=yaw??0; g.camera.reset(g.player.yaw,g.player.pos); return 1}; window.O=()=>{const el=document.querySelector('.objective'); return el && el.style.opacity!=='0' ? el.textContent||'' : ''}; window.U=async(c,n=150)=>{let i=0;for(;i<n&&!c();i++){g.step(10); await new Promise(r=>setTimeout(r,20));} return [c(), i]}; window.BOSS=()=>g.enemies.find(e=>String(e.def.id).startsWith(\"boss\")); window.BH=(dmg)=>{const b=BOSS(); if(!b) return \"noboss\"; b.receiveHit({attacker:g.player,damage:dmg,stagger:1,heavy:true,guardbreak:true,launch:0,unblockable:true,point:b.pos.clone(),dir:{x:0,y:0,z:1,clone(){return this}},clip:\"heavy1\"}); return [b.health|0, b.phase, b.held, b.defeated]}; window.SH=(t)=>{if(g.chapter.timeline!==t) g.temporal.activate(\"shift\"); return g.chapter.timeline}; return 1",
+  "step": 10
+ },
+ {
+  "do": "T(1000,139.0,0,0.8); g.step(30); T(1000,150.6,0,0.8); return await U(()=>O().includes('Voss'),600)",
+  "shot": "d_voss",
+  "log": "[O(), BH(0)]"
+ },
+ {
+  "do": "BH(330); return await U(()=>{const b=BOSS(); return b && b.phase===2 && !b.held},500)",
+  "shot": "e_p2",
+  "log": "[BH(0)]"
+ },
+ {
+  "do": "BH(320); return await U(()=>{const b=BOSS(); return b && b.phase===3 && !b.held},500)",
+  "shot": "f_p3",
+  "log": "[BH(0)]"
+ },
+ {
+  "do": "BH(500); return await U(()=>O().includes('Engine'),600)",
+  "log": "[O()]"
+ },
+ {
+  "do": "T(1000,170.2,0,0.8); g.forceInteract=true; return await U(()=>!!window.__choose || g.flags.get('ending'),600)",
+  "shot": "g_choice",
+  "log": "[!!window.__choose]"
+ },
+ {
+  "do": "window.__choose && window.__choose(2); return await U(()=>g.flags.get('chapter5_complete'),900)",
+  "shot": "end_2",
+  "log": "[g.flags.get('ending'), g.flags.get('chapter5_complete')]"
+ }
+]

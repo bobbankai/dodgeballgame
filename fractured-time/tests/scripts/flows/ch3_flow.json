@@ -1,0 +1,81 @@
+[
+ {
+  "do": "window.KA=async()=>{const alive=()=>g.enemies.filter(e=>e.alive&&!String(e.def.id).startsWith('boss')).length; for(let i=0;i<12;i++){ await U(()=>alive()>0,240); if(!alive()) break; K(); g.step(40); } return alive()};window.K=()=>{for(const e of g.enemies) if(e.alive && !String(e.def.id).startsWith('boss')) e.receiveHit({attacker:g.player,damage:9999,stagger:2,heavy:true,guardbreak:true,unblockable:true,launch:0,point:e.pos.clone(),dir:{x:0,y:0,z:1,clone(){return this}},clip:'heavy1'}); return g.enemies.filter(e=>e.alive).length}; window.T=(x,z,yaw)=>{g.physics.teleport(g.player.body,{x,y:0.3,z}); g.player.pos.set(x,0.05,z); g.player.prev.copy(g.player.pos); g.player.yaw=yaw??0; g.camera.reset(g.player.yaw,g.player.pos); return 1}; window.O=()=>{const el=document.querySelector('.objective'); return el && el.style.opacity!=='0' ? el.textContent||'' : ''}; window.U=async(c,n=150)=>{let i=0;for(;i<n&&!c();i++){g.step(10); await new Promise(r=>setTimeout(r,20));} return [c(), i]}; window.BH=(dmg)=>{const b=g.enemies.find(e=>String(e.def.id)==='boss_echo'); if(!b) return 'noboss'; b.receiveHit({attacker:g.player,damage:dmg,stagger:1,heavy:true,launch:0,unblockable:true,point:b.pos.clone(),dir:{x:0,y:0,z:1,clone(){return this}},clip:'heavy1'}); return [b.health|0, b.phase, b.held, b.defeated]}; return 1",
+  "step": 10
+ },
+ {
+  "do": "return await U(()=>O().includes('Shift'),200)",
+  "shot": "a_lobby",
+  "log": "[O(), g.chapter.current, g.chapter.timeline, g.flags.get('ability_shift')]"
+ },
+ {
+  "do": "g.temporal.activate('shift'); return await U(()=>g.chapter.timeline==='b',30)",
+  "step": 30,
+  "shot": "b_ruin",
+  "log": "[g.chapter.timeline, g.post.fog.u.hasVol.value]"
+ },
+ {
+  "do": "T(0,28,0); return await U(()=>O().includes('Palimpsest wing'),200)",
+  "log": "[O(), g.chapter.current]"
+ },
+ {
+  "do": "T(6,59,0); return await U(()=>O().includes('Palimpsest lab'),300)",
+  "step": 20,
+  "shot": "c_lab",
+  "log": "[O(), g.chapter.current]"
+ },
+ {
+  "do": "T(4,68.4,3.14); g.forceInteract=true; return await U(()=>O().includes('echo'),300)",
+  "log": "[O(), g.flags.get('ability_echo')]"
+ },
+ {
+  "do": "T(-7,74,0); return await U(()=>g.chapter.door('a3_gate').state==='open',40)",
+  "step": 30,
+  "shot": "d_plate",
+  "log": "[g.chapter.door('a3_gate').state]"
+ },
+ {
+  "do": "T(-7,78,0); return await U(()=>g.chapter.door('a3_gate').state!=='open',80)",
+  "log": "[g.chapter.door('a3_gate').state]"
+ },
+ {
+  "do": "T(-4,90.5,0); return await U(()=>g.chapter.current===3,100)",
+  "step": 20,
+  "log": "[g.chapter.current, O()]"
+ },
+ {
+  "do": "T(-4,99.2,0); return await U(()=>g.tickers.size>0,100)",
+  "step": 200,
+  "shot": "e_mirror",
+  "log": "[g.tickers.size]"
+ },
+ {
+  "do": "T(-4,116.2,0); return await U(()=>O().includes('ambush'),400)",
+  "shot": "f_ambush",
+  "log": "[O(), g.enemies.filter(e=>e.alive).map(e=>e.def.id)]"
+ },
+ {
+  "do": "await KA(); return await U(()=>O()==='' ,300)",
+  "log": "[O()]"
+ },
+ {
+  "do": "T(-4,123.2,0); return await U(()=>g.chapter.current===4,100)",
+  "step": 30,
+  "log": "[g.chapter.current]"
+ },
+ {
+  "do": "T(-4,129.2,0); return await U(()=>O().includes('Echo'),400)",
+  "shot": "g_boss",
+  "log": "[O(), BH(0)]"
+ },
+ {
+  "do": "BH(160); BH(160); return await U(()=>{const b=g.enemies.find(e=>String(e.def.id)==='boss_echo'); return b && b.phase===2 && !b.held},400)",
+  "shot": "h_phase2",
+  "log": "[BH(0), g.chapter.timeline]"
+ },
+ {
+  "do": "BH(200); BH(200); return await U(()=>g.flags.get('chapter3_complete'),800)",
+  "shot": "i_end",
+  "log": "[g.flags.get('chapter3_complete'), localStorage.getItem('ft.save')]"
+ }
+]
