@@ -33,7 +33,8 @@ OUT = os.path.join(K.PUB, 'environments', 'ch4')
 CLEAR_HDRI = os.path.join(K.ROOT, 'vendor', 'polyhaven', 'hdri', 'kloofendal_48d_partly_cloudy_puresky_2k.hdr')
 CLEAR = 1.0
 # p1's two skies: the future's clear afternoon, the ruin's storm at nightfall (the same storm as the district)
-SKIES = {'p1': {'a': (CLEAR_HDRI, CLEAR), 'b': (L1.STORM_HDRI, L1.SKY)}}
+# (the ruin's storm has no city left under it to light the clouds)
+SKIES = {'p1': {'a': (CLEAR_HDRI, CLEAR), 'b': (K.storm_hdri(0.08), 1.0)}}
 
 
 def materials():

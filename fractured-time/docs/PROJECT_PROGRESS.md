@@ -11,8 +11,11 @@ for shaders/lighting; B: MetaHuman-class character, the bar for models). The v0 
 
 **Overall:** the whole campaign now exists end to end in code: five chapters scripted beat by beat (Chapter 1 facility + surface,
 Chapter 2 district, Chapter 3 arcology, Chapter 4 paradox, Chapter 5 Nexus) with all five bosses (Sentinel A-07, the Rift Marshal, the
-Echo, Commander Nyx, Director Voss), the ending choice, both endings and credits; chapters hand over to the next. **Honest state (this pass):** Chapter 2 has never had its full bake (running now, with the new street dressing); Chapter 4 is
-baking; Chapters 5, 3 and the Chapter 1 sections s6/s8 follow in the queue. **Earlier state:**
+Echo, Commander Nyx, Director Voss), the ending choice, both endings and credits; chapters hand over to the next. **Honest state (this pass):** every chapter's full bake has run (Chapter 4's for the first time). Testing them in the engine
+found that no exterior sky had ever drawn and that every two-reality section lit its shared structure in reality b with the wrong
+lightmap (bugs 37-39); both are fixed in code, the shared maps re-bake section by section, and the storm places (Chapter 1's
+surface, Chapter 2, Chapter 4's ruin) re-bake under a sky that matches the one now drawn. Chapters 3 and 5 have been played
+through by script; Chapter 4's play-through is running. **Earlier state:**
 Chapters 1 and 2 have been played by script; Chapters 3-5 are written and their levels build, but their final bakes are still in the
 queue and none of their fights has been played through yet, so nothing past Chapter 2 is above level 3. The reference pass (fog,
 rain, wet streets, SSR, water, dusk city, skin, POM, grading) is in; it has been reviewed in the facility and the surface only.
@@ -44,7 +47,7 @@ rain, wet streets, SSR, water, dusk city, skin, POM, grading) is in; it has been
 | Afterimages (`src/temporal/afterimages.ts`) | 3 | pooled ghost copies of Ethan's pose on dodge / rewind / slow; not yet reviewed in motion |
 | Chapter 1 surface finale (s8 deck, s9 skyline: `citykit.py`, `facades.py`) | 2 | built; bake + engine review pending |
 | Chapter 3 (`ch3_level.py`, `ch3.ts`): lobby, offices, Palimpsest lab (Temporal Echo, plate gate), mirror hall, Palimpsest Core | 4 | per-reality lights/lightmaps/probes/volumes; EchoBoss (`bosses/echo.ts`); 33 voiced lines; the ruin (timeline b) overgrown under its broken ceilings. **Played through by script to `chapter3_complete`** (timeline shift, echo ability, plate gate, mirror hall, ambush, the Echo through both phases) on the quick bake; full bake queued |
-| Chapter 4 (`ch4_level.py`, `ch4.ts`): future terrace (two skies), 2079 memory lab, foundry, crucible | 3 | NyxBoss (`bosses/nyx.ts`) 3 phases; Imani's part revealed; 40 voiced lines; quick bake for flow tests, full bake queued; not played through |
+| Chapter 4 (`ch4_level.py`, `ch4.ts`): future terrace (two skies), 2079 memory lab, foundry, crucible | 3 | NyxBoss (`bosses/nyx.ts`) 3 phases; Imani's part revealed; 40 voiced lines; **first full export this pass** (never committed before); terrace reviewed in both realities with its skies; the ruin rebakes under the matching storm sky (bug 38); play-through by script in progress |
 | Chapter 5 (`ch5_level.py`, `ch5.ts`): Nexus fragments, skybridge with the Echo as ally, the Engine's heart; choice; Endings A and B; credits | 4 | generated Nexus sky (the Engine is its sun); VossBoss (`bosses/voss.ts`) 3 phases + pylons + flips; `characters/companion.ts`; `ui/finale.ts`; **full bake done** (forest island: 12 firs, waist-high ferns, roots, boulders, fallen trunk; the Engine's light rays past the floating island); play-through by script running |
 | Imani, Nyx, Voss models | 4 / 4 / 4 | all three exported and reviewed in the engine lab: Voss with his salt-and-pepper beard, silver hair, grey brows and blue eyes; Nyx's grey and Imani's brown eyes read true. Chapter 4 and 5 play-throughs wait for their bakes (their level meshes were never committed: the full bakes now running export them) |
 | **Reference pass (10 owner photos: rain-wet streets, neon, misty god rays, caves, sea, UE5 skin)** | | |
@@ -60,6 +63,8 @@ rain, wet streets, SSR, water, dusk city, skin, POM, grading) is in; it has been
 | HELIX van (`blender/environments/vehicles.py`) | 4 | hard-surface panel van replacing the box van: profile shell with rounded silhouette, arches with lips, five-spoke wheels, glazing, seams, livery, lamps, roof light bar (red/blue lights baked), crumpled nose; reviewed in Cycles and the engine |
 | Chapter 2 street dressing (`streetkit.py`, Poly Haven hidden-alley set) | 3 | cast-iron bollards with chains, paper lanterns, cables, bins, hydrant, cameras, covered car, tyres, barrel stove, graffiti shutters, rusted aircon, manholes, scanned barriers; Cycles preview reviewed; in the full Chapter 2 bake now running |
 | Open sea (`src/world/sea.ts`, vendored MIT ocean kit) | 3 | Gerstner sheet + top-level mirror pass + seabed stamps around the sea stacks at the Chapter 4 terrace; not yet seen in the engine (needs the Chapter 4 export, running) |
+| Skies (`src/rendering/sky.ts`) | 3 | our own background node: HDRIs sampled directly in Blender's orientation (the sun sits where the baked shadows say), horizon melting into the haze; the storm at nightfall procedural (domain-warped fbm cloud deck, darker rifts, undersides lit by the city's sodium glow, rain haze at the horizon matched to the fog). Reviewed on the Chapter 2 street (level and looking up), the Chapter 4 terrace in both realities, the Nexus. Before this pass no sky had ever rendered (bug 37) |
+| Character light rig (`world/probes.ts` CharacterLight) | 3 | per character, on top of its baked probe: a camera-side fill up to a readable minimum and a rim in the colour of the air, both only where the place is dark; reviewed on the night street (Ethan reads from behind and the front) and the corridor (no visible change) |
 | Voss's beard and hair (`voss.py`) | 3 | a boxed beard in the jaw/chin/moustache zone with a lip guard, salt-and-pepper colour, a short swept-back comb; Cycles review shows the groom; colour pass and engine review pending |
 
 
@@ -124,6 +129,27 @@ rain, wet streets, SSR, water, dusk city, skin, POM, grading) is in; it has been
 35. The Nexus heart whited out toward the Engine (bounce-lit volume + forward scattering at 2x exterior density): thinned.
 36. Chapter 5 played by script from the first fragment to both endings (`tests/scripts/flows/ch5_*.json`): island puzzles (shift,
     slow, echo gate), the fight, the bridge with the Echo as ally, Voss through three phases, the Engine, Ending A and Ending B.
+37. **No exterior sky had ever rendered** (every chapter, both backends): the HDRI was assigned as `scene.background` while still
+    loading; three converts an equirect background to a cube map the first frame it sees it and keeps that cube, here the 1x1
+    placeholder. Earlier reviews of the street and the surface judged a black sky. Skies are now our own background node
+    (`rendering/sky.ts`), preloaded with their section.
+38. The storm's HDRI (Poly Haven "approaching storm") is a sunny meadow under cumulus with trees on the skyline: once skies drew,
+    the night street had a dim daytime sky over it. The storm is now procedural (cloud deck lit by the city's glow), and the
+    bakes use an HDR made from the same sky (`envkit.storm_hdri`): the old one lit open ground about nine times as strongly as
+    the sky drawn above it (the ruined terrace glared white under a dark sky). Chapter 1's surface, Chapter 2 and Chapter 4's
+    ruin rebake with it.
+39. Two-reality sections: the shared structure's reality-b lightmap was written to `<key>_b_lm.hdr`, the same file as the b
+    dressing's map, which baked after it and overwrote it; in reality b every shared wall and floor sampled another mesh's
+    lightmap (Chapter 3 a1-a5, Chapter 4 p1/p3/p4, Chapter 5 n1/n3). Now `<key>_shared_b_lm.hdr`; rebaking with
+    `FT_REUSE_LM=1` (the LM unwrap is deterministic, checked vertex for vertex), so only the missing maps bake.
+40. Down every street a lit dome stood on the sky: rays left the light volume through its far wall below a line and through its
+    lid above it, and the air outside (the fog colour) was darker than the baked air at the lid. Outside air now matches the
+    lid's light; the lid blends over 8 m.
+41. A sun in the sky (the day HDRI ~450, the Nexus Engine ~900) flooded every bloom mip: a white veil over the whole frame (the
+    Nexus read as a whiteout). Bloom input is capped per pixel.
+42. Ethan's near-black suit and dark skin went to a silhouette in dark places (the night street's probe is ~1/5 of the
+    facility's): a character fill/rim rig, only where the place is dark.
+43. Chapter 4 had never been exported (its level meshes were never committed); first export and first play-through this pass.
 
 ---
 

@@ -46,6 +46,54 @@ def reset():
     return sc
 
 
+def storm_hdri(glow=1.0, haze=(0.062, 0.07, 0.088), size=(1024, 512)):
+    """The storm at nightfall as an equirect HDR (Blender's world mapping): the mean of the game's procedural storm sky
+    (src/rendering/sky.ts `storm`: the same haze, zenith-to-horizon gradient, cloud cover and the city's glow on the low cloud),
+    so lightmaps, probes and light volumes are lit by the sky the player sees. The HDRI the storm used to bake with was a sunny
+    meadow under cumulus: dimmed, it still lit open ground about six times as strongly as the dark sky drawn above it. Below the
+    horizon the dark city beyond the level. `glow` 0..1: the city's light under the clouds (the ruined future has almost none)."""
+    path = os.path.join(ROOT, '.cache', 'sky', f'storm_{glow:.2f}.hdr')
+    if os.path.exists(path):
+        return path
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    W, H = size
+    elev = ((np.arange(H) + 0.5) / H - 0.5) * math.pi        # pixel rows run from the nadir up
+    h = np.sin(elev)
+    up = np.maximum(h, 0.0)
+
+    def sstep(e0, e1, x):
+        t = np.clip((x - e0) / (e1 - e0), 0.0, 1.0)
+        return t * t * (3 - 2 * t)
+    hz = np.array(haze, np.float64)
+    gl = np.array([1.0, 0.52, 0.24]) * 0.05 * glow
+    low = ((1 - up) ** 3)[:, None]
+    horizon = hz * 1.05 + gl * 0.45
+    base = hz * 0.32 + (horizon - hz * 0.32) * low
+    lit = 0.75                                                # mean of the clouds' lit term
+    cloud = base * (lit * 0.55 + 0.6) + gl * lit * (low * 0.9 + 0.15)
+    deck = base * 0.55 + (cloud - base * 0.55) * 0.72         # gaps and masses at the deck's mean cover
+    col = base + (deck - base) * sstep(0.0, 0.22, up)[:, None]
+    col = col + (horizon - col) * sstep(0.0, -0.06, h)[:, None]
+    col = col + (hz * 0.35 - col) * sstep(-0.02, -0.3, h)[:, None]
+    write_hdr(path, np.repeat(col[::-1, None, :], W, axis=1))  # file rows run from the zenith down
+    print('STORM SKY', path)
+    return path
+
+
+def write_hdr(path, rgb):
+    """Radiance RGBE, flat scanlines, rows top-down: written directly (Blender's image save colour-manages float buffers)."""
+    H, W, _ = rgb.shape
+    m = rgb.max(axis=2)
+    mant, ex = np.frexp(m)
+    scale = np.where(m > 1e-32, mant * 256.0 / np.maximum(m, 1e-32), 0.0)
+    out = np.zeros((H, W, 4), np.uint8)
+    out[..., :3] = np.clip(rgb * scale[..., None], 0, 255).astype(np.uint8)
+    out[..., 3] = np.where(m > 1e-32, ex + 128, 0).astype(np.uint8)
+    with open(path, 'wb') as f:
+        f.write(b'#?RADIANCE\nFORMAT=32-bit_rle_rgbe\n\n' + f'-Y {H} +X {W}\n'.encode())
+        f.write(out.tobytes())
+
+
 def sky_world(hdri, strength=1.0, rot_z=0.0):
     """An HDRI sky lights exterior bakes (interiors are sealed, so they never see it)."""
     w = bpy.context.scene.world

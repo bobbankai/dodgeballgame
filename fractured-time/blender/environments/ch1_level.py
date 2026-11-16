@@ -20,10 +20,11 @@ import envkit as K  # noqa: E402
 
 OUT = os.path.join(K.PUB, 'environments', 'ch1')
 
-# The storm at nightfall (Chapter 1's surface, all of Chapter 2): the HDRI sky's strength in the bakes, the light volumes and the
-# game's background, so the city's own lights (street lamps, lit windows, shopfronts, signs) carry the scene.
-SKY = 0.24
-STORM_HDRI = os.path.join(K.ROOT, 'vendor', 'polyhaven', 'hdri', 'approaching_storm_2k.hdr')
+# The storm at nightfall (Chapter 1's surface, all of Chapter 2): bakes, probes and light volumes are lit by the same dark sky the
+# game draws (envkit.storm_hdri: the mean of the procedural storm), so the city's own lights (street lamps, lit windows,
+# shopfronts, signs) carry the scene. The marker still names the old HDRI: the game reads that name as "the storm".
+SKY = 1.0
+STORM_HDRI = K.storm_hdri(1.0)
 
 
 def storm_marker(S, loc):
@@ -452,12 +453,8 @@ def export(built, keys, samples):
         K.finish_static(st)
         statics[key] = st
     K.copy_textures()
-    hdri = os.path.join(K.ROOT, 'vendor', 'polyhaven', 'hdri', 'approaching_storm_2k.hdr')
     if any(k in ('s8', 's9') for k in keys):
-        import shutil
-        os.makedirs(os.path.join(K.PUB, 'textures', 'sky'), exist_ok=True)
-        shutil.copy(hdri, os.path.join(K.PUB, 'textures', 'sky', 'approaching_storm.hdr'))
-        K.sky_world(hdri, SKY)
+        K.sky_world(STORM_HDRI, SKY)
     for key in keys:
         S, st = built[key], statics[key]
         lm_rel = f'environments/ch1/{key}_lm.hdr'
