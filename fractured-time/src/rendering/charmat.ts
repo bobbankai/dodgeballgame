@@ -349,7 +349,14 @@ function eye(old: THREE.MeshStandardMaterial, hasAO: boolean): THREE.Material {
     const irisMask = smoothstep(0.116, 0.104, d);
     const limbal = smoothstep(0.07, 0.112, d).mul(0.65).oneMinus(); // darker ring at the iris edge, as in real eyes
     const fibres = lum.mul(2.2).pow(1.1).min(0.32); // clamp: the stock texture has a painted highlight in the iris
-    const iris = vec3(0.52, 0.3, 0.155).mul(fibres.mul(2.2)).mul(limbal).add(vec3(0.006, 0.0035, 0.002));
+    const brown = vec3(0.52, 0.3, 0.155).mul(fibres.mul(2.2)).mul(limbal).add(vec3(0.006, 0.0035, 0.002));
+    // blue and grey irises (MakeHuman's blue_eye / grey_eye) keep their own hue: only the stock brown is replaced. The iris colour is
+    // judged by its average chroma (blue above red) and its saturation (grey: little of either)
+    const chroma = c.b.sub(c.r);
+    const sat = T.max(T.max(c.r, c.g), c.b).sub(T.min(T.min(c.r, c.g), c.b));
+    const cool = smoothstep(-0.02, 0.06, chroma).max(smoothstep(0.12, 0.05, sat));
+    const own = mix(vec3(lum), c, float(0.85)).mul(fibres.mul(2.0).add(0.15)).mul(limbal).mul(mix(float(0.95), float(1.35), smoothstep(0.05, 0.12, sat)));
+    const iris = mix(brown, own, cool.mul(irisMask));
     // sclera: never paper-white in life (warm, faintly pink, shaded by the lids); the AO below darkens its corners further
     const sclera = mix(vec3(lum), c, float(0.8)).mul(vec3(0.6, 0.54, 0.5));
     const ao = bakedAO(hasAO);
@@ -376,10 +383,14 @@ function teeth(old: THREE.MeshStandardMaterial, hasAO: boolean): THREE.Material 
 }
 
 /** MakeHuman brows / lashes: alpha cards of fine hairs. Alpha-hashed so TRAA resolves them as soft hair instead of hard cut-outs. */
-function hairCard(old: THREE.MeshStandardMaterial): THREE.Material {
+function hairCard(old: THREE.MeshStandardMaterial, tint: number[] | null = null): THREE.Material {
   const m = new THREE.MeshPhysicalNodeMaterial({ side: THREE.DoubleSide });
   const t = texture(old.map!, uv());
-  m.colorNode = t.rgb.mul(0.6).add(vec3(0.012, 0.009, 0.007));
+  if (tint) {
+    // brows in the character's own hair colour (a touch darker): the stock MakeHuman brow texture is a reddish brown on everyone
+    const lum = dot(t.rgb, vec3(0.2126, 0.7152, 0.0722));
+    m.colorNode = vec3(tint[0], tint[1], tint[2]).mul(lum.mul(3.0).clamp(0.35, 1.0)).mul(0.8);
+  } else m.colorNode = t.rgb.mul(0.6).add(vec3(0.012, 0.009, 0.007));
   m.opacityNode = t.a.mul(0.85);
   m.alphaHash = true;
   m.roughness = 0.5;
@@ -391,6 +402,17 @@ function hairCard(old: THREE.MeshStandardMaterial): THREE.Material {
 export function dressCharacter(root: THREE.Object3D, opts: { hide?: string[] } = {}): Record<string, number> {
   const stats: Record<string, number> = {};
   const cache = new Map<THREE.Material, THREE.Material>();
+  // the character's hair colour (its hair or hair-shell recipe), for the brows
+  let hairColor: number[] | null = null;
+  root.traverse((o) => {
+    const mm = (o as THREE.Mesh).material;
+    for (const mt of (Array.isArray(mm) ? mm : mm ? [mm] : [])) {
+      const raw = (mt.userData as any)?.ft;
+      if (!raw || hairColor) continue;
+      const r: Recipe = typeof raw === 'string' ? JSON.parse(raw) : raw;
+      if ((r.type === 'hairshell' || r.type === 'hair') && Array.isArray(r.color)) hairColor = r.color;
+    }
+  });
   root.traverse((o) => {
     const mesh = o as THREE.Mesh;
     if (!mesh.isMesh) return;
@@ -420,13 +442,14 @@ export function dressCharacter(root: THREE.Object3D, opts: { hide?: string[] } =
         else if (r.type === 'teeth') made = teeth(old as THREE.MeshStandardMaterial, hasAO);
         else if (r.type === 'hairshell') {
           made = hairShellMaterial({ color: r.color ?? [0.018, 0.013, 0.011], maxLen: r.maxLen, strandSpacing: r.strandSpacing,
-            coilRadius: r.coilRadius, coilTurns: r.coilTurns });
+            coilRadius: r.coilRadius, coilTurns: r.coilTurns, grey: r.grey });
           mesh.geometry = stackShells(mesh.geometry, Math.min(r.shells ?? 24, shellCap));
         }
       } else {
         // MakeHuman brows/lashes (alpha cards) and nails (opaque, kept as exported)
         const sm = old as THREE.MeshStandardMaterial;
-        if (sm.map && (sm.transparent || sm.alphaTest > 0)) { made = hairCard(sm); type = 'haircard'; }
+        const brow = /brow/i.test(mesh.name) || /brow/i.test(sm.name);
+        if (sm.map && (sm.transparent || sm.alphaTest > 0)) { made = hairCard(sm, brow ? hairColor : null); type = brow ? 'browcard' : 'haircard'; }
       }
       if (type === 'pbr' || type === 'armour') soakIn(made);
       made.name = old.name;

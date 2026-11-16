@@ -32,10 +32,10 @@ def beard(c, n, top):
     hz = c[:, 2] - (top - 0.24)
     front = -c[:, 1]
     ax = np.abs(c[:, 0])
-    jaw = sm(-0.036, -0.026, hz) * (1 - sm(0.046, 0.056, hz)) * sm(-0.02, 0.005, front) * (1 - sm(0.066, 0.076, ax))
+    jaw = sm(-0.042, -0.02, hz) * (1 - sm(0.04, 0.062, hz)) * sm(-0.025, 0.01, front) * (1 - sm(0.062, 0.08, ax))
     # the cheek line climbs toward the sideburns, which join the scalp hair in front of the ears
     side = sm(0.04, 0.068, ax) * sm(0.04, 0.11, hz) * (1 - sm(0.115, 0.13, hz)) * sm(-0.035, -0.01, front) * (1 - sm(0.02, 0.04, front))
-    moust = sm(0.054, 0.058, hz) * (1 - sm(0.072, 0.077, hz)) * sm(0.07, 0.085, front) * (1 - sm(0.028, 0.036, ax))
+    moust = sm(0.052, 0.059, hz) * (1 - sm(0.07, 0.079, hz)) * sm(0.068, 0.086, front) * (1 - sm(0.026, 0.04, ax))
     return np.maximum(np.maximum(jaw, side), moust)
 
 
@@ -89,8 +89,8 @@ SPEC = {
     'pore_strength': 0.6,
     'skin_spec': 0.3,
     'hair': {'mask': mask, 'length': length, 'comb': comb, 'comb_top': True, 'curl': 0.06, 'curl_freq': 1.2, 'count': 100000, 'segments': 6,
-             'melanin': 0.24, 'redness': 0.0, 'random_color': 0.7, 'direct_color': (0.42, 0.42, 0.43), 'rough': 0.34, 'seed': 41, 'color': (0.3, 0.29, 0.28), 'shells': 20, 'max_len': 0.03,
-             'card_every': 8, 'look': {'strandSpacing': 0.00035, 'coilRadius': 0.00004, 'coilTurns': 0.2}},
+             'melanin': 0.24, 'redness': 0.0, 'random_color': 0.7, 'direct_color': (0.22, 0.22, 0.23), 'rough': 0.34, 'seed': 41, 'color': (0.3, 0.29, 0.28), 'shells': 20, 'max_len': 0.03,
+             'card_every': 8, 'look': {'strandSpacing': 0.00035, 'coilRadius': 0.00004, 'coilTurns': 0.2, 'grey': 0.5}},
     'kit': lambda h, rig, PH: voss_kit.build_kit(h, rig, PH),
 }
 

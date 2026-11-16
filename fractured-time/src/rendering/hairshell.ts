@@ -94,6 +94,7 @@ export interface ShellLook {
   coilRadius?: number;    // m
   coilTurns?: number;     // turns over the full hair length
   maxLen?: number;        // m: hair length encoded as COLOR_0.r * maxLen (Ethan's crop: 25 mm; longer styles carry their own)
+  grey?: number;          // share of white strands (greying, salt-and-pepper hair); the rest are pigmented. Their mix averages `color`
 }
 
 export function hairShellMaterial(look: ShellLook): THREE.Material {
@@ -127,7 +128,17 @@ export function hairShellMaterial(look: ShellLook): THREE.Material {
 
   const c = look.color;
   const depthShade = mix(float(0.18), float(1.0), layer.pow(0.7)); // roots in the self-shadow of the volume
-  m.colorNode = vec3(c[0], c[1], c[2]).mul(depthShade).mul(tone);
+  let strandCol: any = vec3(c[0], c[1], c[2]);
+  if (look.grey && look.grey > 0) {
+    // salt and pepper: each strand is either still pigmented (dark) or white; the two mixed in the given share average the base colour
+    const g = Math.min(0.95, look.grey);
+    const kd = 0.3;
+    const kw = (1 - (1 - g) * kd) / g; // white strand scale so the mean stays `color`
+    const white = fract(s.y.mul(523.1)).lessThan(float(g));
+    const w = [Math.min(0.78, c[0] * kw), Math.min(0.78, c[1] * kw), Math.min(0.8, c[2] * kw * 1.03)];
+    strandCol = white.select(vec3(w[0], w[1], w[2]), vec3(c[0] * kd, c[1] * kd * 0.97, c[2] * kd * 0.94));
+  }
+  m.colorNode = strandCol.mul(depthShade).mul(tone);
   // each strand shaded as a cylinder: the normal leans toward the offset from its axis, so coils catch their own highlight
   const nS = normalize(normalLocal);
   const tS = normalize(cross(nS, vec3(0.31, 0.95, 0.05)));
