@@ -338,16 +338,32 @@ def s_cafe(M):
     for i, (x, y) in enumerate(((7.2, -102.9), (5.6, -108.8))):
         B.box(M['c_metal'], (0.16, 0.16, 0.26), (x, y, 0.77 + 0.13 if i == 0 else 1.08 + 0.13), bevel=0.02)
         B.box(M['c_lantern'], (0.1, 0.1, 0.14), (x, y, 0.9 if i == 0 else 1.21), bevel=0.02)
-        K.area_light(f'c3_lantern{i}', (x, y, 0.92 if i == 0 else 1.23), (0.12, 0.12), 35.0, (1.0, 0.62, 0.3), shape='DISK',
+        K.area_light(f'c3_lantern{i}', (x, y, 0.92 if i == 0 else 1.23), (0.12, 0.12), 70.0, (1.0, 0.62, 0.3), shape='DISK',
                      rot=(math.pi, 0, 0))
+    # what makes it a hideout someone lives in: two strings of warm bulbs sagging across the ceiling (strung from the old menu
+    # hooks) and a desk lamp over Imani's laptop. With linear lightmaps the room was black around two small lanterns
+    bulb = K.emissive_mat('c3_bulb', (1.0, 0.72, 0.42), 16.0)
+    for k, (a, b) in enumerate((((-2.6, -101.0, 3.5), (8.6, -109.6, 3.45)), ((-2.6, -110.2, 3.5), (8.6, -101.4, 3.45)))):
+        S.add(K.tube(f'c3_string{k}', [a, b], 0.006, M['cable'], sides=6, sag=0.38))
+        for j in range(10):
+            t = (j + 0.5) / 10
+            px, py, pz = SK.sag_point(a, b, t, 0.38)
+            S.add(K.cylinder(f'c3_bulb{k}_{j}', 0.032, 0.07, (px, py, pz - 0.06), bulb, verts=12, bevel=0.01))
+            if j % 2 == 0:
+                K.area_light(f'c3_bulbL{k}_{j}', (px, py, pz - 0.1), (0.08, 0.08), 14.0, (1.0, 0.7, 0.42), shape='DISK', rot=(math.pi, 0, 0))
+    B.box(M['c_metal'], (0.14, 0.14, 0.02), (7.95, -103.0, 0.77), bevel=0.005)
+    B.box(M['c_metal'], (0.02, 0.02, 0.42), (7.95, -103.0, 0.99), bevel=0.0)
+    B.box(M['c_metal'], (0.24, 0.12, 0.08), (7.85, -103.1, 1.21), bevel=0.02, rot=Matrix.Rotation(0.6, 4, 'Z') @ Matrix.Rotation(0.3, 4, 'X'))
+    K.area_light('c3_desklamp', (7.82, -103.15, 1.16), (0.1, 0.1), 32.0, (1.0, 0.78, 0.55), shape='DISK', rot=(math.pi, 0, 0))
     # the storm through the broken front windows (glass on the east, mostly gone)
     for k, y in enumerate((-102.0, -106.0, -110.0)):
         if k == 1:
             B.box(M['c_glass'], (0.04, 3.0, 1.8), (x1 + 0.02, y, 1.9), bevel=0.0)
-    K.area_light('c3_window', (x1 - 0.2, -106.0, 2.2), (3.0, 1.6), 60.0, (0.55, 0.65, 0.8), rot=(0, math.radians(-90), 0))
+    K.area_light('c3_window', (x1 - 0.2, -106.0, 2.2), (3.0, 1.6), 110.0, (0.55, 0.65, 0.8), rot=(0, math.radians(-90), 0))
     for o in B.objects():
         S.add(o)
-    K.marker(S, 'checkpoint', (-1.5, -104.0, 0.05), yaw=-math.pi / 2, id='cp_c3')
+    # a step into the room (at the door the camera started crushed against the wall behind Ethan's head)
+    K.marker(S, 'checkpoint', (-0.3, -104.0, 0.05), yaw=-math.pi / 2, id='cp_c3')
     K.marker(S, 'npc', (7.0, -104.4, 0.0), yaw=math.pi * 0.75, id='imani')
     K.marker(S, 'trigger', (2.0, -104.0, 1.0), size=[2.0, 6.0, 2.0], id='c3_meet')
     K.marker(S, 'camera', (2.5, -101.2, 1.55), id='c3_two_shot', target=[6.0, -104.6, 1.45])
