@@ -394,7 +394,7 @@ def show_timeline(S, tl):
     """Render state of one reality: the other timeline's dressing and fixtures hidden (None: neither hidden)."""
     for t2 in ('a', 'b'):
         hide = tl is not None and t2 != tl
-        for o in getattr(S, f'static_{t2}') + timeline_lights(t2) + getattr(S, 'foliage_objs', {}).get(t2, []):
+        for o in getattr(S, f'static_{t2}') + timeline_lights(t2) + getattr(S, 'foliage_objs', {}).get(t2, []) + getattr(S, 'far', {}).get(t2, []):
             o.hide_render = hide
 
 
@@ -976,15 +976,25 @@ def export_timeline_section(S, key, out_dir, prefix, samples, lm_size=2048, skie
             st['timeline'] = tl
         finish_static(st)
         parts.append((tl, st))
+    # far scenery of one reality (a skyline): its own mesh and its own smaller lightmap, so its huge facades do not take the
+    # texels of the floor Ethan walks on (lightmap UVs pack at uniform density)
+    far = {}
+    for tl, objs in sorted(getattr(S, 'far', {}).items()):
+        if objs:
+            st = join(objs, f'{prefix}_{key}_far_{tl}')
+            st['timeline'] = tl
+            finish_static(st)
+            far[st.name] = tl
+            parts.append((tl, st))
     copy_textures()
     rel = os.path.relpath(out_dir, PUB)
-    by_tl = {tl: st for tl, st in parts}
 
     def state(tl):
         for t2 in ('a', 'b'):
             hide = t2 != tl
-            if t2 in by_tl:
-                by_tl[t2].hide_render = hide
+            for t3, st3 in parts:
+                if t3 == t2:
+                    st3.hide_render = hide
             for o in timeline_lights(t2) + getattr(S, 'foliage_objs', {}).get(t2, []):
                 o.hide_render = hide
         if skies and tl in skies:
@@ -995,14 +1005,14 @@ def export_timeline_section(S, key, out_dir, prefix, samples, lm_size=2048, skie
             state(real)
             # the shared structure's second bake has its own name: as '_b' it collided with the timeline-b dressing's map, which
             # baked after it and overwrote it (the shared walls and floors in reality b sampled another mesh's lightmap)
-            suffix = ('_' + tl) if tl else ('' if real == 'a' else '_shared_b')
+            suffix = ('_far_' + tl) if st.name in far else ('_' + tl) if tl else ('' if real == 'a' else '_shared_b')
             lm_rel = f'{rel}/{key}{suffix}_lm.hdr'
-            bake_lightmap(st, os.path.join(PUB, lm_rel), size=lm_size, samples=samples)
+            bake_lightmap(st, os.path.join(PUB, lm_rel), size=lm_size // 2 if st.name in far else lm_size, samples=samples)
             st['lightmap' if real == 'a' or tl else 'lightmap_b'] = lm_rel
     state(None)
+    for _, st in parts:
+        st.hide_render = False
     for t2 in ('a', 'b'):
-        if t2 in by_tl:
-            by_tl[t2].hide_render = False
         for o in timeline_lights(t2) + getattr(S, 'foliage_objs', {}).get(t2, []):
             o.hide_render = False
     return [st for _, st in parts]

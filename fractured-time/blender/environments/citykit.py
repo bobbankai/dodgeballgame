@@ -83,7 +83,7 @@ class Batch:
         return out
 
 
-ERAS = ('modern', 'concrete', 'brick', 'ruin', 'overgrown')
+ERAS = ('modern', 'concrete', 'brick', 'ruin', 'overgrown', 'future')
 
 
 def era_mats(M, era):
@@ -94,11 +94,13 @@ def era_mats(M, era):
         'brick': (M['c_brick'], M['c_stone'], M['c_window']),
         'ruin': (M['c_ruin'], M['c_ruin'], M['c_void']),
         'overgrown': (M['c_moss'], M['c_ruin'], M['c_void']),
+        # 2101 (Chapter 4's terrace): white composite frames, dark glass
+        'future': (M.get('a_white', M['c_frame']), M.get('a_panel', M['c_frame']), M['c_glass']),
     }[era]
 
 
 # Dusk: lit windows (share of windows with the lights on, per era; whole office floors cluster). Level scripts set it.
-LIT = {'modern': 0.0, 'concrete': 0.0, 'brick': 0.0, 'ruin': 0.0, 'overgrown': 0.0}
+LIT = {'modern': 0.0, 'concrete': 0.0, 'brick': 0.0, 'ruin': 0.0, 'overgrown': 0.0, 'future': 0.0}
 DUSK_LIT = {'modern': 0.3, 'concrete': 0.26, 'brick': 0.3, 'ruin': 0.012, 'overgrown': 0.0}
 
 

@@ -121,19 +121,29 @@ def s_terrace(M):
     K.collide_box(S, 'p1_gdoors', (4.0, 0.6, 3.2), (0, -40.0, 1.6), timeline='a')
     S.add(K.debris('p1_gdebris', (0, -41.0, 0.0), M, n=14, seed=430, size=0.4), timeline='b')
     S.add(K.sign('p1_gsign', 'HELIX  SECURE TERRACE', (0, -39.65, 3.6), (math.radians(90), 0, math.pi), 0.32, M['a_brand']), timeline='a')
-    # the city below and around: the 2101 skyline (white towers, glass) in a; the same skyline torn up in b
+    # the city around, standing in the sea: the 2101 skyline in a (white frames, dark glass, a room behind every pane, setbacks on
+    # the tall ones), the same towers broken off and gutted in b. Modelled storey by storey (citykit), in their own far meshes
+    # with their own lightmaps (see envkit.export_timeline_section)
+    F_a, F_b = CK.Batch('p1fa'), CK.Batch('p1fb')
     rng = random.Random(7)
+    base = -32.0  # just under the sea
     for k in range(18):
         a = k / 18 * math.tau + rng.uniform(-0.1, 0.1)
         d = rng.uniform(55, 120)
         cx, cy = math.cos(a) * d, -22 + math.sin(a) * d
         w, dd = rng.uniform(14, 24), rng.uniform(14, 24)
         top = rng.uniform(-10, 70)
-        B_a.box(M['f_modern'], (w, dd, top + 80), (cx, cy, (top - 80) / 2), bevel=0.3)
-        if rng.random() < 0.4:
-            B_a.box(M['a_white'], (w * 0.6, dd * 0.6, 12), (cx, cy, top + 6), bevel=0.3)
+        rot = rng.uniform(-0.35, 0.35)
+        tr = random.Random(700 + k)
+        if top > 30 and rng.random() < 0.6:
+            mid = base + (top - base) * rng.uniform(0.55, 0.7)
+            CK.storeys(F_a, M, 'future', cx, cy, w, dd, base, mid, tr, rot_z=rot)
+            CK.storeys(F_a, M, 'future', cx, cy, w * 0.72, dd * 0.72, mid + 0.6, top, tr, rot_z=rot)
+        else:
+            CK.storeys(F_a, M, 'future', cx, cy, w, dd, base, top, tr, rot_z=rot)
         tb = top * rng.uniform(0.3, 0.8)
-        B_b.box(M[rng.choice(('f_ruin', 'f_concrete', 'f_ruin'))], (w, dd, tb + 80), (cx, cy, (tb - 80) / 2), bevel=0.3)
+        CK.tower(F_b, M, cx, cy, w, dd, base, max(tb, base + 14.0), 'ruin', 900 + k, rot_z=rot)
+    S.far = {'a': list(F_a.objects()), 'b': list(F_b.objects())}
     for o in B_a.objects():
         S.add(o, timeline='a')
     for o in B_b.objects():
