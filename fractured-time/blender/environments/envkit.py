@@ -1233,6 +1233,10 @@ def sliding_door(S, name, center, horiz, width, M, door_h=2.9, state='closed', r
         stripe = box(f'{name}_st{sgn}', (size[0] * 0.9 if horiz else 0.11, 0.11 if horiz else size[1] * 0.9, 0.12),
                      (center[0] + off[0], center[1] + off[1], 1.2), M['hazard'], bevel=0.004)
         lf = join([lf, stripe], f'{name}_leaf{sgn}')
+        # dynamic objects skip finish_static: unwrap here, or the leaf's tiled paint samples a single texel
+        if not lf.data.uv_layers:
+            lf.data.uv_layers.new(name='UVMap')
+        HS.uv_metric(lf, angle=50.0, margin=0.002)
         lf['dynamic'] = 'door'
         lf['door'] = name
         lf['slide'] = json.dumps([sgn * width / 2 * (1 if horiz else 0), 0.0, sgn * width / 2 * (0 if horiz else 1)])

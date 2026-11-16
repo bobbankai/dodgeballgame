@@ -154,6 +154,7 @@ export async function loadLevel(path: string, physics: Physics | null, scene: TH
     if (tlm === 'a' || tlm === 'b') timeline[tlm].meshes.push(mesh);
     mesh.receiveShadow = true;
     mesh.castShadow = isDynamic;
+    if (!mesh.geometry.getAttribute('uv')) boxUV(mesh.geometry);
     let lightMap: THREE.Texture | null = null;
     if (ud.lightmap) {
       const key = String(ud.lightmap);
@@ -275,6 +276,23 @@ export function makeLights(markers: Marker[], scene: THREE.Scene, exposure = 0.0
     lights.push(l);
   }
   return lights;
+}
+
+/** Metric UVs (1 unit = 1 m) projected along each vertex's dominant normal axis, for meshes exported without a UV set (door
+ *  leaves exported before `envkit.sliding_door` unwrapped them): their tiled materials sampled one texel and read as flat paint. */
+function boxUV(g: THREE.BufferGeometry): void {
+  const p = g.getAttribute('position');
+  const n = g.getAttribute('normal');
+  if (!p || !n) return;
+  const uv = new Float32Array(p.count * 2);
+  for (let i = 0; i < p.count; i++) {
+    const ax = Math.abs(n.getX(i)), ay = Math.abs(n.getY(i)), az = Math.abs(n.getZ(i));
+    const x = p.getX(i), y = p.getY(i), z = p.getZ(i);
+    if (ax >= ay && ax >= az) { uv[2 * i] = z; uv[2 * i + 1] = y; }
+    else if (ay >= az) { uv[2 * i] = x; uv[2 * i + 1] = z; }
+    else { uv[2 * i] = x; uv[2 * i + 1] = y; }
+  }
+  g.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
 }
 
 /** Capture the lit level into a PMREM environment (reflections on glossy surfaces, ambient for characters). */
