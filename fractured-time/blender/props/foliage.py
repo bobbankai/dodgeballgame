@@ -110,10 +110,10 @@ def build_mesh(name, verts, faces, uvs, cols=None, normals=None, mat=None):
 TEX_JOBS = []
 
 
-def save_tex(src, dst, size=1024, mask=None):
+def save_tex(src, dst, size=1024, mask=None, alpha=None):
     """Queue a texture for tools/assets/foliage_tex.py (Blender's Python has no PIL): resize to `size` (JPEG), or RGBA PNG with an
     alpha mask rasterised from UV triangles (`mask`: path of an .npy of (n, 3, 2) UVs)."""
-    TEX_JOBS.append({'src': src, 'dst': dst, 'size': size, 'mask': mask})
+    TEX_JOBS.append({'src': src, 'dst': dst, 'size': size, 'mask': mask, 'alpha': alpha})
 
 
 def recipe_mat(name, recipe):
@@ -303,7 +303,7 @@ def tree(asset, trunk_budget):
         faces = (np.arange(m)[:, None] * 4 + np.array([[0, 1, 2], [0, 2, 3]]).reshape(1, -1)).reshape(-1, 3)
         cols = np.stack([wind, occl, np.repeat(rng.random(m), 4)], 1)
         tw_mat = recipe_mat(f'{asset}_{vi}_twig_ft', {'type': 'foliage', 'tex': f'props/foliage/tex/{asset}_{vi}_clusters.png',
-                                                    'alpha': True, 'transl': 0.55})
+                                                    'alpha': True, 'transl': 0.55, 'tint': [0.58, 0.72, 0.68]})
         build_mesh(f'{asset}_{vi}_cards', verts, faces, corners_uv.reshape(-1, 2), cols, nrm, tw_mat)
         # --- trunk + branches, decimated ----------------------------------------------------------------------------
         parts = []
@@ -383,14 +383,19 @@ def plant(asset, budget):
             if mt.name in done:
                 s.material = done[mt.name]
                 continue
-            key = mt.name.replace(f'{asset}_', '').split('.')[0] if mt.name != asset else ''
+            base_name = mt.name.split('.')[0]  # Blender's duplicate suffix (.001) is not part of the name
+            key = base_name.replace(f'{asset}_', '') if base_name != asset else ''
             stem = f'{asset}_{key}' if key else asset
             diff = find_diff(texdir, asset, key)
+            # cut-out leaves and blades: Poly Haven ships their opacity as a separate Alpha map (fetched beside the textures)
+            amap = next((f for f in sorted(os.listdir(texdir)) if f.startswith(diff.split('_diff')[0] + '_alpha')), None) if diff else None
+            ext = 'png' if amap else 'jpg'
             if diff:
-                save_tex(os.path.join(texdir, diff), os.path.join(TEX, f'{stem}.jpg'), 1024)
+                save_tex(os.path.join(texdir, diff), os.path.join(TEX, f'{stem}.{ext}'), 1024,
+                         alpha=os.path.join(texdir, amap) if amap else None)
                 save_tex(os.path.join(texdir, diff.replace('_diff', '_nor_gl')), os.path.join(TEX, f'{stem}_nor.jpg'), 1024)
-            new = recipe_mat(stem + '_ft', {'type': 'foliage', 'tex': f'props/foliage/tex/{stem}.jpg', 'nor': f'props/foliage/tex/{stem}_nor.jpg',
-                                    'alpha': False, 'transl': 0.45 if 'trunk' not in stem and 'bark' not in stem else 0.0})
+            new = recipe_mat(stem + '_ft', {'type': 'foliage', 'tex': f'props/foliage/tex/{stem}.{ext}', 'nor': f'props/foliage/tex/{stem}_nor.jpg',
+                                    'alpha': bool(amap), 'transl': 0.45 if 'trunk' not in stem and 'bark' not in stem else 0.0})
             done[mt.name] = new
             s.material = new
         # wind weight from height, occlusion rising toward the top

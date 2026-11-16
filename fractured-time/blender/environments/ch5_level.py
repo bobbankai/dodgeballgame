@@ -134,26 +134,39 @@ def forest_fragment(S, cx, cy, z, w, d, seed, path_x=None):
     """Dress a forest island: firs and a sapling off the path, ferns and grass in patches, mossy rocks, a fallen trunk, a stump."""
     rng = random.Random(seed)
     off_path = (lambda x: abs(x - path_x) > 1.4) if path_x is not None else (lambda x: True)
-    trees = 0
-    for _ in range(60):
-        if trees >= 7:
+    # firs: as many as the island holds at a forest's spacing (2.3 m apart, clear of the path), mature ones and a few younger
+    placed = []
+    for _ in range(400):
+        if len(placed) >= 12:
             break
-        tx, ty = cx + rng.uniform(-w, w) * 0.42, cy + rng.uniform(-d, d) * 0.42
-        if not off_path(tx) or abs(tx - (path_x or 1e9)) < 2.6:
+        tx, ty = cx + rng.uniform(-w, w) * 0.45, cy + rng.uniform(-d, d) * 0.45
+        if path_x is not None and abs(tx - path_x) < 2.4:
             continue
-        K.plant(S, f'fir_tree_01_{rng.randint(0, 2)}', (tx, ty, z - 0.05), rng.uniform(0, math.tau), rng.uniform(0.42, 0.58))
-        trees += 1
-    K.plant(S, f'pine_sapling_medium_{rng.randint(0, 2)}', (cx + w * 0.3, cy - d * 0.1, z - 0.02), rng.uniform(0, math.tau), 0.7)
+        if any((tx - px) ** 2 + (ty - py) ** 2 < 2.3 ** 2 for px, py in placed):
+            continue
+        placed.append((tx, ty))
+        K.plant(S, f'fir_tree_01_{rng.randint(0, 2)}', (tx, ty, z - 0.05), rng.uniform(0, math.tau), rng.uniform(0.48, 0.72))
+    for k in range(2):
+        K.plant(S, f'pine_sapling_medium_{rng.randint(0, 2)}', (cx + w * (0.3 - 0.62 * k), cy - d * (0.1 - 0.3 * k), z - 0.02),
+                rng.uniform(0, math.tau), rng.uniform(0.6, 0.85))
+    # the forest floor's furniture: mossy boulders, a fallen trunk, a stump, roots and dead branches
     K.prop(S, 'rock_moss_set_01', (cx - w * 0.33, cy + d * 0.18, z - 0.35), rng.uniform(0, math.tau), 0.8, node='rock03')
     K.prop(S, 'rock_moss_set_02', (cx + w * 0.36, cy - d * 0.3, z - 0.2), rng.uniform(0, math.tau), 1.0, node='rock11')
     K.prop(S, 'rock_moss_set_02', (cx - w * 0.3, cy - d * 0.34, z - 0.25), rng.uniform(0, math.tau), 0.9, node='rock13')
+    K.prop(S, 'rock_moss_set_01', (cx + w * 0.4, cy + d * 0.36, z - 0.3), rng.uniform(0, math.tau), 1.1, node='rock01')
+    K.prop(S, 'boulder_01', (cx - w * 0.42, cy + d * 0.42, z - 0.45), rng.uniform(0, math.tau), 0.7, budget=6000)
     K.prop(S, 'dead_tree_trunk', (cx + w * 0.22, cy + d * 0.28, z + 0.12), 0.35, 1.6, budget=6000)
     K.prop(S, 'tree_stump_01', (cx - w * 0.36, cy - d * 0.05, z - 0.05), 1.1, 0.9, budget=6000)
-    K.scatter(S, FERNS, cx - w / 2 + 0.4, cx + w / 2 - 0.4, cy - d / 2 + 0.4, cy + d / 2 - 0.4, spacing=0.85, seed=seed, density=0.7,
-              scale=(0.8, 1.3), accept=lambda x, y, zz: off_path(x) and abs(zz - z) < 0.3)
-    K.scatter(S, GROUND, cx - w / 2 + 0.3, cx + w / 2 - 0.3, cy - d / 2 + 0.3, cy + d / 2 - 0.3, spacing=0.5, seed=seed + 7, density=0.72,
-              scale=(0.8, 1.4), accept=lambda x, y, zz: (abs(x - path_x) > 0.6 if path_x is not None else True) and abs(zz - z) < 0.3)
-
+    K.prop(S, 'pine_roots', (cx + w * 0.3, cy - d * 0.05, z - 0.1), rng.uniform(0, math.tau), 1.0, node='pine_roots_a', budget=5000,
+           collide=False)
+    for k in range(3):
+        K.prop(S, 'dry_branches_medium_01', (cx + rng.uniform(-w, w) * 0.4, cy + rng.uniform(-d, d) * 0.4, z + 0.02), rng.uniform(0, math.tau),
+               rng.uniform(0.8, 1.2), node=f'dry_branches_medium_01_{"abc"[k]}', budget=2500, collide=False)
+    # undergrowth: ferns at waist height in dense patches, grass, moss and nettles between
+    K.scatter(S, FERNS, cx - w / 2 + 0.4, cx + w / 2 - 0.4, cy - d / 2 + 0.4, cy + d / 2 - 0.4, spacing=0.7, seed=seed, density=0.8,
+              scale=(1.1, 1.75), accept=lambda x, y, zz: off_path(x) and abs(zz - z) < 0.3)
+    K.scatter(S, GROUND, cx - w / 2 + 0.3, cx + w / 2 - 0.3, cy - d / 2 + 0.3, cy + d / 2 - 0.3, spacing=0.45, seed=seed + 7, density=0.78,
+              scale=(0.9, 1.5), accept=lambda x, y, zz: (abs(x - path_x) > 0.6 if path_x is not None else True) and abs(zz - z) < 0.3)
 
 def s_fragments(M):
     S = K.Section('n1')

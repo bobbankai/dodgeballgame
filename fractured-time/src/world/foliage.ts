@@ -28,10 +28,19 @@ function foliageMaterial(r: Recipe, fog: VolumetricFog): THREE.Material {
   const col = attribute('color', 'vec4');
   const occl = col.y.mul(0.85).add(0.15);
   const tint = hash(instanceIndex.add(7)).sub(0.5).mul(0.16).add(1.0);
-  const albedo = s.rgb.mul(tint);
+  // the recipe's own tint (conifer twig atlases are rendered from the scanned twigs under a white sky and read too yellow and bright
+  // against real fir needles, which are a dark blue-green); older exports without one get it from their cluster-atlas name
+  const rt = (r.tint as number[] | undefined) ?? (r.alpha && String(r.tex).includes('_clusters') ? [0.58, 0.72, 0.68] : [1, 1, 1]);
+  const albedo = s.rgb.mul(tint).mul(vec3(rt[0], rt[1], rt[2]));
   if (r.alpha) {
+    // twig cards: the atlas's mips average the needles' alpha down, so a plain alpha test thins a crown to a few sticks with distance.
+    // Scale alpha up with the mip level being sampled (keeps the coverage of the full-resolution texture), then sharpen it to a
+    // one-pixel ramp around the cutoff (crisp, antialiased edges with alpha-to-coverage, no shimmering fringe).
+    const texel = uv().mul(float((map.image as { width?: number } | null)?.width ?? 1024));
+    const lod = max(float(0), T.log2(max(dot(T.dFdx(texel), T.dFdx(texel)), dot(T.dFdy(texel), T.dFdy(texel)))).mul(0.5));
+    const a = s.a.mul(lod.mul(0.25).add(1.0));
     m.alphaTest = 0.5;
-    m.opacityNode = s.a;
+    m.opacityNode = a.sub(0.5).div(max(T.fwidth(a), 0.0001)).add(0.5).clamp(0, 1);
     m.alphaToCoverage = true;
   }
   // wind: a gust and a flutter, phased by where the plant stands; roots stay planted (weight = colour R)

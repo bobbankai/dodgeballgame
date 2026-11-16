@@ -107,7 +107,7 @@ def build(spec):
     lookdev.hair_curves(h, f"{spec['name']}_hair", count=hs.get('count', 70000), segments=hs.get('segments', 6), length_fn=length,
                         comb_fn=(lambda c, n: hs['comb'](c, n, top)) if hs.get('comb_top') else hs['comb'], curl=hs.get('curl', 0.38), curl_freq=hs.get('curl_freq', 2.2), radius=hs.get('radius', 0.00007),
                         melanin=hs.get('melanin', 0.97), redness=hs.get('redness', 0.12), rough=hs.get('rough', 0.36), mask_fn=mask,
-                        seed=hs.get('seed', 11))
+                        seed=hs.get('seed', 11), random_color=hs.get('random_color', 0.12))
     spec['kit'](h, rig, PH)
     print('built', spec['name'], round(time.time() - t0, 1), 's')
     return h, rig, parts, top
@@ -239,8 +239,8 @@ def main(spec):
         studio.setup(samples=samples)
         n = spec['name']
         if '--face-only' in argv:
-            for nm, yaw, dist in (('face', -8, 0.62), ('face34', -38, 0.7)):
-                studio.camera((0, -0.02, top - 0.12), dist, yaw, 3, 85)
+            for nm, yaw, dist in (('face', -8, 0.7), ('face34', -38, 0.76)):
+                studio.camera((0, -0.02, top - 0.135), dist, yaw, 3, 85)
                 studio.render(os.path.join(out, f'{n}_{nm}.png'), (1000, 1000))
         elif '--body-only' in argv:
             for nm, yaw, pitch in (('front', 0, 2), ('threequarter', -32, 6), ('back', 180, 2)):

@@ -24,6 +24,26 @@ for j in jobs:
         mask = mask.filter(ImageFilter.MaxFilter(3)).filter(ImageFilter.GaussianBlur(1.0))
         im.putalpha(mask.resize((j['size'], j['size']), Image.LANCZOS))
         im.save(j['dst'])
+    elif j.get('alpha'):
+        a = Image.open(j['alpha']).convert('L').resize((j['size'], j['size']), Image.LANCZOS)
+        # bleed the leaf colour out under the transparent background (the source is black there): filtered and mipmapped
+        # samples near the cut edge then stay leaf-coloured instead of darkening into a black fringe
+        rgb = np.asarray(im, np.float32)
+        w = (np.asarray(a, np.float32) / 255.0 > 0.35).astype(np.float32)
+        acc, wsum = rgb * w[..., None], w.copy()
+        for r_ in (2, 4, 8, 16, 32, 64):
+            k = Image.fromarray((wsum * 255).clip(0, 255).astype(np.uint8)).filter(ImageFilter.BoxBlur(r_))
+            kw = np.asarray(k, np.float32) / 255.0
+            kc = np.stack([np.asarray(Image.fromarray(acc[..., c].clip(0, 255).astype(np.uint8)).filter(ImageFilter.BoxBlur(r_)), np.float32)
+                           for c in range(3)], -1)
+            fill = (wsum < 0.5)
+            est = kc / np.maximum(kw[..., None], 1e-4)
+            take = fill & (kw > 0.02)
+            acc[take] = est[take]
+            wsum[take] = 1.0
+        out = Image.fromarray(acc.clip(0, 255).astype(np.uint8))
+        out.putalpha(a)
+        out.save(j['dst'])
     else:
         im.save(j['dst'], quality=90)
     print('tex', os.path.basename(j['dst']))

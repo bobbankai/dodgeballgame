@@ -45,18 +45,19 @@ def mask(c, n, top):
 
 def length(c, top):
     hz = c[:, 2] - top
-    head = 0.006 + 0.022 * sm(-0.08, -0.03, hz)
+    head = 0.006 + 0.016 * sm(-0.08, -0.03, hz)   # short at the back and sides, a little longer on top to sweep back
     # beard: 8 mm on the jaw, 12 mm at the chin, 6 mm on the moustache and the neck
     hzb = c[:, 2] - (top - 0.24)
     chin = (1 - sm(0.012, 0.03, np.abs(c[:, 0]))) * (1 - sm(0.0, 0.03, hzb))
-    bl = 0.008 + 0.004 * chin - 0.002 * sm(0.054, 0.058, hzb) - 0.002 * (1 - sm(-0.03, -0.01, hzb))
+    bl = 0.011 + 0.006 * chin - 0.003 * sm(0.054, 0.058, hzb) - 0.003 * (1 - sm(-0.03, -0.01, hzb))
     w = beard(c, np.zeros_like(c), top)
     return np.where(w > 0.02, bl, head)
 
 
 def comb(c, n, top=None):
-    d = n * 0.25
-    d[:, 1] += 0.9   # swept straight back
+    d = n * 0.08
+    d[:, 1] += 0.9   # swept straight back, lying close to the head
+    d[:, 2] -= 0.15 * np.clip((np.abs(c[:, 0]) - 0.04) / 0.03, 0, 1)  # the sides combed down a little
     if top is None:
         return d
     w = beard(c, n, top)[:, None]
@@ -88,7 +89,7 @@ SPEC = {
     'pore_strength': 0.6,
     'skin_spec': 0.3,
     'hair': {'mask': mask, 'length': length, 'comb': comb, 'comb_top': True, 'curl': 0.06, 'curl_freq': 1.2, 'count': 100000, 'segments': 6,
-             'melanin': 0.12, 'redness': 0.02, 'rough': 0.34, 'seed': 41, 'color': (0.36, 0.35, 0.34), 'shells': 20, 'max_len': 0.03,
+             'melanin': 0.38, 'redness': 0.0, 'random_color': 0.55, 'rough': 0.34, 'seed': 41, 'color': (0.3, 0.29, 0.28), 'shells': 20, 'max_len': 0.03,
              'card_every': 8, 'look': {'strandSpacing': 0.00035, 'coilRadius': 0.00004, 'coilTurns': 0.2}},
     'kit': lambda h, rig, PH: voss_kit.build_kit(h, rig, PH),
 }
