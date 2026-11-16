@@ -58,18 +58,26 @@ def build_kit(h, rig, PH, P='voss'):
     neck_t = B['neck_01'][0][2] - pelvis_z - 0.02
     F = HS.RadialField(S, (0.0, ymid, pelvis_z), (0, 0, 1), (1, 0, 0), hem_t - 0.02, neck_t + 0.04, n_theta=200, step_t=0.004, exclude=arms,
                        blur=16, theta0=-math.pi / 2, r_ref=0.15)
+    # drape: below the waist a coat hangs from the widest point above it (hips, seat) instead of following the legs and the crotch:
+    # each angle's radius is the running maximum taken downward from the waist
+    R = F.R.copy()
+    j_waist = int(np.clip(round((0.06 - F.t0) / (F.t1 - F.t0) * (F.nt - 1)), 1, F.nt - 1))
+    for j in range(j_waist - 1, -1, -1):
+        R[:, j] = np.maximum(R[:, j], R[:, j + 1])
+    F.R = R
     flare = lambda s_, t_: 0.012 * np.clip(-t_ / 0.25, 0, 1)  # noqa: E731  the skirt stands off the legs a little more toward the hem
-    coat = sdf.intersect(HS.layer(F, 0.017, 0.0035, flare), HS.band(F, hem_t, neck_t), k=0.004)
+    # 7 mm of heavy wool: a shell under ~3 grid cells thick meshes into holes and shards (the first exports' coat was shattered)
+    coat = sdf.intersect(HS.layer(F, 0.015, 0.007, flare), HS.band(F, hem_t, neck_t), k=0.004)
     # a short vent at the back of the skirt
     coat = sdf.subtract(coat, sdf.intersect(HS.band(F, hem_t - 0.01, hem_t + 0.16), lambda P_: np.abs(F.view(math.pi / 2).coords(P_)[0]) - 0.004), k=0.002)
     lo, hi = HS.bounds(F, -math.pi * F.r_ref, math.pi * F.r_ref, hem_t - 0.03, neck_t + 0.04, -0.01, 0.08)
-    HS.make(S, f'{P}_coat', coat, lo, hi, mat['coat'], step=0.0018, tris=26000)
+    HS.make(S, f'{P}_coat', coat, lo, hi, mat['coat'], step=0.0018, tris=42000)
     # concealed placket line down the front, the HELIX pin on the left lapel
-    plack = sdf.intersect(HS.layer(F, 0.0205, 0.0012), HS.band(F, hem_t + 0.01, neck_t - 0.02, 0.012, 0.016), k=0.0006)
+    plack = sdf.intersect(HS.layer(F, 0.0225, 0.0016), HS.band(F, hem_t + 0.01, neck_t - 0.02, 0.012, 0.016), k=0.0006)
     # fine parts get boxes of their own: meshing them at their fine step over the whole coat's box needs gigabytes
     plo, phi = HS.bounds(F, 0.0, 0.03, hem_t, neck_t, 0.012, 0.03, pad=0.006)
     HS.make(S, f'{P}_placket', plack, plo, phi, mat['knit'], step=0.0009, tris=3000)
-    pin = HS.solid_at(F, 0.07, neck_t - 0.11, 0.0215, sdf.cylinder((0, 0, 0), 0.006, 0.0015, 0.0005))
+    pin = HS.solid_at(F, 0.07, neck_t - 0.11, 0.0235, sdf.cylinder((0, 0, 0), 0.006, 0.0015, 0.0005))
     nlo, nhi = HS.bounds(F, 0.06, 0.08, neck_t - 0.12, neck_t - 0.10, 0.012, 0.03, pad=0.004)
     HS.make(S, f'{P}_pin', pin, nlo, nhi, mat['pin'], step=0.0005, tris=400)
     # mandarin collar
