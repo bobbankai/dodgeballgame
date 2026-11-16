@@ -35,7 +35,9 @@ A chapter is complete only when objectives, interactions, combat, cinematics, tr
 - `npm install` then `npm run dev` (http://localhost:5180). `npm run build` = typecheck + production bundle. `npx tsc --noEmit` typechecks.
 - Dev URL params: `?quality=ultra|high|balanced|performance`, `?webgl` (force the WebGL2 backend), `probe.html` and `bisect.html` (renderer test pages).
   Test switches: `?nostorm` (fog colour instead of the procedural storm sky), `?nowin` (plain glass instead of interior-mapped panes),
-  `?norain`.
+  `?norain`, `?touch` (the phone controls on a desktop browser). Phone check: `node tools/touch_check.cjs http://localhost:5180 <outDir>`
+  (emulated phone, multi-touch: stick, sprint, look, buttons, abilities, prompt, portrait, title menu). In `?test` mode a chapter's
+  sections stream in only while the manual loop is stepped: step gently in real time before relying on the floor.
 - **Headless screenshots** (`tools/shot.cjs`): WebGPU presentation needs a real compositor, so run headful under Xvfb:
   `NODE_PATH=/opt/node22/lib/node_modules xvfb-run -a -s "-screen 0 1400x900x24" node tools/shot.cjs "<url>" out.png webgpu 960 540 1500`.
   The mode `webgl` runs plain headless (WebGL2 backend). Do NOT add `--use-angle=swiftshader` for webgpu mode (it destroys the device).

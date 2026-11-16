@@ -48,6 +48,9 @@ export function detectQuality(): QualityName {
     const saved = localStorage.getItem('ft.quality') as QualityName | null;
     if (saved && saved in QUALITY) return saved;
   } catch { /* storage unavailable */ }
-  const mobile = /Android|iPhone|iPad|Mobile/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && innerWidth < 1100);
-  return mobile ? 'performance' : 'high';
+  const phone = /Android|iPhone|iPod|Mobile/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && Math.min(screen.width, screen.height) < 600);
+  if (phone) return 'performance';
+  // tablets (iPadOS reports a desktop browser): touch-first, a mobile GPU and a mobile tab's memory
+  const tablet = navigator.maxTouchPoints > 1 && matchMedia('(pointer: coarse)').matches;
+  return tablet ? 'balanced' : 'high';
 }

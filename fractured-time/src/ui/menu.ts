@@ -3,6 +3,7 @@
  * Keyboard, mouse and gamepad navigate every menu (arrows / stick to move, Enter / A to choose, Esc / B to go back).
  * Settings and progress persist in localStorage (wrapped: private windows and blocked storage just do not persist).
  */
+import { detectQuality } from '@/rendering/quality';
 export interface Settings {
   quality: 'ultra' | 'high' | 'balanced' | 'performance';
   master: number; music: number; sfx: number; voice: number;
@@ -18,7 +19,8 @@ export const CHAPTERS = [
   { n: 5, title: 'The Final Timeline', place: 'The Temporal Nexus', beats: ['fragments', 'bridge', 'voss'] },
 ];
 
-const DEFAULTS: Settings = { quality: 'high', master: 0.9, music: 0.7, sfx: 0.9, voice: 1.0, sensitivity: 1, invertY: false, subtitles: true,
+// the first run's preset comes from the device (phones and tablets start on Performance, desktops on High)
+const DEFAULTS: Settings = { quality: detectQuality(), master: 0.9, music: 0.7, sfx: 0.9, voice: 1.0, sensitivity: 1, invertY: false, subtitles: true,
   subtitleSize: 1, shake: 1 };
 
 function load<T>(k: string, d: T): T {

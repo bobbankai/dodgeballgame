@@ -2,6 +2,9 @@ import * as THREE from 'three/webgpu';
 import { setHairShellCap, setPomSteps } from './charmat';
 import { QUALITY, type Quality, type QualityName } from './quality';
 
+/** render height (lines) on touch devices, per preset */
+const TOUCH_LINES = { performance: 540, balanced: 720, high: 900, ultra: 1080 } as const;
+
 export type Backend = 'webgpu' | 'webgl2';
 
 export interface Gfx {
@@ -55,7 +58,11 @@ export async function createGfx(canvas: HTMLCanvasElement, qualityName: QualityN
     resize() {
       const w = canvas.clientWidth || innerWidth;
       const h = canvas.clientHeight || innerHeight;
-      const pr = Math.min(devicePixelRatio || 1, quality.maxPixelRatio) * quality.resolutionScale;
+      // phones and tablets: a render height per preset instead of a pixel-ratio cap. A phone in landscape is ~390 CSS px tall at
+      // 3x density: the desktop cap (1x, then 0.67) rendered Performance at 565x261, a smear; 540 lines is ~1.4x its CSS pixels
+      const touch = typeof matchMedia !== 'undefined' && matchMedia('(pointer: coarse)').matches && matchMedia('(hover: none)').matches;
+      const pr = touch ? Math.min(devicePixelRatio || 1, Math.max(1, TOUCH_LINES[quality.name] / Math.max(1, h)))
+        : Math.min(devicePixelRatio || 1, quality.maxPixelRatio) * quality.resolutionScale;
       renderer.setPixelRatio(pr);
       renderer.setSize(w, h, false);
     },

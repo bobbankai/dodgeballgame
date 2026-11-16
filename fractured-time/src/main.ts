@@ -1,5 +1,6 @@
 import '@/ui/hud.css';
 import '@/ui/menu.css';
+import '@/ui/touch.css';
 import { titleScreen, loadingScreen, settings } from '@/ui/menu';
 import { Game } from '@/game';
 import type { QualityName } from '@/rendering/quality';

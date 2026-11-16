@@ -99,10 +99,18 @@ export class Hud {
   }
   private objText = '';
   setPrompt(text: string): void {
+    if (text === this.promptText) return;
+    this.promptText = text;
     const m = /^\[(\w+)\]\s*(.*)$/.exec(text);
-    this.prompt.innerHTML = m ? `<kbd>${m[1]}</kbd><span>${m[2]}</span>` : text;
+    // on a touch screen the prompt is itself the button (ui/touch.ts): a TAP glyph instead of a key
+    const key = m ? (document.body.classList.contains('touch') ? 'TAP' : m[1]) : '';
+    this.prompt.innerHTML = m ? `<kbd>${key}</kbd><span>${m[2]}</span>` : text;
     this.prompt.style.opacity = text ? '1' : '0';
+    this.prompt.classList.toggle('on', !!text);
   }
+  private promptText = '';
+  /** the HUD's root element (the touch layer lives inside it, so cinematics and menus hide it with the rest) */
+  get element(): HTMLElement { return this.root; }
   showSubtitle(who: string, text: string, seconds: number): void {
     const cls = SPEAKER[who] ?? 'other';
     this.subtitle.innerHTML = `<span class="who ${cls}">${who}</span>${text}`;

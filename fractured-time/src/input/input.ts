@@ -66,7 +66,9 @@ export class Input {
   }
 
   lock(): void {
-    try { void this.canvas.requestPointerLock?.(); } catch { /* denied */ }
+    // touch devices steer the camera by dragging: no pointer lock (mobile browsers refuse it, and a rejected request is noise)
+    if (this.touchActive || (typeof matchMedia !== 'undefined' && matchMedia('(pointer: coarse)').matches)) return;
+    try { void (this.canvas.requestPointerLock?.() as unknown as Promise<void> | undefined)?.catch?.(() => {}); } catch { /* denied */ }
   }
 
   rebind(code: string, action: Action): void {
@@ -110,6 +112,13 @@ export class Input {
       this.held.delete(a);
       this.releasedAt.set(a, this.now);
     }
+  }
+
+  /** Camera look from a touch drag, already in mouse-pixel equivalents (see ui/touch.ts). */
+  addLook(dx: number, dy: number): void {
+    this.touchActive = true;
+    this.lookDX += dx;
+    this.lookDY += dy;
   }
 
   setTouchAxes(move: { x: number; y: number }, look: { x: number; y: number }): void {

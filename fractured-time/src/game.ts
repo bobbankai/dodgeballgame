@@ -6,6 +6,8 @@ import { Rain } from '@/rendering/rain';
 import { QUALITY, detectQuality, type QualityName } from '@/rendering/quality';
 import { Physics } from '@/physics/physics';
 import { Input } from '@/input/input';
+import { TouchControls } from '@/ui/touch';
+import { isTouch, isMobile } from '@/ui/device';
 import { CameraRig } from '@/camera/rig';
 import { GameLoop, STEP, timeScale, type Simulation } from '@/core/loop';
 import { Player } from '@/player/player';
@@ -18,7 +20,7 @@ import type { GameCtx } from '@/gameplay/ctx';
 import { hostileTo } from '@/combat/strike';
 import { bus } from '@/core/events';
 import { buildArena } from '@/world/arena';
-import { loadLevel, addCharacterLights, captureProbe } from '@/world/level';
+import { loadLevel, addCharacterLights, captureProbe, setLightmapLimit } from '@/world/level';
 import { loadGLTF } from '@/assets/loader';
 import { RectAreaLightTexturesLib } from 'three/addons/lights/RectAreaLightTexturesLib.js';
 import { Temporal } from '@/temporal/temporal';
@@ -55,6 +57,7 @@ export class Game implements Simulation, GameCtx {
   fx = this.vfx;
   sfx = new Sfx();
   hud = new Hud();
+  touch: TouchControls | null = null;
   loop!: GameLoop;
   player!: Player;
   enemies: Actor[] = [];
@@ -123,6 +126,9 @@ export class Game implements Simulation, GameCtx {
     g.gfx = await createGfx(canvas, q);
     g.physics = await Physics.create();
     g.input = new Input(canvas);
+    // phones and tablets: on-screen controls (tests turn them on with ?touch)
+    if (isTouch() && (!g.testMode || new URLSearchParams(location.search).has('touch'))) g.touch = new TouchControls(g.input, g.hud.element);
+    if (isMobile()) setLightmapLimit(1024);
     g.camera = new CameraRig(canvas.clientWidth / Math.max(1, canvas.clientHeight), g.physics);
     g.live = new LiveControls(g.input, g.camera);
     g.controls = g.live;
