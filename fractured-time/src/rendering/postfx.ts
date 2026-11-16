@@ -184,7 +184,13 @@ export class PostFX {
     // 3. bloom (HDR emissives and lights bleed)
     if (q.bloom) {
       try {
-        const b = (bloom as any)(color, 0.16, 0.25, 1.8); // threshold above diffuse white: only emitters and hot highlights bloom
+        // threshold above diffuse white: only emitters and hot highlights bloom. Each pixel enters the bloom at most at BLOOM_CAP:
+        // a sun in the sky (the day HDRI's ~450, the Nexus Engine's ~900) otherwise flooded every mip of the chain and laid a
+        // white veil over the whole frame
+        const BLOOM_CAP = 16.0;
+        const peak = color.r.max(color.g).max(color.b).max(1e-4);
+        const capped = vec4(color.rgb.mul(float(BLOOM_CAP).div(peak).min(1.0)), color.a);
+        const b = (bloom as any)(capped, 0.16, 0.25, 1.8);
         b.strength = u.bloomStrength;
         color = vec4(color.rgb.add(b.rgb), color.a);
         this.features.push('bloom');

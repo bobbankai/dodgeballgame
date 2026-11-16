@@ -526,8 +526,16 @@ def finish_static(ob):
     return ob
 
 
+# FT_REUSE_LM=1: keep lightmaps that already exist (re-export a level after a naming fix or a non-lighting change without
+# re-baking it; the LM unwrap is deterministic, so an unchanged mesh gets the same UVs)
+REUSE_LM = os.environ.get('FT_REUSE_LM') == '1'
+
+
 def bake_lightmap(ob, path, size=2048, samples=128):
     """Cycles: diffuse lighting (direct + indirect, no albedo) into the LM UVs -> Radiance HDR file."""
+    if REUSE_LM and os.path.exists(path):
+        print('LM reused', path)
+        return
     sc = bpy.context.scene
     sc.render.engine = 'CYCLES'
     sc.cycles.samples = samples
@@ -937,7 +945,9 @@ def export_timeline_section(S, key, out_dir, prefix, samples, lm_size=2048, skie
     for tl, st in parts:
         for real in ([tl] if tl else (['a', 'b'] if two else ['a'])):
             state(real)
-            suffix = ('_' + tl) if tl else ('' if real == 'a' else '_b')
+            # the shared structure's second bake has its own name: as '_b' it collided with the timeline-b dressing's map, which
+            # baked after it and overwrote it (the shared walls and floors in reality b sampled another mesh's lightmap)
+            suffix = ('_' + tl) if tl else ('' if real == 'a' else '_shared_b')
             lm_rel = f'{rel}/{key}{suffix}_lm.hdr'
             bake_lightmap(st, os.path.join(PUB, lm_rel), size=lm_size, samples=samples)
             st['lightmap' if real == 'a' or tl else 'lightmap_b'] = lm_rel

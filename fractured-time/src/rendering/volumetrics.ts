@@ -19,7 +19,12 @@ const {
 
 export interface VolumeHeader { dims: [number, number, number]; min: [number, number, number]; max: [number, number, number]; scale: number;
   sun: { dir: [number, number, number]; color: [number, number, number] } | null }
-export interface LightVolume { header: VolumeHeader; tex: THREE.Data3DTexture }
+export interface LightVolume {
+  header: VolumeHeader; tex: THREE.Data3DTexture;
+  /** mean light of the volume's top layer (the air at its lid, after the fog's soft shoulder): outdoors the air above the box
+   *  should be lit about as much, or the lid shows across the sky */
+  top: [number, number, number];
+}
 
 /** The fog look of a place. Outdoor values come from the section's sky marker; interiors use the defaults. */
 export interface FogSettings {
@@ -73,7 +78,17 @@ export function loadVolume(url: string): Promise<LightVolume | null> {
         tex.wrapS = tex.wrapT = tex.wrapR = THREE.ClampToEdgeWrapping;
         tex.unpackAlignment = 1;
         tex.needsUpdate = true;
-        return { header, tex };
+        const top: [number, number, number] = [0, 0, 0];
+        for (let zi = 0; zi < d; zi++) {
+          for (let xi = 0; xi < w; xi++) {
+            const o = ((zi * h + (h - 1)) * w + xi) * 4;
+            const c = [0, 1, 2].map((k) => (data[o + k] / 255) ** 2 * header.scale);
+            const sh = Math.max(c[0], c[1], c[2]) * 0.45 + 1;
+            for (let k = 0; k < 3; k++) top[k] += c[k] / sh;
+          }
+        }
+        for (let k = 0; k < 3; k++) top[k] /= w * d;
+        return { header, tex, top };
       } catch (e) {
         console.warn('[fog] light volume unavailable:', url, e);
         return null;
@@ -187,6 +202,16 @@ export class VolumetricFog {
     u.frame.value = (u.frame.value + 1) % 4096;
   }
 
+  /** How much the baked volume (vs the fallback) lights the air at volume coordinate uvw. The floor and walls blend across a thin
+   *  margin; the top over its upper 8 m (at most a third of the box): outdoors the baked air up there holds the sky's light,
+   *  brighter than the fallback above it, and a thin margin drew the box's lid across the sky as a lit dome. */
+  private edgeWeight(uvw: any): any {
+    const u = this.u as any;
+    const edge = min(min(uvw.x, uvw.y), min(uvw.z, min(float(1).sub(uvw.x), float(1).sub(uvw.z))));
+    const lid = min(float(8.0).div(max(u.volSize.y, 1.0)), float(0.33));
+    return smoothstep(0.0, 0.02, edge).mul(smoothstep(0.0, lid, float(1).sub(uvw.y))).mul(u.hasVol);
+  }
+
   /** Light filling the air at world point p (baked volume, or the fallback outside it), for things in the air: rain, dust, sparks.
    *  `dir` (toward the eye) sets the sun's forward scattering. */
   /** The baked light at world point p, split for surfaces that are not lightmapped (foliage): `iso` = mean radiance arriving
@@ -194,8 +219,7 @@ export class VolumetricFog {
   lightTerms(p: any): { iso: any; sunVis: any; sunDir: any; sunCol: any } {
     const u = this.u as any;
     const uvw = p.sub(u.volMin).div(u.volSize);
-    const edge = min(min(uvw.x, uvw.y), min(uvw.z, min(float(1).sub(uvw.x), min(float(1).sub(uvw.y), float(1).sub(uvw.z)))));
-    const w = smoothstep(0.0, 0.02, edge).mul(u.hasVol);
+    const w = this.edgeWeight(uvw);
     const v = this.volNode.sample(clamp(uvw, 0.0, 1.0));
     const raw = v.rgb.mul(v.rgb).mul(u.volScale).mul(u.exposure);
     return { iso: mix(u.fallback.rgb, raw, w), sunVis: mix(u.fallback.a, v.a, w), sunDir: u.sunDir, sunCol: vec3(u.sunCol) };
@@ -204,8 +228,7 @@ export class VolumetricFog {
   lightAt(p: any, dir: any = null): any {
     const u = this.u as any;
     const uvw = p.sub(u.volMin).div(u.volSize);
-    const edge = min(min(uvw.x, uvw.y), min(uvw.z, min(float(1).sub(uvw.x), min(float(1).sub(uvw.y), float(1).sub(uvw.z)))));
-    const w = smoothstep(0.0, 0.02, edge).mul(u.hasVol);
+    const w = this.edgeWeight(uvw);
     const v = this.volNode.sample(clamp(uvw, 0.0, 1.0));
     const iso = mix(u.fallback.rgb, v.rgb.mul(v.rgb).mul(u.volScale).mul(u.exposure), w);
     const sunVis = mix(u.fallback.a, v.a, w);
@@ -248,8 +271,7 @@ export class VolumetricFog {
         const p = u.camPos.add(dir.mul(t));
         // baked light here (blend to the fallback across the last cell of the volume's box)
         const uvw = p.sub(u.volMin).div(u.volSize);
-        const edge = min(min(uvw.x, uvw.y), min(uvw.z, min(float(1).sub(uvw.x), min(float(1).sub(uvw.y), float(1).sub(uvw.z)))));
-        const w = smoothstep(0.0, 0.02, edge).mul(u.hasVol);
+        const w = this.edgeWeight(uvw);
         const v = vol.sample(clamp(uvw, 0.0, 1.0));
         const raw = v.rgb.mul(v.rgb).mul(u.volScale).mul(u.exposure);
         // soft shoulder: the air right at a very bright fixture glows without swamping the room

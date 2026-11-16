@@ -9,6 +9,7 @@ import { plantSection } from '@/world/foliage';
 import type { GradeName } from '@/rendering/postfx';
 import { loadVolume, INTERIOR_FOG, EXTERIOR_FOG, type LightVolume, type FogSettings } from '@/rendering/volumetrics';
 import { HDRLoader } from 'three/addons/loaders/HDRLoader.js';
+import { Sky } from '@/rendering/sky';
 import { assetUrl } from '@/rendering/charmat';
 import { timeScale } from '@/core/loop';
 import * as TSL from 'three/tsl';
@@ -197,6 +198,17 @@ export class ChapterRuntime {
     const v = this.timeline === 'b' && cur.vol.b ? cur.vol.b : cur.vol.a;
     this.g.post.fog.setVolume(v);
     const fu = this.g.post.fog.u as any;
+    // under the storm's closed deck there is no sun to scatter (the bake's HDRI had one low in the west: a bright disc of haze)
+    if (this.stormy) fu.sunCol.value.setRGB(0, 0, 0);
+    // outdoors the air above and beyond the volume is lit like the air at its lid (the fog colour alone was darker: every view
+    // down a street showed the box's far top edge as a lit dome on the sky)
+    if (this.outdoors && v) {
+      const fb = fu.fallback.value as THREE.Vector4;
+      const base = this.skyFog;
+      fb.set(Math.max(base.r, v.top[0]), Math.max(base.g, v.top[1]), Math.max(base.b, v.top[2]), fb.w);
+      this.captureFogBase();
+      this.sky.haze.value.setRGB(fb.x, fb.y, fb.z); // the sky's horizon meets that air
+    }
     this.sea.setPlace(this.current, this.timeline, v?.header.sun ? new THREE.Vector3(...v.header.sun.dir) : null,
       new THREE.Color(fu.fallback.value.x, fu.fallback.value.y, fu.fallback.value.z));
   }
@@ -231,6 +243,13 @@ export class ChapterRuntime {
         }
       }
     } catch (e) { console.warn('[foliage]', path, e); }
+    // the place's skies (both realities') load with the section, behind the loading screen
+    for (const m of ms.filter((x) => x.name === 'sky')) {
+      for (const k of ['hdri', 'hdri_b']) {
+        // (the storm is procedural: its HDRI only lit the bakes)
+        if (m.data[k] && !/approaching_storm/.test(String(m.data[k]))) await this.loadSky(String(m.data[k])).catch((e) => console.warn('[sky]', m.data[k], e));
+      }
+    }
     const seaM = ms.find((m) => m.name === 'sea');
     if (seaM) {
       this.sea.register(seaM, this.sections.length - 1, ms.filter((m) => m.name === 'searock'));
@@ -464,7 +483,30 @@ export class ChapterRuntime {
     this.g.scene.environment = cur.probe;
   }
 
-  private skies = new Map<string, THREE.Texture>();
+  private skies = new Map<string, Promise<THREE.Texture>>();
+  private skyReady = new Map<string, THREE.Texture>();
+  private sky = new Sky();
+  /** the place's own fog colour (the sky marker's), before the light volume lifts it */
+  private skyFog = new THREE.Color();
+  private airColor = new THREE.Color();
+  /** the current place is under the procedural storm */
+  private stormy = false;
+  /** the sky the current place wants (a load finishing after Ethan has moved on must not overwrite the next place's) */
+  private wantSky = '';
+
+  /** An HDRI sky, loaded once per chapter (sections preload theirs, so a place's sky is ready before it is seen). */
+  private loadSky(path: string): Promise<THREE.Texture> {
+    let p = this.skies.get(path);
+    if (!p) {
+      p = new HDRLoader().loadAsync(assetUrl(path)).then((t) => {
+        t.mapping = THREE.EquirectangularReflectionMapping;
+        this.skyReady.set(path, t);
+        return t;
+      });
+      this.skies.set(path, p);
+    }
+    return p;
+  }
   private outdoors = false;
   private thunderAt = 6;
   private lightning = 0;
@@ -498,6 +540,9 @@ export class ChapterRuntime {
       : this.g.chapterNumber === 3 ? (this.timeline === 'b' ? 'arcology_ruin' : 'arcology') : isEngine ? 'engine' : 'facility');
     if (!sky) {
       this.exposure = 1;
+      this.wantSky = '';
+      this.stormy = false;
+      (sc as any).backgroundNode = null;
       sc.background = new THREE.Color(0x000000);
       // volumetric: dusty air lit by the fixtures (the classic exponential haze when the preset has no volumetrics)
       sc.fog = vf ? null : new THREE.FogExp2(0x0a0d11, 0.016);
@@ -509,18 +554,32 @@ export class ChapterRuntime {
     }
     this.g.sfx.ambience(this.nexus ? 'amb_facility' : 'amb_storm', this.nexus ? 'hall' : undefined);
     const path = String(sky.data.hdri);
-    let t = this.skies.get(path);
-    if (!t) {
-      t = new HDRLoader().load(assetUrl(path));
-      t.mapping = THREE.EquirectangularReflectionMapping;
-      this.skies.set(path, t);
+    const f = (parse(sky.data.fog) as number[] | undefined) ?? [0.3, 0.34, 0.4, 0.004];
+    // the sky is our own background node (`rendering/sky.ts`). Assigning the HDRI as `scene.background` while it was still
+    // loading left every sky black: three converts an equirect background to a cube map the first frame it sees it and keeps
+    // that cube, here the 1x1 placeholder
+    const haze = new THREE.Color(f[0], f[1], f[2]);
+    this.skyFog.copy(haze);
+    const storm = /approaching_storm/.test(path);
+    this.stormy = storm;
+    this.wantSky = path;
+    sc.background = haze;
+    if (storm) {
+      // the storm at nightfall is procedural; over the ruined future terrace no one is left to light the city under it
+      (sc as any).backgroundNode = this.sky.storm({ haze, glow: sky.data.id === 'future' ? 0.08 : 1 });
+    } else {
+      const ready = this.skyReady.get(path);
+      (sc as any).backgroundNode = ready ? this.sky.image(ready, { haze }) : null;
+      if (!ready) {
+        void this.loadSky(path).then((t) => {
+          if (this.wantSky === path) (this.g.scene as any).backgroundNode = this.sky.image(t, { haze });
+        }).catch(() => {});
+      }
     }
-    sc.background = t;
-    const intensity = Number(sky.data.intensity ?? 1);
+    const intensity = storm ? 1 : Number(sky.data.intensity ?? 1);
     (sc as any).backgroundIntensity = intensity;
     this.skyBase = intensity;
     this.exposure = Number(sky.data.exposure ?? 1);
-    const f = (parse(sky.data.fog) as number[] | undefined) ?? [0.3, 0.34, 0.4, 0.004];
     sc.fog = vf ? null : new THREE.FogExp2(new THREE.Color(f[0], f[1], f[2]), f[3]);
     if (vf) {
       // outside the light volume the air is lit by the open sky: the marker's fog colour is that in-scatter
@@ -556,12 +615,16 @@ export class ChapterRuntime {
     const at = new THREE.Vector3();
     for (const r of this.litRoots) if (!r.parent) this.litRoots.delete(r);
     const extra = [...this.litRoots].map((root) => ({ root, pos: root.position }));
+    const camPos = this.g.camera.camera.position;
+    const fb = (this.g.post.fog.u as any).fallback.value as THREE.Vector4;
+    this.airColor.setRGB(fb.x, fb.y, fb.z);
     for (const a of [this.g.player, ...this.g.enemies, ...this.g.echoes, ...extra]) {
       const root = (a as any).root as THREE.Object3D | undefined;
       if (!root) continue;
       let cl = this.charLights.get(root);
       if (!cl) { cl = new CharacterLight(root, shared); this.charLights.set(root, cl); }
       cl.update(this.probes, at.copy(a.pos).setY(a.pos.y + 1.1), dt, this.outdoors ? this.flashPulse : 0);
+      cl.rig(at, camPos, this.exposure, this.outdoors ? this.airColor : null);
       cl.apply();
     }
   }

@@ -41,7 +41,7 @@
   "log": "[O()]"
  },
  {
-  "do": "SH('b'); g.step(10); T(400,25.0,0,0); return await U(()=>O().includes('power'),200)",
+  "do": "SH('b'); g.step(10); T(400,24.0,0,0); return await U(()=>O().includes('power'),200)",
   "log": "[O(), g.chapter.timeline]"
  },
  {
