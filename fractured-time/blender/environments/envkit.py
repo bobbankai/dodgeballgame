@@ -552,7 +552,30 @@ def finish_static(ob):
     if not me.uv_layers:  # statics built only from curves or text (cables, signs) carry no UV map: one is unwrapped below
         me.uv_layers.new(name='UVMap')
     me.uv_layers.active = me.uv_layers[0]
+    # scanned props sample their own texture atlases on their own UVs ('own' recipes): keep those faces' UV0 through the metric
+    # unwrap (it re-projected every face of the joined mesh, and a desk's drawers and handles turned into a patchwork)
+    own = [i for i, sl in enumerate(ob.material_slots)
+           if sl.material and '"own": true' in str(sl.material.get('ft', '')).lower()]
+    keep = None
+    if own:
+        mi = np.empty(len(me.polygons), np.int32)
+        me.polygons.foreach_get('material_index', mi)
+        ls = np.empty(len(me.polygons), np.int32)
+        me.polygons.foreach_get('loop_start', ls)
+        lt = np.empty(len(me.polygons), np.int32)
+        me.polygons.foreach_get('loop_total', lt)
+        mask = np.zeros(len(me.loops), bool)
+        for p_ in np.nonzero(np.isin(mi, own))[0]:
+            mask[ls[p_]:ls[p_] + lt[p_]] = True
+        keep = np.empty(len(me.loops) * 2, np.float32)
+        me.uv_layers[0].data.foreach_get('uv', keep)
     HS.uv_metric(ob, angle=50.0, margin=0.002)
+    if keep is not None:
+        cur = np.empty(len(me.loops) * 2, np.float32)
+        me.uv_layers[0].data.foreach_get('uv', cur)
+        m2 = np.repeat(mask, 2)
+        cur[m2] = keep[m2]
+        me.uv_layers[0].data.foreach_set('uv', cur)
     me.uv_layers[0].name = 'UVMap'
     lm = me.uv_layers.new(name='LM')
     me.uv_layers.active = lm

@@ -161,6 +161,10 @@ rain, wet streets, SSR, water, dusk city, skin, POM, grading) is in; it has been
 47. Moving the probe baker's scratch render out of the asset folders put every bake on one file: bakes run side by side read
     each other's cube faces (Chapter 2's storm bake and the offices' failed on an empty face; others could have read a wrong
     one). The scratch file is per process now; the affected probe sets re-bake.
+48. Every scanned prop in every level had its texture scrambled: `finish_static` re-unwrapped UV0 of the whole joined mesh with
+    a metric projection (right for tiling materials), props included; a desk's drawers and handles read as a grey patchwork.
+    Faces with 'own' recipes keep their authored UVs now. The lightmap unwrap does not depend on UV0, so the affected sections
+    re-export with every lightmap reused (offices, the forest island; the street, Palimpsest lab and Chapter 4 follow).
 
 ---
 
