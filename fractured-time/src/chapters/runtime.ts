@@ -242,9 +242,12 @@ export class ChapterRuntime {
    * pipelines alive: three frees a pipeline when the last geometry drawn with it is disposed).
    */
   async warmUp(): Promise<void> {
+    const qs = new URLSearchParams(location.search);
+    if (qs.has('nowarm')) return; // test switch: no warm-up, no probe pre-capture
     // one section at a time, evicting as it goes, so texture memory never holds the whole chapter at once
     const r = { ms: 0, meshes: 0 };
     for (const s of this.sections) {
+      if (qs.has('noprecompile')) break; // test switch: probes only
       const w = await this.g.gfx.warmUp([s.lv.root]);
       r.ms += w.ms;
       r.meshes += w.meshes;
@@ -255,7 +258,7 @@ export class ChapterRuntime {
     // every place's reflection probe, in each reality it has, now: a probe captured on arrival cost a render of three sections
     // into a cube map plus the first build of every material seen in that pass, the moment Ethan stepped in (or shifted)
     const home = this.current, was = this.timeline;
-    for (let k = 0; k < this.sections.length; k++) {
+    for (let k = 0; k < (qs.has('noprecapture') ? 0 : this.sections.length); k++) {
       this.enter(k);
       const s = this.sections[k];
       if (s.lv.timeline.b.meshes.length || s.lv.markers.find((m) => m.name === 'sky')?.data.hdri_b) {
