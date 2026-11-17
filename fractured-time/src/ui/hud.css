@@ -65,7 +65,10 @@ kbd { display: inline-grid; place-items: center; min-width: 20px; height: 20px; 
 .hud.cine .hud-bars, .hud.cine .hud-abilities, .hud.cine .objective, .hud.cine .prompt, .hud.cine .boss { opacity: 0 !important; transition: opacity 0.4s; }
 .hud.cine .subtitle { bottom: 13.5vh; background: transparent; text-shadow: 0 1px 6px #000; }
 .cine-fade { position: fixed; inset: 0; background: #000; opacity: 0; z-index: 30; pointer-events: none; }
-.cine-title { position: fixed; inset: 0; z-index: 31; display: flex; flex-direction: column; align-items: center; justify-content: center; opacity: 0; pointer-events: none;
+/* the title card sits in the upper third: the chapter's first line of dialogue plays under it, and on a short screen (a phone in
+   landscape) a centred card and a wrapped subtitle met in the middle of the frame */
+.cine-title { position: fixed; inset: 0; z-index: 31; display: flex; flex-direction: column; align-items: center; justify-content: flex-start;
+  padding-top: 25vh; box-sizing: border-box; opacity: 0; pointer-events: none;
   font-family: 'Inter', system-ui, sans-serif; color: #e8f6ff; text-transform: uppercase; letter-spacing: 0.5em; }
 .cine-title .t { font-size: 34px; font-weight: 300; }
 .cine-title .s { margin-top: 14px; font-size: 12px; letter-spacing: 0.4em; color: #5ad8ff; }
