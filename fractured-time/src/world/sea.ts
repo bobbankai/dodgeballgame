@@ -1,5 +1,5 @@
 import * as THREE from 'three/webgpu';
-import { Ocean } from '@/rendering/ocean/ocean.tsl.js';
+import { Ocean } from '@/graphics/water/ocean';
 import type { Game } from '@/game';
 import type { Marker } from './level';
 
@@ -7,10 +7,9 @@ import type { Marker } from './level';
 export const SEA_LAYER = 4;
 
 /**
- * Open sea (the vendored ocean kit, `.claude/skills/ocean-water`): a camera-following Gerstner sheet with a planar mirror,
- * refraction, depth absorption over a seabed, crest and shore foam, sun glints. A level places it with a 'sea' marker
- * (level, preset per reality); rocks marked 'searock' are stamped into the seabed so foam wraps them. The mirror is a
- * top-level pass rendered before the frame (`frame`), every frame the sea is in view.
+ * Open sea (`graphics/water/ocean.ts`): a camera-following Gerstner sheet with a planar mirror, depth colour over a seabed,
+ * crest and shore foam, sun glints. A level places it with a 'sea' marker (level, sea state per reality); rocks marked
+ * 'searock' rise out of the seabed so foam wraps them.
  */
 export class Sea {
   private ocean: Ocean | null = null;
@@ -19,6 +18,7 @@ export class Sea {
   private on = false;
   private sunDir = new THREE.Vector3(0.4, 0.6, 0.3).normalize();
   private fogColor = new THREE.Color(0.62, 0.7, 0.8);
+  private sunCol = new THREE.Color(0, 0, 0);
 
   constructor(private g: Game) {}
 
@@ -44,19 +44,15 @@ export class Sea {
         }
         return h;
       },
-      stamps: () => ({ domes: this.rocks.map((r) => ({ x: r.x, z: r.z, r: r.r })), boxes: [] }),
-      fog: { color: this.fogColor, far: Number(m.data.far ?? 1400) },
-      mirror: { resolutionScale: this.g.gfx.settings.preset === 'ultra' ? 0.5 : 0.35 },
-      isActive: () => this.on,
+      air: this.fogColor,
+      mirrorScale: this.g.gfx.settings.preset === 'ultra' ? 0.5 : 0.35,
     });
     this.ocean.setReflectionLayers(1 << SEA_LAYER);
-    // the sea writes depth, so the volumetric fog and the reflections see it as a surface
-    (this.ocean.mesh.material as THREE.Material).depthWrite = true;
     this.ocean.bakeBedNow(this.g.camera.camera.position.x, this.g.camera.camera.position.z);
   }
 
   /** Show the sea while Ethan is in (or next to) its section, in the current reality's mood. */
-  setPlace(current: number, timeline: 'a' | 'b', sun: THREE.Vector3 | null, fog: THREE.Color | null): void {
+  setPlace(current: number, timeline: 'a' | 'b', sun: THREE.Vector3 | null, fog: THREE.Color | null, sunCol: THREE.Color | null = null): void {
     if (!this.def) return;
     this.on = Math.abs(current - this.def.section) <= 1;
     if (!this.on) { if (this.ocean) this.ocean.mesh.visible = false; return; }
@@ -67,13 +63,13 @@ export class Sea {
     o.applyPreset(String((timeline === 'b' ? m.data.preset_b : m.data.preset) ?? 'Coastal breeze'));
     if (sun && sun.lengthSq() > 0) this.sunDir.copy(sun).normalize();
     if (fog) this.fogColor.copy(fog);
+    this.sunCol.copy(sunCol ?? new THREE.Color(0, 0, 0));
   }
 
   /** Per rendered frame, before the scene pass. */
   frame(dt: number): void {
     if (!this.ocean || !this.on) return;
     const cam = this.g.camera.camera;
-    this.ocean.update(cam, dt, this.sunDir);
-    this.ocean.renderMirror(this.g.gfx.renderer, cam);
+    this.ocean.update(cam, dt, this.sunDir, this.sunCol, this.fogColor);
   }
 }

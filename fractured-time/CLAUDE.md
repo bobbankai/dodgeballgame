@@ -84,7 +84,9 @@ A chapter is complete only when objectives, interactions, combat, cinematics, tr
   `shaders/`; procedural presets in `materials/library.ts`. Atmosphere: `atmosphere/fog.ts` (light-volume fog), `sky.ts`, `weather.ts`.
 - `gfx.cut()` snaps the exposure (camera cuts, teleports); `gfx.settle(n)` renders n frames for stills. In `?test` mode one `step()`
   renders one frame: settle before judging exposure.
-- Still in `src/rendering/` (to be rebuilt): `rain.ts`, `vfx.ts`, vendored `ocean/`.
+- Effects: `effects/particles.ts` (sparks, rings), `effects/rain.ts` (near drops, far curtains, splashes); the sea `water/ocean.ts`;
+  shadows of moving things `lighting/dynamicShadows.ts` (casters on layer 5; `?gfx.dynamicShadows=0` turns the pass off).
+  `src/rendering/` no longer exists: the whole old shader system has been replaced.
 
 ## Engine facts verified against three 0.187 (do not rely on memory of older versions)
 - Import renderer/materials from `three/webgpu`, node builders from `three/tsl`, effect nodes from `three/addons/tsl/display/*`

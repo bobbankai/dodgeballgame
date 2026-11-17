@@ -159,8 +159,8 @@ after it; the sRGB encode once (`RenderPipeline.outputColorTransform`).
 - [ ] histogram auto exposure, bloom, DOF, motion blur, lens, TAA/TAAU + RCAS
 - [x] sparks and shock rings in `effects/particles.ts` (CPU-integrated, GPU-drawn streaks; soft ring bands by uniform, no recompiles)
 - [ ] GPU-compute particles (attempted: see status log)
-- [ ] rain in `effects/`; ocean rebuilt in `reflections/` + `materials/`
-- [ ] `volumetrics.ts`, `sky.ts`, `rain.ts`, `vfx.ts`, `ocean/` deleted; `src/rendering/` gone
+- [x] rain in `effects/rain.ts` (near streaks, far curtains, splashes, gusting wind); our own ocean in `water/ocean.ts`
+- [x] `volumetrics.ts`, `sky.ts`, `rain.ts`, `vfx.ts`, `ocean/` deleted; `src/rendering/` gone
 
 ### Phase 9–10 — optimisation and validation
 - [ ] shader warm-up, budgets, dynamic resolution tuned
@@ -199,3 +199,8 @@ after it; the sRGB encode once (`RenderPipeline.outputColorTransform`).
 - Open risk: with the dynamic shadow pass on, the SwiftShader WebGPU device in this container is lost in some runs (always
   with sparks and rings in flight, never with the pass off). Fetches are clamped and nothing writes out of bounds; needs a
   check on real hardware. Tests that need stability can pass `?gfx.dynamicShadows=0`.
+- 2026-11-17: rain and the sea rebuilt; `src/rendering/` is gone (every shader in the game is now in `src/graphics/`).
+  The ocean: 12 Gerstner waves from a sea state on a camera-following warped grid, per-pixel analytic normals plus
+  footprint-faded ripples, a planar mirror (`reflector`, whitelisted layers) with Fresnel against a depth-coloured body over a
+  baked seabed tile, crest and shore foam, GGX glint. Reviewed on the Chapter 4 terrace in both realities (calm blue with the
+  towers mirrored; storm swell with foam). Far-rain curtains not yet reviewed in a framed shot.

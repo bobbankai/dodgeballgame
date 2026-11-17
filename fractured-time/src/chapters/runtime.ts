@@ -225,7 +225,7 @@ export class ChapterRuntime {
       this.sky.haze.value.setRGB(fb.x, fb.y, fb.z); // the sky's horizon meets that air
     }
     this.sea.setPlace(this.current, this.timeline, v?.header.sun ? new THREE.Vector3(...v.header.sun.dir) : null,
-      new THREE.Color(fu.fallback.value.x, fu.fallback.value.y, fu.fallback.value.z));
+      new THREE.Color(fu.fallback.value.x, fu.fallback.value.y, fu.fallback.value.z), (fu.sunCol.value as THREE.Color).clone());
   }
 
   byId(id: string): Marker | undefined { return this.markers.find((m) => m.data.id === id); }
@@ -593,7 +593,7 @@ export class ChapterRuntime {
     this.g.sfx.ambience(this.nexus ? 'amb_facility' : 'amb_storm', this.nexus ? 'hall' : undefined);
     const path = String(sky.data.hdri);
     const f = (parse(sky.data.fog) as number[] | undefined) ?? [0.3, 0.34, 0.4, 0.004];
-    // the sky is our own background node (`rendering/sky.ts`). Assigning the HDRI as `scene.background` while it was still
+    // the sky is our own background node (`graphics/atmosphere/sky.ts`). Assigning the HDRI as `scene.background` while it was still
     // loading left every sky black: three converts an equirect background to a cube map the first frame it sees it and keeps
     // that cube, here the 1x1 placeholder
     const haze = new THREE.Color(f[0], f[1], f[2]);
