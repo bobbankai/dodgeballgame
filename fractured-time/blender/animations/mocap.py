@@ -32,6 +32,11 @@ MAP = {
     'RightUpLeg': 'thigh_r', 'RightLeg': 'calf_r', 'RightFoot': 'foot_r', 'RightToeBase': 'ball_r',
 }
 INV = {v: k for k, v in MAP.items()}
+# clavicles: the source skeleton's rest slope is anatomy, not pose (CMU's clavicles rise ~12 degrees from the chest, the game rig's
+# fall ~9): copying their absolute direction, as the limbs do, hiked every shoulder by ~23 degrees (a shrug in every clip). They take
+# the capture's own motion relative to the chest instead, on the target's rest, damped (CMU clavicle channels are noisy)
+CLAVICLES = {'clavicle_l', 'clavicle_r'}
+CLAV_GAIN = 0.7
 REFL = Matrix(((-1, 0, 0), (0, 1, 0), (0, 0, 1)))
 
 
@@ -171,7 +176,14 @@ def retarget(src, tgt, rots, hips, *, in_place=True, yaw=0.0, mirror=False, keep
     for i, R in enumerate(rots):
         world = {}
         for b in tgt.order:
-            if b in INV:
+            if b in CLAVICLES:
+                n = INV[b]
+                d = (face_fix @ R[n] @ src.rest[n].inverted() @ face_fix.inverted())
+                dp = (face_fix @ R['Spine1'] @ src.rest['Spine1'].inverted() @ face_fix.inverted())
+                rel = (dp.inverted() @ d).to_quaternion()
+                damped = Quaternion().slerp(rel, CLAV_GAIN).to_matrix()
+                world[b] = (dp @ damped @ tgt.rest[b]).normalized()
+            elif b in INV:
                 n = INV[b]
                 d = (face_fix @ R[n] @ src.rest[n].inverted() @ face_fix.inverted())
                 world[b] = (d @ align[b] @ tgt.rest[b]).normalized()
@@ -201,6 +213,47 @@ def retarget(src, tgt, rots, hips, *, in_place=True, yaw=0.0, mirror=False, keep
         root_rest = tgt.rest['pelvis']
         locs.append(root_rest.inverted() @ (target_head - tgt.head['pelvis']))
     return frames, locs, speed
+
+
+def forward_correction(frames, tgt, by='hips'):
+    """The yaw (as the matrix to apply in the pelvis's rest frame) that turns a clip so the target body faces -Y (the rig's forward)
+    on average: by the hip line (left hip to right hip, crossed with up) or by the head's forward. Measured on the target as
+    retargeted, so it corrects whatever the source and the alignment left in the pelvis's twist (its yaw is free: the pelvis, spine
+    and head point up, and aligning a bone's direction fixes nothing about the turn around it)."""
+    rest = tgt.rest
+    chain = ['pelvis', 'spine_01', 'spine_02', 'spine_03', 'neck_01', 'head']
+    up = Vector((0, 0, 1))
+    xs, ys = [], []
+    for fr in frames:
+        W = {'pelvis': rest['pelvis'] @ fr['pelvis'].to_matrix()}
+        if by == 'hips':
+            v = W['pelvis'] @ rest['pelvis'].inverted() @ (tgt.head['thigh_l'] - tgt.head['thigh_r'])
+            f = v.cross(up)
+        else:
+            for a, b in zip(chain, chain[1:]):
+                W[b] = W[a] @ rest[a].inverted() @ rest[b] @ fr[b].to_matrix()
+            f = W['head'] @ rest['head'].inverted() @ Vector((0, -1, 0))
+        a = math.atan2(f.y, f.x)
+        xs.append(math.cos(a))
+        ys.append(math.sin(a))
+    mean = math.atan2(float(np.mean(ys)), float(np.mean(xs)))
+    corr = Matrix.Rotation(math.atan2(-1.0, 0.0) - mean, 3, 'Z')
+    return rest['pelvis'].inverted() @ corr @ rest['pelvis']
+
+
+def apply_yaw(frames, locs, T):
+    """Turn a clip by `forward_correction`'s matrix (the pelvis carries the body; the root offsets turn with it)."""
+    out_f = []
+    for fr in frames:
+        g = dict(fr)
+        g['pelvis'] = (T @ fr['pelvis'].to_matrix()).to_quaternion()
+        out_f.append(g)
+    return out_f, [T @ Vector(v) for v in locs]
+
+
+def face_forward(frames, locs, tgt, by='hips'):
+    """Turn a clip so the body faces forward over its frames (see forward_correction)."""
+    return apply_yaw(frames, locs, forward_correction(frames, tgt, by))
 
 
 def _proper(m):

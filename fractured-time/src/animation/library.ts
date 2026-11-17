@@ -31,7 +31,7 @@ export class ClipLibrary {
       new GLTFLoader().loadAsync(assetUrl('animations/humanoid.glb')),
       fetch(assetUrl('animations/humanoid_clips.json')).then((r) => r.json()),
     ]);
-    lib.meta = meta.clips;
+    lib.meta = meta.clips ?? meta; // the table is flat now (one entry per clip); older exports wrapped it in 'clips'
     gltf.scene.traverse((o) => { if (o.name === 'pelvis') lib.hipHeight = o.getWorldPosition(new THREE.Vector3()).y; });
     for (const c of gltf.animations) {
       c.tracks = c.tracks.filter((t) => t.name.endsWith('.quaternion') || t.name === 'pelvis.position');

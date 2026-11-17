@@ -70,7 +70,8 @@ kbd { display: inline-grid; place-items: center; min-width: 20px; height: 20px; 
 .cine-title { position: fixed; inset: 0; z-index: 31; display: flex; flex-direction: column; align-items: center; justify-content: flex-start;
   padding-top: 25vh; box-sizing: border-box; opacity: 0; pointer-events: none;
   font-family: 'Inter', system-ui, sans-serif; color: #e8f6ff; text-transform: uppercase; letter-spacing: 0.5em; }
-.cine-title .t { font-size: 34px; font-weight: 300; }
+.cine-title .t { font-size: 34px; font-weight: 300; text-shadow: 0 1px 14px rgba(0,0,0,0.6), 0 0 2px rgba(0,0,0,0.5); }
+.cine-title .s { text-shadow: 0 1px 8px rgba(0,0,0,0.85), 0 0 2px rgba(0,0,0,0.8); }
 .cine-title .s { margin-top: 14px; font-size: 12px; letter-spacing: 0.4em; color: #5ad8ff; }
 
 /* recovered footage: a CRT frame over the scene */

@@ -212,6 +212,20 @@ rain, wet streets, SSR, water, dusk city, skin, POM, grading) is in; it has been
     Imani's café (black around two small lanterns; its camera started crushed behind Ethan's head at the door) and the underpass
     pursuit (no light at all under the highway). Lamps in each (a hut lamp, a beacon and a gap lamp on the roofs; festoon bulbs and
     a desk lamp in the café; sodium fixtures under the deck and a lamp at the stairwell); re-baking.
+58. Every human shrugged: the retarget copied each source bone's absolute direction, right for limbs (T-pose source, A-pose rig)
+    but not for the clavicles, whose rest slope is anatomy (CMU's rise ~12 degrees from the chest, the rig's fall ~9): shoulders
+    hiked ~23 degrees in every clip. Clavicles now take the capture's own motion relative to the chest, damped to 0.7.
+59. The idle stood ~90 degrees off its forward and the whole combat set (guard, strikes, blocks, dodges, reactions, casts) ~120:
+    Ethan stood side-on whenever he stopped and struck sideways at what he faced (the flow tests kill with helpers and never
+    showed it). The retarget leaves the pelvis's yaw free (aligning a vertical bone's direction fixes nothing about its turn).
+    Looped clips are now turned so the body faces forward over the frames that play (by the hips; fighting stances by the head, so
+    a bladed guard stays bladed), the guard (and everything authored on it) by its head, one-shots by their first frames (the roll
+    started facing backwards). Measured per clip: every clip faces -Y; gameplay events and root speeds unchanged.
+60. The idle's subject held his head tilted ~30 degrees: an `upright` option eases neck, head and upper chest toward rest (idle 0.7).
+61. Imani, Nyx, the operatives and Voss rest differently from the rig the clips were authored on (toes ~80 degrees: another roll;
+    a dozen bones 5-12): glTF clips set absolute local rotations, so their toes bent and knees shifted. The loader retargets the
+    shared clips per body in world space with rest offsets (q' = O_parent^-1 q O_bone): each bone's world motion relative to its
+    own rest now matches the rig's within 0.1 degree (checked on toes, thighs, arms, spine in walk, strike and idle).
 
 ---
 

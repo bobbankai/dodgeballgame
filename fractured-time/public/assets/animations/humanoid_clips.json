@@ -1,6 +1,6 @@
 {
  "idle": {
-  "frames": 146,
+  "frames": 145,
   "fps": 30,
   "loop": true,
   "events": {},
@@ -53,7 +53,7 @@
   "source": "CMU 111_01 frames 30-700"
  },
  "combat_strafe_L": {
-  "frames": 31,
+  "frames": 32,
   "fps": 30,
   "loop": true,
   "events": {},
@@ -61,7 +61,7 @@
   "source": "CMU 69_42 frames 30-900"
  },
  "combat_strafe_R": {
-  "frames": 31,
+  "frames": 32,
   "fps": 30,
   "loop": true,
   "events": {},

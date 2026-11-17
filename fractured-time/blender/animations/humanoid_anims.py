@@ -321,7 +321,7 @@ def breathe(P, frames, period=3.2, amp=1.2):
 # (name, cmu id, source start, source end, options). Frames are 120 fps source frames; samples are 30 fps.
 
 LOCO = [
-    ('idle', '77_02', 2, 938, dict(loop=(100, 150), in_place=True)),
+    ('idle', '77_02', 2, 938, dict(loop=(100, 150), in_place=True, upright=0.7)),  # the subject held his head tilted ~30 degrees
     ('walk', '16_15', 2, 472, dict(loop=(28, 42), in_place=True)),
     ('run', '35_17', 2, 168, dict(loop=(18, 26), in_place=True)),
     ('sprint', '09_01', 20, 149, dict(loop=(14, 22), in_place=True)),
@@ -359,11 +359,26 @@ def mocap_clip(tgt, name, cid, a, b, o):
         for i in range(len(lc)):
             low = min(src.feet[i][0][2], src.feet[i][1][2]) - src.ground
             lc[i] = lc[i] - tgt.rest['pelvis'].inverted() @ Vector((0, 0, max(0.0, low - 0.08 / sc) * sc))
+    if o.get('upright'):
+        # a subject's habit of posture (a head held tilted) is not the character's: ease the neck, head and upper chest part of the way
+        # back to the rig's upright rest, keeping their motion
+        w = o['upright']
+        for f in fr:
+            for bn, k in (('neck_01', w), ('head', w), ('spine_03', w * 0.4)):
+                f[bn] = f[bn].slerp(Quaternion(), k)
     meta = {'speed': round(speed, 3), 'source': f'CMU {cid} frames {a}-{b}'}
     if 'loop' in o:
         s, P = mocap.find_loop(fr, *o['loop'])
         fr, lc = mocap.make_loop(fr, lc, s, P)
+        # turn the loop so the body faces forward over the frames that play (the retarget leaves the pelvis's twist about its own
+        # axis free: the idle stood ~90 degrees off, side-on to the camera in every still moment); fighting stances by the head,
+        # so a bladed guard stays bladed with the eyes on the enemy
+        fr, lc = mocap.face_forward(fr, lc, tgt, by='head' if (o.get('fight') or 'combat' in name) else 'hips')
         meta['loop'] = True
+    elif 'hit' not in o and not o.get('fight'):
+        # one-shots (roll, run start, look-around, jumps) start facing forward: the roll began facing backwards and the run start and
+        # look-around ~80 degrees off, from the same free pelvis twist
+        fr, lc = mocap.apply_yaw(fr, lc, mocap.forward_correction(fr[:4], tgt, by='hips'))
     if 'hit' in o:
         f_hit, bone = o['hit']
         i = int(round((f_hit - max(a, src.f0 + 1)) / 4))
@@ -400,6 +415,9 @@ def build(preview=None, export=False):
     # guard: a boxing guard frame from 13_17, held with breathing
     gfr, glc, _ = mocap_clip(tgt, 'guard_src', '13_17', 2548, 2560, dict(in_place=True, fight=True))
     gfr, glc = yaw_clip(P, gfr, glc, -14.1)  # measured from the same take's straight right (strike_yaw)
+    # then turned so the head faces forward: every combat clip is authored on this guard, and it stood ~120 degrees off (the pelvis's
+    # yaw is free in the retarget), so Ethan guarded, struck, blocked and dodged side-on to whatever he faced
+    gfr, glc = mocap.face_forward(gfr, glc, tgt, by='head')
     guard = fingers(P, gfr[:1], 66)[0]  # fists up
     gl = glc[0]
     n = 96
