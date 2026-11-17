@@ -204,6 +204,14 @@ rain, wet streets, SSR, water, dusk city, skin, POM, grading) is in; it has been
 55. 2101's stone was rust: the "grey_cartago_01" scan is slate veined rust-orange and `desat` is the saturation kept (Blender
     and the engine agree), so at 0.7 the reception desk, planters, plinths and pool basin of the clean future read as rusted
     metal. Saturation 0.12; Chapters 3-5 re-exported with every lightmap kept (UVs checked identical).
+56. The Nexus whited out near the Engine (the skybridge, Voss's arena): its sky holds the Engine as a bright blob the bake took
+    for a sun, and the fog scattered that sun forward over every view toward it, on top of the Engine's own light already in the
+    level. Isolated by rendering without fog and without the fog's sun (both cleared it); the fog's sun is off in the Nexus (as
+    under the storm), and the void beyond the volume keeps the marker's dark blue instead of the volume's lid light.
+57. Places with no light of their own, found in a sweep after bug 49: Chapter 2's opening rooftops (black decks, Ethan invisible),
+    Imani's café (black around two small lanterns; its camera started crushed behind Ethan's head at the door) and the underpass
+    pursuit (no light at all under the highway). Lamps in each (a hut lamp, a beacon and a gap lamp on the roofs; festoon bulbs and
+    a desk lamp in the café; sodium fixtures under the deck and a lamp at the stairwell); re-baking.
 
 ---
 

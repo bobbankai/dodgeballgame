@@ -209,9 +209,14 @@ export class ChapterRuntime {
     const fu = this.g.post.fog.u as any;
     // under the storm's closed deck there is no sun to scatter (the bake's HDRI had one low in the west: a bright disc of haze)
     if (this.stormy) fu.sunCol.value.setRGB(0, 0, 0);
+    // nor in the Nexus: its sky holds the Engine as a bright blob the bake took for a sun. The Engine's light is already in the
+    // level (its fixtures, the volume's light); scattered forward again as a sun it laid a white veil over every view of it
+    if (this.nexus) fu.sunCol.value.setRGB(0, 0, 0);
     // outdoors the air above and beyond the volume is lit like the air at its lid (the fog colour alone was darker: every view
     // down a street showed the box's far top edge as a lit dome on the sky)
-    if (this.outdoors && v) {
+    // (not in the Nexus: its volume holds the Engine's light, and the void beyond the platforms is a dark starfield; lifted, the
+    // whole void glowed white and swallowed the bridge and the arena)
+    if (this.outdoors && v && !this.nexus) {
       const fb = fu.fallback.value as THREE.Vector4;
       const base = this.skyFog;
       fb.set(Math.max(base.r, v.top[0]), Math.max(base.g, v.top[1]), Math.max(base.b, v.top[2]), fb.w);
