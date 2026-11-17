@@ -203,6 +203,15 @@ export class GraphicsSystem {
   /** A camera cut or a teleport: the eye takes the new place at once. */
   cut(): void { this.exposure.snap(); }
 
+  /** Resolves when the GPU has finished the work submitted so far (WebGPU), or after a task yield (WebGL2). Long bursts of
+   *  off-screen rendering at load (probe captures) wait on this between steps: submitted back to back they kept the GPU
+   *  process busy long enough for the browser's GPU watchdog to drop the device (seen on the software device). */
+  async idle(): Promise<void> {
+    const device = (this.renderer.backend as any)?.device as GPUDevice | undefined;
+    if (device?.queue?.onSubmittedWorkDone) await device.queue.onSubmittedWorkDone();
+    else await new Promise((r) => setTimeout(r, 0));
+  }
+
   /** true while a blocking `warmUp` runs (behind the loading screen: no frame renders meanwhile) */
   warming = false;
   private compiling: Promise<unknown> = Promise.resolve();

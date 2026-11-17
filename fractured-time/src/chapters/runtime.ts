@@ -258,11 +258,14 @@ export class ChapterRuntime {
     // every place's reflection probe, in each reality it has, now: a probe captured on arrival cost a render of three sections
     // into a cube map plus the first build of every material seen in that pass, the moment Ethan stepped in (or shifted)
     const home = this.current, was = this.timeline;
+    // one capture at a time, each finished on the GPU before the next (see `GraphicsSystem.idle`)
     for (let k = 0; k < (qs.has('noprecapture') ? 0 : this.sections.length); k++) {
       this.enter(k);
+      await this.g.gfx.idle();
       const s = this.sections[k];
       if (s.lv.timeline.b.meshes.length || s.lv.markers.find((m) => m.name === 'sky')?.data.hdri_b) {
         this.setTimeline(was === 'a' ? 'b' : 'a');
+        await this.g.gfx.idle();
         this.setTimeline(was);
       }
     }
