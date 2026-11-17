@@ -175,24 +175,30 @@ export class DynamicShadows {
         // `uv` follows three's sampling convention (v up); a fetch indexes the target's own rows: top-down on WebGPU,
         // bottom-up on WebGL (measured by reading the map back)
         const fetchUV = (q: any) => vec2(q.x, select(u.webgl.greaterThan(0.5), q.y, q.y.oneMinus()));
+        const vis = float(1).toVar();
         const tap = (o: any) => T.textureLoad(this.rt.texture, T.ivec2(T.clamp(fetchUV(uv.add(o)).mul(this.size), 0.0, last))).r;
-        // blocker search over ~0.3 m round the point
-        const searchR = float(0.3).div(u.texel).mul(texelUV);
-        const blockers = float(0).toVar();
-        const sumB = float(0).toVar();
-        for (const [x, y] of POISSON.slice(0, 8)) {
-          const d = tap(rot(x, y).mul(searchR));
-          const hit = d.lessThan(z.sub(bias));
-          blockers.addAssign(select(hit, float(1), float(0)));
-          sumB.addAssign(select(hit, d, float(0)));
-        }
-        // penumbra (m) grows with the receiver's distance below the blocker (contact hardening); at least ~1.5 texels
-        const avgB = sumB.div(max(blockers, 1.0));
-        const pen = max(z.sub(avgB).mul(u.range).mul(u.softness), u.texel.mul(1.5));
-        const filterR = pen.div(u.texel).mul(texelUV);
-        const lit = float(0).toVar();
-        for (const [x, y] of POISSON) lit.addAssign(select(tap(rot(x, y).mul(filterR)).lessThan(z.sub(bias)), float(0), float(1)));
-        const vis = select(blockers.greaterThan(0.0), lit.div(POISSON.length), float(1));
+        // fetches only where it matters: inside the map, and the filter only where the search found a blocker
+        If(inside.greaterThan(0.001), () => {
+          // blocker search over ~0.3 m round the point
+          const searchR = float(0.3).div(u.texel).mul(texelUV);
+          const blockers = float(0).toVar();
+          const sumB = float(0).toVar();
+          for (const [x, y] of POISSON.slice(0, 8)) {
+            const d = tap(rot(x, y).mul(searchR));
+            const hit = d.lessThan(z.sub(bias));
+            blockers.addAssign(select(hit, float(1), float(0)));
+            sumB.addAssign(select(hit, d, float(0)));
+          }
+          If(blockers.greaterThan(0.0), () => {
+            // penumbra (m) grows with the receiver's distance below the blocker (contact hardening); at least ~1.5 texels
+            const avgB = sumB.div(blockers);
+            const pen = max(z.sub(avgB).mul(u.range).mul(u.softness), u.texel.mul(1.5));
+            const filterR = pen.div(u.texel).mul(texelUV);
+            const lit = float(0).toVar();
+            for (const [x, y] of POISSON) lit.addAssign(select(tap(rot(x, y).mul(filterR)).lessThan(z.sub(bias)), float(0), float(1)));
+            vis.assign(lit.div(POISSON.length));
+          });
+        });
         out.assign(mix(float(1), float(1).sub(u.strength), float(1).sub(vis).mul(inside)));
         If(u.debug.greaterThan(0.5), () => {
           out.assign(select(u.debug.greaterThan(4.5), vis, select(u.debug.greaterThan(3.5), uv.y, select(u.debug.greaterThan(2.5), uv.x,

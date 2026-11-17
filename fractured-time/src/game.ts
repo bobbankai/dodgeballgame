@@ -1,6 +1,6 @@
 import * as THREE from 'three/webgpu';
 import { GraphicsSystem, type PresetName } from '@/graphics';
-import { Vfx } from '@/rendering/vfx';
+import { Particles } from '@/graphics/effects/particles';
 import { Rain } from '@/rendering/rain';
 import { VolumetricFog } from '@/graphics/atmosphere/fog';
 import { setMaterialQuality, resources } from '@/graphics';
@@ -54,8 +54,9 @@ export class Game implements Simulation, GameCtx {
   /** the volumetric medium (the frame graph's fog stage) */
   fog!: VolumetricFog;
   rain!: Rain;
-  vfx = new Vfx();
-  fx = this.vfx;
+  /** sparks and shock rings (GPU particles) */
+  vfx!: Particles;
+  fx!: Particles;
   sfx = new Sfx();
   hud = new Hud();
   touch: TouchControls | null = null;
@@ -135,6 +136,8 @@ export class Game implements Simulation, GameCtx {
     g.camera = new CameraRig(canvas.clientWidth / Math.max(1, canvas.clientHeight), g.physics);
     g.live = new LiveControls(g.input, g.camera);
     g.controls = g.live;
+    g.vfx = new Particles();
+    g.fx = g.vfx;
     g.scene.add(g.vfx.group);
     g.vfx.density = gs.particles;
     g.temporal = new Temporal(g);

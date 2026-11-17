@@ -157,7 +157,9 @@ after it; the sRGB encode once (`RenderPipeline.outputColorTransform`).
 - [ ] reflection probes in `reflections/`
 - [x] physical sky (written, not yet used by a place), image sky, storm deck, volumetric fog (two-lobe phase, exact analytic tail) in `atmosphere/`
 - [ ] histogram auto exposure, bloom, DOF, motion blur, lens, TAA/TAAU + RCAS
-- [ ] rain and sparks in `effects/`; ocean rebuilt in `reflections/` + `materials/`
+- [x] sparks and shock rings in `effects/particles.ts` (CPU-integrated, GPU-drawn streaks; soft ring bands by uniform, no recompiles)
+- [ ] GPU-compute particles (attempted: see status log)
+- [ ] rain in `effects/`; ocean rebuilt in `reflections/` + `materials/`
 - [ ] `volumetrics.ts`, `sky.ts`, `rain.ts`, `vfx.ts`, `ocean/` deleted; `src/rendering/` gone
 
 ### Phase 9–10 — optimisation and validation
@@ -190,3 +192,10 @@ after it; the sRGB encode once (`RenderPipeline.outputColorTransform`).
   sampling an unfilterable float map with an explicit level returned nothing; the filter uses texel fetches, unrolled and
   branch-free. Debug view `shadowmap` shows the map. Reviewed: door-leaf shadows across a lab floor and wall (soft, contact
   hardening). Not yet framed in a gameplay shot with Ethan's own shadow in view.
+- 2026-11-17: sparks and rings rebuilt (`effects/particles.ts`), old `vfx.ts` deleted. A compute-shader particle path was built
+  and abandoned for now: with CPU-uploaded state buffers every dispatch restarted from the uploaded spawn state (the shared
+  attribute was re-uploaded), and with GPU-owned state the spawn-copy pass wrote nothing and reported no error on the
+  SwiftShader device. Sparks are integrated on the CPU (a few hundred at most) and drawn by a GPU streak shader.
+- Open risk: with the dynamic shadow pass on, the SwiftShader WebGPU device in this container is lost in some runs (always
+  with sparks and rings in flight, never with the pass off). Fetches are clamped and nothing writes out of bounds; needs a
+  check on real hardware. Tests that need stability can pass `?gfx.dynamicShadows=0`.
