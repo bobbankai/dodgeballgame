@@ -82,11 +82,10 @@ rain, wet streets, SSR, water, dusk city, skin, POM, grading) is in; it has been
   (white frame) at every quality, with or without the storm sky, the window panes and the rain; the morning build before this pass
   does the same, so it is not a regression. Interiors (Chapter 1), the Nexus and the lab render on WebGPU identically to WebGL2.
   Needs a run on a real GPU; if it reproduces there, bisect with the test switches (`?nostorm`, `?nowin`, `?norain`).
-- **Places with no light of their own** (seen once the lightmaps went linear): the Chapter 1 surface lift house now has a work
-  lamp and an emergency lamp in its bake, and Chapter 3's ruined lobby and offices have ceiling breaches with cold light falling
-  through (both reviewed). The ruin's other rooms (Palimpsest lab, mirror hall, core) are still lit by fills under an intact
-  ceiling: legible, but the same treatment would serve them. The god-ray shafts under the breaches have not been looked at from
-  below yet.
+- **Places with no light of their own** (seen once the lightmaps went linear): the Chapter 1 lift house (lamps, re-baked), Chapter 3's
+  whole ruin (ceiling breaches over the lobby, offices, Palimpsest lab, mirror hall and core, dusty air: shafts reviewed in the
+  lobby and the mirror hall) and Chapter 2's rooftops, café and underpass (lamps, re-baking) are done or in hand. The rest of the
+  campaign was swept once after bug 49 (about thirty places); not every room has been seen.
 - Street prop variants without textures: fixed (the street re-exported with the fallbacks; its lens maps no longer embedded).
 - **Skin** is still smoother and flatter than reference B: needs stronger micro detail at mid distance, specular breakup, and a real
   subsurface diffusion (screen-space or pre-integrated) instead of translucency only.
