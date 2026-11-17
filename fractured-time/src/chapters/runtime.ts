@@ -1,7 +1,7 @@
 import * as THREE from 'three/webgpu';
 import type { Game } from '@/game';
 import { loadLevel, type Marker, type LoadedLevel } from '@/world/level';
-import { captureProbe } from '@/graphics/reflections/probes';
+import { captureProbe, releaseProbe, EnvironmentSlot } from '@/graphics/reflections/probes';
 import { LightPool } from '@/graphics/lighting/lightPool';
 import { ProbeField, CharacterLight } from '@/graphics/lighting/probes';
 
@@ -175,6 +175,7 @@ export class ChapterRuntime {
   readonly sea: Sea;
 
   constructor(readonly g: Game) {
+    this.env = new EnvironmentSlot(g.scene);
     this.pool = new LightPool(g.scene);
     this.sea = new Sea(g);
     g.beforeRender.add((dt) => this.sea.frame(dt));
@@ -230,6 +231,51 @@ export class ChapterRuntime {
   }
 
   byId(id: string): Marker | undefined { return this.markers.find((m) => m.data.id === id); }
+
+  /** what the shader warm-up did (tests, the performance overlay) */
+  warmStats: { ms: number; meshes: number; geometryMB: number } | null = null;
+
+  /**
+   * Shader warm-up, behind the loading screen once every section has loaded: each section's materials, in both realities,
+   * are built for the scene pass now, so walking into a place or shifting reality builds none. The sections not on screen
+   * then give their textures and lightmaps back; their geometry stays on the GPU for the chapter (it is what keeps the built
+   * pipelines alive: three frees a pipeline when the last geometry drawn with it is disposed).
+   */
+  async warmUp(): Promise<void> {
+    // one section at a time, evicting as it goes, so texture memory never holds the whole chapter at once
+    const r = { ms: 0, meshes: 0 };
+    for (const s of this.sections) {
+      const w = await this.g.gfx.warmUp([s.lv.root]);
+      r.ms += w.ms;
+      r.meshes += w.meshes;
+      if (s.inScene) continue;
+      resources.setResident(s.path, false);
+      for (const t of s.lv.lightmaps) t.dispose();
+    }
+    // every place's reflection probe, in each reality it has, now: a probe captured on arrival cost a render of three sections
+    // into a cube map plus the first build of every material seen in that pass, the moment Ethan stepped in (or shifted)
+    const home = this.current, was = this.timeline;
+    for (let k = 0; k < this.sections.length; k++) {
+      this.enter(k);
+      const s = this.sections[k];
+      if (s.lv.timeline.b.meshes.length || s.lv.markers.find((m) => m.name === 'sky')?.data.hdri_b) {
+        this.setTimeline(was === 'a' ? 'b' : 'a');
+        this.setTimeline(was);
+      }
+    }
+    this.g.gfx.look.fracture.value = 0;
+    this.enter(home);
+    let bytes = 0;
+    const seen = new Set<THREE.BufferGeometry>();
+    for (const s of this.sections) s.lv.root.traverse((o) => {
+      const geo = (o as THREE.Mesh).geometry;
+      if (!(o as THREE.Mesh).isMesh || !geo || seen.has(geo)) return;
+      seen.add(geo);
+      for (const a of Object.values(geo.attributes)) bytes += (a as THREE.BufferAttribute).array?.byteLength ?? 0;
+      bytes += geo.index?.array.byteLength ?? 0;
+    });
+    this.warmStats = { ...r, geometryMB: Math.round(bytes / 1048576) };
+  }
 
   async loadSection(path: string): Promise<void> {
     const lv = await loadLevel(path, this.g.physics, null);
@@ -483,6 +529,11 @@ export class ChapterRuntime {
       this.sections.forEach((s, i) => { const d = s.box.distanceToPoint(at); if (d < best) { best = d; k = i; } });
     }
     if (k === this.current) return;
+    this.enter(k);
+  }
+
+  /** Make section k the current place: it and its neighbours in the scene, the rest out (their textures leave the GPU). */
+  private enter(k: number): void {
     this.current = k;
     this.sections.forEach((s, i) => {
       const want = Math.abs(i - k) <= 1;
@@ -491,7 +542,7 @@ export class ChapterRuntime {
         this.g.scene.remove(s.lv.root);
         s.inScene = false;
         resources.setResident(s.path, false); // its textures leave the GPU unless a shown section shares them
-        s.lv.root.traverse((o) => { const m = o as THREE.Mesh; if (m.isMesh) m.geometry.dispose(); });
+        // (its geometry stays: disposing it would also free the render objects that keep its shaders built; see `warmUp`)
         for (const t of s.lv.lightmaps) t.dispose();
       }
     });
@@ -509,12 +560,16 @@ export class ChapterRuntime {
     const two = cur.lv.timeline.b.meshes.length > 0 || !!cur.lv.markers.find((m) => m.name === 'sky')?.data.hdri_b;
     const k = two ? this.timeline : 'a';
     if (!cur.probes[k] || recapture) {
-      cur.probes[k]?.dispose();
-      cur.probes[k] = captureProbe(this.g.gfx.renderer, this.g.scene, cur.box.getCenter(new THREE.Vector3()).setY(1.6));
+      const old = cur.probes[k];
+      cur.probes[k] = captureProbe(this.g.gfx.pmrem, this.g.scene, cur.box.getCenter(new THREE.Vector3()).setY(1.6));
+      this.env.set(cur.probes[k]!);
+      if (old) releaseProbe(old);
     }
-    this.g.scene.environment = cur.probes[k]!;
+    this.env.set(cur.probes[k]!);
   }
 
+  /** the scene's environment: one node for the chapter, its probe swapped (see `EnvironmentSlot`) */
+  private env!: EnvironmentSlot;
   private skies = new Map<string, Promise<THREE.Texture>>();
   private skyReady = new Map<string, THREE.Texture>();
   private sky = new Sky();
@@ -661,12 +716,22 @@ export class ChapterRuntime {
 
   /** Figures outside the actor lists (NPCs, the Echo in cinematics) lit like everyone else. */
   private litRoots = new Set<THREE.Object3D>();
-  lightRoot(root: THREE.Object3D): void { this.litRoots.add(root); }
+  lightRoot(root: THREE.Object3D): void { this.litRoots.add(root); this.rig(root); }
+
+  /**
+   * Give a character its light rig now, before its first frame. The rig gives every one of its materials its own lights node,
+   * and three rebuilds a material whose lights change: attached lazily on the first update (after the character had already
+   * been drawn once) it rebuilt every shader of every character a moment after it appeared.
+   */
+  rig(root: THREE.Object3D): void {
+    if (this.charLights.has(root)) return;
+    this.charLights.set(root, new CharacterLight(root, [...this.pool.rects, ...this.pool.points]));
+    DynamicShadows.cast(root);
+  }
 
   /** Characters: their own SH probe from the baked field (at chest height) + the real-time pool. */
   private lightCharacters(dt: number): void {
     if (!this.probes.size) return;
-    const shared = [...this.pool.rects, ...this.pool.points];
     const at = new THREE.Vector3();
     for (const r of this.litRoots) if (!r.parent) this.litRoots.delete(r);
     const extra = [...this.litRoots].map((root) => ({ root, pos: root.position }));
@@ -682,7 +747,7 @@ export class ChapterRuntime {
       const root = (a as any).root as THREE.Object3D | undefined;
       if (!root) continue;
       let cl = this.charLights.get(root);
-      if (!cl) { cl = new CharacterLight(root, shared); this.charLights.set(root, cl); DynamicShadows.cast(root); }
+      if (!cl) { this.rig(root); cl = this.charLights.get(root)!; }
       cl.update(this.probes, at.copy(a.pos).setY(a.pos.y + 1.1), dt, this.outdoors ? this.flashPulse : 0);
       cl.rig(at, camPos, this.exposure, this.outdoors ? this.airColor : null); // the probe meter: stable, and what the rig was tuned with
       cl.apply();

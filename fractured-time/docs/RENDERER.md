@@ -166,7 +166,9 @@ after it; the sRGB encode once (`RenderPipeline.outputColorTransform`).
 - [x] `volumetrics.ts`, `sky.ts`, `rain.ts`, `vfx.ts`, `ocean/` deleted; `src/rendering/` gone
 
 ### Phase 9–10 — optimisation and validation
-- [ ] shader warm-up, budgets, dynamic resolution tuned
+- [x] shader warm-up (every section, both realities, compiled for the scene pass behind the loader; probes pre-captured;
+      characters rigged before their first frame and compiled in the background before they appear; see the status log)
+- [ ] budgets, dynamic resolution tuned
 - [ ] validation scenes (materials, lighting, post, characters, stress)
 - [ ] screenshot regression set across chapters
 - [ ] flow tests pass on the new renderer
@@ -220,3 +222,33 @@ after it; the sRGB encode once (`RenderPipeline.outputColorTransform`).
   memory, and a Chapter 4 play-through on the software device was lost mid-chapter with them on High. Textures now record
   which level sections use them, and a section that leaves view frees the GPU copies no shown section shares (re-uploaded
   from the kept image when it returns), as its geometry and lightmaps already did.
+- 2026-11-17: shader warm-up and first-sight stalls. Measured on Chapter 4 (WebGL2 backend, software device; the node-build
+  time is JavaScript and real on any machine, the frame times are not), walking into each section, back, and shifting reality
+  in each:
+
+  | | before | after |
+  |---|---|---|
+  | first entry into p2 / p3 / p4: shader builds | 74 / 60 / 60 | 0 / 0 / 0 |
+  | node-build JavaScript on those frames | 1.3 / 1.1 / 0.8 s | 0 |
+  | walking back through p4..p1 | 1-9 builds per section | 0 (one in p4) |
+  | a reality shift (each section) | 9 builds, 0.1-0.5 s frames | 0 builds, 2-6 ms frames |
+  | GPU texture memory after the walk | 777 MB | 580 MB |
+
+  What was wrong, in order of cost: (1) assigning each place's probe to `scene.environment` gave three a new environment node,
+  and that node's id is part of every lit material's build key: every section's first probe rebuilt every material in view
+  (now `reflections/probes.ts` `EnvironmentSlot`: one `pmremTexture` node for the chapter whose texture is swapped, a binding
+  change); (2) each probe capture made a new PMREM generator (its blur shaders built again, never freed): one shared
+  generator; (3) the probe itself was captured on arrival (a cube render of three sections plus the first build of every
+  material in that pass): all probes are captured behind the loader; (4) the character light rig was attached on a
+  character's first update, after it had been drawn once, and changing a material's lights rebuilds it: rigged at creation;
+  (5) a section that left view disposed its geometry, which freed the render objects keeping its pipelines alive: geometry
+  now stays for the chapter (45 MB in Chapter 4), textures and lightmaps still leave. The warm-up (`GraphicsSystem.warmUp`)
+  compiles each section with visibility and culling lifted into the scene pass's own target and MRT (three keys builds by
+  attachment state), one section at a time with eviction after each. Enemies, boss projections and echoes are compiled in
+  the background (`block: false`) before they are added, so they appear a moment later fully built instead of stalling
+  the frame they appear in. Also found and fixed on the way: the first frame of the game loop could get a negative step (a
+  frame's timestamp predates `start()` after a long load), which threw the camera to 1e17 m.
+  Not covered: the sea mirror's first view and the dynamic shadow casters' depth material (9 small builds on the first
+  frame of play). Load time grows by the warm-up (17-29 s on the software device for Chapter 4; on hardware it is the
+  driver's pipeline compile time).
+

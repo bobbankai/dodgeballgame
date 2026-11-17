@@ -168,11 +168,15 @@ export class GraphicsSystem {
 
   /** Draw one frame. `dt` in seconds (real time: the eye adapts in real time even when the world is slowed). */
   render(dt?: number): void {
-    if (!this.scene || !this.camera) return;
+    if (!this.scene || !this.camera || this.warming) return;
     const now = performance.now();
     const step = dt ?? (this.lastFrame ? Math.min(0.1, (now - this.lastFrame) / 1000) : 1 / 60);
     this.lastFrame = now;
     if (this.dirty) this.rebuild();
+    // a warm-up in flight (`warmUp` with block: false) leaves the scene pass's target bound between its work items: every
+    // frame starts from the canvas, and the compile re-applies its own state when it resumes
+    this.renderer.setRenderTarget(null);
+    this.renderer.setMRT(null);
     this.fog?.update?.();
     if (this.shadows) {
       const f = this.shadows.focus;
@@ -198,6 +202,61 @@ export class GraphicsSystem {
 
   /** A camera cut or a teleport: the eye takes the new place at once. */
   cut(): void { this.exposure.snap(); }
+
+  /** true while a blocking `warmUp` runs (behind the loading screen: no frame renders meanwhile) */
+  warming = false;
+  private compiling: Promise<unknown> = Promise.resolve();
+
+  /**
+   * Shader warm-up: build every material under `roots` (level sections not yet in the scene, both realities, hidden parts
+   * included) for the scene pass, behind the loading screen, so a place's first appearance costs no shader builds. Pipelines
+   * are keyed by the target's attachment state, so they are compiled into the scene pass's own target and MRT, against the
+   * real scene's lights, fog and environment. Visibility and frustum culling are lifted for the sweep and restored after.
+   * Calls are serialised (the renderer has one precompile state). Shadow and mirror passes are not covered (three skips
+   * them during precompilation): their first real frame builds them.
+   * `block`: no frame renders until it is done (loading). Without it (a character about to appear mid-game) frames go on,
+   * each starting from the canvas target (see `render`), and the caller adds the object to the scene once this resolves.
+   */
+  warmUp(roots: THREE.Object3D[], opts: { block?: boolean } = {}): Promise<{ ms: number; meshes: number }> {
+    const block = opts.block ?? true;
+    const run = async () => {
+      const t0 = performance.now();
+      if (!this.scene || !this.camera || !roots.length) return { ms: 0, meshes: 0 };
+      // the graph sets its pass targets up on its first frame (formats, samples): one frame first
+      if (this.dirty || !this.graph.scenePass) this.render(1 / 60);
+      const sp = this.graph.scenePass;
+      if (!sp) return { ms: 0, meshes: 0 };
+      const r = this.renderer as any;
+      const saved: [THREE.Object3D, boolean, boolean][] = [];
+      let meshes = 0;
+      for (const root of roots) root.traverse((o) => {
+        saved.push([o, o.visible, o.frustumCulled]);
+        o.visible = true;
+        o.frustumCulled = false;
+        if ((o as THREE.Mesh).isMesh) meshes++;
+      });
+      const target = r.getRenderTarget(), mrt = r.getMRT();
+      sp.renderTarget.samples = sp.options?.samples ?? r.samples;
+      this.warming = block;
+      try {
+        r.setRenderTarget(sp.renderTarget);
+        r.setMRT(sp.getMRT());
+        for (const root of roots) {
+          root.updateMatrixWorld(true);
+          await r.compileAsync(root, this.camera, this.scene);
+        }
+      } finally {
+        r.setRenderTarget(target);
+        r.setMRT(mrt);
+        this.warming = false;
+        for (const [o, v, f] of saved) { o.visible = v; o.frustumCulled = f; }
+      }
+      return { ms: Math.round(performance.now() - t0), meshes };
+    };
+    const p = this.compiling.then(run, run);
+    this.compiling = p.catch(() => {});
+    return p;
+  }
 
   private rebuild(): void {
     this.dirty = false;

@@ -76,6 +76,8 @@ export class FrameGraph {
   sceneTexture: THREE.Texture | null = null;
   /** true when the volumetric fog stage is live */
   fogLive = false;
+  /** the scene pass (its target and MRT are what material pipelines are built against: shader warm-up compiles into it) */
+  scenePass: any = null;
   private traaNode: any = null;
 
   constructor(renderer: THREE.WebGPURenderer) {
@@ -118,6 +120,7 @@ export class FrameGraph {
       outs.refl = vec2(refl.clamp(0, 1), mix(roughness, coatR, clearcoat.clamp(0, 1)));
     }
     scenePass.setMRT(mrt(outs));
+    this.scenePass = scenePass;
     const sceneColor = scenePass.getTextureNode('output');
     const sceneNormal = scenePass.getTextureNode('normal');
     const sceneDepth = scenePass.getTextureNode('depth');

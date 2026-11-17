@@ -81,7 +81,7 @@ export class Game implements Simulation, GameCtx {
   dialogueRate = 1;
   private playerSlowUntil = 0;
   slowPlayer(seconds: number): void { this.playerSlowUntil = this.time + seconds; this.gfx.look.slow.value = 0.6; }
-  chapter: { tick(dt: number): void; refreshAtmosphere?(): void } | null = null;
+  chapter: { tick(dt: number): void; refreshAtmosphere?(): void; rig?(root: THREE.Object3D): void } | null = null;
   afterimages!: Afterimages;
   private ticks = 0;
   private wasSlow = false;
@@ -194,6 +194,8 @@ export class Game implements Simulation, GameCtx {
       g.level = { spawn: sp ? sp.pos.clone() : new THREE.Vector3(), yaw: sp ? sp.yaw : 0, enemies: [], objective: '' };
       g.scene.background = new THREE.Color(0x000000);
       ch.stream(g.level.spawn);
+      await ch.warmUp(); // every section's shaders, behind the loading screen
+      opts.onProgress?.(0.95);
       if (g.testMode && qsp.has('fast')) g.dialogueRate = 0.15;
       g.startScript = () => mod.run(g, ch, qsp.get('at')).then(() => {
         // a finished chapter hands over to the next one (a fresh page: a clean GPU state); past the last built chapter, the title
@@ -214,7 +216,7 @@ export class Game implements Simulation, GameCtx {
       const sp = lv.markers.find((m) => m.name === 'spawn');
       g.level = { spawn: sp ? sp.pos.clone() : new THREE.Vector3(), yaw: sp ? sp.yaw : 0, enemies: [], objective: '' };
       g.scene.background = new THREE.Color(0x000000);
-      g.scene.environment = captureProbe(g.gfx.renderer, g.scene, g.level.spawn.clone().setY(1.6));
+      g.scene.environment = captureProbe(g.gfx.pmrem, g.scene, g.level.spawn.clone().setY(1.6));
       g.scene.environmentIntensity = 1.0;
     } else {
       g.level = await buildArena(g);
@@ -223,11 +225,17 @@ export class Game implements Simulation, GameCtx {
     g.afterimages = new Afterimages(g.scene, g.player.inst.root, 5);
     g.face = new FaceRig(g.player.inst.root);
     g.player.onAbility = (name) => g.temporal.activate(name);
+    g.chapter?.rig?.(g.player.root); // lit before its first frame (no rebuild a moment later)
     g.scene.add(g.player.root);
     g.camera.reset(g.level.yaw, g.level.spawn);
     g.lastCheckpoint.pos.copy(g.level.spawn); g.lastCheckpoint.yaw = g.level.yaw;
     if (!new URLSearchParams(location.search).has('noenemies')) for (const s of g.level.enemies) await g.spawnEnemy(s);
     g.hud.setObjective(g.level.objective ?? '');
+    if (g.chapter) {
+      // Ethan's shaders, then one frame (the post stages and the shadow pass build on their first frame), behind the loader
+      await g.gfx.warmUp([g.player.root]);
+      g.gfx.render(1 / 60);
+    }
     g.loop = new GameLoop(g);
     g.onResize();
     addEventListener('resize', () => g.onResize());
@@ -239,6 +247,9 @@ export class Game implements Simulation, GameCtx {
     const def = ENEMIES[s.def];
     const e = await Enemy.create(this, def, s.pos, s.yaw ?? 0);
     if (s.patrol) e.patrol = s.patrol;
+    this.chapter?.rig?.(e.root);
+    // its shaders build before it appears and acts (in the background: frames go on), not on its first frame
+    if (this.chapter) await this.gfx.warmUp([e.root], { block: false });
     this.enemies.push(e);
     this.scene.add(e.root);
     return e;

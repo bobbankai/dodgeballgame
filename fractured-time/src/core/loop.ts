@@ -38,7 +38,9 @@ export class GameLoop {
     const loop = (now: number) => {
       if (!this.running) return;
       this.raf = requestAnimationFrame(loop);
-      const real = Math.min((now - this.last) / 1000, MAX_FRAME);
+      // a frame's timestamp is when it began, which can be before `start()` read the clock (after a long load, seconds before):
+      // a negative step blew the camera's exponential damping up to 1e17 m
+      const real = Math.max(0, Math.min((now - this.last) / 1000, MAX_FRAME));
       this.last = now;
       this.fpsAcc += real;
       this.fpsFrames++;

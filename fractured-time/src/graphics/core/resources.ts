@@ -18,7 +18,8 @@ export class ResourceManager {
   private owned = new Map<string, Owned[]>();
   /** which owners (level sections; 'global' for characters and the UI) use each cached texture */
   private users = new Map<string, Set<string>>();
-  /** owners currently on screen; a texture none of whose owners is resident leaves the GPU (it re-uploads when used again) */
+  /** owners currently on screen (the level streamer marks its sections); a texture none of whose owners is resident leaves the
+   *  GPU (it re-uploads when used again) */
   private resident = new Set<string>(['global']);
   anisotropy = 8;
 
@@ -28,7 +29,6 @@ export class ResourceManager {
     let u = this.users.get(key);
     if (!u) this.users.set(key, (u = new Set()));
     u.add(owner);
-    if (owner !== 'global' && !this.resident.has(owner)) this.resident.add(owner);
     let t = this.cache.get(key);
     if (t) return t;
     let done!: () => void;

@@ -182,6 +182,8 @@ export class Temporal {
     const actor = await Player.create(g, replay, start.pos, start.yaw);
     const fade = ghostify(actor.root);
     actor.name = 'Echo';
+    g.chapter?.rig?.(actor.root);
+    if (g.chapter) await g.gfx.warmUp([actor.root], { block: false }); // built before it appears, not on its first frame
     g.scene.add(actor.root);
     this.echoes.push({ actor, replay, fade, age: 0, length: frames.length, ending: false });
     g.fx.pulse(start.pos.clone().setY(start.pos.y + 1), 'echo');

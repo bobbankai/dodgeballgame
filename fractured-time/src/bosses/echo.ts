@@ -179,6 +179,8 @@ export class EchoBoss extends Enemy {
       const fade = ghostify(e.inst.root, 0xffa040) as unknown as { value: number };
       fade.value = 1;
       (e as any).noticed = true;
+      g.chapter?.rig?.(e.root);
+      if (g.chapter) await g.gfx.warmUp([e.root], { block: false }); // built before it appears, not on its first frame
       g.enemies.push(e);
       g.scene.add(e.root);
       this.ctx.fx.pulse(at.clone().setY(at.y + 1), 'echo');
