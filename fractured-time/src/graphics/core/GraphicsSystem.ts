@@ -10,6 +10,7 @@ import { AutoExposure } from '../postprocessing/exposure';
 import { Grader, type GradeName } from '../postprocessing/grade';
 import { createLook, type LookUniforms } from '../postprocessing/look';
 import { PerfOverlay } from '../debugging/overlay';
+import { DynamicShadows, setActiveShadows } from '../lighting/dynamicShadows';
 
 /**
  * The renderer as the game sees it. Owns the device, the settings, the frame graph and everything per frame (eye adaptation,
@@ -32,6 +33,8 @@ export class GraphicsSystem {
   readonly pmrem: THREE.PMREMGenerator;
   readonly test: boolean;
   debugView: DebugView = 'final';
+  /** shadows of moving things on the baked world (null: off in this preset) */
+  shadows: DynamicShadows | null = null;
   private overlay: PerfOverlay;
   private scene: THREE.Scene | null = null;
   private camera: THREE.PerspectiveCamera | null = null;
@@ -68,6 +71,7 @@ export class GraphicsSystem {
     if (opts.test) settings.dynamicResolution = false;
     const { renderer, caps } = await createDevice(canvas, caps0, { timing: qs.has('perf') || !opts.test });
     const g = new GraphicsSystem(renderer, caps, settings, base, !!opts.test);
+    g.setupShadows();
     g.resize();
     addEventListener('resize', () => g.resize());
     return g;
@@ -125,9 +129,22 @@ export class GraphicsSystem {
     const changed = (Object.keys(next) as (keyof GraphicsSettings)[]).filter((k) => next[k] !== prev[k]);
     if (!this.test) saveSettings(next, this.presetBase);
     if (changed.includes('anisotropy')) resources.setAnisotropy(next.anisotropy);
+    if (changed.includes('dynamicShadows')) this.setupShadows();
     this.resize();
     this.dirty = true;
     for (const f of this.listeners) f(next, changed);
+  }
+
+  /** Create, resize or drop the dynamic shadow pass for the current settings. Materials built while it exists use it. */
+  private setupShadows(): void {
+    const size = this.settings.dynamicShadows;
+    if (size > 0) {
+      if (!this.shadows) {
+        this.shadows = new DynamicShadows(size);
+        this.addPass((r) => { if (this.shadows && this.scene) this.shadows.render(r, this.scene, this.shadows.focus); });
+      } else this.shadows.setSize(size);
+    } else if (this.shadows) (this.shadows.u.strength as any).value = 0; // existing materials keep the node; it reads as unshadowed
+    setActiveShadows(size > 0 ? this.shadows : null);
   }
 
   /** Place grade (eased over ~2 s). */
@@ -172,7 +189,7 @@ export class GraphicsSystem {
     this.exposure.use(this.settings.autoExposure);
     this.graph.build({
       scene: this.scene!, camera: this.camera!, settings: this.settings, caps: this.caps, look: this.look, grader: this.grader,
-      exposure: this.exposure, fog: this.fog, debug: this.debugView,
+      exposure: this.exposure, fog: this.fog, debug: this.debugView, shadowMap: this.shadows?.map ?? null,
     });
   }
 

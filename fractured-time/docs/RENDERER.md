@@ -151,7 +151,8 @@ after it; the sRGB encode once (`RenderPipeline.outputColorTransform`).
 
 ### Phase 3–8 — lighting, shadows, GI, reflections, atmosphere, post
 - [ ] lightmaps + probe field + character rig moved into `lighting/`
-- [ ] dynamic-object shadows on baked surfaces, capsule shadows, contact shadows
+- [x] dynamic-object shadows on baked surfaces (own caster pass, contact-hardening PCSS, aimed by the probe's dominant direction)
+- [ ] capsule shadows, screen-space contact shadows
 - [ ] SSGI / GTAO / SSR stages with debug views; VXGI experiment
 - [ ] reflection probes in `reflections/`
 - [x] physical sky (written, not yet used by a place), image sky, storm deck, volumetric fog (two-lobe phase, exact analytic tail) in `atmosphere/`
@@ -182,3 +183,10 @@ after it; the sRGB encode once (`RenderPipeline.outputColorTransform`).
     uses log contrast 1.3 (Blender's Medium High Contrast is log contrast 1.2).
   - not verified: Chapter 2 (loses the SwiftShader WebGPU device in this container with either renderer), the new windows shader,
     the new water shader in a level, real GPUs and phones.
+- 2026-11-17: dynamic-object shadows in (`lighting/dynamicShadows.ts`). Characters, enemies, echoes and door leaves render their
+  light-space depth into a 2048/4096 float map (`dynamicShadows` setting; off on Performance) fitted round the player; baked
+  surfaces take away `strength` of their light where shadowed (0.3 + 0.45 x how directional the probe's light is). Two traps
+  found on the way: a raw texel fetch indexes WebGPU's top-down rows while `texture().sample()` uses three's v-up convention, and
+  sampling an unfilterable float map with an explicit level returned nothing; the filter uses texel fetches, unrolled and
+  branch-free. Debug view `shadowmap` shows the map. Reviewed: door-leaf shadows across a lab floor and wall (soft, contact
+  hardening). Not yet framed in a gameplay shot with Ethan's own shadow in view.

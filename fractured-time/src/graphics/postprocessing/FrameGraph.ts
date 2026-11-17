@@ -28,9 +28,9 @@ const {
 
 /** What the screen shows: the final image, or one of the buffers behind it. */
 export type DebugView = 'final' | 'albedo' | 'normals' | 'depth' | 'ao' | 'gi' | 'reflections' | 'fog' | 'luminance' | 'clipping'
-  | 'velocity' | 'unexposed';
+  | 'velocity' | 'unexposed' | 'shadowmap';
 export const DEBUG_VIEWS: DebugView[] = ['final', 'albedo', 'normals', 'depth', 'ao', 'gi', 'reflections', 'fog', 'luminance', 'clipping',
-  'velocity', 'unexposed'];
+  'velocity', 'unexposed', 'shadowmap'];
 
 /** Atmosphere hook: the volumetric medium between the camera and every surface (scene-linear, before exposure). */
 export interface FogStage {
@@ -49,6 +49,8 @@ export interface FrameGraphInputs {
   exposure: AutoExposure;
   fog: FogStage | null;
   debug: DebugView;
+  /** the dynamic shadow map, for its debug view */
+  shadowMap?: THREE.Texture | null;
 }
 
 /**
@@ -234,7 +236,7 @@ export class FrameGraph {
 
     // --- debug views (display-linear; the pipeline still encodes them to sRGB) ----------------------------------------
     if (debug !== 'final') finalNode = this.debugNode(debug, { scenePass, sceneNormal, sceneDepth, aoNode, giNode, reflNode, preFog, color: unexposed,
-      exposed, exposure: i.exposure.value }) ?? finalNode;
+      exposed, exposure: i.exposure.value, shadowMap: i.shadowMap }) ?? finalNode;
 
     this.pipeline.outputNode = finalNode;
     this.pipeline.outputColorTransform = true;
@@ -277,6 +279,7 @@ export class FrameGraph {
         return vec4(abs(v.xy).mul(40.0), 0.0, 1.0);
       }
       case 'unexposed': return vec4(b.color.rgb.div(b.color.rgb.add(1.0)), 1.0);
+      case 'shadowmap': return b.shadowMap ? vec4(vec3(T.texture(b.shadowMap, screenUV).r.sub(0.4).mul(5.0)), 1.0) : null;
       default: return null;
     }
   }

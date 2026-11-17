@@ -16,6 +16,7 @@ import type { GradeName } from '@/graphics';
 import { loadVolume, INTERIOR_FOG, EXTERIOR_FOG, type LightVolume, type FogSettings } from '@/graphics/atmosphere/fog';
 import { HDRLoader } from 'three/addons/loaders/HDRLoader.js';
 import { Sky } from '@/graphics/atmosphere/sky';
+import { DynamicShadows } from '@/graphics/lighting/dynamicShadows';
 import { assetUrl } from '@/graphics';
 import { timeScale } from '@/core/loop';
 import * as TSL from 'three/tsl';
@@ -231,6 +232,7 @@ export class ChapterRuntime {
 
   async loadSection(path: string): Promise<void> {
     const lv = await loadLevel(path, this.g.physics, null);
+    for (const o of lv.dynamic) DynamicShadows.cast(o); // doors and moving props shadow the baked world
     lv.root.updateMatrixWorld(true);
     const box = new THREE.Box3().setFromObject(lv.root).expandByScalar(0.5);
     const vols = await Promise.all([loadVolume(assetUrl(path.replace(/\.glb$/, '_vol.bin'))),
@@ -547,6 +549,8 @@ export class ChapterRuntime {
   private exposure = 1;
   private adaptIn = 0;
   private readonly adaptSH = Array.from({ length: 9 }, () => new THREE.Vector3());
+  private shadowDir = new THREE.Vector3(0, 1, 0);
+  private shadowAmount = 0;
   private readonly adaptAt = new THREE.Vector3();
 
   /** Sky + fog of the section Ethan is in: exteriors carry a 'sky' marker (HDRI, intensity, fog colour + density); interiors get a
@@ -659,7 +663,7 @@ export class ChapterRuntime {
       const root = (a as any).root as THREE.Object3D | undefined;
       if (!root) continue;
       let cl = this.charLights.get(root);
-      if (!cl) { cl = new CharacterLight(root, shared); this.charLights.set(root, cl); }
+      if (!cl) { cl = new CharacterLight(root, shared); this.charLights.set(root, cl); DynamicShadows.cast(root); }
       cl.update(this.probes, at.copy(a.pos).setY(a.pos.y + 1.1), dt, this.outdoors ? this.flashPulse : 0);
       cl.rig(at, camPos, this.exposure, this.outdoors ? this.airColor : null); // the probe meter: stable, and what the rig was tuned with
       cl.apply();
@@ -681,6 +685,13 @@ export class ChapterRuntime {
     const p = this.g.player.pos;
     if (!this.probes.sample(this.adaptAt.copy(p).setY(p.y + 1.1), this.adaptSH, 8)) return;
     const c = this.adaptSH[0];
+    // the dominant direction of the light here (the SH L1 band: y, z, x) and how directional it is (1 = a single lamp,
+    // 0 = light from everywhere): it aims the shadows of moving things and sets how much light they take away
+    const lum = (v: THREE.Vector3) => 0.2126 * v.x + 0.7152 * v.y + 0.0722 * v.z;
+    this.shadowDir.set(lum(this.adaptSH[3]), lum(this.adaptSH[1]), lum(this.adaptSH[2]));
+    const l0 = Math.max(1e-5, lum(c));
+    this.shadowAmount = THREE.MathUtils.clamp(this.shadowDir.length() / (1.73 * l0), 0, 1);
+    if (this.shadowDir.lengthSq() < 1e-10) this.shadowDir.set(0, 1, 0);
     const L = Math.max(1e-4, (0.2126 * c.x + 0.7152 * c.y + 0.0722 * c.z) * 0.282095);
     this.exposure = THREE.MathUtils.clamp(Math.pow(ADAPT_REF / L, ADAPT_K), ADAPT_MIN, ADAPT_MAX);
   }
@@ -708,6 +719,8 @@ export class ChapterRuntime {
     const fb = this.g.fog.u.fallback.value as THREE.Vector4;
     fb.set(this.fogBase.x * (1 + 14 * pulse), this.fogBase.y * (1 + 14 * pulse), this.fogBase.z * (1 + 15 * pulse), fb.w);
     this.adapt(dt);
+    // a character under a single lamp casts a real shadow; in light from everywhere, a soft dimming
+    this.g.gfx.shadows?.aim(this.shadowDir, 0.3 + 0.45 * this.shadowAmount, dt);
     // the probe meter is the exposure on devices without the GPU histogram (and its fallback everywhere)
     this.g.gfx.exposure.meter(this.exposure);
     // characters soak through in a couple of minutes of rain and dry far more slowly inside

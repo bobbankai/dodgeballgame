@@ -15,8 +15,8 @@ import * as TSL from 'three/tsl';
  * everywhere a character leaves a soft dimming, under a single lamp a real shadow.
  */
 const T = TSL as any;
-const { Fn, uniform, texture, vec2, vec3, vec4, float, positionWorld, normalWorldGeometry, Loop, If, max, min, mix, smoothstep, abs, sin, cos,
-  interleavedGradientNoise, screenCoordinate, select, uniformArray } = T;
+const { Fn, uniform, texture, vec2, vec3, vec4, float, positionWorld, normalWorldGeometry, If, max, min, mix, smoothstep, abs, sin, cos,
+  interleavedGradientNoise, screenCoordinate, select } = T;
 
 export const CASTER_LAYER = 5;
 
@@ -39,26 +39,36 @@ export class DynamicShadows {
     /** map centre (for the edge fade) and radius (m) */
     centre: uniform(new THREE.Vector3()), radius: uniform(10),
     webgl: uniform(0),
+    /** 0 normal; 1 show the map's depth at this point; 2 show the receiver's depth (diagnostics) */
+    debug: uniform(0),
   };
   private rt: THREE.RenderTarget;
   private depth: any;
   private dir = new THREE.Vector3(0.2, 1, 0.1).normalize();
-  private depthMat = new THREE.MeshBasicNodeMaterial({ colorWrite: false });
+  /** casters write their light-space depth (the same matrix the receivers use) into a float colour target */
+  private depthMat = new THREE.MeshBasicNodeMaterial();
+  private clear = new THREE.Color();
   private node: any = null;
   size: number;
+  /** where the map is centred this frame (the game sets it: the player's feet) */
+  readonly focus = new THREE.Vector3();
 
   constructor(size: number) {
     this.size = size;
     this.rt = this.makeTarget(size);
-    this.depth = texture(this.rt.depthTexture!);
+    this.depth = texture(this.rt.texture);
     this.camera.layers.set(CASTER_LAYER);
+    const u = this.u as any;
+    (this.depthMat as any).colorNode = Fn(() => {
+      const clip = u.matrix.mul(vec4(positionWorld, 1.0));
+      return vec4(select(u.webgl.greaterThan(0.5), clip.z.div(clip.w).mul(0.5).add(0.5), clip.z.div(clip.w)), 0.0, 0.0, 1.0);
+    })();
+    this.depthMat.side = THREE.DoubleSide;
+    this.depthMat.blending = THREE.NoBlending; // a float red target cannot blend
   }
 
   private makeTarget(size: number): THREE.RenderTarget {
-    const dt = new THREE.DepthTexture(size, size);
-    dt.type = THREE.FloatType;
-    dt.minFilter = dt.magFilter = THREE.NearestFilter;
-    const rt = new THREE.RenderTarget(size, size, { depthBuffer: true, depthTexture: dt, type: THREE.UnsignedByteType });
+    const rt = new THREE.RenderTarget(size, size, { depthBuffer: true, type: THREE.FloatType, format: THREE.RedFormat });
     rt.texture.minFilter = rt.texture.magFilter = THREE.NearestFilter;
     rt.texture.generateMipmaps = false;
     return rt;
@@ -69,9 +79,12 @@ export class DynamicShadows {
     this.size = size;
     const old = this.rt;
     this.rt = this.makeTarget(size);
-    this.depth.value = this.rt.depthTexture;
+    this.depth.value = this.rt.texture;
     old.dispose();
   }
+
+  /** The map texture (debug view). */
+  get map(): THREE.Texture { return this.rt.texture; }
 
   /** Put an object (and its children) on the caster layer (it stays visible to every camera it was visible to). */
   static cast(root: THREE.Object3D): void { root.traverse((o) => o.layers.enable(CASTER_LAYER)); }
@@ -120,10 +133,14 @@ export class DynamicShadows {
     scene.overrideMaterial = this.depthMat;
     scene.background = null;
     (scene as any).backgroundNode = null;
+    renderer.getClearColor(this.clear);
+    const prevAlpha = renderer.getClearAlpha();
+    renderer.setClearColor(0xffffff, 1); // nothing in the way: the far plane
     renderer.setRenderTarget(this.rt);
     renderer.clear();
     renderer.render(scene, cam);
     renderer.setRenderTarget(prevTarget);
+    renderer.setClearColor(this.clear, prevAlpha);
     scene.overrideMaterial = prevOverride;
     scene.background = prevBg;
     (scene as any).backgroundNode = prevBgNode;
@@ -137,7 +154,6 @@ export class DynamicShadows {
     if (this.node) return this.node;
     const u = this.u as any;
     const depthTex = this.depth;
-    const taps = uniformArray(POISSON.map(([x, y]) => new THREE.Vector2(x, y)), 'vec2');
     this.node = Fn(() => {
       const out = float(1).toVar();
       If(u.strength.greaterThan(0.01), () => {
@@ -145,40 +161,42 @@ export class DynamicShadows {
         const p = positionWorld.add(normalWorldGeometry.mul(u.texel.mul(1.5)));
         const clip = u.matrix.mul(vec4(p, 1.0));
         const ndc = clip.xyz.div(clip.w);
-        const uv = vec2(ndc.x.mul(0.5).add(0.5), ndc.y.mul(0.5).add(0.5).oneMinus());
+        const uv = vec2(ndc.x.mul(0.5).add(0.5), ndc.y.mul(0.5).add(0.5));
         const z = select(u.webgl.greaterThan(0.5), ndc.z.mul(0.5).add(0.5), ndc.z);
         const inside = smoothstep(1.0, 0.85, max(abs(ndc.x), abs(ndc.y))).mul(smoothstep(1.0, 0.98, z));
-        If(inside.greaterThan(0.001), () => {
-          const a = interleavedGradientNoise(screenCoordinate.xy).mul(6.2831853);
-          const rot = vec2(cos(a), sin(a));
-          const texelUV = float(1).div(float(this.size));
-          const bias = float(0.0015);
-          // blocker search over ~0.6 m
-          const searchR = float(0.3).div(u.texel).mul(texelUV);
-          const blockers = float(0).toVar();
-          const sumB = float(0).toVar();
-          Loop(8, ({ i }: any) => {
-            const o = taps.element(i);
-            const r = vec2(o.x.mul(rot.x).sub(o.y.mul(rot.y)), o.x.mul(rot.y).add(o.y.mul(rot.x)));
-            const d = depthTex.sample(uv.add(r.mul(searchR))).r;
-            If(d.lessThan(z.sub(bias)), () => { blockers.addAssign(1.0); sumB.addAssign(d); });
-          });
-          If(blockers.greaterThan(0.0), () => {
-            const avgB = sumB.div(blockers);
-            // penumbra (m) grows with the receiver's distance below the blocker; at least ~1.5 texels
-            const gap = z.sub(avgB).mul(u.range);
-            const pen = max(gap.mul(u.softness), u.texel.mul(1.5));
-            const filterR = pen.div(u.texel).mul(texelUV);
-            const lit = float(0).toVar();
-            Loop(12, ({ i }: any) => {
-              const o = taps.element(i);
-              const r = vec2(o.x.mul(rot.x).sub(o.y.mul(rot.y)), o.x.mul(rot.y).add(o.y.mul(rot.x)));
-              const d = depthTex.sample(uv.add(r.mul(filterR))).r;
-              lit.addAssign(select(d.lessThan(z.sub(bias)), float(0), float(1)));
-            });
-            const vis = lit.div(12.0);
-            out.assign(mix(float(1), float(1).sub(u.strength), float(1).sub(vis).mul(inside)));
-          });
+        // rotation of the Poisson disc per pixel (TAA resolves the noise)
+        const ang = interleavedGradientNoise(screenCoordinate.xy).mul(6.2831853);
+        const cs = cos(ang), sn = sin(ang);
+        const rot = (x: number, y: number) => vec2(cs.mul(x).sub(sn.mul(y)), sn.mul(x).add(cs.mul(y)));
+        const texelUV = 1 / this.size;
+        const bias = 0.0015;
+        // texel fetch (no sampler: the float map is unfilterable, and a fetch is valid in any control flow)
+        const last = this.size - 1;
+        // `uv` follows three's sampling convention (v up); a fetch indexes the target's own rows: top-down on WebGPU,
+        // bottom-up on WebGL (measured by reading the map back)
+        const fetchUV = (q: any) => vec2(q.x, select(u.webgl.greaterThan(0.5), q.y, q.y.oneMinus()));
+        const tap = (o: any) => T.textureLoad(this.rt.texture, T.ivec2(T.clamp(fetchUV(uv.add(o)).mul(this.size), 0.0, last))).r;
+        // blocker search over ~0.3 m round the point
+        const searchR = float(0.3).div(u.texel).mul(texelUV);
+        const blockers = float(0).toVar();
+        const sumB = float(0).toVar();
+        for (const [x, y] of POISSON.slice(0, 8)) {
+          const d = tap(rot(x, y).mul(searchR));
+          const hit = d.lessThan(z.sub(bias));
+          blockers.addAssign(select(hit, float(1), float(0)));
+          sumB.addAssign(select(hit, d, float(0)));
+        }
+        // penumbra (m) grows with the receiver's distance below the blocker (contact hardening); at least ~1.5 texels
+        const avgB = sumB.div(max(blockers, 1.0));
+        const pen = max(z.sub(avgB).mul(u.range).mul(u.softness), u.texel.mul(1.5));
+        const filterR = pen.div(u.texel).mul(texelUV);
+        const lit = float(0).toVar();
+        for (const [x, y] of POISSON) lit.addAssign(select(tap(rot(x, y).mul(filterR)).lessThan(z.sub(bias)), float(0), float(1)));
+        const vis = select(blockers.greaterThan(0.0), lit.div(POISSON.length), float(1));
+        out.assign(mix(float(1), float(1).sub(u.strength), float(1).sub(vis).mul(inside)));
+        If(u.debug.greaterThan(0.5), () => {
+          out.assign(select(u.debug.greaterThan(4.5), vis, select(u.debug.greaterThan(3.5), uv.y, select(u.debug.greaterThan(2.5), uv.x,
+            select(u.debug.greaterThan(1.5), z, tap(vec2(0.0)))))));
         });
       });
       return out;
@@ -193,3 +211,8 @@ export class DynamicShadows {
 }
 
 void vec3; void min;
+
+/** The live shadow pass (null when the preset has none): baked materials built while it exists read its factor. */
+let active: DynamicShadows | null = null;
+export function setActiveShadows(s: DynamicShadows | null): void { active = s; }
+export function activeShadowFactor(): any { return active ? active.factor() : null; }

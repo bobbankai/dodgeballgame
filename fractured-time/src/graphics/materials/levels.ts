@@ -6,6 +6,7 @@ import { water, type WaterRecipe } from './water';
 import { windowMaterial } from './windows';
 import { wetSurface } from '../shaders/surfaceLayers';
 import { useBakedLighting } from '../lighting/baked';
+import { activeShadowFactor } from '../lighting/dynamicShadows';
 
 /**
  * Level surfaces: recipe -> material, then the static-surface finish (the lightmap, the section's real-time lights for
@@ -79,6 +80,12 @@ export function finishStatic(m: THREE.Material, f: StaticFinish): void {
     sm.lightMapIntensity = Math.PI;
   }
   (sm as any).lightsNode = f.lights;
+  // moving things' shadows on the baked light: they take away the share of it that came from the dominant direction
+  const shadow = activeShadowFactor();
+  if (shadow && !m.userData.shadowed && type !== 'emissive' && type !== 'screen' && type !== 'window' && (sm as any).isMeshStandardNodeMaterial) {
+    m.userData.shadowed = true;
+    sm.colorNode = (sm.colorNode ?? T.materialColor).rgb.mul(shadow);
+  }
   if ((sm as any).isMeshStandardNodeMaterial && type !== 'emissive' && type !== 'screen') {
     const wet = f.outdoors && type !== 'window' && weatherproof(m);
     useBakedLighting(m, wet || !!m.userData.wet || !!(sm as any).clearcoat);

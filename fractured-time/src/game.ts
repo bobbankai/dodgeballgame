@@ -440,6 +440,7 @@ export class Game implements Simulation, GameCtx {
     const want = this.focusOverride ?? Math.min(tgt, toCam + 3);
     u.focus.value += (want - u.focus.value) * Math.min(1, realDt * 6);
     this.temporal.updateLook(realDt);
+    this.gfx.shadows?.focus.copy(feet);
     this.vfx.update(this.camera.camera);
     this.rain.update(realDt * timeScale.world, this.camera.camera);
     const boss = this.enemies.find((e) => (e as Enemy).def.id.startsWith('boss')) as Enemy | undefined;
