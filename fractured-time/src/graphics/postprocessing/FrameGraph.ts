@@ -12,6 +12,7 @@ import { fxaa } from 'three/addons/tsl/display/FXAANode.js';
 import { traa } from 'three/addons/tsl/display/TRAANode.js';
 import { sharpen } from 'three/addons/tsl/display/SharpenNode.js';
 import { motionBlur } from 'three/addons/tsl/display/MotionBlur.js';
+import { sss } from 'three/addons/tsl/display/SSSNode.js';
 import type { GraphicsSettings } from '../config/presets';
 import type { Capabilities } from '../core/capabilities';
 import type { LookUniforms } from './look';
@@ -51,6 +52,9 @@ export interface FrameGraphInputs {
   debug: DebugView;
   /** the dynamic shadow map, for its debug view */
   shadowMap?: THREE.Texture | null;
+  /** the dominant light (contact shadows march toward it) and how much of the light it carries (uniform node) */
+  mainLight?: THREE.DirectionalLight | null;
+  contactStrength?: any;
 }
 
 /**
@@ -148,6 +152,20 @@ export class FrameGraph {
         aoNode = gi.getAONode();
         giNode = albedo.rgb.mul(gi.getGINode().rgb);
         color = vec4(color.rgb.mul(aoNode).add(giNode), color.a);
+      });
+    }
+
+    // --- contact shadows: short screen-space rays toward the dominant light (feet on floors, fingers on faces, the
+    //     detail the shadow map is too coarse for), as strong as that light's share --------------------------------------
+    if (s.contactShadows && i.mainLight && i.contactStrength) {
+      this.stage('contact shadows', () => {
+        const c = (sss as any)(sceneDepth, i.camera, i.mainLight);
+        c.maxDistance.value = 0.35;
+        c.thickness.value = 0.02;
+        c.quality.value = 0.5;
+        c.useTemporalFiltering = s.antialias === 'taa';
+        const occ = c.getTextureNode().r;
+        color = vec4(color.rgb.mul(mix(float(1), occ, i.contactStrength.mul(0.8))), color.a);
       });
     }
 

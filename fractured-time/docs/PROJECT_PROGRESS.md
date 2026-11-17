@@ -11,13 +11,17 @@ for shaders/lighting; B: MetaHuman-class character, the bar for models). The v0 
 
 **Overall:** the whole campaign now exists end to end in code: five chapters scripted beat by beat (Chapter 1 facility + surface,
 Chapter 2 district, Chapter 3 arcology, Chapter 4 paradox, Chapter 5 Nexus) with all five bosses (Sentinel A-07, the Rift Marshal, the
-Echo, Commander Nyx, Director Voss), the ending choice, both endings and credits; chapters hand over to the next. **Latest (renderer rewrite, in progress, see `docs/RENDERER.md`):** the owner asked
-for the old shader system to be removed and a new engine built from scratch. `src/graphics/` now holds the device/settings/frame
-graph core (5 presets, capability detection, GPU-histogram eye adaptation, our own AgX with looks, scene-linear grading with a
-display black point, debug views and a performance overlay) and the new material and atmosphere libraries; the old core, materials,
-fog and sky are deleted. Still old: rain, sparks, the vendored ocean. Compared side by side with the old renderer at five places;
-Chapter 2 loses the software WebGPU device in this container with either renderer, so its windows (now our own shader) are not yet
-reviewed. **Before that:** the
+Echo, Commander Nyx, Director Voss), the ending choice, both endings and credits; chapters hand over to the next. **Latest (renderer rewrite, see `docs/RENDERER.md`):** the owner asked for the old shader system to be removed and a new
+engine built from scratch. It is done in the sense that matters for the codebase: `src/rendering/` no longer exists and every
+shader is in `src/graphics/` (core with capability detection, 5 presets + independent settings, a fail-soft frame graph,
+GPU-histogram eye adaptation, our own AgX with looks, scene-linear grading with tinted black points, debug views and a
+performance overlay; the material library; light-volume fog and skies; shadows of moving things on the baked world with
+contact-hardening soft edges, plus screen-space contact shadows; sparks, rings and rain; our own ocean and window shaders).
+Compared side by side with the old renderer at five places and reviewed in the lab, the storm exit, the arcology, the
+Nexus and the Chapter 4 sea. Not done or not verified: GPU-compute particles (tried, reverted to CPU integration), capsule
+shadows, VXGI, TAAU, Chapter 2 and the new windows (Chapter 2 loses the software WebGPU device in this container with either
+renderer), real GPUs and phones (only SwiftShader here), and a device-loss risk with the shadow pass under SwiftShader.
+**Before that:** the
 storm re-bakes have landed (Chapter 1's surface, Chapter 2, Chapter 4's terrace with its modelled skyline). Reviewing the ruined
 terrace found that every lightmap had been stored through the sRGB curve (bug 49): all maps are linear now and exposure follows
 the baked light where Ethan stands, so every place's contrast, shadows and bounce changed; the places listed under "Linear
@@ -32,7 +36,7 @@ rain, wet streets, SSR, water, dusk city, skin, POM, grading) is in; it has been
 
 | Area | Status | Evidence / gaps |
 |---|---|---|
-| Renderer rewrite (`src/graphics/`, `docs/RENDERER.md`) | 3 | phases 0-2 in: core, frame graph, exposure, grading, materials, fog, sky; dynamic-object shadows written, not wired; rain/sparks/ocean still old |
+| Renderer rewrite (`src/graphics/`, `docs/RENDERER.md`) | 5 | old system fully removed; core, frame graph, exposure, grading, materials, fog, sky, dynamic + contact shadows, particles, rain, ocean, windows; visually reviewed at the places listed above (not Chapter 2); see RENDERER.md for open items |
 | Asset acquisition (Poly Haven, ambientCG, MPFB 2 + MakeHuman CC0 packs, CMU mocap), licence ledger `docs/ASSETS.md` | 4 | `tools/assets/polyhaven.py`, `tools/assets/fetch_makehuman.sh` |
 | Ethan: MPFB body, skin/eyes/hair shells, field kit, 75 face shapes (`blender/characters/ethan.py`, `ethan_kit.py`) | 5 | reviewed in Cycles and WebGPU against reference B; gaps below |
 | Engine character materials (`src/graphics/materials/characters.ts`, `skin.ts`, `hairShells.ts`) | 5 | dual-lobe skin + wrapped scatter, hair shells, eyes, cornea, fabrics, armour with baked masks |

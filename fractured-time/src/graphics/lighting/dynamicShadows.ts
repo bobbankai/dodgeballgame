@@ -83,6 +83,9 @@ export class DynamicShadows {
     old.dispose();
   }
 
+  /** Direction toward the light (world, unit). */
+  get direction(): THREE.Vector3 { return this.dir; }
+
   /** The map texture (debug view). */
   get map(): THREE.Texture { return this.rt.texture; }
 

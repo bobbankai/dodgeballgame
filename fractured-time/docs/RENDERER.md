@@ -150,13 +150,16 @@ after it; the sRGB encode once (`RenderPipeline.outputColorTransform`).
 - [x] `charmat.ts`, `skin.ts`, `hairshell.ts`, `wet.ts`, `water.ts`, `envmat.ts`, `windows/` deleted
 
 ### Phase 3–8 — lighting, shadows, GI, reflections, atmosphere, post
-- [ ] lightmaps + probe field + character rig moved into `lighting/`
+- [x] lightmaps + probe field + character rig + light pool moved into `lighting/`; reflection capture into `reflections/`
 - [x] dynamic-object shadows on baked surfaces (own caster pass, contact-hardening PCSS, aimed by the probe's dominant direction)
-- [ ] capsule shadows, screen-space contact shadows
-- [ ] SSGI / GTAO / SSR stages with debug views; VXGI experiment
-- [ ] reflection probes in `reflections/`
+- [x] screen-space contact shadows (r187 `SSSNode`, aimed by the dynamic shadows' dominant light, scaled by its strength)
+- [ ] capsule shadows
+- [x] SSGI / GTAO / SSR stages with debug views
+- [ ] VXGI experiment (r187 `vxgi`, WebGPU only)
+- [x] reflection probes in `reflections/` (per section, per reality; studio environment for test rooms)
 - [x] physical sky (written, not yet used by a place), image sky, storm deck, volumetric fog (two-lobe phase, exact analytic tail) in `atmosphere/`
-- [ ] histogram auto exposure, bloom, DOF, motion blur, lens, TAA/TAAU + RCAS
+- [x] histogram auto exposure, bloom (energy-capped), DOF, motion blur (Ultra), lens (CA, vignette, grain), TRAA + RCAS sharpening
+- [ ] TAAU upscaling (dynamic resolution currently resizes the render directly)
 - [x] sparks and shock rings in `effects/particles.ts` (CPU-integrated, GPU-drawn streaks; soft ring bands by uniform, no recompiles)
 - [ ] GPU-compute particles (attempted: see status log)
 - [x] rain in `effects/rain.ts` (near streaks, far curtains, splashes, gusting wind); our own ocean in `water/ocean.ts`

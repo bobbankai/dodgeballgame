@@ -35,6 +35,8 @@ export class GraphicsSystem {
   debugView: DebugView = 'final';
   /** shadows of moving things on the baked world (null: off in this preset) */
   shadows: DynamicShadows | null = null;
+  /** the dominant light for screen-space effects (contact shadows): follows the dynamic shadows' aim; never in the scene */
+  readonly mainLight = new THREE.DirectionalLight(0xffffff, 0);
   private overlay: PerfOverlay;
   private scene: THREE.Scene | null = null;
   private camera: THREE.PerspectiveCamera | null = null;
@@ -166,6 +168,13 @@ export class GraphicsSystem {
     this.lastFrame = now;
     if (this.dirty) this.rebuild();
     this.fog?.update?.();
+    if (this.shadows) {
+      const f = this.shadows.focus;
+      this.mainLight.position.copy(f).addScaledVector(this.shadows.direction, 10);
+      this.mainLight.target.position.copy(f);
+      this.mainLight.updateMatrixWorld();
+      this.mainLight.target.updateMatrixWorld();
+    }
     for (const f of this.passes) f(this.renderer, step);
     this.exposure.update(step, this.graph.sceneTexture);
     this.grader.update(step);
@@ -190,6 +199,7 @@ export class GraphicsSystem {
     this.graph.build({
       scene: this.scene!, camera: this.camera!, settings: this.settings, caps: this.caps, look: this.look, grader: this.grader,
       exposure: this.exposure, fog: this.fog, debug: this.debugView, shadowMap: this.shadows?.map ?? null,
+      mainLight: this.shadows ? this.mainLight : null, contactStrength: this.shadows ? this.shadows.u.strength : null,
     });
   }
 
