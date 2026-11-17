@@ -248,6 +248,10 @@ after it; the sRGB encode once (`RenderPipeline.outputColorTransform`).
   the background (`block: false`) before they are added, so they appear a moment later fully built instead of stalling
   the frame they appear in. Also found and fixed on the way: the first frame of the game loop could get a negative step (a
   frame's timestamp predates `start()` after a long load), which threw the camera to 1e17 m.
+  The probe pre-capture is paced: each capture waits for the GPU to finish the one before (`GraphicsSystem.idle`,
+  `queue.onSubmittedWorkDone`). Submitted back to back they lost the software WebGPU device within a minute of play (found
+  by bisecting with `?nowarm`, `?noprecompile`, `?noprecapture`: the shader precompile alone was stable). The renderer is
+  also sized before the warm-up's first frame (a later resize replaced the pass targets under the exposure meter).
   Not covered: the sea mirror's first view and the dynamic shadow casters' depth material (9 small builds on the first
   frame of play). Load time grows by the warm-up (17-29 s on the software device for Chapter 4; on hardware it is the
   driver's pipeline compile time).

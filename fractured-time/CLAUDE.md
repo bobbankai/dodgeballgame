@@ -43,6 +43,9 @@ A chapter is complete only when objectives, interactions, combat, cinematics, tr
   `NODE_PATH=/opt/node22/lib/node_modules xvfb-run -a -s "-screen 0 1400x900x24" node tools/shot.cjs "<url>" out.png webgpu 960 540 1500`.
   The mode `webgl` runs plain headless (WebGL2 backend). Do NOT add `--use-angle=swiftshader` for webgpu mode (it destroys the device).
   Software rendering is slow and timing is meaningless; judge looks and correctness, not frame rate.
+  Run ONE webgpu browser at a time: two software WebGPU instances (or one starting/exiting beside another) drop each
+  other's device ("A valid external Instance reference no longer exists"); a run that races through its steps in a minute
+  with black or white shots lost its device. Warm-up test switches: `?nowarm`, `?noprecompile`, `?noprecapture`.
 - `tools/rawgpu.cjs`, `tools/rawcanvas.cjs`, `tools/destroy.cjs`: diagnostics for the headless WebGPU environment.
 
 ## Blender (5.3 at /opt/blender, headless)
