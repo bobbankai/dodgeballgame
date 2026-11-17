@@ -25,7 +25,7 @@ const { texture, uv, vec2, vec3, float, mix, dot, smoothstep, abs, fract, floor,
 
 const scanPath = (id: string) => `textures/pbr/${id}/${id}`;
 
-export function scanned(r: Recipe): THREE.MeshPhysicalNodeMaterial {
+export function scanned(r: Recipe, owner = 'global'): THREE.MeshPhysicalNodeMaterial {
   const m = new THREE.MeshPhysicalNodeMaterial();
   const base = scanPath(String(r.tex));
   const tile = Number(r.tile ?? 1);
@@ -33,8 +33,9 @@ export function scanned(r: Recipe): THREE.MeshPhysicalNodeMaterial {
   const pom = Number(r.pom ?? 0) > 0 && materialQuality.pomSteps > 0;
   // large repeats (floors, walls tiled many times) break up their repetition; relief surfaces keep one coherent offset
   const antiTile = !pom && materialQuality.antiTiling && tile >= 0.6;
-  const u = pom ? parallax(u0, resources.texture(`${base}_disp.jpg`, false), Number(r.pom), tile, materialQuality.pomSteps) : u0;
-  const sample = (path: string, srgb: boolean) => (antiTile ? untiled(resources.texture(path, srgb), u) : texture(resources.texture(path, srgb), u));
+  const tex = (path: string, srgb: boolean) => resources.texture(path, srgb, true, owner);
+  const u = pom ? parallax(u0, tex(`${base}_disp.jpg`, false), Number(r.pom), tile, materialQuality.pomSteps) : u0;
+  const sample = (path: string, srgb: boolean) => (antiTile ? untiled(tex(path, srgb), u) : texture(tex(path, srgb), u));
   // the maps that carry visible detail at 2K where shipped (High and Ultra); AO and height stay 1K (low frequency)
   const hi = materialQuality.textureResolution === '2k' && HIRES_SETS.has(String(r.tex)) ? '_2k' : '';
   const d = sample(`${base}_diff${hi}.jpg`, true).rgb;
@@ -51,7 +52,7 @@ export function scanned(r: Recipe): THREE.MeshPhysicalNodeMaterial {
   m.clearcoat = Number(r.coat ?? 0);
   m.clearcoatRoughness = 0.35;
   // lit windows of facade sets at dusk: an emission map on its own tile
-  if (r.emit) m.emissiveNode = texture(resources.texture(`${base}_emit.jpg`, true), uv().mul(r.emitTile ?? tile)).rgb.mul(float(r.emit));
+  if (r.emit) m.emissiveNode = texture(tex(`${base}_emit.jpg`, true), uv().mul(r.emitTile ?? tile)).rgb.mul(float(r.emit));
   return m;
 }
 
@@ -79,9 +80,9 @@ export function plain(r: Recipe): THREE.MeshPhysicalNodeMaterial {
   return m;
 }
 
-export function screen(r: Recipe): THREE.MeshStandardNodeMaterial {
+export function screen(r: Recipe, owner = 'global'): THREE.MeshStandardNodeMaterial {
   const m = new THREE.MeshStandardNodeMaterial({ roughness: 0.08 });
-  const t = resources.texture(String(r.tex), true);
+  const t = resources.texture(String(r.tex), true, true, owner);
   t.wrapS = t.wrapT = THREE.ClampToEdgeWrapping;
   const c = texture(t, uv()).rgb;
   m.colorNode = c.mul(0.05);

@@ -19,14 +19,15 @@ const T = TSL as any;
 const TEST_NOWIN = typeof location !== 'undefined' && new URLSearchParams(location.search).has('nowin');
 
 /** The engine material for one exported level material (the original when it carries no recipe). */
-export function levelMaterial(old: THREE.Material): THREE.Material {
+/** `owner`: the level section (its textures leave the GPU while it is hidden). */
+export function levelMaterial(old: THREE.Material, owner = 'global'): THREE.Material {
   const r = recipeOf(old);
   if (!r) return old;
   let m: THREE.Material;
   switch (r.type) {
-    case 'pbr': m = scanned(r); break;
+    case 'pbr': m = scanned(r, owner); break;
     case 'emissive': m = PRACTICAL_NAMES.test(old.name) ? practical(r, old.name) : chronalLight(r); break;
-    case 'screen': m = screen(r); break;
+    case 'screen': m = screen(r, owner); break;
     case 'plain': m = plain(r); break;
     case 'glass': m = glass(r); break;
     case 'water': m = water(r as WaterRecipe); break;

@@ -486,10 +486,11 @@ export class ChapterRuntime {
     this.current = k;
     this.sections.forEach((s, i) => {
       const want = Math.abs(i - k) <= 1;
-      if (want && !s.inScene) { this.g.scene.add(s.lv.root); s.inScene = true; }
+      if (want && !s.inScene) { this.g.scene.add(s.lv.root); s.inScene = true; resources.setResident(s.path, true); }
       else if (!want && s.inScene) {
         this.g.scene.remove(s.lv.root);
         s.inScene = false;
+        resources.setResident(s.path, false); // its textures leave the GPU unless a shown section shares them
         s.lv.root.traverse((o) => { const m = o as THREE.Mesh; if (m.isMesh) m.geometry.dispose(); });
         for (const t of s.lv.lightmaps) t.dispose();
       }

@@ -124,7 +124,7 @@ export async function loadLevel(path: string, physics: Physics | null, scene: TH
       }
     }
     const src = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
-    const mats = src.map((old) => levelMaterial(old));
+    const mats = src.map((old) => levelMaterial(old, path));
     const apply = (m: THREE.Material) => {
       if (isDynamic) return;
       finishStatic(m, { lightMap, lights: rtLights, outdoors });

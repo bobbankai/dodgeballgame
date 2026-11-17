@@ -77,7 +77,7 @@ const base: Omit<GraphicsSettings, 'preset'> = {
   ao: 'gtao', aoScale: 0.5, ssr: 'half', contactShadows: true, dynamicShadows: 2048, capsuleShadows: true,
   fogSteps: 32,
   autoExposure: true, toneMapper: 'agx', bloom: true, depthOfField: true, motionBlur: false, chromaticAberration: true, filmGrain: true,
-  pomSteps: 16, hairShells: 22, anisotropy: 8, textureResolution: '2k', lightmapLimit: 4096,
+  pomSteps: 16, hairShells: 22, anisotropy: 8, textureResolution: '1k', lightmapLimit: 4096,
   particles: 0.75,
 };
 
@@ -85,6 +85,8 @@ export const PRESETS: Record<PresetName, GraphicsSettings> = {
   ultra: {
     ...base, preset: 'ultra', maxPixelRatio: 2, touchLines: 1080, ao: 'ssgi', aoScale: 0.75, ssr: 'full', dynamicShadows: 4096,
     fogSteps: 48, motionBlur: true, pomSteps: 24, hairShells: 30, anisotropy: 16, particles: 1, sharpen: 0.2,
+    // 2K maps are uncompressed in GPU memory (about 21 MB each with mips): Ultra only, for GPUs with the memory for them
+    textureResolution: '2k',
   },
   high: { ...base, preset: 'high' },
   medium: {

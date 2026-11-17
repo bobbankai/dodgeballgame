@@ -16,11 +16,19 @@ export class ResourceManager {
   private cache = new Map<string, THREE.Texture>();
   private pending = new Set<Promise<void>>();
   private owned = new Map<string, Owned[]>();
+  /** which owners (level sections; 'global' for characters and the UI) use each cached texture */
+  private users = new Map<string, Set<string>>();
+  /** owners currently on screen; a texture none of whose owners is resident leaves the GPU (it re-uploads when used again) */
+  private resident = new Set<string>(['global']);
   anisotropy = 8;
 
   /** A texture from `public/assets/<path>`. sRGB for colour maps, linear for data (normals, roughness, heights, masks). */
-  texture(path: string, srgb: boolean, flipY = true): THREE.Texture {
+  texture(path: string, srgb: boolean, flipY = true, owner = 'global'): THREE.Texture {
     const key = `${path}|${srgb ? 's' : 'l'}|${flipY ? 'y' : 'n'}`;
+    let u = this.users.get(key);
+    if (!u) this.users.set(key, (u = new Set()));
+    u.add(owner);
+    if (owner !== 'global' && !this.resident.has(owner)) this.resident.add(owner);
     let t = this.cache.get(key);
     if (t) return t;
     let done!: () => void;
@@ -39,6 +47,23 @@ export class ResourceManager {
   /** Resolves when every texture requested so far has loaded or failed. */
   async ready(): Promise<void> {
     while (this.pending.size) await Promise.all([...this.pending]);
+  }
+
+  /**
+   * An owner (a level section) shown or hidden. Hiding frees the GPU copy of every texture that no shown owner uses; the
+   * decoded image stays, so showing it again only re-uploads.
+   */
+  setResident(owner: string, on: boolean): number {
+    if (on) { this.resident.add(owner); return 0; }
+    this.resident.delete(owner);
+    let freed = 0;
+    for (const [key, u] of this.users) {
+      if (!u.has(owner)) continue;
+      if ([...u].some((o) => this.resident.has(o))) continue;
+      const t = this.cache.get(key);
+      if (t) { t.dispose(); freed++; }
+    }
+    return freed;
   }
 
   /** Register a resource under an owner (a section, a system); `bytes` feeds the memory overlay. */

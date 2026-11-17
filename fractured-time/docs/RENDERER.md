@@ -216,3 +216,7 @@ after it; the sRGB encode once (`RenderPipeline.outputColorTransform`).
 - 2026-11-17: capsule shadows in. Reviewed in the lab from above: a soft darkening round and between Ethan's feet that the
   frame without them lacks. Chapter 2 reviewed on the WebGL2 backend (street, windows, Ethan's readability: the storm black
   point lowered to 0.022 so the character fill is not closed to black); dynamic shadows' WebGL row order checked.
+- 2026-11-17: texture memory. 2K maps are now Ultra-only (High returned to 1K): uncompressed they cost ~21 MB each in GPU
+  memory, and a Chapter 4 play-through on the software device was lost mid-chapter with them on High. Textures now record
+  which level sections use them, and a section that leaves view frees the GPU copies no shown section shares (re-uploaded
+  from the kept image when it returns), as its geometry and lightmaps already did.
