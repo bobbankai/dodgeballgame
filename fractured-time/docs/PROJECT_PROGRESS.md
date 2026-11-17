@@ -20,8 +20,10 @@ contact-hardening soft edges, plus screen-space contact shadows; sparks, rings a
 Compared side by side with the old renderer at five places and reviewed in the lab, the storm exit, the arcology, the
 Nexus and the Chapter 4 sea. Since then: capsule shadows under characters; 2K surface and fabric maps (Ultra) and an 8K
 detail sky for Chapter 4 (Poly Haven, CC0); textures leave the GPU with their sections; Chapter 2 reviewed on the WebGL2
-backend (street, the new windows, Ethan's readability fixed); Chapters 3 and 5 (with ending B) play through by script on
-the new renderer. Not done or not verified: GPU-compute particles (tried, reverted to CPU integration), VXGI, TAAU,
+backend (street, the new windows, Ethan's readability fixed); Chapters 3, 4 and 5 (with ending B) play through by script on
+the new renderer. Shader warm-up: walking into a place or shifting reality no longer builds shaders (74/60/60 builds on
+first entering Chapter 4's sections before, 0 after; shift frames 0.1-0.5 s before, 2-6 ms after on the software device);
+the cost moved into loading (Chapter 2: 72 s of compiling on the software device; real hardware not measured). Not done or not verified: GPU-compute particles (tried, reverted to CPU integration), VXGI, TAAU,
 KTX2 texture compression (measured, deferred), Chapter 2 on WebGPU (the software device here cannot hold it; reviewed on
 WebGL2), real GPUs and phones (only SwiftShader here), and device losses of the software WebGPU device in long runs.
 **Before that:** the

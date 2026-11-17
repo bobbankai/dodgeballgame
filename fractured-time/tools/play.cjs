@@ -16,7 +16,7 @@ const fs = require('fs');
   p.on('pageerror', (e) => logs.push('pageerror: ' + String(e).slice(0, 600)));
   p.on('response', (r) => { if (r.status() >= 400) logs.push('http ' + r.status() + ' ' + r.url()); });
   await p.goto(url);
-  await p.waitForFunction(() => window.__ready || window.__error, null, { timeout: 180000 });
+  await p.waitForFunction(() => window.__ready || window.__error, null, { timeout: 900000 }); // the shader warm-up loads every section: minutes on the software device
   const err = await p.evaluate(() => window.__error);
   if (err) { console.log('BOOT ERROR:', err); }
   else for (const [i, s] of JSON.parse(fs.existsSync(stepsJson) ? fs.readFileSync(stepsJson, 'utf8') : stepsJson).entries()) {

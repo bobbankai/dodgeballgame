@@ -171,7 +171,7 @@ after it; the sRGB encode once (`RenderPipeline.outputColorTransform`).
 - [ ] budgets, dynamic resolution tuned
 - [ ] validation scenes (materials, lighting, post, characters, stress)
 - [ ] screenshot regression set across chapters
-- [ ] flow tests pass on the new renderer
+- [ ] flow tests pass on the new renderer (Chapters 3, 4 and 5 pass on WebGPU; Chapters 1 and 2 not yet re-run)
 - [ ] final status with measurements and limitations
 
 ---
@@ -255,4 +255,12 @@ after it; the sRGB encode once (`RenderPipeline.outputColorTransform`).
   Not covered: the sea mirror's first view and the dynamic shadow casters' depth material (9 small builds on the first
   frame of play). Load time grows by the warm-up (17-29 s on the software device for Chapter 4; on hardware it is the
   driver's pipeline compile time).
+- 2026-11-17: verified after the warm-up. Chapter 4 plays from the terrace to `chapter4_complete` on the WebGPU backend
+  (every beat: the gate fight, the memories, the foundry wave, the casting channel in the other reality, the powered door,
+  Nyx's three phases and her defeat, the Echo's return). Two failures on the way were the test script's, not the game's:
+  a teleport past a 1 m trigger band, and a single killing blow that Nyx's every-12-s rewind dodge can eat (the script
+  now strikes until she falls). A/B against the previous build: the lab and the Chapter 2 street (WebGL2), the Chapter 4
+  terrace and memory rooms (WebGPU) render the same. Boot on the software device: Chapter 4 warm-up 17-29 s (213
+  meshes), Chapter 2 72 s (323 meshes, ~5.5 min to the first frame in all); the test driver's boot limit is now 15 min.
+  Not measured on real hardware.
 
