@@ -8,6 +8,8 @@ export const materialQuality = {
   antiTiling: true,
   /** hair shell layers (coily hair) */
   hairShells: 22,
+  /** 2K maps for the sets that ship them (`hires.ts`) */
+  textureResolution: '2k' as '2k' | '1k',
 };
 
 export function setMaterialQuality(q: Partial<typeof materialQuality>): void {

@@ -2,6 +2,7 @@ import * as THREE from 'three/webgpu';
 import * as TSL from 'three/tsl';
 import { resources } from '../core/resources';
 import { AO_SETS } from './aosets';
+import { HIRES_SETS } from './hires';
 import { fbm, luminance } from '../shaders/common';
 import { parallax, untiled } from '../shaders/sampling';
 import type { Recipe } from './recipes';
@@ -34,7 +35,9 @@ export function scanned(r: Recipe): THREE.MeshPhysicalNodeMaterial {
   const antiTile = !pom && materialQuality.antiTiling && tile >= 0.6;
   const u = pom ? parallax(u0, resources.texture(`${base}_disp.jpg`, false), Number(r.pom), tile, materialQuality.pomSteps) : u0;
   const sample = (path: string, srgb: boolean) => (antiTile ? untiled(resources.texture(path, srgb), u) : texture(resources.texture(path, srgb), u));
-  const d = sample(`${base}_diff.jpg`, true).rgb;
+  // the maps that carry visible detail at 2K where shipped (High and Ultra); AO and height stay 1K (low frequency)
+  const hi = materialQuality.textureResolution === '2k' && HIRES_SETS.has(String(r.tex)) ? '_2k' : '';
+  const d = sample(`${base}_diff${hi}.jpg`, true).rgb;
   const c = r.desat === null || r.desat === undefined ? d : mix(vec3(luminance(d)), d, float(r.desat));
   const t = (r.tint ?? [1, 1, 1]) as number[];
   // the scan's ambient occlusion at 0.8, as in the Blender material (grooves, seams, the gaps between bricks)
@@ -42,8 +45,8 @@ export function scanned(r: Recipe): THREE.MeshPhysicalNodeMaterial {
   // macro variation over metres, in world space: a slow drift of shade and polish
   const macro = fbm(positionWorld, 0.23, 2);
   m.colorNode = c.mul(vec3(t[0], t[1], t[2])).mul(ao).mul(mix(float(0.9), float(1.08), macro));
-  m.roughnessNode = sample(`${base}_rough.jpg`, false).r.mul(r.rough_mul ?? 1).add(r.rough_add ?? 0).add(macro.sub(0.5).mul(0.08)).clamp(0.04, 1);
-  m.normalNode = T.normalMap(sample(`${base}_nor_gl.jpg`, false), vec2(r.normal ?? 1));
+  m.roughnessNode = sample(`${base}_rough${hi}.jpg`, false).r.mul(r.rough_mul ?? 1).add(r.rough_add ?? 0).add(macro.sub(0.5).mul(0.08)).clamp(0.04, 1);
+  m.normalNode = T.normalMap(sample(`${base}_nor_gl${hi}.jpg`, false), vec2(r.normal ?? 1));
   m.metalness = Number(r.metal ?? 0);
   m.clearcoat = Number(r.coat ?? 0);
   m.clearcoatRoughness = 0.35;

@@ -18,7 +18,7 @@ import { loadVolume, INTERIOR_FOG, EXTERIOR_FOG, type LightVolume, type FogSetti
 import { HDRLoader } from 'three/addons/loaders/HDRLoader.js';
 import { Sky } from '@/graphics/atmosphere/sky';
 import { DynamicShadows } from '@/graphics/lighting/dynamicShadows';
-import { assetUrl } from '@/graphics';
+import { assetUrl, resources } from '@/graphics';
 import { timeScale } from '@/core/loop';
 import * as TSL from 'three/tsl';
 const TSLx = TSL as any;
@@ -529,8 +529,20 @@ export class ChapterRuntime {
   private loadSky(path: string): Promise<THREE.Texture> {
     let p = this.skies.get(path);
     if (!p) {
-      p = new HDRLoader().loadAsync(assetUrl(path)).then((t) => {
+      p = new HDRLoader().loadAsync(assetUrl(path)).then(async (t) => {
         t.mapping = THREE.EquirectangularReflectionMapping;
+        // High and Ultra on a device that takes 8K textures: the sky's detail image, where one ships
+        const gfx = this.g.gfx;
+        if (gfx.settings.textureResolution === '2k' && gfx.caps.maxTexture2D >= 8192) {
+          const base = path.replace(/\.hdr$/, '_detail');
+          const meta = await fetch(assetUrl(`${base}.json`)).then((r) => (r.ok && (r.headers.get('content-type') ?? '').includes('json') ? r.json() : null)).catch(() => null);
+          if (meta?.scale) {
+            const d = resources.texture(`${base}.jpg`, true);
+            d.generateMipmaps = true;
+            await resources.ready();
+            this.sky.setDetail(t, d, Number(meta.scale));
+          }
+        }
         this.skyReady.set(path, t);
         return t;
       });

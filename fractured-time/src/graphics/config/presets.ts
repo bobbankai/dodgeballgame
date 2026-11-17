@@ -62,6 +62,8 @@ export interface GraphicsSettings {
   hairShells: number;
   /** texture anisotropy */
   anisotropy: number;
+  /** scanned surfaces and fabrics: 2K colour/normal/roughness maps where shipped, or 1K */
+  textureResolution: '2k' | '1k';
   /** largest lightmap edge kept in memory (px); larger maps are halved on load */
   lightmapLimit: number;
   // --- effects ------------------------------------------------------------------------------------------------------
@@ -75,7 +77,7 @@ const base: Omit<GraphicsSettings, 'preset'> = {
   ao: 'gtao', aoScale: 0.5, ssr: 'half', contactShadows: true, dynamicShadows: 2048, capsuleShadows: true,
   fogSteps: 32,
   autoExposure: true, toneMapper: 'agx', bloom: true, depthOfField: true, motionBlur: false, chromaticAberration: true, filmGrain: true,
-  pomSteps: 16, hairShells: 22, anisotropy: 8, lightmapLimit: 4096,
+  pomSteps: 16, hairShells: 22, anisotropy: 8, textureResolution: '2k', lightmapLimit: 4096,
   particles: 0.75,
 };
 
@@ -88,16 +90,18 @@ export const PRESETS: Record<PresetName, GraphicsSettings> = {
   medium: {
     ...base, preset: 'medium', renderScale: 0.85, maxPixelRatio: 1.25, touchLines: 720, aoScale: 0.4, ssr: 'off', dynamicShadows: 1024,
     fogSteps: 18, depthOfField: false, chromaticAberration: false, pomSteps: 10, hairShells: 16, particles: 0.5, sharpen: 0.35,
+    textureResolution: '1k',
   },
   low: {
     ...base, preset: 'low', renderScale: 0.75, maxPixelRatio: 1, touchLines: 630, antialias: 'fxaa', sharpen: 0, aoScale: 0.3, ssr: 'off',
     contactShadows: false, dynamicShadows: 1024, fogSteps: 10, depthOfField: false, chromaticAberration: false, filmGrain: false,
-    pomSteps: 0, hairShells: 14, anisotropy: 4, lightmapLimit: 2048, particles: 0.35,
+    pomSteps: 0, hairShells: 14, anisotropy: 4, textureResolution: '1k', lightmapLimit: 2048, particles: 0.35,
   },
   performance: {
     ...base, preset: 'performance', renderScale: 0.67, maxPixelRatio: 1, touchLines: 540, antialias: 'fxaa', sharpen: 0, ao: 'off',
     aoScale: 0.25, ssr: 'off', contactShadows: false, dynamicShadows: 0, fogSteps: 0, bloom: false, depthOfField: false,
-    chromaticAberration: false, filmGrain: false, pomSteps: 0, hairShells: 12, anisotropy: 4, lightmapLimit: 1024, particles: 0.25,
+    chromaticAberration: false, filmGrain: false, pomSteps: 0, hairShells: 12, anisotropy: 4, textureResolution: '1k', lightmapLimit: 1024,
+    particles: 0.25,
   },
 };
 

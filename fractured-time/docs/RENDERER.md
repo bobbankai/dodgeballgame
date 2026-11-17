@@ -207,3 +207,9 @@ after it; the sRGB encode once (`RenderPipeline.outputColorTransform`).
   footprint-faded ripples, a planar mirror (`reflector`, whitelisted layers) with Fresnel against a depth-coloured body over a
   baked seabed tile, crest and shore foam, GGX glint. Reviewed on the Chapter 4 terrace in both realities (calm blue with the
   towers mirrored; storm swell with foam). Far-rain curtains not yet reviewed in a framed shot.
+- 2026-11-17: assets for the new renderer. 2K colour/normal/roughness for the 33 surface and fabric sets seen close up
+  (`textureResolution` '2k' on High/Ultra desktop, '1k' on Medium and below and on every phone); the Chapter 4 daylight
+  sky gets an 8K detail image of its upper hemisphere, blended to the 2K HDR where it saturates (the sun) and below the
+  horizon. Reviewed: cloud structure resolves (A/B on the terrace). KTX2 measured and deferred: 2K UASTC colour 2.4 MB and
+  normal 4.2 MB per map against 0.5 / 1.1 MB as JPG (19 s each to encode); it would cut GPU memory about 4x (BC7/ASTC) at
+  three times the download. Revisit for phones (1K UASTC/ETC1S to ASTC) if memory shows up on real devices.

@@ -128,7 +128,9 @@ export class Game implements Simulation, GameCtx {
     g.testMode = !!opts.test;
     g.gfx = await GraphicsSystem.create(canvas, { preset: opts.quality ?? null, test: g.testMode });
     const gs = g.gfx.settings;
-    setMaterialQuality({ hairShells: gs.hairShells, pomSteps: gs.pomSteps, antiTiling: gs.preset !== 'performance' && gs.preset !== 'low' });
+    // phones keep 1K maps whatever the preset (a mobile tab's memory)
+    setMaterialQuality({ hairShells: gs.hairShells, pomSteps: gs.pomSteps, antiTiling: gs.preset !== 'performance' && gs.preset !== 'low',
+      textureResolution: isMobile() ? '1k' : gs.textureResolution });
     resources.anisotropy = gs.anisotropy;
     g.physics = await Physics.create();
     g.input = new Input(canvas);

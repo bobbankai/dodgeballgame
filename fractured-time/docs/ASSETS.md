@@ -31,6 +31,11 @@ Poly Haven models (CC0), converted by `blender/props/foliage.py` or imported by 
   clipboard, cardboard_box_01, potted_plant_01, potted_plant_02, korean_fire_extinguisher_01 (placed: Chapter 3 offices, Chapter 4 memory
   lab); industrial_microscope, chemistry_set, circuit_board, steel_frame_shelves_01, modern_arm_chair_01, WetFloorSign_01, planter_box_01
   (downloaded, not placed yet). Task chairs and flat screens are built in `officekit.py` (no Poly Haven equivalent).
+2026-11 renderer upgrade (CC0, Poly Haven): 2K colour, normal and roughness maps shipped for the 33 tiling surface and fabric sets
+(`tools/assets/ship_2k.py`, from the 2K sources already in vendor/); the sky `kloofendal_48d_partly_cloudy_puresky` downloaded at 8K
+(vendor/, 71 MB) and shipped as an 8192x2048 display image of its upper hemisphere (`tools/assets/sky_detail.py`,
+`textures/sky/kloofendal_detail.jpg` + `.json`). The Basis Universal encoder (npm `basisu` 1.16.3, ISC wrapper of Apache-2.0
+Basis) was evaluated for KTX2 in the scratchpad only; nothing encoded by it ships.
 Poly Haven textures added for the forests and ruins (CC0): forest_floor, forrest_ground_01, mossy_rock, concrete_moss, distressed_painted_planks;
 HDRI kloofendal_48d_partly_cloudy_puresky (daylight skies of Chapters 4 and 5).
 

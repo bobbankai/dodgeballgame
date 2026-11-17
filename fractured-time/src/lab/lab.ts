@@ -66,7 +66,7 @@ async function main() {
   const loader = new GLTFLoader();
   loader.setMeshoptDecoder(MeshoptDecoder);
   const name = qs.get('char') || 'ethan';
-  setMaterialQuality({ hairShells: gfx.settings.hairShells, pomSteps: gfx.settings.pomSteps });
+  setMaterialQuality({ hairShells: gfx.settings.hairShells, pomSteps: gfx.settings.pomSteps, textureResolution: gfx.settings.textureResolution });
   const t0 = performance.now();
   const gltf = await loader.loadAsync(assetUrl(qs.get('path') || `characters/${name}/${name}.glb`)); // ?path= any asset (bosses, props)
   out.loadMs = Math.round(performance.now() - t0);

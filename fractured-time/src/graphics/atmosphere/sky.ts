@@ -44,6 +44,13 @@ export class Sky {
   readonly sunIntensity = uniform(20);
   readonly mieG = uniform(0.76);
   private imageNodes = new Map<THREE.Texture, any>();
+  private details = new Map<THREE.Texture, { tex: THREE.Texture; scale: number }>();
+
+  /** An 8K display image of the HDR's upper hemisphere (tools/assets/sky_detail.py): sharp clouds; the HDR keeps the sun. */
+  setDetail(hdr: THREE.Texture, detail: THREE.Texture, scale: number): void {
+    this.details.set(hdr, { tex: detail, scale });
+    this.imageNodes.delete(hdr);
+  }
   private stormNode: any = null;
   private physicalNode: any = null;
 
@@ -54,7 +61,18 @@ export class Sky {
       n = Fn(() => {
         const dir = normalWorldGeometry.normalize();
         const uv = equirectUV(dir);
-        const sky = texture(tex, vec2(uv.x.add(0.5).fract(), uv.y)).rgb;
+        const u0 = vec2(uv.x.add(0.5).fract(), uv.y);
+        let sky: any = texture(tex, u0).rgb;
+        const det = this.details.get(tex);
+        if (det) {
+          // above the horizon the detail image (linear = decoded x scale); the HDR wherever the image saturates (the sun,
+          // its rim) and below the horizon
+          const vD = uv.y.sub(0.5).mul(2.0);
+          const d = texture(det.tex, vec2(u0.x, vD.clamp(0.001, 0.999))).rgb;
+          const sat = smoothstep(0.78, 0.92, max(max(d.r, d.g), d.b));
+          const above = smoothstep(0.0, 0.03, vD);
+          sky = mix(sky, d.mul(det.scale), above.mul(sat.oneMinus()));
+        }
         const k = smoothstep(this.band, float(-0.02), dir.y);
         return mix(sky, mix(sky, this.haze.mul(1.6), 0.55), k);
       })();
