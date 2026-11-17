@@ -18,9 +18,12 @@ GPU-histogram eye adaptation, our own AgX with looks, scene-linear grading with 
 performance overlay; the material library; light-volume fog and skies; shadows of moving things on the baked world with
 contact-hardening soft edges, plus screen-space contact shadows; sparks, rings and rain; our own ocean and window shaders).
 Compared side by side with the old renderer at five places and reviewed in the lab, the storm exit, the arcology, the
-Nexus and the Chapter 4 sea. Not done or not verified: GPU-compute particles (tried, reverted to CPU integration), capsule
-shadows, VXGI, TAAU, Chapter 2 and the new windows (Chapter 2 loses the software WebGPU device in this container with either
-renderer), real GPUs and phones (only SwiftShader here), and a device-loss risk with the shadow pass under SwiftShader.
+Nexus and the Chapter 4 sea. Since then: capsule shadows under characters; 2K surface and fabric maps (Ultra) and an 8K
+detail sky for Chapter 4 (Poly Haven, CC0); textures leave the GPU with their sections; Chapter 2 reviewed on the WebGL2
+backend (street, the new windows, Ethan's readability fixed); Chapters 3 and 5 (with ending B) play through by script on
+the new renderer. Not done or not verified: GPU-compute particles (tried, reverted to CPU integration), VXGI, TAAU,
+KTX2 texture compression (measured, deferred), Chapter 2 on WebGPU (the software device here cannot hold it; reviewed on
+WebGL2), real GPUs and phones (only SwiftShader here), and device losses of the software WebGPU device in long runs.
 **Before that:** the
 storm re-bakes have landed (Chapter 1's surface, Chapter 2, Chapter 4's terrace with its modelled skyline). Reviewing the ruined
 terrace found that every lightmap had been stored through the sRGB curve (bug 49): all maps are linear now and exposure follows
