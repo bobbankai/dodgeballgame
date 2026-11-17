@@ -1,7 +1,7 @@
 import * as THREE from 'three/webgpu';
 import { GraphicsSystem, type PresetName } from '@/graphics';
 import { Particles } from '@/graphics/effects/particles';
-import { Rain } from '@/rendering/rain';
+import { Rain } from '@/graphics/effects/rain';
 import { VolumetricFog } from '@/graphics/atmosphere/fog';
 import { setMaterialQuality, resources } from '@/graphics';
 import { Physics } from '@/physics/physics';
