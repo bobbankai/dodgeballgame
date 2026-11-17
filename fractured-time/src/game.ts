@@ -167,6 +167,9 @@ export class Game implements Simulation, GameCtx {
     g.fog = new VolumetricFog(g.camera.camera);
     g.gfx.attach(g.scene, g.camera.camera);
     g.gfx.setFog(g.fog);
+    // the final size before anything renders (the shader warm-up renders while loading): a resize replaces the pass targets,
+    // and what was bound to the old ones (the exposure meter's compute pass) went on reading a destroyed texture: white frames
+    g.onResize();
     g.rain = new Rain(g.fog, (x, z, from) => g.physics.groundHeight(x, z, from), gs.particles);
     g.scene.add(g.rain.group);
     const qsp = new URLSearchParams(location.search);
@@ -231,13 +234,13 @@ export class Game implements Simulation, GameCtx {
     g.lastCheckpoint.pos.copy(g.level.spawn); g.lastCheckpoint.yaw = g.level.yaw;
     if (!new URLSearchParams(location.search).has('noenemies')) for (const s of g.level.enemies) await g.spawnEnemy(s);
     g.hud.setObjective(g.level.objective ?? '');
+    g.onResize();
     if (g.chapter) {
       // Ethan's shaders, then one frame (the post stages and the shadow pass build on their first frame), behind the loader
       await g.gfx.warmUp([g.player.root]);
       g.gfx.render(1 / 60);
     }
     g.loop = new GameLoop(g);
-    g.onResize();
     addEventListener('resize', () => g.onResize());
     bus.on('checkpoint', () => { g.lastCheckpoint.pos.copy(g.player.pos); g.lastCheckpoint.yaw = g.player.yaw; });
     return g;
