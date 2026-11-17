@@ -1,9 +1,9 @@
 import * as THREE from 'three/webgpu';
 import * as TSL from 'three/tsl';
 import { loadGLTF } from '@/assets/loader';
-import { tex, type Recipe } from '@/rendering/charmat';
-import type { VolumetricFog } from '@/rendering/volumetrics';
-import { weather } from '@/rendering/wet';
+import { resources, type Recipe } from '@/graphics';
+import type { VolumetricFog } from '@/graphics/atmosphere/fog';
+import { weather } from '@/graphics';
 
 const T = TSL as any;
 const { Fn, float, vec3, vec4, texture, uv, attribute, positionLocal, positionWorld, normalWorld, cameraPosition, time, sin, dot,
@@ -23,7 +23,7 @@ const cache = new Map<string, Promise<{ geo: THREE.BufferGeometry; mat: THREE.Ma
 
 function foliageMaterial(r: Recipe, fog: VolumetricFog): THREE.Material {
   const m = new THREE.MeshBasicNodeMaterial({ side: THREE.DoubleSide });
-  const map = tex(String(r.tex), true, false);
+  const map = resources.texture(String(r.tex), true, false);
   const s = texture(map, uv());
   const col = attribute('color', 'vec4');
   const occl = col.y.mul(0.85).add(0.15);

@@ -2,7 +2,7 @@ import type * as THREE from 'three/webgpu';
 import type { Physics } from '@/physics/physics';
 import type { Input } from '@/input/input';
 import type { CameraRig } from '@/camera/rig';
-import type { PostFX } from '@/rendering/postfx';
+import type { GraphicsSystem } from '@/graphics';
 import type { Actor } from './actor';
 
 export interface Fx {
@@ -21,7 +21,7 @@ export interface GameCtx {
   physics: Physics;
   input: Input;
   camera: CameraRig;
-  post: PostFX;
+  gfx: GraphicsSystem;
   scene: THREE.Scene;
   fx: Fx;
   sfx: Sfx;

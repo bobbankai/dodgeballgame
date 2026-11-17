@@ -3,10 +3,10 @@
  * Keyboard, mouse and gamepad navigate every menu (arrows / stick to move, Enter / A to choose, Esc / B to go back).
  * Settings and progress persist in localStorage (wrapped: private windows and blocked storage just do not persist).
  */
-import { detectQuality } from '@/rendering/quality';
+import { defaultPreset, normalisePreset, PRESET_NAMES, type PresetName } from '@/graphics';
 import { isTouch } from '@/ui/device';
 export interface Settings {
-  quality: 'ultra' | 'high' | 'balanced' | 'performance';
+  quality: PresetName;
   master: number; music: number; sfx: number; voice: number;
   sensitivity: number; invertY: boolean; subtitles: boolean; subtitleSize: number; shake: number;
 }
@@ -21,7 +21,7 @@ export const CHAPTERS = [
 ];
 
 // the first run's preset comes from the device (phones and tablets start on Performance, desktops on High)
-const DEFAULTS: Settings = { quality: detectQuality(), master: 0.9, music: 0.7, sfx: 0.9, voice: 1.0, sensitivity: 1, invertY: false, subtitles: true,
+const DEFAULTS: Settings = { quality: defaultPreset(), master: 0.9, music: 0.7, sfx: 0.9, voice: 1.0, sensitivity: 1, invertY: false, subtitles: true,
   subtitleSize: 1, shake: 1 };
 
 function load<T>(k: string, d: T): T {
@@ -30,7 +30,11 @@ function load<T>(k: string, d: T): T {
 function store(k: string, v: unknown): void { try { localStorage.setItem(k, JSON.stringify(v)); } catch { /* storage unavailable */ } }
 
 export const settings = {
-  get(): Settings { return load('ft.settings', DEFAULTS); },
+  get(): Settings {
+    const s = load('ft.settings', DEFAULTS);
+    s.quality = normalisePreset(s.quality) ?? DEFAULTS.quality; // older saves: 'balanced' is now 'medium'
+    return s;
+  },
   set(s: Settings): void { store('ft.settings', s); },
 };
 export const saves = {
@@ -132,7 +136,7 @@ export function openSettings(host: HTMLElement, apply: (s: Settings) => void, on
   const cycle = <T,>(vals: T[], cur: T) => vals[(vals.indexOf(cur) + 1) % vals.length];
   const rebuild = () => {
     list.set([
-      { label: 'Graphics quality', sub: s.quality.toUpperCase() + ' (applies on restart)', act: () => { s.quality = cycle(['ultra', 'high', 'balanced', 'performance'], s.quality) as Settings['quality']; save(); } },
+      { label: 'Graphics quality', sub: s.quality.toUpperCase() + ' (applies on restart)', act: () => { s.quality = cycle(PRESET_NAMES, s.quality); save(); } },
       { label: 'Master volume', sub: pct(s.master), act: () => { s.master = cycle([0, 0.25, 0.5, 0.75, 0.9, 1], s.master); save(); } },
       { label: 'Music', sub: pct(s.music), act: () => { s.music = cycle([0, 0.25, 0.5, 0.7, 0.85, 1], s.music); save(); } },
       { label: 'Effects', sub: pct(s.sfx), act: () => { s.sfx = cycle([0, 0.25, 0.5, 0.75, 0.9, 1], s.sfx); save(); } },

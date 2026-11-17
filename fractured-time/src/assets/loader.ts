@@ -2,7 +2,7 @@ import * as THREE from 'three/webgpu';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
 import { clone as cloneSkinned } from 'three/addons/utils/SkeletonUtils.js';
-import { dressCharacter, texturesReady } from '@/rendering/charmat';
+import { dressCharacter, resources } from '@/graphics';
 
 export interface ClipEvents {
   hit?: [number, number];
@@ -127,7 +127,7 @@ export async function instantiateCharacter(path: string, opts: { tint?: number; 
   const [g, meta] = await Promise.all([loadGLTF(path), loadClipTable(), loadSharedClips()]);
   const root = cloneSkinned(g.scene) as THREE.Group;
   dressCharacter(root);
-  await texturesReady();
+  await resources.ready();
   const bones = new Map<string, THREE.Bone>();
   root.traverse((o) => {
     if ((o as THREE.Bone).isBone) bones.set(o.name, o as THREE.Bone);

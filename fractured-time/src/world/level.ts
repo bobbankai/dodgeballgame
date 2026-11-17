@@ -2,16 +2,11 @@ import * as THREE from 'three/webgpu';
 import * as TSL from 'three/tsl';
 import { HDRLoader } from 'three/addons/loaders/HDRLoader.js';
 import { loadGLTF } from '@/assets/loader';
-import { pbr, emissive, practical, tex, texturesReady, type Recipe } from '@/rendering/charmat';
-import { assetUrl } from '@/rendering/charmat';
+import { assetUrl, resources, levelMaterial, finishStatic } from '@/graphics';
 import type { Physics } from '@/physics/physics';
 import type { LightDef } from './lightpool';
-import { wetten } from '@/rendering/wet';
-import { water } from '@/rendering/water';
-import { windowMaterial } from '@/rendering/windows';
 
 const T = TSL as any;
-const { texture, uv, float } = T;
 
 /**
  * A baked level section (blender/environments/*.py): one static mesh per section with its photoscanned materials rebuilt from their
@@ -30,8 +25,6 @@ export interface LoadedLevel { root: THREE.Group; markers: Marker[]; staticMeshe
   /** Timeline Shift: objects and colliders that exist only in timeline 'a' or 'b' (Chapter 3's arcology) */
   timeline: { a: { meshes: THREE.Object3D[]; colliders: unknown[] }; b: { meshes: THREE.Object3D[]; colliders: unknown[] } } }
 
-/** `?nowin`: plain dark glass instead of the interior-mapped panes (a test switch). */
-const TEST_NOWIN = typeof location !== 'undefined' && new URLSearchParams(location.search).has('nowin');
 const hdr = new HDRLoader();
 
 /**
@@ -74,61 +67,6 @@ function shrinkLightmap(t: THREE.DataTexture): void {
 }
 function loadLightmap(key: string): Promise<THREE.DataTexture> {
   return hdr.loadAsync(assetUrl(key)).then((t) => { shrinkLightmap(t as THREE.DataTexture); return t as THREE.DataTexture; });
-}
-
-/**
- * Lighting model for baked static surfaces: their diffuse light is entirely in the lightmap, so real-time lights add specular only
- * (the long highlights of the strip lights on metal and polished concrete); the diffuse term goes to a sink that is never used.
- */
-class BakedSpecularLightingModel extends (THREE as any).PhysicalLightingModel {
-  direct(input: any, builder: any) {
-    const sink = T.vec3(0).toVar();
-    super.direct({ ...input, reflectedLight: { ...input.reflectedLight, directDiffuse: sink } }, builder);
-  }
-  directRectArea(input: any, builder: any) {
-    const sink = T.vec3(0).toVar();
-    super.directRectArea({ ...input, reflectedLight: { ...input.reflectedLight, directDiffuse: sink } }, builder);
-  }
-}
-
-function screen(r: Recipe): THREE.Material {
-  const m = new THREE.MeshStandardNodeMaterial({ roughness: 0.08 });
-  const t = tex(r.tex, true);
-  t.wrapS = t.wrapT = THREE.ClampToEdgeWrapping;
-  const c = texture(t, uv()).rgb;
-  m.colorNode = c.mul(0.05);
-  // subtle scanline flicker so screens feel alive
-  m.emissiveNode = c.mul(float(r.strength ?? 3).mul(T.sin(T.time.mul(37.0).add(uv().y.mul(420.0))).mul(0.04).add(0.96)));
-  return m;
-}
-
-function plain(r: Recipe): THREE.Material {
-  const c = r.color ?? [0.5, 0.5, 0.5];
-  const m = new THREE.MeshPhysicalNodeMaterial({ color: new THREE.Color(c[0], c[1], c[2]), roughness: r.rough ?? 0.5, metalness: r.metal ?? 0 });
-  if (r.coat) {
-    // lacquer over the paint (vehicles): a sharp second reflection that the street's lights and neon streak across
-    m.clearcoat = Number(r.coat);
-    m.clearcoatRoughness = 0.04;
-  }
-  if (r.stripes) {
-    // painted hazard striping (world space diagonal), worn: scuffed toward the bottom, roughness broken up by noise
-    const p = T.positionWorld;
-    const n = T.mx_fractal_noise_float(p.mul(9.0), 3, 2.0, 0.5).mul(0.5).add(0.5);
-    const st = T.smoothstep(0.47, 0.53, T.fract(p.x.add(p.z).add(p.y.mul(0.5)).mul(float(r.stripes))));
-    const scuff = T.smoothstep(0.62, 0.9, n);
-    m.colorNode = T.mix(T.mix(T.vec3(c[0], c[1], c[2]), T.vec3(0.02, 0.02, 0.022), st), T.vec3(0.25, 0.25, 0.24), scuff.mul(0.6));
-    m.roughnessNode = float(r.rough ?? 0.6).add(n.sub(0.5).mul(0.3));
-  }
-  return m;
-}
-
-/** Architectural glass: thin, faintly tinted, almost all reflection (from the section's probe and lights), no lightmap. */
-function glass(r: Recipe): THREE.Material {
-  const t = r.tint ?? [0.75, 0.85, 0.9];
-  const m = new THREE.MeshPhysicalNodeMaterial({ color: new THREE.Color(t[0] * 0.08, t[1] * 0.08, t[2] * 0.08), roughness: Math.max(0.03, r.rough ?? 0.05),
-    metalness: 0, transparent: true, opacity: 0.22, depthWrite: false, side: THREE.DoubleSide });
-  m.specularIntensity = 1;
-  return m;
 }
 
 export async function loadLevel(path: string, physics: Physics | null, scene: THREE.Scene | null, _unused: THREE.Light[] = []): Promise<LoadedLevel> {
@@ -230,47 +168,16 @@ export async function loadLevel(path: string, physics: Physics | null, scene: TH
       }
     }
     const src = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
-    const mats = src.map((old) => {
-      const raw = (old.userData as any)?.ft;
-      const r: Recipe | null = raw ? (typeof raw === 'string' ? JSON.parse(raw) : raw) : null;
-      let m: THREE.Material;
-      if (!r) m = old;
-      else if (r.type === 'pbr') m = pbr(r);
-      else if (r.type === 'emissive') m = /^(win_|shop_|lamp_lens|neon_|m_lamp|m_chalk|c5_booth|furnace|molten|a_light|light_|n_engine)/.test(old.name) ? practical(r, old.name) : emissive(r);
-      else if (r.type === 'screen') m = screen(r);
-      else if (r.type === 'plain') m = plain(r);
-      else if (r.type === 'glass') m = glass(r);
-      else if (r.type === 'water') m = water(r as any);
-      else if (r.type === 'window') m = TEST_NOWIN ? plain({ type: 'plain', color: [0.03, 0.035, 0.04], rough: 0.1 } as any) : windowMaterial(r);
-      else m = old;
-      m.name = old.name;
-      if (raw) m.userData.ft = raw;
-      return m;
-    });
-    const r0 = (m: THREE.Material) => { const raw = (m.userData as any)?.ft; return raw ? (typeof raw === 'string' ? JSON.parse(raw) : raw).type : ''; };
+    const mats = src.map((old) => levelMaterial(old));
     const apply = (m: THREE.Material) => {
-      if (isDynamic || r0(m) === 'glass' || r0(m) === 'water') return;
-      const sm = m as THREE.MeshStandardNodeMaterial;
-      // Cycles' diffuse bake is irradiance without the 1/pi of the Lambert BRDF. Window panes take none: the lightmap is the light on
-      // the outer glass, while the blinds and rooms the pane draws are lit by the kit's own room model (the room's ambient and lamps,
-      // transmitted through the fabric); the glass itself reflects the section's environment probe
-      if (lightMap && 'lightMap' in sm && r0(m) !== 'window') {
-        sm.lightMap = lightMap;
-        sm.lightMapIntensity = Math.PI;
-      }
-      (sm as any).lightsNode = rtLights; // the level's real-time lights: specular only on baked surfaces
-      const phys = sm as any;
-      if (phys.isMeshStandardNodeMaterial && !(r0(m) === 'emissive' || r0(m) === 'screen')) {
-        const wet = outdoors && r0(m) !== 'window' && wetten(m); // window panes: the kit owns their roughness
-        phys.setupLightingModel = () => new (BakedSpecularLightingModel as any)(wet || !!phys.userData.wet, false, false, false, false, false);
-      }
-      sm.needsUpdate = true;
+      if (isDynamic) return;
+      finishStatic(m, { lightMap, lights: rtLights, outdoors });
     };
     for (const m of mats) apply(m);
     mesh.material = Array.isArray(mesh.material) ? mats : mats[0];
   });
   await Promise.all(lmLoads);
-  await texturesReady();
+  await resources.ready();
   if (scene) scene.add(root);
   return { root, markers, staticMeshes, dynamic, lightDefs, lightmaps, timeline, lmSwap, ownLights: ownTagged };
 }

@@ -98,7 +98,7 @@ export async function run(g: Game, ch: ChapterRuntime, at: string | null = null)
       ]],
     ];
     const memo = async (lines: [string, string][]) => {
-      g.post.u.fracture.value = 0.8;
+      g.gfx.look.fracture.value = 0.8;
       g.sfx.play('echo_on', { pitch: 0.7 });
       // the past speaks through the memory treatment; the present keeps its own
       const fx = g.sfx.voices.fx as Record<string, any>;
@@ -145,7 +145,7 @@ export async function run(g: Game, ch: ChapterRuntime, at: string | null = null)
     ch.repeat('p3_lava', async () => {
       if (ch.timeline !== 'a') return;
       (g.player as any).receiveHit?.({ attacker: null, damage: 35, stagger: 2, heavy: true, point: g.player.pos.clone(), dir: V(0, 0, 1), launch: 0.6 });
-      g.post.u.hurt.value = 1;
+      g.gfx.look.hurt.value = 1;
       await g.wait(0.4);
       ch.place(ch.byId(crossed ? 'cp_p3b' : 'cp_p3')!.pos.clone());
       await ch.say([['IMANI', 'Not in this timeline. In the other one that metal set years ago.']]);
@@ -219,7 +219,7 @@ export async function run(g: Game, ch: ChapterRuntime, at: string | null = null)
         if (boss.defeated) break;
         g.fx.pulse(g.player.pos.clone().setY(g.player.pos.y + 0.2), 'shift');
         g.sfx.play('alert', { volume: 0.7 });
-        g.post.u.fracture.value = 0.5;
+        g.gfx.look.fracture.value = 0.5;
         await g.wait(1.2);
         if (boss.defeated) break;
         shiftTo(ch.timeline === 'a' ? 'b' : 'a');

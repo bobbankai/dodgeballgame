@@ -46,7 +46,7 @@ export class Sea {
       },
       stamps: () => ({ domes: this.rocks.map((r) => ({ x: r.x, z: r.z, r: r.r })), boxes: [] }),
       fog: { color: this.fogColor, far: Number(m.data.far ?? 1400) },
-      mirror: { resolutionScale: this.g.gfx.quality.name === 'ultra' ? 0.5 : 0.35 },
+      mirror: { resolutionScale: this.g.gfx.settings.preset === 'ultra' ? 0.5 : 0.35 },
       isActive: () => this.on,
     });
     this.ocean.setReflectionLayers(1 << SEA_LAYER);

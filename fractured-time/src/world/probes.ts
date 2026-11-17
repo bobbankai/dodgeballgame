@@ -1,6 +1,6 @@
 import * as THREE from 'three/webgpu';
 import * as T from 'three/tsl';
-import { assetUrl } from '@/rendering/charmat';
+import { assetUrl } from '@/graphics';
 
 /**
  * Baked light probes: Cycles renders the scene at a grid of points in every level section and projects the radiance onto order-2

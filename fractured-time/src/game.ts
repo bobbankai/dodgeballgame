@@ -1,9 +1,9 @@
 import * as THREE from 'three/webgpu';
-import { createGfx, type Gfx } from '@/rendering/gfx';
-import { PostFX } from '@/rendering/postfx';
+import { GraphicsSystem, type PresetName } from '@/graphics';
 import { Vfx } from '@/rendering/vfx';
 import { Rain } from '@/rendering/rain';
-import { QUALITY, detectQuality, type QualityName } from '@/rendering/quality';
+import { VolumetricFog } from '@/graphics/atmosphere/fog';
+import { setMaterialQuality, resources } from '@/graphics';
 import { Physics } from '@/physics/physics';
 import { Input } from '@/input/input';
 import { TouchControls } from '@/ui/touch';
@@ -46,12 +46,13 @@ export interface LevelBuild {
  * systems, physics, effects. Per rendered frame: interpolate, camera, post uniforms, HUD, render.
  */
 export class Game implements Simulation, GameCtx {
-  gfx!: Gfx;
+  gfx!: GraphicsSystem;
   physics!: Physics;
   scene = new THREE.Scene();
   input!: Input;
   camera!: CameraRig;
-  post!: PostFX;
+  /** the volumetric medium (the frame graph's fog stage) */
+  fog!: VolumetricFog;
   rain!: Rain;
   vfx = new Vfx();
   fx = this.vfx;
@@ -76,7 +77,7 @@ export class Game implements Simulation, GameCtx {
   /** dialogue duration scale (tests: `?fast` shortens every line so a whole chapter can be stepped) */
   dialogueRate = 1;
   private playerSlowUntil = 0;
-  slowPlayer(seconds: number): void { this.playerSlowUntil = this.time + seconds; this.post.u.slow.value = 0.6; }
+  slowPlayer(seconds: number): void { this.playerSlowUntil = this.time + seconds; this.gfx.look.slow.value = 0.6; }
   chapter: { tick(dt: number): void; refreshAtmosphere?(): void } | null = null;
   afterimages!: Afterimages;
   private ticks = 0;
@@ -119,21 +120,23 @@ export class Game implements Simulation, GameCtx {
     release: (a: Actor): void => { this.tokensHeld.delete(a); },
   };
 
-  static async create(canvas: HTMLCanvasElement, opts: { quality?: QualityName; test?: boolean; onProgress?: (k: number) => void } = {}): Promise<Game> {
+  static async create(canvas: HTMLCanvasElement, opts: { quality?: PresetName | string; test?: boolean; onProgress?: (k: number) => void } = {}): Promise<Game> {
     const g = new Game();
     g.testMode = !!opts.test;
-    const q = opts.quality ?? detectQuality();
-    g.gfx = await createGfx(canvas, q);
+    g.gfx = await GraphicsSystem.create(canvas, { preset: opts.quality ?? null, test: g.testMode });
+    const gs = g.gfx.settings;
+    setMaterialQuality({ hairShells: gs.hairShells, pomSteps: gs.pomSteps, antiTiling: gs.preset !== 'performance' && gs.preset !== 'low' });
+    resources.anisotropy = gs.anisotropy;
     g.physics = await Physics.create();
     g.input = new Input(canvas);
     // phones and tablets: on-screen controls (tests turn them on with ?touch)
     if (isTouch() && (!g.testMode || new URLSearchParams(location.search).has('touch'))) g.touch = new TouchControls(g.input, g.hud.element);
-    if (isMobile()) setLightmapLimit(1024);
+    setLightmapLimit(isMobile() ? Math.min(1024, gs.lightmapLimit) : gs.lightmapLimit);
     g.camera = new CameraRig(canvas.clientWidth / Math.max(1, canvas.clientHeight), g.physics);
     g.live = new LiveControls(g.input, g.camera);
     g.controls = g.live;
     g.scene.add(g.vfx.group);
-    g.vfx.density = QUALITY[q].particles;
+    g.vfx.density = gs.particles;
     g.temporal = new Temporal(g);
     if (!g.testMode) {
       // browsers only start audio after a user gesture
@@ -150,12 +153,14 @@ export class Game implements Simulation, GameCtx {
       });
       // a phone reclaims the GPU of a backgrounded tab (and a driver can reset): the context does not come back, so reload at the
       // last checkpoint instead of leaving a dead black canvas (a guard stops a loop if the device keeps failing)
-      g.gfx.renderer.onDeviceLost = () => g.recoverFromDeviceLoss();
+      g.gfx.onDeviceLost = () => g.recoverFromDeviceLoss();
     }
 
-    // the post chain exists before the level: section streaming sets its fog
-    g.post = new PostFX(g.gfx, g.scene, g.camera.camera, QUALITY[q]);
-    g.rain = new Rain(g.post.fog, (x, z, from) => g.physics.groundHeight(x, z, from), QUALITY[q].particles);
+    // the frame graph and its fog exist before the level: section streaming sets the fog's light
+    g.fog = new VolumetricFog(g.camera.camera);
+    g.gfx.attach(g.scene, g.camera.camera);
+    g.gfx.setFog(g.fog);
+    g.rain = new Rain(g.fog, (x, z, from) => g.physics.groundHeight(x, z, from), gs.particles);
     g.scene.add(g.rain.group);
     const qsp = new URLSearchParams(location.search);
     const chapterN = qsp.get('chapter');
@@ -232,11 +237,10 @@ export class Game implements Simulation, GameCtx {
     return e;
   }
 
-  setQuality(name: QualityName): void {
-    this.gfx.setQuality(name);
-    this.post.build(QUALITY[name]);
+  setQuality(name: PresetName): void {
+    this.gfx.setPreset(name);
     this.chapter?.refreshAtmosphere?.();
-    this.vfx.density = QUALITY[name].particles;
+    this.vfx.density = this.gfx.settings.particles;
   }
 
   private onResize(): void {
@@ -406,7 +410,7 @@ export class Game implements Simulation, GameCtx {
   respawn(): void {
     this.player.respawn(this.lastCheckpoint.pos, this.lastCheckpoint.yaw);
     this.camera.reset(this.lastCheckpoint.yaw, this.lastCheckpoint.pos);
-    this.post.u.hurt.value = 0;
+    this.gfx.look.hurt.value = 0;
   }
 
   frame(alpha: number, realDt: number): void {
@@ -428,7 +432,7 @@ export class Game implements Simulation, GameCtx {
       c.updateProjectionMatrix();
     }
     // post uniforms: transient effects decay
-    const u = this.post.u;
+    const u = this.gfx.look as any;
     u.flash.value = Math.max(0, u.flash.value - realDt * 3.5);
     u.hurt.value = Math.max(0, u.hurt.value - realDt * 1.1);
     const toCam = this.camera.camera.position.distanceTo(this.player.pos);
@@ -449,7 +453,7 @@ export class Game implements Simulation, GameCtx {
     const fighting = this.enemies.some((e) => e.alive && ((e as any).noticed || (e as any).state === 'stalk'));
     this.sfx.score.intensity = bossAlive ? 2 : fighting ? 1 : 0;
     for (const f of this.beforeRender) f(realDt);
-    this.post.render();
+    this.gfx.render(realDt);
   }
 
   start(): void {

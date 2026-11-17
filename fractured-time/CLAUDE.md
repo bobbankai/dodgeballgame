@@ -33,7 +33,8 @@ A chapter is complete only when objectives, interactions, combat, cinematics, tr
 
 ## Run
 - `npm install` then `npm run dev` (http://localhost:5180). `npm run build` = typecheck + production bundle. `npx tsc --noEmit` typechecks.
-- Dev URL params: `?quality=ultra|high|balanced|performance`, `?webgl` (force the WebGL2 backend), `probe.html` and `bisect.html` (renderer test pages).
+- Dev URL params: `?quality=ultra|high|medium|low|performance`, `?gfx.<setting>=<value>` (any graphics setting, e.g. `?gfx.ao=off&gfx.fogSteps=0`),
+  `?perf` (performance overlay; F3 toggles it, F4 / Shift+F4 step through the debug views), `?webgl` (force the WebGL2 backend).
   Test switches: `?nostorm` (fog colour instead of the procedural storm sky), `?nowin` (plain glass instead of interior-mapped panes),
   `?norain`, `?touch` (the phone controls on a desktop browser). Phone check: `node tools/touch_check.cjs http://localhost:5180 <outDir>`
   (emulated phone, multi-touch: stick, sprint, look, buttons, abilities, prompt, portrait, title menu). In `?test` mode a chapter's
@@ -68,11 +69,22 @@ A chapter is complete only when objectives, interactions, combat, cinematics, tr
   Lightmaps are linear Radiance HDR: a float image tagged Linear Rec.709 is written to .hdr through the sRGB curve, so anything
   saving float data from Blender tags the image Non-Color first (every map was lifted this way once; see PROJECT_PROGRESS bug 49).
   Exposure is eye adaptation from the probes at Ethan (`ChapterRuntime.adapt`), not a per-place value: light a dark place in the bake. Scanned sets ship their AO
-  map (`tools/assets/ship_ao.py` regenerates `src/rendering/aosets.ts`). City pieces: `citykit.py`, facade sets `facades.py`.
+  map (`tools/assets/ship_ao.py` regenerates `src/graphics/materials/aosets.ts`). City pieces: `citykit.py`, facade sets `facades.py`.
 - Voices: `python3 tools/voices/record.py` records every `['WHO', 'line']` in `src/chapters/*.ts` with Kokoro (model in vendor/kokoro);
   unchanged lines are skipped. Sound recipes are checked offline in `audio.html` (peak / RMS / length per recipe).
 - Chapters: `?chapter=N&at=<beat>` (ch1: wake, corridor, checkpoint, lab, servers, engine, lift, surface; ch2: rooftops, street, cafe,
   gate, plaza, pursuit, marshal); `&fast` in tests shortens dialogue. No params = title screen. `lab.html?char=|path=&view=&echo`.
+
+## Renderer (`src/graphics/`, see `docs/RENDERER.md`)
+- `GraphicsSystem` (core/) owns the device, settings (5 presets + independent settings, `config/presets.ts`), the frame graph
+  (`postprocessing/FrameGraph.ts`: scene MRT -> AO/GI -> SSR -> fog -> DOF -> TAA -> bloom -> exposure -> grade -> tone map -> AA),
+  eye adaptation (GPU histogram on WebGPU, `exposure.ts`; the probe meter `meter()` on WebGL2), place grades (`grade.ts`), gameplay
+  looks (`gfx.look.flash/hurt/fade/...`). Tone mapping happens once, in the graph (our AgX); the renderer only encodes sRGB.
+- Materials: `materials/` rebuilds every recipe (levels: `levelMaterial` + `finishStatic`; characters: `dressCharacter`); shared TSL in
+  `shaders/`; procedural presets in `materials/library.ts`. Atmosphere: `atmosphere/fog.ts` (light-volume fog), `sky.ts`, `weather.ts`.
+- `gfx.cut()` snaps the exposure (camera cuts, teleports); `gfx.settle(n)` renders n frames for stills. In `?test` mode one `step()`
+  renders one frame: settle before judging exposure.
+- Still in `src/rendering/` (to be rebuilt): `rain.ts`, `vfx.ts`, vendored `ocean/`.
 
 ## Engine facts verified against three 0.187 (do not rely on memory of older versions)
 - Import renderer/materials from `three/webgpu`, node builders from `three/tsl`, effect nodes from `three/addons/tsl/display/*`

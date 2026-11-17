@@ -3,7 +3,6 @@ import '@/ui/menu.css';
 import '@/ui/touch.css';
 import { titleScreen, loadingScreen, settings } from '@/ui/menu';
 import { Game } from '@/game';
-import type { QualityName } from '@/rendering/quality';
 import { ScriptedControls } from '@/player/controls';
 import { timeScale } from '@/core/loop';
 
@@ -28,7 +27,7 @@ async function boot() {
   const canvas = document.createElement('canvas');
   canvas.id = 'game';
   document.body.appendChild(canvas);
-  const q = (qs.get('quality') as QualityName | null) ?? (test ? undefined : st.quality);
+  const q = qs.get('quality') ?? (test ? undefined : st.quality);
   const game = await Game.create(canvas, { quality: q, test, onProgress: ld?.progress });
   if (!test) game.applySettings(st);
   window.__game = game;

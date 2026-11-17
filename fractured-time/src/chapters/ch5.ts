@@ -36,7 +36,7 @@ export async function run(g: Game, ch: ChapterRuntime, at: string | null = null)
   // a fall into the void: back to the last checkpoint, a little poorer for it
   for (const f of ['n1_fall', 'n2_fall', 'n3_fall']) {
     ch.repeat(f, async () => {
-      g.post.u.hurt.value = 1;
+      g.gfx.look.hurt.value = 1;
       await g.wait(0.2);
       g.respawn();
     });
@@ -182,7 +182,7 @@ export async function run(g: Game, ch: ChapterRuntime, at: string | null = null)
           // Temporal Ascension: he lets the Engine into himself
           await dir.cut({ pos: boss.pos.clone().add(V(2.2, 1.0, 2.6)), target: boss.pos.clone().setY(boss.pos.y + 1.7), fov: 34 });
           await ch.say([['DIRECTOR VOSS', 'You think in one timeline at a time. That is why you lose.']]);
-          g.post.u.flash.value = 0.6;
+          g.gfx.look.flash.value = 0.6;
           g.camera.addShake(0.6);
           const low = ch.cameraKey('n3_low', 40);
           await dir.rail([low, { pos: low.pos.clone().add(V(2, 0.6, 0)), target: low.target, fov: 36 }], 3.0);
@@ -193,7 +193,7 @@ export async function run(g: Game, ch: ChapterRuntime, at: string | null = null)
           // Reality Collapse: the heart itself stops holding a single timeline
           await dir.cut({ pos: boss.pos.clone().add(V(-2.6, 2.2, 3.0)), target: boss.pos.clone().setY(boss.pos.y + 1.4), fov: 38 });
           await ch.say([['DIRECTOR VOSS', 'Then let none of it hold. If HELIX cannot have this future, nobody will.']]);
-          g.post.u.fracture.value = 1;
+          g.gfx.look.fracture.value = 1;
           g.camera.addShake(0.9);
           await ch.say([['THE ECHO', 'Ethan! The platform is coming apart between timelines. Everything you have, now.']]);
           flipping = 5;
@@ -240,7 +240,7 @@ export async function run(g: Game, ch: ChapterRuntime, at: string | null = null)
 
 /** Ending A: the original timeline. The fracture closes; the night before the Incident comes back; Imani does not know him. */
 async function endingA(g: Game, ch: ChapterRuntime, dir: Director): Promise<void> {
-  g.post.u.flash.value = 1.0;
+  g.gfx.look.flash.value = 1.0;
   g.sfx.play('shift', { pitch: 0.6 });
   await ch.say([
     ['ETHAN', 'Close it. All of it.'],
@@ -271,7 +271,7 @@ async function endingA(g: Game, ch: ChapterRuntime, dir: Director): Promise<void
 
 /** Ending B: the many histories. Each timeline is sealed into its own world; the district's rain eases; the Echo walks home. */
 async function endingB(g: Game, ch: ChapterRuntime, dir: Director): Promise<void> {
-  g.post.u.flash.value = 1.0;
+  g.gfx.look.flash.value = 1.0;
   g.sfx.play('shift', { pitch: 0.8 });
   await ch.say([
     ['ETHAN', 'Let them stand. All of them. Seal each one where it is.'],

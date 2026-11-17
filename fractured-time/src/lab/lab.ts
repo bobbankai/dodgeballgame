@@ -3,10 +3,8 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { HDRLoader } from 'three/addons/loaders/HDRLoader.js';
 import { RectAreaLightTexturesLib } from 'three/addons/lights/RectAreaLightTexturesLib.js';
 import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
-import { createGfx } from '@/rendering/gfx';
-import { PostFX } from '@/rendering/postfx';
-import { QUALITY, type QualityName } from '@/rendering/quality';
-import { dressCharacter, assetUrl, texturesReady } from '@/rendering/charmat';
+import { GraphicsSystem, makeGrade } from '@/graphics';
+import { dressCharacter, assetUrl, resources, setMaterialQuality } from '@/graphics';
 import { ClipLibrary } from '@/animation/library';
 
 /**
@@ -19,10 +17,10 @@ const out: Record<string, unknown> = {};
 
 async function main() {
   const qs = new URLSearchParams(location.search);
-  const q = (qs.get('quality') as QualityName) || 'high';
+  const q = qs.get('quality') || 'high';
   const canvas = document.getElementById('game') as HTMLCanvasElement;
   canvas.style.cssText = 'position:fixed;inset:0;width:100%;height:100%';
-  const gfx = await createGfx(canvas, q);
+  const gfx = await GraphicsSystem.create(canvas, { preset: q, test: true });
   out.backend = gfx.backend;
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0x0d0e10);
@@ -30,8 +28,7 @@ async function main() {
   hdr.mapping = THREE.EquirectangularReflectionMapping;
   scene.environment = gfx.pmrem.fromEquirectangular(hdr).texture;
   scene.environmentIntensity = Number(qs.get('env') || 0.12); // the Cycles review has a dark backdrop, not an HDRI: keep the ambient low
-  gfx.renderer.toneMapping = THREE.AgXToneMapping;
-  gfx.renderer.toneMappingExposure = 1.0;
+  gfx.exposure.lock(1.0); // the review renders at a fixed exposure
 
   const floor = new THREE.Mesh(new THREE.CircleGeometry(6, 64), new THREE.MeshStandardNodeMaterial({ color: 0x141518, roughness: 0.85 }));
   floor.rotation.x = -Math.PI / 2;
@@ -69,13 +66,13 @@ async function main() {
   const loader = new GLTFLoader();
   loader.setMeshoptDecoder(MeshoptDecoder);
   const name = qs.get('char') || 'ethan';
-  (await import('@/rendering/charmat')).setHairShellCap({ ultra: 30, high: 22, balanced: 16, performance: 12 }[q] ?? 22);
+  setMaterialQuality({ hairShells: gfx.settings.hairShells, pomSteps: gfx.settings.pomSteps });
   const t0 = performance.now();
   const gltf = await loader.loadAsync(assetUrl(qs.get('path') || `characters/${name}/${name}.glb`)); // ?path= any asset (bosses, props)
   out.loadMs = Math.round(performance.now() - t0);
   const root = gltf.scene;
   out.materials = dressCharacter(root, { hide: (qs.get('hide') || '').split(',').filter(Boolean) });
-  await texturesReady();
+  await resources.ready();
   if (qs.has('echo')) (await import('@/characters/echo')).echoify(root); // ?echo: the Echo's treatment on this model
   let tris = 0;
   root.traverse((o) => { const m = o as THREE.Mesh; if (m.isMesh) tris += (m.geometry.index ? m.geometry.index.count : m.geometry.attributes.position.count) / 3; });
@@ -144,15 +141,19 @@ async function main() {
   else if (view === 'front') shot(new THREE.Vector3(0, top * 0.5, 0), top * 1.75, 0, 2, lensFov(50));
   else shot(new THREE.Vector3(0, top * 0.52, 0), top * 1.6, -32, 6, lensFov(50));
 
-  const qq = { ...QUALITY[q], dof: false } as any;
-  const post = new PostFX(gfx, scene, cam, qq);
-  post.u.vignette.value = 0.18;
-  post.u.grain.value = 0.12;
-  post.u.contrast.value = Number(qs.get('contrast') || 1.1); // Cycles review uses AgX 'Medium High Contrast'
-  out.features = post.describe();
-  post.settle(4);
+  gfx.set({ depthOfField: false });
+  gfx.attach(scene, cam);
+  (gfx.look as any).vignette.value = 0.18;
+  (gfx.look as any).grain.value = 0.12;
+  // the Cycles review uses AgX 'Medium High Contrast': in Blender's OCIO config that look is a log-space contrast of 1.2
+  // around mid grey before the AgX curve, which is exactly the grader's own contrast (and AgX's base look)
+  const c = Number(qs.get('contrast') || 1.3);
+  gfx.grader.to(makeGrade({ contrast: c, look: { slope: [1, 1, 1], offset: [0, 0, 0], power: [1, 1, 1], saturation: 1.1 } }));
+  gfx.grader.snap();
+  out.features = gfx.describe();
+  gfx.settle(4);
   await new Promise((r) => setTimeout(r, 1200)); // textures finish decoding
-  post.settle(Number(qs.get('frames') || 24));
+  gfx.settle(Number(qs.get('frames') || 24));
   out.rendered = true;
 }
 main().catch((e) => { out.error = String((e && (e.stack || e)) || e); console.error(e); });

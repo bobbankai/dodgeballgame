@@ -75,6 +75,7 @@ export class Director {
     this.shot.target.copy(k.target);
     this.shot.fov = k.fov ?? this.shot.fov;
     this.g.camera.cinematic(this.shot, blend);
+    if (blend === 0) this.g.gfx.cut(); // each shot exposed for itself, as a film cut
   }
 
   /** Move the camera through `keys` over `seconds` (ease in/out over the whole move). Targets interpolate on their own path. */

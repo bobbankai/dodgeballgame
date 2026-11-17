@@ -3,7 +3,7 @@ import { Actor, type HitInfo, type HitOutcome, type Team } from '@/gameplay/acto
 import type { GameCtx } from '@/gameplay/ctx';
 import type { CharacterInstance } from '@/assets/loader';
 import { loadGLTF } from '@/assets/loader';
-import { dressCharacter, texturesReady } from '@/rendering/charmat';
+import { dressCharacter, resources } from '@/graphics';
 import { timeScale } from '@/core/loop';
 import { G } from '@/physics/physics';
 import { vec3, float, sin, time } from 'three/tsl';
@@ -86,7 +86,7 @@ export class SentinelBoss extends Actor {
     const g = await loadGLTF('bosses/sentinel/sentinel.glb');
     const root = g.scene.clone(true) as THREE.Group;
     dressCharacter(root);
-    await texturesReady();
+    await resources.ready();
     const inst: CharacterInstance = { root, clips: new Map(), bones: new Map(), meta: {} };
     const b = new SentinelBoss(ctx, inst);
     root.traverse((o) => {

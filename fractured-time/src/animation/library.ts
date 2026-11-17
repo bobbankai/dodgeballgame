@@ -1,6 +1,6 @@
 import * as THREE from 'three/webgpu';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { assetUrl } from '@/rendering/charmat';
+import { assetUrl } from '@/graphics';
 
 /**
  * The shared humanoid clip library (blender/animations/humanoid_anims.py): every human in the game uses the MPFB game_engine rig,

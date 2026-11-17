@@ -85,7 +85,7 @@ export async function run(g: Game, ch: ChapterRuntime, at: string | null = null)
     await ch.say([['IMANI', 'That pedestal is drawing power in both timelines at once. Whatever it records, it records across them.']]);
     await ch.interact('a3_recorder');
     await dir.begin();
-    g.post.u.flash.value = 0.5;
+    g.gfx.look.flash.value = 0.5;
     g.sfx.play('echo_on');
     await ch.say([
       ['ETHAN', 'I can feel it. A few seconds behind me, still moving.'],
@@ -182,7 +182,7 @@ export async function run(g: Game, ch: ChapterRuntime, at: string | null = null)
         await ch.say([['THE ECHO', 'You hesitate. I never did.']]);
         g.temporal.timelineState = 1;
         ch.setTimeline('b');
-        g.post.u.flash.value = 0.6;
+        g.gfx.look.flash.value = 0.6;
         g.camera.addShake(0.7);
         await g.wait(0.8);
         await ch.say([['IMANI', 'The whole room just slipped into the other timeline. It is his ground now. Make it yours.']]);

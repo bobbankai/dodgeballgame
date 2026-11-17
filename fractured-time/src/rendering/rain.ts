@@ -1,6 +1,6 @@
 import * as THREE from 'three/webgpu';
 import * as TSL from 'three/tsl';
-import type { VolumetricFog } from './volumetrics';
+import type { VolumetricFog } from '@/graphics/atmosphere/fog';
 
 const T = TSL as any;
 const {

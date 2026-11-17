@@ -2,12 +2,12 @@ import * as THREE from 'three/webgpu';
 import * as TSL from 'three/tsl';
 
 /**
- * Short coily hair as shells (fur-shell rendering): the exported scalp patch is stacked `n` times in ONE skinned geometry, each copy
- * tagged with its layer (0 = scalp .. 1 = hair tips) and pushed out along the skinned normal by layer * hair length (metres,
- * per vertex in COLOR_0.r: long on top, short in the fade). Each layer cuts strands out of a 3D cellular pattern sampled at the rest-pose scalp
- * position, so a strand is the same cell through every layer; the lookup point circles around the strand axis as the layer rises,
- * which twists every strand into a coil. Roots sit in the volume's self-shadow, tips catch the light.
- * Positions must be float metres (gltfpack -vpf), since the displacement and the pattern are in metres.
+ * Short coily hair as shells (fur-shell rendering). The exported scalp patch is stacked `n` times in ONE skinned geometry,
+ * each copy tagged with its layer (0 scalp .. 1 tips) and pushed out along the skinned normal by layer * hair length (m,
+ * per vertex in COLOR_0.r: long on top, short in the fade). Each layer cuts strands out of a 3D cellular pattern sampled at
+ * the rest-pose scalp position, so a strand is the same cell through every layer; the lookup point circles the strand axis
+ * as the layer rises, which twists every strand into a coil. Roots sit in the volume's self-shadow, tips catch the light.
+ * Positions must be float metres (gltfpack -vpf): the displacement and the pattern are in metres.
  */
 const T = TSL as any;
 const { attribute, positionLocal, normalLocal, positionGeometry, normalGeometry, vec3, float, mix, smoothstep, cos, sin, cross, normalize,

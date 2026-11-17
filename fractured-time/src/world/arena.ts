@@ -1,8 +1,7 @@
 import * as THREE from 'three/webgpu';
 import type { Game, LevelBuild } from '@/game';
-import { buildEnvironment } from '@/rendering/gfx';
-import { surface, emissive } from '@/rendering/envmat';
-import { QUALITY } from '@/rendering/quality';
+import { studioEnvironment } from '@/graphics/reflections/studio';
+import { surface, emissivePanel as emissive, MATERIAL_PRESETS as P } from '@/graphics';
 
 const V = (x: number, y: number, z: number) => new THREE.Vector3(x, y, z);
 
@@ -32,17 +31,17 @@ function block(g: Game, b: Block): THREE.Mesh {
  */
 export async function buildArena(g: Game): Promise<LevelBuild> {
   const { scene, gfx } = g;
-  const q = QUALITY[gfx.quality.name];
+  const shadowSize = gfx.settings.dynamicShadows || 1024;
   scene.background = new THREE.Color(0x070b10);
   scene.fog = new THREE.FogExp2(0x0a1016, 0.018);
-  scene.environment = buildEnvironment(gfx, { top: 0x1b2a38, bottom: 0x06090c, panels: [0x7fd0ff, 0xffa060, 0xdfeeff, 0x7fd0ff, 0xffa060] });
+  scene.environment = studioEnvironment(gfx.pmrem, { top: 0x1b2a38, bottom: 0x06090c, panels: [0x7fd0ff, 0xffa060, 0xdfeeff, 0x7fd0ff, 0xffa060] });
   scene.environmentIntensity = 0.32;
 
-  const floor = surface({ base: 0x2c3238, rough: 0.5, metal: 0.55, panel: 1.5, grime: 0.8, scratch: 0.7 });
-  const wall = surface({ base: 0x59636d, rough: 0.74, metal: 0.2, panel: 1.8, grime: 0.9, bump: 0.8 });
-  const trim = surface({ base: 0x1c2024, rough: 0.45, metal: 0.8, panel: 0.9, grime: 0.6, scratch: 0.8 });
-  const beam = surface({ base: 0x353b42, rough: 0.55, metal: 0.65, panel: 2.4, grime: 0.7 });
-  const hazard = surface({ base: 0xc7861e, rough: 0.6, metal: 0.3, panel: 0.6, grime: 0.8 });
+  const floor = surface({ ...P.paintedMetal, base: 0x2c3238, rough: 0.5, metal: 0.55, panel: 1.5, grime: 0.8, scratch: 0.7 });
+  const wall = surface({ ...P.concrete, base: 0x59636d, rough: 0.74, metal: 0.2, panel: 1.8, grime: 0.9, bump: 0.8 });
+  const trim = surface({ ...P.steel, base: 0x1c2024, rough: 0.45, metal: 0.8, panel: 0.9, grime: 0.6, scratch: 0.8 });
+  const beam = surface({ ...P.steel, base: 0x353b42, rough: 0.55, metal: 0.65, panel: 2.4, grime: 0.7 });
+  const hazard = surface({ ...P.hazard });
 
   const W = 30, H = 10.5;
   // floor + collision
@@ -89,7 +88,7 @@ export async function buildArena(g: Game): Promise<LevelBuild> {
   const key = new THREE.SpotLight(0xe6efff, 900, 0, 0.95, 0.75, 2);
   key.position.set(0, H - 1, 0); key.target.position.set(0, 0, 0);
   key.castShadow = true;
-  key.shadow.mapSize.set(q.shadowMap, q.shadowMap);
+  key.shadow.mapSize.set(shadowSize, shadowSize);
   key.shadow.bias = -0.0003; key.shadow.normalBias = 0.03; key.shadow.radius = 3;
   scene.add(key, key.target);
   const fills: Array<[number, number, number, number, number]> = [

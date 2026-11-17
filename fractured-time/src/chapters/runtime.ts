@@ -9,14 +9,14 @@ const ADAPT_REF = 0.3;
 const ADAPT_K = 0.4;
 const ADAPT_MIN = 0.5;
 const ADAPT_MAX = 6;
-import { setWeather, weather } from '@/rendering/wet';
+import { setWeather, weather } from '@/graphics';
 import { Sea, SEA_LAYER } from '@/world/sea';
 import { plantSection } from '@/world/foliage';
-import type { GradeName } from '@/rendering/postfx';
-import { loadVolume, INTERIOR_FOG, EXTERIOR_FOG, type LightVolume, type FogSettings } from '@/rendering/volumetrics';
+import type { GradeName } from '@/graphics';
+import { loadVolume, INTERIOR_FOG, EXTERIOR_FOG, type LightVolume, type FogSettings } from '@/graphics/atmosphere/fog';
 import { HDRLoader } from 'three/addons/loaders/HDRLoader.js';
-import { Sky } from '@/rendering/sky';
-import { assetUrl } from '@/rendering/charmat';
+import { Sky } from '@/graphics/atmosphere/sky';
+import { assetUrl } from '@/graphics';
 import { timeScale } from '@/core/loop';
 import * as TSL from 'three/tsl';
 const TSLx = TSL as any;
@@ -194,7 +194,7 @@ export class ChapterRuntime {
         for (const c of s.lv.timeline[k].colliders) (c as any).setEnabled?.(on);
       }
     }
-    this.g.post.u.fracture.value = 1; // the shift ripple
+    this.g.gfx.look.fracture.value = 1; // the shift ripple
     this.applyVolume();
     this.refreshAtmosphere();
     this.useProbe();
@@ -205,8 +205,8 @@ export class ChapterRuntime {
     const cur = this.sections[this.current];
     if (!cur) return;
     const v = this.timeline === 'b' && cur.vol.b ? cur.vol.b : cur.vol.a;
-    this.g.post.fog.setVolume(v);
-    const fu = this.g.post.fog.u as any;
+    this.g.fog.setVolume(v);
+    const fu = this.g.fog.u as any;
     // under the storm's closed deck there is no sun to scatter (the bake's HDRI had one low in the west: a bright disc of haze)
     if (this.stormy) fu.sunCol.value.setRGB(0, 0, 0);
     // nor in the Nexus: its sky holds the Engine as a bright blob the bake took for a sun. The Engine's light is already in the
@@ -249,7 +249,7 @@ export class ChapterRuntime {
           const holder = new THREE.Group();
           holder.name = `foliage_${tl || 'shared'}`;
           lv.root.add(holder);
-          await plantSection(holder, group, this.g.post.fog);
+          await plantSection(holder, group, this.g.fog);
           if (tl === 'a' || tl === 'b') {
             lv.timeline[tl].meshes.push(holder as any);
             holder.visible = tl === this.timeline;
@@ -341,6 +341,7 @@ export class ChapterRuntime {
     p.pos.copy(pos); p.prev.copy(pos);
     (p as any).vel?.set(0, 0, 0);
     if (yaw !== undefined) p.yaw = yaw;
+    this.g.gfx.cut();
   }
 
   interact(id: string): Promise<void> {
@@ -559,14 +560,14 @@ export class ChapterRuntime {
       sky = { ...sky, data: { ...d, hdri: d.hdri_b, intensity: d.intensity_b, fog: d.fog_b, exposure: d.exposure_b, rain: d.rain_b, grade: d.grade_b } };
     }
     this.outdoors = !!sky;
-    const vf = this.g.post.volumetric;
-    this.g.post.fog.u.on.value = vf ? 1 : 0;
+    const vf = this.g.gfx.volumetric;
+    this.g.fog.u.on.value = vf ? 1 : 0;
     this.g.rain.intensity = sky && !new URLSearchParams(location.search).has('norain') ? Number(sky.data.rain ?? 1) : 0; // ?norain: test switch
     this.nexus = !!sky?.data.nexus;
     if (sky) setWeather(Number(sky.data.rain ?? 1) > 0 ? 'storm' : 'dry');
     // the place's grade
     const isEngine = /s6\.glb$/.test(this.sections[this.current]?.path ?? '');
-    this.g.post.grade(sky ? ((sky.data.grade as GradeName | undefined) ?? 'dusk_storm')
+    this.g.gfx.grade(sky ? ((sky.data.grade as GradeName | undefined) ?? 'dusk_storm')
       : this.g.chapterNumber === 3 ? (this.timeline === 'b' ? 'arcology_ruin' : 'arcology') : isEngine ? 'engine' : 'facility');
     if (!sky) {
       this.wantSky = '';
@@ -579,7 +580,7 @@ export class ChapterRuntime {
       // the arcology's ruin is open to the storeys above through its breaches: dusty, still air, so the light falling through
       // stands in the room as shafts (at the facility's clean-room density it reached the floor without lighting the air)
       const ruin = this.g.chapterNumber === 3 && this.timeline === 'b';
-      if (vf) this.g.post.fog.apply({ ...INTERIOR_FOG, baseY: box.min.y + 0.5, ...(isEngine ? { density: 0.0042 } : {}),
+      if (vf) this.g.fog.apply({ ...INTERIOR_FOG, baseY: box.min.y + 0.5, ...(isEngine ? { density: 0.0042 } : {}),
         ...(ruin ? { density: 0.011, heightFalloff: 0.02, noise: 0.7 } : {}), ...this.fogOverride() });
       this.captureFogBase();
       this.g.sfx.ambience('amb_facility', this.current === this.sections.findIndex((x) => /s6\.glb$/.test(x.path)) ? 'hall' : 'interior');
@@ -622,13 +623,13 @@ export class ChapterRuntime {
       // the Nexus is a void lit by the Engine itself: its light volumes carry bounce now, and at the marker's density the air
       // whited out every view toward the Engine (forward scattering); the void reads thinner so the platform and the ring hold
       const nexusThin = sky.data.nexus ? 0.55 : 1;
-      this.g.post.fog.apply({ ...EXTERIOR_FOG, density: f[3] * 1.1 * nexusThin, baseY: box.min.y + 0.3,
+      this.g.fog.apply({ ...EXTERIOR_FOG, density: f[3] * 1.1 * nexusThin, baseY: box.min.y + 0.3,
         fallback: new THREE.Vector4(f[0], f[1], f[2], 1), ...this.fogOverride() });
     }
     this.captureFogBase();
   }
 
-  private captureFogBase(): void { this.fogBase.copy(this.g.post.fog.u.fallback.value as THREE.Vector4); }
+  private captureFogBase(): void { this.fogBase.copy(this.g.fog.u.fallback.value as THREE.Vector4); }
 
   /** After a quality change (volumetric fog on/off). */
   refreshAtmosphere(): void {
@@ -652,7 +653,7 @@ export class ChapterRuntime {
     for (const r of this.litRoots) if (!r.parent) this.litRoots.delete(r);
     const extra = [...this.litRoots].map((root) => ({ root, pos: root.position }));
     const camPos = this.g.camera.camera.position;
-    const fb = (this.g.post.fog.u as any).fallback.value as THREE.Vector4;
+    const fb = (this.g.fog.u as any).fallback.value as THREE.Vector4;
     this.airColor.setRGB(fb.x, fb.y, fb.z);
     for (const a of [this.g.player, ...this.g.enemies, ...this.g.echoes, ...extra]) {
       const root = (a as any).root as THREE.Object3D | undefined;
@@ -660,7 +661,7 @@ export class ChapterRuntime {
       let cl = this.charLights.get(root);
       if (!cl) { cl = new CharacterLight(root, shared); this.charLights.set(root, cl); }
       cl.update(this.probes, at.copy(a.pos).setY(a.pos.y + 1.1), dt, this.outdoors ? this.flashPulse : 0);
-      cl.rig(at, camPos, this.exposure, this.outdoors ? this.airColor : null);
+      cl.rig(at, camPos, this.exposure, this.outdoors ? this.airColor : null); // the probe meter: stable, and what the rig was tuned with
       cl.apply();
     }
   }
@@ -691,10 +692,10 @@ export class ChapterRuntime {
       this.thunderAt -= dt;
       if (this.thunderAt <= 0) {
         this.thunderAt = 8 + Math.random() * 14;
-        this.g.post.u.flash.value = Math.max(this.g.post.u.flash.value, 0.08 + Math.random() * 0.08);
+        this.g.gfx.look.flash.value = Math.max(this.g.gfx.look.flash.value, 0.08 + Math.random() * 0.08);
         this.lightning = 1;
         // in the Nexus the sky does not thunder: reality cracks (the shift's sound, low)
-        if (this.nexus) { this.g.sfx.play('shift', { volume: 0.5, pitch: 0.5 }); this.g.post.u.fracture.value = Math.max(this.g.post.u.fracture.value, 0.35); }
+        if (this.nexus) { this.g.sfx.play('shift', { volume: 0.5, pitch: 0.5 }); this.g.gfx.look.fracture.value = Math.max(this.g.gfx.look.fracture.value, 0.35); }
         else void this.g.wait(0.4 + Math.random() * 1.2).then(() => this.g.sfx.play('thunder', { volume: 0.9 }));
       }
     }
@@ -704,11 +705,11 @@ export class ChapterRuntime {
     this.flashPulse = pulse;
     const sc = this.g.scene as any;
     sc.backgroundIntensity = this.skyBase * (1 + 9 * pulse);
-    const fb = this.g.post.fog.u.fallback.value as THREE.Vector4;
+    const fb = this.g.fog.u.fallback.value as THREE.Vector4;
     fb.set(this.fogBase.x * (1 + 14 * pulse), this.fogBase.y * (1 + 14 * pulse), this.fogBase.z * (1 + 15 * pulse), fb.w);
     this.adapt(dt);
-    const r = this.g.gfx.renderer;
-    r.toneMappingExposure += (this.exposure - r.toneMappingExposure) * Math.min(1, dt * 1.2);
+    // the probe meter is the exposure on devices without the GPU histogram (and its fallback everywhere)
+    this.g.gfx.exposure.meter(this.exposure);
     // characters soak through in a couple of minutes of rain and dry far more slowly inside
     const soakTo = this.outdoors ? weather.rain.value : 0;
     const sk = weather.soak as any;

@@ -221,7 +221,7 @@ export class Temporal {
   // --- look ----------------------------------------------------------------------------------------------------
 
   updateLook(dt: number): void {
-    const u = this.g.post.u;
+    const u = this.g.gfx.look;
     const k = (cur: number, to: number, rate: number) => cur + (to - cur) * Math.min(1, dt * rate);
     u.slow.value = k(u.slow.value, this.slowActive ? 1 : this.g.player.openingActive ? 0.75 : 0, 6);
     u.rewind.value = k(u.rewind.value, this.rewinding ? 1 : 0, this.rewinding ? 10 : 5);

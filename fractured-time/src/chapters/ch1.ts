@@ -198,7 +198,7 @@ export async function chapter1(g: Game, ch: ChapterRuntime, at: string | null = 
     ]),
   ]);
   const ek = ch.cameraKey('echo_cam', 26);
-  const flash = () => { g.post.u.flash.value = 0.9; g.camera.addShake(0.15); };
+  const flash = () => { g.gfx.look.flash.value = 0.9; g.camera.addShake(0.15); };
   flash();
   if (echo) echo.root.visible = true;
   dir.cut(ek);

@@ -505,7 +505,7 @@ export class Player extends Actor {
       return 'blocked';
     }
     this.takeDamage(hit.damage);
-    this.ctx.post.u.hurt.value = Math.min(1, this.ctx.post.u.hurt.value + 0.55);
+    this.ctx.gfx.look.hurt.value = Math.min(1, this.ctx.gfx.look.hurt.value + 0.55);
     if (!this.alive) { this.die(hit); return 'killed'; }
     const heavy = hit.stagger >= 1.5 ? 'stagger' : hit.heavy ? 'hit_heavy' : 'hit_light';
     this.enterHurt(heavy, hit, hit.heavy ? 1 : 0.5);
@@ -546,7 +546,7 @@ export class Player extends Actor {
     this.energy = Math.min(100, this.energy + 12);
     this.guard = Math.min(100, this.guard + 25);
     hit.attacker.staggerFor(1.3 + hit.stagger * 0.3);
-    this.ctx.post.u.flash.value = Math.max(this.ctx.post.u.flash.value, 0.35);
+    this.ctx.gfx.look.flash.value = Math.max(this.ctx.gfx.look.flash.value, 0.35);
   }
 
   staggerFor(seconds: number): void {
