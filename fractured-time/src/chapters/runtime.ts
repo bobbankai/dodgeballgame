@@ -1,8 +1,9 @@
 import * as THREE from 'three/webgpu';
 import type { Game } from '@/game';
-import { loadLevel, captureProbe, type Marker, type LoadedLevel } from '@/world/level';
-import { LightPool } from '@/world/lightpool';
-import { ProbeField, CharacterLight } from '@/world/probes';
+import { loadLevel, type Marker, type LoadedLevel } from '@/world/level';
+import { captureProbe } from '@/graphics/reflections/probes';
+import { LightPool } from '@/graphics/lighting/lightPool';
+import { ProbeField, CharacterLight } from '@/graphics/lighting/probes';
 
 /** eye adaptation (`ChapterRuntime.adapt`): the light level that shows at exposure 1, how much of a change the eye takes up, limits */
 const ADAPT_REF = 0.3;
