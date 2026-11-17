@@ -103,7 +103,8 @@ export function windowMaterial(r: Recipe): THREE.MeshStandardNodeMaterial {
     const on = step(h(8), float(lit));
     const lampCol = mix(V3(st.warm), V3(st.cool), step(h(9), float(st.coolChance)));
     const lamp = lampCol.mul(st.lamp).mul(on).mul(h(10).mul(0.6).add(0.4)).mul(smoothstep(-0.2, 1.3, hit.y).mul(0.6).add(0.4));
-    const room = col.mul(mix(vec3(day), lamp, float(night))).toVar();
+    // unlit rooms at night still catch a little of the street's and the sky's glow through the glass
+    const room = col.mul(mix(vec3(day), lamp.add(vec3(0.018, 0.017, 0.016)), float(night))).toVar();
     // dressing a few cm behind the glass
     const zd = float(0.08);
     const pd = f.add(d.xy.mul(zd.div(d.z)));

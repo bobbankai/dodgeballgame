@@ -60,7 +60,7 @@ export const GRADES = {
     black: 0.025, blackTint: [1.25, 1.0, 0.8], look: look(1.42, 1.15) }),
   // the storm at nightfall: teal-black shadows that keep their detail, warm practical highlights, restrained saturation
   dusk_storm: makeGrade({ temperature: 6300, slope: [1.2, 1.15, 1.08], saturation: 0.92, contrast: 1.08, shadows: [0.3, 0.5, 0.75],
-    highlights: [0.62, 0.5, 0.38], split: 0.55, black: 0.04, blackTint: [1.35, 1.0, 0.6], look: look(1.42, 1.18) }),
+    highlights: [0.62, 0.5, 0.38], split: 0.55, black: 0.022, blackTint: [1.35, 1.0, 0.6], look: look(1.42, 1.18) }),
   // the arcology in 2089: high-key, cool glass and steel
   arcology: makeGrade({ temperature: 6200, slope: [0.99, 1.0, 1.02], saturation: 0.93, contrast: 1.03, shadows: [0.44, 0.5, 0.58], split: 0.15,
     black: 0.012, blackTint: [1.1, 1.0, 0.9], look: look(1.3, 1.05, -0.008) }),
