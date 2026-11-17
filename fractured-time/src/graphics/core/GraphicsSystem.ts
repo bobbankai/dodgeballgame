@@ -11,6 +11,7 @@ import { Grader, type GradeName } from '../postprocessing/grade';
 import { createLook, type LookUniforms } from '../postprocessing/look';
 import { PerfOverlay } from '../debugging/overlay';
 import { DynamicShadows, setActiveShadows } from '../lighting/dynamicShadows';
+import { CapsuleShadows, setActiveCapsules } from '../lighting/capsuleShadows';
 
 /**
  * The renderer as the game sees it. Owns the device, the settings, the frame graph and everything per frame (eye adaptation,
@@ -35,6 +36,8 @@ export class GraphicsSystem {
   debugView: DebugView = 'final';
   /** shadows of moving things on the baked world (null: off in this preset) */
   shadows: DynamicShadows | null = null;
+  /** soft capsule occlusion under characters (null: off in this preset) */
+  capsules: CapsuleShadows | null = null;
   /** the dominant light for screen-space effects (contact shadows): follows the dynamic shadows' aim; never in the scene */
   readonly mainLight = new THREE.DirectionalLight(0xffffff, 0);
   private overlay: PerfOverlay;
@@ -131,7 +134,7 @@ export class GraphicsSystem {
     const changed = (Object.keys(next) as (keyof GraphicsSettings)[]).filter((k) => next[k] !== prev[k]);
     if (!this.test) saveSettings(next, this.presetBase);
     if (changed.includes('anisotropy')) resources.setAnisotropy(next.anisotropy);
-    if (changed.includes('dynamicShadows')) this.setupShadows();
+    if (changed.includes('dynamicShadows') || changed.includes('capsuleShadows')) this.setupShadows();
     this.resize();
     this.dirty = true;
     for (const f of this.listeners) f(next, changed);
@@ -147,6 +150,9 @@ export class GraphicsSystem {
       } else this.shadows.setSize(size);
     } else if (this.shadows) (this.shadows.u.strength as any).value = 0; // existing materials keep the node; it reads as unshadowed
     setActiveShadows(size > 0 ? this.shadows : null);
+    if (this.settings.capsuleShadows && !this.capsules) this.capsules = new CapsuleShadows();
+    if (this.capsules) (this.capsules.u.strength as any).value = this.settings.capsuleShadows ? 0.75 : 0;
+    setActiveCapsules(this.settings.capsuleShadows ? this.capsules : null);
   }
 
   /** Place grade (eased over ~2 s). */

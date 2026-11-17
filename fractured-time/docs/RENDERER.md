@@ -153,7 +153,7 @@ after it; the sRGB encode once (`RenderPipeline.outputColorTransform`).
 - [x] lightmaps + probe field + character rig + light pool moved into `lighting/`; reflection capture into `reflections/`
 - [x] dynamic-object shadows on baked surfaces (own caster pass, contact-hardening PCSS, aimed by the probe's dominant direction)
 - [x] screen-space contact shadows (r187 `SSSNode`, aimed by the dynamic shadows' dominant light, scaled by its strength)
-- [ ] capsule shadows
+- [x] capsule shadows (`lighting/capsuleShadows.ts`: five capsules per character from the skeleton, the four nearest characters)
 - [x] SSGI / GTAO / SSR stages with debug views
 - [ ] VXGI experiment (r187 `vxgi`, WebGPU only)
 - [x] reflection probes in `reflections/` (per section, per reality; studio environment for test rooms)
@@ -213,3 +213,6 @@ after it; the sRGB encode once (`RenderPipeline.outputColorTransform`).
   horizon. Reviewed: cloud structure resolves (A/B on the terrace). KTX2 measured and deferred: 2K UASTC colour 2.4 MB and
   normal 4.2 MB per map against 0.5 / 1.1 MB as JPG (19 s each to encode); it would cut GPU memory about 4x (BC7/ASTC) at
   three times the download. Revisit for phones (1K UASTC/ETC1S to ASTC) if memory shows up on real devices.
+- 2026-11-17: capsule shadows in. Reviewed in the lab from above: a soft darkening round and between Ethan's feet that the
+  frame without them lacks. Chapter 2 reviewed on the WebGL2 backend (street, windows, Ethan's readability: the storm black
+  point lowered to 0.022 so the character fill is not closed to black); dynamic shadows' WebGL row order checked.

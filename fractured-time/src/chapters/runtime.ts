@@ -672,7 +672,12 @@ export class ChapterRuntime {
     const camPos = this.g.camera.camera.position;
     const fb = (this.g.fog.u as any).fallback.value as THREE.Vector4;
     this.airColor.setRGB(fb.x, fb.y, fb.z);
-    for (const a of [this.g.player, ...this.g.enemies, ...this.g.echoes, ...extra]) {
+    const actors = [this.g.player, ...this.g.enemies, ...this.g.echoes, ...extra];
+    // capsule shadows: the characters nearest the player ground themselves softly on the baked floor
+    const pp = this.g.player.pos;
+    this.g.gfx.capsules?.update(actors.filter((a) => (a as any).root && (a as any).alive !== false)
+      .sort((x, y) => x.pos.distanceToSquared(pp) - y.pos.distanceToSquared(pp)).map((a) => (a as any).root), pp);
+    for (const a of actors) {
       const root = (a as any).root as THREE.Object3D | undefined;
       if (!root) continue;
       let cl = this.charLights.get(root);
