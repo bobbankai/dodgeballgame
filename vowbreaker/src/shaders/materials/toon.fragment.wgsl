@@ -119,7 +119,9 @@ fn main(input: FragmentInputs) -> FragmentOutputs {
             let ring = angelRing(N, V, uniforms.headUp, 0.45, 0.16, strand);
             let kk = kajiyaKay(-uniforms.headUp, L, V, (strand - 0.5) * 0.3, N, 80.0);
             let hiCol = mix(albedo, vec3f(1.0), 0.55) * uniforms.sunColor;
-            col = col + hiCol * (step(0.5, ring) * 0.55 + smoothstep(0.5, 0.7, kk) * 0.25 * lit) * uniforms.toonParams2.y;
+            // strand sheen only where hair faces up toward the light (crown, shoulders of long hair)
+            let up = clamp(dot(N, uniforms.headUp), 0.0, 1.0);
+            col = col + hiCol * (step(0.5, ring) * 0.55 + smoothstep(0.55, 0.75, kk) * 0.12 * lit * up) * uniforms.toonParams2.y;
         }
         case 3: {
             // eyes: painted, mostly unlit so they never go dead in shadow
@@ -141,13 +143,14 @@ fn main(input: FragmentInputs) -> FragmentOutputs {
             col = mix(col, albedo * uniforms.sunColor * 1.1, 0.35) + albedo * through * 0.6;
         }
         default: {
-            let spec = toonSpecular(N, L, V, 0.04, 0.01) * lit * uniforms.toonParams2.x;
-            col = col + uniforms.sunColor * spec * 0.35;
+            // cloth: only a thin sheen where the weave catches the light (big highlights read as plastic)
+            let spec = toonSpecular(N, L, V, 0.012, 0.004) * lit * uniforms.toonParams2.x;
+            col = col + uniforms.sunColor * albedo * spec * 0.6;
         }
     }
 
     // --- back rim: crisp band of rim colour on the side away from the key light --------------------
-    let rim = toonRim(N, V, -L, 0.22, 0.02, 0.7) * uniforms.toonParams.w;
+    let rim = toonRim(N, V, -L, 0.13, 0.015, 0.8) * uniforms.toonParams.w;
     col = col + uniforms.rimColor * rim * (0.6 + 0.4 * luma(albedo));
 
     // --- cursed energy lights (techniques, lanterns, the bell), stepped into bands -----------------

@@ -14,7 +14,7 @@ export interface CharacterOptions {
   palette?: number;
 }
 
-/** Heights the models were built at (Blender cast.py), used to scale animation and springs. */
+/** Heights the models were built at (Blender vbcast.py), used to scale animation and springs. */
 export const HEIGHTS: Record<string, number> = {
   itsuki: 1.74, sayo: 1.66, mikami: 1.86, sojin: 1.82, sojin_young: 1.78, ryoga: 1.77, mio: 1.26, hina: 1.1, kota: 1.2,
   acolyte: 1.76, mudhand: 1.55, umbrella: 2.35, bride: 2.2, shiragami: 3.1,

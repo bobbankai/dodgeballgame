@@ -107,4 +107,10 @@ freely in 3D relative to the opponent (lock-on).
 * `vowbreaker/src/render` the pipeline in TypeScript.
 * `vowbreaker/src/game` fighters, combat, AI, camera, input.
 * `vowbreaker/src/story` director, dialogue, the chapters.
-* `vowbreaker/tools/blender` characters, rig, animation library, stages (headless Blender).
+* `vowbreaker/tools/blender` characters, rig, animation library, stages (headless Blender), all on
+  Vowbreaker's own modelling code: `vbcore.py` (scene, vertex data, Cycles AO bake, export),
+  `vbmesh.py` (a ring-loft modeller: rotation-minimising frames, superellipse/lens/pleat profiles,
+  quad grids smoothed with Catmull-Clark, decals cast onto surfaces), `vbchar.py` (parametric anime
+  heads, polar-mesh eyes, skull-hugging hair locks, lofted clothing, hands, shoes, rig, weights),
+  `vbcast.py` (the fourteen character specs), `vbanim.py` + `anims.py` (pose library keyed with a
+  shape-preserving cubic), `stages.py`.

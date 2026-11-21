@@ -19,8 +19,8 @@ import numpy as np
 from mathutils import Matrix, Vector
 
 sys.path.insert(0, os.path.dirname(__file__))
-import lib  # noqa: E402
-import sdf  # noqa: E402
+import vbcore as core  # noqa: E402
+import vbmesh as M  # noqa: E402
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
 OUT = os.path.join(ROOT, 'public', 'assets', 'stages')
@@ -33,7 +33,7 @@ PIECES = []
 
 
 def hexc(h):
-    return lib.srgb(h)
+    return core.srgb(h)
 
 
 def finish_piece(ob, col, pattern, sway=0.0, smooth=False):
@@ -156,8 +156,7 @@ def blob(c, r, col, pattern=FOLIAGE, sway=0.6, seed=0, subdiv=2, squash=0.8, nam
 
 
 def tube_line(pts, r, col, pattern=PLAIN, sway=0.0, name='wire'):
-    ob = lib.tube(name, pts, [r] * len(pts), lib.mat('stage_tmp', '#FFFFFF'), sides=6, cap=False, subsurf=0)
-    ob.data.materials.clear()
+    ob = M.tube(pts, [r] * len(pts), n=6, cap0=None, cap1=None, samples=max(4, len(pts) * 3)).build(name)
     return finish_piece(ob, col, pattern, sway, smooth=True)
 
 
@@ -678,8 +677,8 @@ def merge_and_bake(name, chunk=60.0):
         groups.setdefault(key, []).append(ob)
     merged = []
     for k, obs in groups.items():
-        merged.append(lib.join(obs, f'{name}_{k[0]}_{k[1]}'))
-    ao = sdf.bake_ao(merged, distance=1.6, samples=20)
+        merged.append(core.join(obs, f'{name}_{k[0]}_{k[1]}'))
+    ao = core.bake_ao(merged, distance=1.6, samples=20)
     for ob in merged:
         me = ob.data
         a = ao[ob.name]
@@ -716,7 +715,7 @@ if __name__ == '__main__':
         names = list(STAGES)
     import traceback
     for n in names:
-        lib.reset()
+        core.reset()
         PIECES.clear()
         try:
             STAGES[n]()
@@ -725,8 +724,8 @@ if __name__ == '__main__':
             if '--preview' in argv:
                 out = argv[argv.index('--preview') + 1].replace('.png', f'_{n}.png')
                 for o in objs:
-                    o.data.materials.append(lib.mat('prev', '#FFFFFF', vcol=True))
-                lib.preview(out, target=(0, 0, 2), dist=34, yaw=-30, pitch=24, size=(960, 540), samples=12)
+                    o.data.materials.append(core.white_material())
+                core.preview(out, target=(0, 0, 2), dist=34, yaw=-30, pitch=24, size=(960, 540), samples=12)
         except Exception:
             traceback.print_exc()
             print('FAILED', n)

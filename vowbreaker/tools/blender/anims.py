@@ -4,13 +4,13 @@ Vowbreaker's animation library, authored on the reference rig (Itsuki) and share
   blender -b assets-raw/vowbreaker/itsuki.blend -P vowbreaker/tools/blender/anims.py -- [--export] [--sheet out.png] [--only a,b]
 
 Poses are dictionaries of bone rotations in degrees about the ARMATURE axes, applied to each bone
-relative to its parent as if at rest (lib.Poser):
+relative to its parent as if at rest (vbanim.Keyer):
   rx +  bends an upward bone forward / swings a downward bone back (arms forward = rx -)
   ry +  leans an upward bone to the character's left; lowers the LEFT arm toward the body
   rz +  turns toward the character's left (yaw); swings the LEFT arm back
   'hips_t' is the hips' offset in metres (x left, y back, z up).
-A clip is a list of (frame, pose) keys at 30 fps; between keys the spline holds extremes (no
-overshoot). Right-side channels mirror the left where a pose is built with mirror helpers.
+A clip is a list of (frame, pose) keys at 30 fps; between keys a shape-preserving cubic holds
+extremes (no overshoot). Right-side channels mirror the left where a pose is built with mirror helpers.
 The game plays these on 2s/3s (stepped) for the limited-animation look, so strong key poses matter
 more than in-betweens: anticipation, a sharp contact pose, a held recovery.
 """
@@ -22,7 +22,7 @@ import sys
 import bpy
 
 sys.path.insert(0, os.path.dirname(__file__))
-import lib  # noqa: E402
+import vbanim  # noqa: E402
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
 OUT = os.path.join(ROOT, 'public', 'assets', 'anims')
@@ -377,7 +377,7 @@ def arm_euler(b, v):
 
 
 def to_channels(keys):
-    """[(frame, pose)] -> lib channel dict {bone: {'rx': [(f, v)], ...}}."""
+    """[(frame, pose)] -> channel dict {bone: {'rx': [(f, v)], ...}} for vbanim."""
     bones = set()
     for _, p in keys:
         bones |= set(p)
@@ -399,7 +399,7 @@ def to_channels(keys):
             c['ry'].append((f, v[1]))
             c['rz'].append((f, v[2]))
         ch[b] = c
-    hips = ch.setdefault('hips', {'rx': 0, 'ry': 0, 'rz': 0})
+    hips = ch.setdefault('hips', {'rx': 0.0, 'ry': 0.0, 'rz': 0.0})
     for i, ax in enumerate(('tx', 'ty', 'tz')):
         hips[ax] = [(f, p.get('hips_t', (0, 0, 0))[i]) for f, p in keys]
     return ch
@@ -409,13 +409,13 @@ def author(arm, only=None):
     setup_hinges(arm)
     parent = {b.name: (b.parent.name if b.parent else None) for b in arm.data.bones}
     body = [b for b in BODY if b in arm.data.bones]
-    poser = lib.Poser(arm)
+    keyer = vbanim.Keyer(arm)
     meta = {}
     for name, (keys, loop, _) in clips().items():
         if only and name not in only:
             continue
         N = keys[-1][0]
-        lib.clip(poser, name, N, to_channels(keys), body, parent, loop=loop)
+        keyer.clip(name, N, to_channels(keys), body, loop=loop)
         meta[name] = {'frames': N, 'fps': 30, 'loop': loop}
     return meta
 
