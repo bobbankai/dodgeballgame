@@ -147,7 +147,10 @@ export class Character {
 
   dispose(): void {
     for (const p of this.props) p.dispose();
-    for (const m of this.meshes) m.dispose(false, false);
-    this.root.dispose(false, true);
+    for (const m of this.meshes) {
+      m.material?.dispose(false, false);
+      m.dispose(false, false);
+    }
+    this.root.dispose(false, false);
   }
 }

@@ -14,3 +14,8 @@ vfx
 patterns
 sampling
 surface
+brdf
+noise2
+ink
+transitions
+sh

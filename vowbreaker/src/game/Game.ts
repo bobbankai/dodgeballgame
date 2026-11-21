@@ -156,7 +156,10 @@ export class Game {
       this.r.post.settings.flashback = 0;
       d.flashback(false);
       d.letterbox(true);
+      console.log(`chapter ${i} start: ${CHAPTERS[i].title}`);
+      (window as unknown as { __chapter: number }).__chapter = i;
       await CHAPTERS[i].run(d);
+      console.log(`chapter ${i} end at ${d.time.toFixed(0)}s`);
       if (d.quit) {
         d.quit = false;
         await d.fade(true, 0.4);
@@ -169,6 +172,8 @@ export class Game {
     this.save.unlocked = CHAPTERS.length - 1;
     writeSave(this.save);
     d.letterbox(false);
+    console.log('story complete');
+    (window as unknown as { __storyDone: boolean }).__storyDone = true;
     this.menu.credits(() => void this.title());
   }
 

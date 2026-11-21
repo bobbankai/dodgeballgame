@@ -197,8 +197,12 @@ export class Stage {
   }
 
   dispose(): void {
-    for (const m of this.meshes) m.dispose(false, true);
-    for (const n of this.nodes) n.dispose(false, true);
+    // materials go, but never their textures: the shadow map is shared by every material
+    for (const m of this.meshes) {
+      m.material?.dispose(false, false);
+      m.dispose(false, false);
+    }
+    for (const n of this.nodes) n.dispose(false, false);
     this.meshes = [];
     this.nodes = [];
   }

@@ -399,11 +399,8 @@ export class Director {
       const ai = new AI(f.player, PROFILES.master);
       ai.difficulty = 1.5;
       f.player.power = 3;
-      this.tasks.push((dt) => {
-        if (this.fight !== f) return true;
-        ai.update(dt);
-        return false;
-      });
+      f.player.defense = 0.3;
+      f.autopilot = ai;
     });
   }
 

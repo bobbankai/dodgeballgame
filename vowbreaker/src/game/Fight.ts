@@ -65,6 +65,8 @@ export class Fight {
   private domainBusy = false;
   stats = { hits: 0, damage: 0, maxCombo: 0, sparks: 0, perfect: 0 };
   private comboRun = 0;
+  /** test autopilot: an AI drives the player's fighter instead of the keyboard */
+  autopilot: AI | null = null;
 
   constructor(private r: Renderer, readonly spec: FightSpec, private input: Input, readonly cam: CameraRig, readonly fx: Effects,
     readonly hud: HUD, private stage: Stage, private cast: Map<string, Character>) {
@@ -171,7 +173,8 @@ export class Fight {
     }
     this.time += dt;
     if (!this.domainBusy) {
-      this.playerCommand();
+      if (this.autopilot) this.autopilot.update(dt);
+      else this.playerCommand();
       for (const ai of this.ais) ai.update(dt * this.combat.slowmo);
     }
     this.combat.update(dt);

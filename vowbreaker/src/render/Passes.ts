@@ -42,7 +42,8 @@ export class ShadowPass {
 
   removeCaster(mesh: AbstractMesh): void {
     this.casters.delete(mesh);
-    const list = this.rtt.renderList!;
+    const list = this.rtt.renderList;
+    if (!list) return;
     const i = list.indexOf(mesh);
     if (i >= 0) list.splice(i, 1);
   }
@@ -98,7 +99,8 @@ export class GBufferPass {
     this.rtt.setMaterialForRendering(mesh, this.mats.depthPass(mesh, 'gbuffer', oid, look));
     mesh.onDisposeObservable.addOnce(() => {
       this.members.delete(mesh);
-      const list = this.rtt.renderList!;
+      const list = this.rtt.renderList;
+      if (!list) return;
       const i = list.indexOf(mesh);
       if (i >= 0) list.splice(i, 1);
     });
