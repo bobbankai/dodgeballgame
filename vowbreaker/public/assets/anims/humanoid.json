@@ -1,0 +1,280 @@
+{
+ "clips": {
+  "idle_fight": {
+   "frames": 48,
+   "fps": 30,
+   "loop": true
+  },
+  "idle_relaxed": {
+   "frames": 90,
+   "fps": 30,
+   "loop": true
+  },
+  "walk_fwd": {
+   "frames": 28,
+   "fps": 30,
+   "loop": true
+  },
+  "walk_back": {
+   "frames": 32,
+   "fps": 30,
+   "loop": true
+  },
+  "strafe_L": {
+   "frames": 28,
+   "fps": 30,
+   "loop": true
+  },
+  "strafe_R": {
+   "frames": 28,
+   "fps": 30,
+   "loop": true
+  },
+  "walk": {
+   "frames": 32,
+   "fps": 30,
+   "loop": true
+  },
+  "walk_sad": {
+   "frames": 44,
+   "fps": 30,
+   "loop": true
+  },
+  "run": {
+   "frames": 20,
+   "fps": 30,
+   "loop": true
+  },
+  "dash_fwd": {
+   "frames": 12,
+   "fps": 30,
+   "loop": false
+  },
+  "dash_back": {
+   "frames": 12,
+   "fps": 30,
+   "loop": false
+  },
+  "jump": {
+   "frames": 10,
+   "fps": 30,
+   "loop": false
+  },
+  "fall": {
+   "frames": 20,
+   "fps": 30,
+   "loop": true
+  },
+  "land": {
+   "frames": 8,
+   "fps": 30,
+   "loop": false
+  },
+  "guard": {
+   "frames": 20,
+   "fps": 30,
+   "loop": true
+  },
+  "guard_hit": {
+   "frames": 10,
+   "fps": 30,
+   "loop": false
+  },
+  "light1": {
+   "frames": 14,
+   "fps": 30,
+   "loop": false
+  },
+  "light2": {
+   "frames": 16,
+   "fps": 30,
+   "loop": false
+  },
+  "light3": {
+   "frames": 18,
+   "fps": 30,
+   "loop": false
+  },
+  "light4": {
+   "frames": 24,
+   "fps": 30,
+   "loop": false
+  },
+  "heavy": {
+   "frames": 26,
+   "fps": 30,
+   "loop": false
+  },
+  "heavy2": {
+   "frames": 30,
+   "fps": 30,
+   "loop": false
+  },
+  "dash_attack": {
+   "frames": 20,
+   "fps": 30,
+   "loop": false
+  },
+  "air_light": {
+   "frames": 14,
+   "fps": 30,
+   "loop": false
+  },
+  "air_heavy": {
+   "frames": 22,
+   "fps": 30,
+   "loop": false
+  },
+  "throw": {
+   "frames": 30,
+   "fps": 30,
+   "loop": false
+  },
+  "cast_palm": {
+   "frames": 30,
+   "fps": 30,
+   "loop": false
+  },
+  "cast_raise": {
+   "frames": 36,
+   "fps": 30,
+   "loop": false
+  },
+  "cast_slam": {
+   "frames": 34,
+   "fps": 30,
+   "loop": false
+  },
+  "cast_throw": {
+   "frames": 24,
+   "fps": 30,
+   "loop": false
+  },
+  "domain": {
+   "frames": 60,
+   "fps": 30,
+   "loop": false
+  },
+  "charge": {
+   "frames": 24,
+   "fps": 30,
+   "loop": true
+  },
+  "hit_high": {
+   "frames": 14,
+   "fps": 30,
+   "loop": false
+  },
+  "hit_body": {
+   "frames": 14,
+   "fps": 30,
+   "loop": false
+  },
+  "stagger": {
+   "frames": 24,
+   "fps": 30,
+   "loop": false
+  },
+  "launched": {
+   "frames": 20,
+   "fps": 30,
+   "loop": true
+  },
+  "knockdown": {
+   "frames": 30,
+   "fps": 30,
+   "loop": false
+  },
+  "down": {
+   "frames": 40,
+   "fps": 30,
+   "loop": true
+  },
+  "getup": {
+   "frames": 30,
+   "fps": 30,
+   "loop": false
+  },
+  "stun": {
+   "frames": 40,
+   "fps": 30,
+   "loop": true
+  },
+  "defeat": {
+   "frames": 50,
+   "fps": 30,
+   "loop": false
+  },
+  "victory": {
+   "frames": 60,
+   "fps": 30,
+   "loop": false
+  },
+  "talk": {
+   "frames": 90,
+   "fps": 30,
+   "loop": true
+  },
+  "arms_crossed": {
+   "frames": 90,
+   "fps": 30,
+   "loop": true
+  },
+  "kneel_grief": {
+   "frames": 60,
+   "fps": 30,
+   "loop": true
+  },
+  "kneel": {
+   "frames": 80,
+   "fps": 30,
+   "loop": true
+  },
+  "cry": {
+   "frames": 30,
+   "fps": 30,
+   "loop": true
+  },
+  "look_down": {
+   "frames": 90,
+   "fps": 30,
+   "loop": true
+  },
+  "point": {
+   "frames": 40,
+   "fps": 30,
+   "loop": false
+  },
+  "reach": {
+   "frames": 60,
+   "fps": 30,
+   "loop": false
+  },
+  "embrace": {
+   "frames": 70,
+   "fps": 30,
+   "loop": true
+  },
+  "hurt": {
+   "frames": 50,
+   "fps": 30,
+   "loop": true
+  },
+  "hover": {
+   "frames": 60,
+   "fps": 30,
+   "loop": true
+  },
+  "crawl": {
+   "frames": 24,
+   "fps": 30,
+   "loop": true
+  },
+  "stand": {
+   "frames": 90,
+   "fps": 30,
+   "loop": true
+  }
+ },
+ "refHipHeight": 0.8700000047683716
+}
