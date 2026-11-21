@@ -19,6 +19,7 @@ attribute uv: vec2f;
 uniform viewProjection: mat4x4f;
 uniform view: mat4x4f;
 uniform squash: vec4f;
+uniform pivot: vec4f;      // squash-and-stretch pivot (the character's root, world space)
 uniform outlineParams: vec4f;   // x width px, y reference distance, z depth push, w min scale
 uniform screenSize: vec2f;
 
@@ -30,7 +31,7 @@ fn main(input: VertexInputs) -> FragmentInputs {
 #include<instancesVertex>
 #include<bonesVertex>
     var worldPos = finalWorld * vec4f(vertexInputs.position, 1.0);
-    let rootW = (uniforms.world * vec4f(0.0, 0.0, 0.0, 1.0)).xyz;
+    let rootW = uniforms.pivot.xyz;
     worldPos = vec4f(rootW + (worldPos.xyz - rootW) * uniforms.squash.xyz, 1.0);
     let nW = normalize((finalWorld * vec4f(vertexInputs.normal, 0.0)).xyz);
     var clip = uniforms.viewProjection * worldPos;

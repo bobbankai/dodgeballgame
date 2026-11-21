@@ -55,7 +55,7 @@ export class PostSettings {
   dofRange = 2;
   dofMaxRadius = 9;
   // motion
-  cameraBlur = 0.6;
+  cameraBlur = 0;
   radialBlur = 0;
   radialCenter = new Vector2(0.5, 0.5);
   chromatic = 0.5;

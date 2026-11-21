@@ -1,0 +1,115 @@
+/* Vowbreaker UI: ink black, paper white and blood red, slanted like a manga panel. */
+:root {
+  --ink: #0b090c;
+  --paper: #f3eee4;
+  --red: #c8202a;
+  --red-dark: #6e0c12;
+  --gold: #f0b23c;
+  --steel: #9fb4d8;
+  --brush: 'Yuji Syuku', 'Shippori Mincho', serif;
+  --heavy: 'Dela Gothic One', 'Zen Kaku Gothic New', sans-serif;
+  --body: 'Zen Kaku Gothic New', 'Shippori Mincho', sans-serif;
+  --mincho: 'Shippori Mincho', serif;
+}
+
+#ui { font-family: var(--body); color: var(--paper); user-select: none; }
+#ui * { box-sizing: border-box; }
+.layer { position: absolute; inset: 0; pointer-events: none; }
+.hidden { display: none !important; }
+
+/* --- HUD ------------------------------------------------------------------------------------- */
+.hud-side { position: absolute; top: 22px; width: min(44vw, 560px); }
+.hud-side.left { left: 26px; }
+.hud-side.right { right: 26px; text-align: right; }
+.hud-name { font-family: var(--heavy); font-size: 19px; letter-spacing: 0.06em; text-shadow: 2px 2px 0 var(--ink), -1px -1px 0 var(--ink); margin-bottom: 4px; }
+.hud-name small { font-family: var(--mincho); font-size: 12px; opacity: 0.8; margin-left: 8px; }
+.bar { position: relative; height: 20px; background: rgba(10, 8, 12, 0.75); border: 2px solid var(--ink); transform: skewX(-24deg); overflow: hidden; box-shadow: 3px 3px 0 rgba(0, 0, 0, 0.5); }
+.right .bar { transform: skewX(24deg); }
+.bar > div { position: absolute; top: 0; bottom: 0; left: 0; transition: width 0.08s linear; }
+.right .bar > div { left: auto; right: 0; }
+.bar .chip { background: #f6e9d0; transition: width 0.7s ease-in 0.35s; }
+.bar .fill { background: linear-gradient(180deg, #ff5a4c 0%, var(--red) 45%, var(--red-dark) 100%); }
+.bar .fill.low { animation: pulse 0.5s infinite alternate; }
+.bar.energy { height: 9px; margin-top: 5px; width: 78%; }
+.right .bar.energy { margin-left: auto; }
+.bar.energy .fill { background: linear-gradient(90deg, #3d6bd6, #8fd2ff); }
+.bar.energy .ticks { position: absolute; inset: 0; background: repeating-linear-gradient(90deg, transparent 0 calc(25% - 2px), var(--ink) calc(25% - 2px) 25%); }
+.domain-gauge { position: absolute; top: 36px; width: 46px; height: 46px; border-radius: 50%; border: 3px solid var(--ink); background: conic-gradient(var(--gold) var(--p, 0%), rgba(10, 8, 12, 0.8) 0); box-shadow: 0 0 0 2px rgba(240, 178, 60, 0.3); }
+.left .domain-gauge { left: calc(100% + 12px); }
+.right .domain-gauge { right: calc(100% + 12px); }
+.domain-gauge.ready { animation: glow 0.6s infinite alternate; }
+.domain-gauge span { position: absolute; inset: 0; display: grid; place-items: center; font-family: var(--brush); font-size: 22px; color: var(--paper); text-shadow: 1px 1px 0 var(--ink); }
+.vow-mark { display: inline-block; margin-top: 6px; padding: 1px 10px; font-family: var(--heavy); font-size: 12px; background: var(--red); border: 2px solid var(--ink); transform: skewX(-20deg); }
+.enemy-count { font-family: var(--heavy); font-size: 13px; margin-top: 4px; opacity: 0.85; }
+
+.techs { position: absolute; bottom: 22px; left: 26px; display: flex; gap: 10px; }
+.tech { min-width: 128px; padding: 6px 12px 6px 34px; position: relative; background: rgba(10, 8, 12, 0.8); border: 2px solid var(--ink); border-left: 4px solid var(--gold); transform: skewX(-14deg); font-size: 13px; }
+.tech b { position: absolute; left: 8px; top: 5px; font-family: var(--heavy); color: var(--gold); }
+.tech i { display: block; font-style: normal; font-size: 10px; opacity: 0.65; }
+.tech.off { opacity: 0.4; border-left-color: #555; }
+.keys-hint { position: absolute; bottom: 24px; right: 26px; font-size: 11px; opacity: 0.6; text-align: right; line-height: 1.6; }
+
+.combo { position: absolute; top: 30%; left: 4vw; font-family: var(--heavy); transform: skewX(-12deg); text-shadow: 3px 3px 0 var(--ink); transition: opacity 0.3s; }
+.combo .n { font-size: 64px; color: var(--paper); line-height: 1; }
+.combo .n em { font-size: 26px; font-style: normal; color: var(--red); margin-left: 6px; }
+.combo .dmg { font-size: 16px; color: var(--gold); }
+.banner { position: absolute; left: 50%; top: 40%; transform: translate(-50%, -50%) skewX(-10deg); font-family: var(--heavy); font-size: 58px; letter-spacing: 0.05em; color: var(--paper); text-shadow: 4px 4px 0 var(--ink), -2px -2px 0 var(--ink); white-space: nowrap; animation: slam 0.35s cubic-bezier(.2, 1.6, .4, 1) both; }
+.banner.red { color: var(--red); text-shadow: 4px 4px 0 var(--ink), 0 0 30px rgba(200, 32, 42, 0.8); }
+.banner.gold { color: var(--gold); }
+.banner small { display: block; font-family: var(--mincho); font-size: 18px; letter-spacing: 0.3em; text-align: center; margin-top: 6px; }
+.prompt { position: absolute; left: 50%; bottom: 120px; transform: translateX(-50%); padding: 10px 22px; background: rgba(243, 238, 228, 0.93); color: var(--ink); border: 3px solid var(--ink); font-size: 16px; box-shadow: 5px 5px 0 var(--red); max-width: 80vw; text-align: center; }
+.prompt kbd { font-family: var(--heavy); background: var(--ink); color: var(--paper); padding: 1px 7px; margin: 0 2px; border-radius: 2px; font-size: 13px; }
+
+/* --- dialogue ---------------------------------------------------------------------------------- */
+.dialogue { position: absolute; left: 50%; bottom: 7vh; transform: translateX(-50%); width: min(880px, 90vw); min-height: 110px; padding: 20px 30px 18px; background: linear-gradient(180deg, rgba(10, 8, 12, 0.92), rgba(10, 8, 12, 0.82)); border-top: 3px solid var(--paper); border-bottom: 3px solid var(--paper); clip-path: polygon(1.5% 0, 100% 0, 98.5% 100%, 0 100%); }
+.dialogue .who { position: absolute; top: -20px; left: 36px; padding: 3px 16px; font-family: var(--heavy); font-size: 16px; color: var(--paper); background: var(--red); border: 2px solid var(--ink); transform: skewX(-15deg); }
+.dialogue .text { font-family: var(--mincho); font-size: 21px; line-height: 1.55; letter-spacing: 0.02em; }
+.dialogue .next { position: absolute; right: 30px; bottom: 10px; font-size: 13px; animation: bob 0.8s infinite alternate; opacity: 0.8; }
+.dialogue.narration { background: none; border: none; clip-path: none; text-align: center; }
+.dialogue.narration .text { font-size: 23px; font-style: italic; text-shadow: 0 2px 8px #000; }
+.dialogue.thought .text { font-style: italic; color: #d9d2ea; }
+
+.chapter-card { position: absolute; inset: 0; display: grid; place-content: center; text-align: center; background: radial-gradient(ellipse at center, rgba(12, 8, 10, 0.55), rgba(5, 3, 5, 0.95)); animation: fadein 0.8s both; }
+.chapter-card .num { font-family: var(--mincho); letter-spacing: 0.6em; font-size: 15px; color: var(--red); }
+.chapter-card .title { font-family: var(--brush); font-size: clamp(44px, 7vw, 88px); line-height: 1.1; margin: 10px 0; text-shadow: 0 0 40px rgba(200, 32, 42, 0.35); }
+.chapter-card .sub { font-family: var(--mincho); font-size: 18px; opacity: 0.75; letter-spacing: 0.2em; }
+.chapter-card .stroke { width: 320px; height: 6px; margin: 14px auto; background: var(--red); clip-path: polygon(0 40%, 100% 0, 96% 100%, 3% 70%); }
+
+/* --- menus ------------------------------------------------------------------------------------------ */
+.menu { position: absolute; inset: 0; pointer-events: auto; display: flex; flex-direction: column; justify-content: center; padding-left: 9vw; }
+.menu.title { background: linear-gradient(90deg, rgba(5, 3, 6, 0.85) 0%, rgba(5, 3, 6, 0.35) 55%, rgba(5, 3, 6, 0) 100%); }
+.logo { font-family: var(--brush); font-size: clamp(64px, 11vw, 150px); line-height: 0.95; color: var(--paper); text-shadow: 6px 6px 0 var(--red-dark), 0 0 60px rgba(200, 32, 42, 0.45); transform: rotate(-3deg); margin-bottom: 6px; }
+.logo-sub { font-family: var(--mincho); font-size: 18px; letter-spacing: 0.55em; color: var(--red); margin: 0 0 40px 8px; }
+.menu button { pointer-events: auto; display: block; width: fit-content; margin: 6px 0; padding: 8px 26px 8px 18px; font-family: var(--heavy); font-size: 20px; color: var(--paper); background: transparent; border: none; border-left: 4px solid transparent; text-align: left; cursor: pointer; transition: all 0.12s; letter-spacing: 0.04em; }
+.menu button:hover, .menu button.sel { background: linear-gradient(90deg, var(--red), rgba(200, 32, 42, 0)); border-left-color: var(--paper); padding-left: 30px; }
+.menu button:disabled { opacity: 0.35; cursor: default; }
+.menu .note { font-size: 12px; opacity: 0.55; margin-top: 28px; max-width: 520px; line-height: 1.7; }
+.menu.pause { background: rgba(5, 3, 6, 0.78); }
+.menu h2 { font-family: var(--brush); font-size: 54px; margin: 0 0 20px; font-weight: normal; }
+.chapters { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px; max-width: 900px; margin-bottom: 20px; }
+.chapters button { width: 100%; font-size: 15px; background: rgba(20, 16, 20, 0.85); border-left: 4px solid var(--red); }
+.chapters button span { display: block; font-family: var(--mincho); font-size: 12px; opacity: 0.7; }
+.slider { display: flex; align-items: center; gap: 14px; margin: 8px 0; font-size: 15px; pointer-events: auto; }
+.slider input { width: 220px; accent-color: #c8202a; }
+.credits { position: absolute; inset: 0; background: #050306; display: flex; justify-content: center; overflow: hidden; pointer-events: auto; }
+.credits .roll { position: absolute; top: 100%; width: 600px; text-align: center; font-family: var(--mincho); line-height: 1.9; animation: roll 70s linear forwards; }
+.credits h1 { font-family: var(--brush); font-size: 72px; margin: 0 0 30px; font-weight: normal; }
+.credits h3 { color: var(--red); letter-spacing: 0.3em; font-size: 14px; margin: 40px 0 6px; }
+.loading { position: absolute; right: 30px; bottom: 26px; font-family: var(--mincho); letter-spacing: 0.3em; font-size: 14px; animation: pulse 0.8s infinite alternate; }
+.fade { position: absolute; inset: 0; background: #000; opacity: 0; transition: opacity 0.6s; }
+
+@keyframes pulse { from { opacity: 1; } to { opacity: 0.45; } }
+@keyframes glow { from { box-shadow: 0 0 0 2px rgba(240, 178, 60, 0.3); } to { box-shadow: 0 0 18px 6px rgba(240, 178, 60, 0.9); } }
+@keyframes slam { from { transform: translate(-50%, -50%) skewX(-10deg) scale(2.4); opacity: 0; } to { transform: translate(-50%, -50%) skewX(-10deg) scale(1); opacity: 1; } }
+@keyframes bob { from { transform: translateY(0); } to { transform: translateY(4px); } }
+@keyframes fadein { from { opacity: 0; } to { opacity: 1; } }
+@keyframes roll { to { transform: translateY(calc(-100% - 100vh)); } }
+
+@media (max-width: 700px) {
+  .hud-side { width: 40vw; }
+  .hud-name { font-size: 13px; }
+  .techs { display: none; }
+  .dialogue .text { font-size: 16px; }
+  .banner { font-size: 34px; }
+  .combo .n { font-size: 40px; }
+}

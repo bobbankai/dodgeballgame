@@ -14,6 +14,7 @@ attribute color: vec4f;
 uniform viewProjection: mat4x4f;
 uniform view: mat4x4f;
 uniform squash: vec4f;
+uniform pivot: vec4f;      // squash-and-stretch pivot (the character's root, world space)
 uniform objectId: f32;
 
 varying vNormalV: vec3f;
@@ -25,7 +26,7 @@ fn main(input: VertexInputs) -> FragmentInputs {
 #include<instancesVertex>
 #include<bonesVertex>
     var worldPos = finalWorld * vec4f(vertexInputs.position, 1.0);
-    let rootW = (uniforms.world * vec4f(0.0, 0.0, 0.0, 1.0)).xyz;
+    let rootW = uniforms.pivot.xyz;
     worldPos = vec4f(rootW + (worldPos.xyz - rootW) * uniforms.squash.xyz, 1.0);
     vertexOutputs.position = uniforms.viewProjection * worldPos;
     let nW = normalize((finalWorld * vec4f(vertexInputs.normal, 0.0)).xyz);

@@ -22,7 +22,8 @@ attribute uv2: vec2f;
 
 uniform viewProjection: mat4x4f;
 uniform view: mat4x4f;
-uniform squash: vec4f;     // xyz scale about the root for squash-and-stretch on hits, w unused
+uniform squash: vec4f;
+uniform pivot: vec4f;      // squash-and-stretch pivot (the character's root, world space)     // xyz scale about the root for squash-and-stretch on hits, w unused
 
 varying vWorldPos: vec3f;
 varying vNormalW: vec3f;
@@ -37,10 +38,8 @@ fn main(input: VertexInputs) -> FragmentInputs {
 #include<bonesVertex>
     let p = vertexInputs.position;
     var worldPos = finalWorld * vec4f(p, 1.0);
-    // squash and stretch around the model's origin in world space (hit reactions, landing)
-    let origin = finalWorld * vec4f(0.0, 0.0, 0.0, 1.0);
-    let rootW = (uniforms.world * vec4f(0.0, 0.0, 0.0, 1.0)).xyz;
-    _ = origin;
+    // squash and stretch around the character's root (hit reactions, landing)
+    let rootW = uniforms.pivot.xyz;
     worldPos = vec4f(rootW + (worldPos.xyz - rootW) * uniforms.squash.xyz, 1.0);
     vertexOutputs.position = uniforms.viewProjection * worldPos;
     let nW = normalize((finalWorld * vec4f(vertexInputs.normal, 0.0)).xyz);

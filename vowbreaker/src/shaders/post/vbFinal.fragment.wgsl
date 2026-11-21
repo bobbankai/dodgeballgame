@@ -104,7 +104,7 @@ fn main(input: FragmentInputs) -> FragmentOutputs {
         let prevUv = prev.xy / prev.w * 0.5 + 0.5;
         vel = (uv - prevUv) * uniforms.motionParams.x;
         let vl = length(vel);
-        vel = vel * min(1.0, 0.05 / max(vl, 1e-5));
+        vel = vel * min(1.0, 0.018 / max(vl, 1e-5));
     }
     var radial = vec2f(0.0);
     if (uniforms.motionParams.y > 0.0) {

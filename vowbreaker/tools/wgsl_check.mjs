@@ -23,7 +23,7 @@ function build(extra) {
     line += src.split('\n').length;
   };
   for (const f of order) add('lib/' + f + '.wgsl', fs.readFileSync(path.join(libDir, f + '.wgsl'), 'utf8'));
-  if (extra) add(extra, fs.readFileSync(extra, 'utf8'));
+  if (extra) add(extra, fs.readFileSync(extra, 'utf8').replace(/^#include<.*>$/gm, '// (include inlined above)'));
   else add('<stub>', '@fragment fn stubEntry() -> @location(0) vec4f { return vec4f(0.0); }');
   return { code, map };
 }

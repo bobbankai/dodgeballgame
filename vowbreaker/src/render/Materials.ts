@@ -39,7 +39,7 @@ export class Lighting {
 }
 
 const TOON_UNIFORMS = [
-  'world', 'viewProjection', 'view', 'cameraPosition', 'squash',
+  'world', 'viewProjection', 'view', 'cameraPosition', 'squash', 'pivot',
   'sunDir', 'sunColor', 'skyColor', 'groundColor', 'shadowColor', 'rimColor',
   'tint', 'flash', 'toonParams', 'toonParams2', 'energy', 'headRight', 'headUp', 'headForward',
   'lightViewProj', 'shadowParams', 'pointPos', 'pointCol', 'domainParams',
@@ -52,6 +52,7 @@ export class CharacterLook {
   /** x aura, y palette id, z vow, w dissolve */
   energy = new Vector4(0, 0, 0, 0);
   squash = new Vector4(1, 1, 1, 0);
+  pivot = new Vector4(0, 0, 0, 0);
   headRight = new Vector3(1, 0, 0);
   headUp = new Vector3(0, 1, 0);
   headForward = new Vector3(0, 0, 1);
@@ -61,6 +62,11 @@ export class CharacterLook {
   toon2 = new Vector4(1, 1, 0.5, 0);
   outlineWidth = 2.2;
   lineColor = new Vector4(0, 0, 0, 0);
+}
+
+/** glTF models sit under a mirrored root (right- to left-handed): their triangles wind the other way. */
+export function isMirrored(mesh: AbstractMesh): boolean {
+  return mesh.computeWorldMatrix(true).determinant() < 0;
 }
 
 function attributesFor(mesh: AbstractMesh): { attributes: string[]; defines: string[] } {
@@ -114,7 +120,7 @@ export class Materials {
     const { attributes, defines } = attributesFor(mesh);
     const mat = new ShaderMaterial('outline_' + mesh.name, this.scene, { vertex: 'outline', fragment: 'outline' }, {
       attributes: attributes.filter((a) => a !== 'uv2'), defines: defines.filter((d) => d !== 'UV2'),
-      uniforms: ['world', 'viewProjection', 'view', 'squash', 'outlineParams', 'screenSize', 'tint', 'flash', 'energy', 'lineColor'],
+      uniforms: ['world', 'viewProjection', 'view', 'squash', 'pivot', 'outlineParams', 'screenSize', 'tint', 'flash', 'energy', 'lineColor'],
       shaderLanguage: ShaderLanguage.WGSL,
     });
     mat.backFaceCulling = true;
@@ -128,12 +134,18 @@ export class Materials {
   /** A depth-like pass material (shadow map or G-buffer) for one mesh. */
   depthPass(mesh: AbstractMesh, kind: 'shadowDepth' | 'gbuffer', objectId = 0, look?: CharacterLook): ShaderMaterial {
     const mat = new ShaderMaterial(`${kind}_${mesh.name}`, this.scene, { vertex: 'depthPass', fragment: kind }, {
-      attributes: ['position', 'normal'], defines: [], uniforms: ['world', 'viewProjection', 'view', 'squash', 'objectId'],
+      attributes: ['position', 'normal'], defines: [], uniforms: ['world', 'viewProjection', 'view', 'squash', 'pivot', 'objectId'],
       shaderLanguage: ShaderLanguage.WGSL,
     });
     mat.setFloat('objectId', objectId);
     mat.setVector4('squash', look ? look.squash : new Vector4(1, 1, 1, 0));
-    if (look) mat.onBindObservable.add(() => mat.setVector4('squash', look.squash));
+    mat.setVector4('pivot', look ? look.pivot : new Vector4(0, 0, 0, 0));
+    if (look) {
+      mat.onBindObservable.add(() => {
+        mat.setVector4('squash', look.squash);
+        mat.setVector4('pivot', look.pivot);
+      });
+    }
     mat.backFaceCulling = kind === 'gbuffer';
     return mat;
   }
@@ -166,6 +178,7 @@ export class Materials {
     mat.setVector4('flash', look.flash);
     mat.setVector4('energy', look.energy);
     mat.setVector4('squash', look.squash);
+    mat.setVector4('pivot', look.pivot);
     mat.setVector3('headRight', look.headRight);
     mat.setVector3('headUp', look.headUp);
     mat.setVector3('headForward', look.headForward);
@@ -176,6 +189,7 @@ export class Materials {
 
   private pushOutline(mat: ShaderMaterial, look: CharacterLook): void {
     mat.setVector4('squash', look.squash);
+    mat.setVector4('pivot', look.pivot);
     mat.setVector4('outlineParams', new Vector4(look.outlineWidth, 6.0, 0.00002, 0.35));
     mat.setVector2('screenSize', new Vector2(this.screenW, this.screenH));
     mat.setVector4('tint', look.tint);
@@ -198,6 +212,7 @@ export class Materials {
 /** Make the inverted-hull outline twin of a mesh (shares geometry and skeleton). */
 export function makeOutline(mats: Materials, mesh: Mesh, look: CharacterLook): Mesh {
   const twin = mesh.clone(mesh.name + '_ink', mesh.parent, true, false)!;
+  twin.hasVertexAlpha = false;
   twin.material = mats.outline(mesh, look);
   twin.isPickable = false;
   twin.metadata = { ink: true };
