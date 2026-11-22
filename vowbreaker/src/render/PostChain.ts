@@ -4,6 +4,7 @@ import {
 } from '@babylonjs/core';
 import type { GBufferPass } from './Passes';
 import type { Lighting } from './Materials';
+import type { Fluid } from './Fluid';
 
 /** Every knob of the post chain; the director and the combat systems animate these. */
 export class PostSettings {
@@ -175,6 +176,10 @@ export class PostSettings {
   sfxCenter = new Vector2(0.7, 0.7);
   paperColor = new Color3(0.98, 0.96, 0.9);
   sharpen = 0.35;
+  /** ink in water over the screen (the fluid solver): amount, how much it bends the image, wash bands */
+  fluidInk = 1;
+  fluidRefract = 1;
+  fluidBands = 4;
 }
 
 /**
@@ -205,6 +210,8 @@ export class PostChain {
   private adapt: RenderTargetTexture[] = [];
   private adaptIndex = 0;
   private adaptReset = true;
+  /** the ink-in-water solver whose dye the stylize pass lays over the image (set by Effects) */
+  fluid: Fluid | null = null;
   private passes: Record<string, EffectWrapper> = {};
   private prevViewProj = Matrix.Identity();
   private frame = 0;
@@ -295,7 +302,7 @@ export class PostChain {
     this.wrap('vbLuminance', ['lumParams'], ['source', 'gbuffer']);
     this.wrap('vbReduce', ['texel'], ['source']);
     this.wrap('vbAdapt', ['adaptParams', 'adaptRange'], ['current', 'previous']);
-    this.wrap('vbStylize', ['screenParams', 'styleParams', 'styleParams2', 'mangaParams', 'mangaParams2', 'mangaCenter', 'paperColor'], ['source']);
+    this.wrap('vbStylize', ['screenParams', 'styleParams', 'styleParams2', 'mangaParams', 'mangaParams2', 'mangaCenter', 'paperColor', 'fluidParams'], ['source', 'fluidDye', 'fluidVel']);
     this.wrap('vbSharpen', ['rcpFrame', 'sharpness'], ['source']);
   }
 
@@ -610,6 +617,11 @@ export class PostChain {
       e.setVector4('mangaParams2', new Vector4(s.mangaPage, s.sfx, s.betaFill, this.time));
       e.setVector4('mangaCenter', new Vector4(s.mangaCenter.x, s.mangaCenter.y, s.sfxCenter.x, s.sfxCenter.y));
       e.setColor3('paperColor', s.paperColor);
+      const fl = this.fluid;
+      const fluidOn = !!fl && fl.active && s.fluidInk > 0;
+      e.setTexture('fluidDye', fluidOn ? fl!.dyeTexture : this.black);
+      e.setTexture('fluidVel', fluidOn ? fl!.velocityTexture : this.black);
+      e.setVector4('fluidParams', new Vector4(fluidOn ? s.fluidInk : 0, s.fluidRefract, s.fluidBands, 0));
     });
 
     // FXAA, then contrast-adaptive sharpening to the canvas

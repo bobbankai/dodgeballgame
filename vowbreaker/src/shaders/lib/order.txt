@@ -51,3 +51,4 @@ domain_parade
 domain_memory
 domain_scenes
 psim
+fluid

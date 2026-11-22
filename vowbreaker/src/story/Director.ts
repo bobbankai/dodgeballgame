@@ -3,7 +3,7 @@ import type { Renderer } from '../render/Renderer';
 import type { Input } from '../core/Input';
 import { Character, CharacterOptions } from '../game/Character';
 import { CameraRig, Shot } from '../game/CameraRig';
-import { Effects } from '../game/Effects';
+import { PAL, Effects } from '../game/Effects';
 import { Fight, FightResult, FightSpec } from '../game/Fight';
 import { STAGES, Stage } from '../game/Stage';
 import type { Fighter } from '../game/Fighter';
@@ -434,6 +434,9 @@ export class Director {
     this.cam.move({ pos: head.add(fwd.scale(2.5)).add(new Vector3(0, -0.4, 0)), target: head, fov: 0.6 },
       { pos: c.position.add(fwd.scale(9)).add(new Vector3(4, 4, 0)), target: c.position.add(new Vector3(0, 1.5, 0)), fov: 0.95 }, 2.4);
     this.domain.show(d.id, c.position.clone());
+    // the domain spills out of the caster as ink across the screen
+    const pal = PAL[f.kit.palette] ?? PAL[0];
+    this.fx.inkBurst(c.position.add(new Vector3(0, 1.2, 0)), [pal.body[0] * 0.35, pal.body[1] * 0.35, pal.body[2] * 0.35], 1.6, 6);
     s.domainActive = 1;
     s.domainCenter.copyFrom(c.position);
     s.domainPalette = f.kit.palette;

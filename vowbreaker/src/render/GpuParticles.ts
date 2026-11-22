@@ -182,6 +182,7 @@ export class GpuParticles {
     this.params = a.ub;
     this.csMatter = b.cs;
     this.paramsMatter = b.ub;
+    scene.onBeforeRenderObservable.add(() => this.flush());
   }
 
   burst(b: Burst): void {
@@ -203,9 +204,29 @@ export class GpuParticles {
     ub.update();
   }
 
+  private pending = 0;
+
+  /**
+   * Advance the simulation. The dispatches themselves run from the scene's before-render hook:
+   * compute work has to be recorded inside an engine frame (and pipelines only finish compiling
+   * while frames are running), which is not true of every caller (the test harness steps logic
+   * between frames).
+   */
   update(dt: number): void {
     this.time += dt;
-    if (dt <= 0) return;
+    if (dt > 0) this.pending += dt;
+  }
+
+  private flush(): void {
+    if (this.pending <= 0) return;
+    // at most a few sub-steps per frame (a long gap is not simulated in full)
+    const steps = Math.min(4, Math.ceil(this.pending / (1 / 30)));
+    const dt = Math.min(this.pending / steps, 1 / 20);
+    this.pending = 0;
+    for (let i = 0; i < steps; i++) this.dispatch(dt);
+  }
+
+  private dispatch(dt: number): void {
     this.fill(this.params, dt, this.glow.max);
     this.cs.dispatch(Math.ceil(this.glow.max / 64));
     this.fill(this.paramsMatter, dt, this.matter.max);

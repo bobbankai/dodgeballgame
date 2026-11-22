@@ -8,6 +8,8 @@
 //   film       old film for flashbacks: gate weave, shutter flicker, dust, hairs, scratches,
 //              light leaks
 //   manga      focus lines on a face, sparkles, gloom lines, panel splits, a sound effect burst
+//   fluid      ink in water over the screen (compute/fluid.wgsl): the dye laid on as banded ink with
+//              pooled edges, the velocity bending the image under it
 #define DISABLE_UNIFORMITY_ANALYSIS
 
 #include<vb_common>
@@ -22,11 +24,16 @@
 #include<vb_lens>
 #include<vb_film>
 #include<vb_manga>
+#include<vb_fluid>
 
 varying vUV: vec2f;
 
 var source: texture_2d<f32>;
 var sourceSampler: sampler;
+var fluidDye: texture_2d<f32>;
+var fluidDyeSampler: sampler;
+var fluidVel: texture_2d<f32>;
+var fluidVelSampler: sampler;
 
 uniform screenParams: vec4f;     // width, height, 1/w, 1/h
 uniform styleParams: vec4f;      // screentone, paper, ink edges, painterly (kuwahara) amount
@@ -35,6 +42,7 @@ uniform mangaParams: vec4f;      // focus lines, sparkle, gloom, panel layout (0
 uniform mangaParams2: vec4f;     // manga page amount, sfx burst amount, beta fill, time
 uniform mangaCenter: vec4f;      // focus / sparkle centre xy, sfx centre zw
 uniform paperColor: vec3f;
+uniform fluidParams: vec4f;     // ink amount, refraction, wash bands, -
 
 fn src(uv: vec2f) -> vec3f {
     return textureSampleLevel(source, sourceSampler, clamp(uv, vec2f(0.0005), vec2f(0.9995)), 0.0).rgb;
@@ -68,6 +76,13 @@ fn main(input: FragmentInputs) -> FragmentOutputs {
         uv = uv + (hash22(floor(pixel * 0.5)) - 0.5) * frost.x * 0.006;
     }
 
+    // --- the fluid bends the image under it -----------------------------------------------------------------
+    let fluidAmt = uniforms.fluidParams.x;
+    if (fluidAmt > 0.0) {
+        let fv = textureSampleLevel(fluidVel, fluidVelSampler, fragmentInputs.vUV, 0.0).xy;
+        uv = uv + fv * texel * uniforms.fluidParams.y * 0.08;
+    }
+
     var col = src(uv);
 
     // --- painting: memories become watercolour ---------------------------------------------------------
@@ -81,6 +96,22 @@ fn main(input: FragmentInputs) -> FragmentOutputs {
         var w = paperPooling(k, grad, paper, 0.9);
         w = granulate(w, paper, 0.6);
         col = mix(col, w, paint);
+    }
+
+    // --- ink in water: the fluid's dye, banded like a wash, darker where it pools at its edges --------------
+    if (fluidAmt > 0.0) {
+        let dv = textureSampleLevel(fluidDye, fluidDyeSampler, fragmentInputs.vUV, 0.0);
+        let ink = fluidInk(dv, max(uniforms.fluidParams.z, 2.0));
+        let dx = textureSampleLevel(fluidDye, fluidDyeSampler, fragmentInputs.vUV + vec2f(texel.x * 3.0, 0.0), 0.0).a - dv.a;
+        let dy = textureSampleLevel(fluidDye, fluidDyeSampler, fragmentInputs.vUV + vec2f(0.0, texel.y * 3.0), 0.0).a - dv.a;
+        let pooled = clamp(length(vec2f(dx, dy)) * 6.0, 0.0, 1.0);
+        let grain = paperTexture(pixel, 0.5);
+        // a wash, not paint: thin where the dye is thin, and kept lighter over the middle of the screen
+        // where the fight is, so ink frames the action instead of hiding it
+        let centre = smoothstep(0.12, 0.55, length((fragmentInputs.vUV - 0.5) * vec2f(aspect, 1.0)));
+        let wash = smoothstep(0.04, 0.8, ink.a) * (0.93 + 0.1 * grain);
+        let a = clamp(wash * mix(0.5, 0.92, centre) + pooled * ink.a * 0.45, 0.0, 0.95) * fluidAmt;
+        col = mix(col, ink.rgb * (1.0 - pooled * 0.4), a);
     }
 
     // --- ink: darken luminance edges a touch (thicker, softer contours) ----------------------------------

@@ -4,6 +4,8 @@ import { SK, Sprites } from '../render/Sprites';
 import { GpuParticles, PK } from '../render/GpuParticles';
 import { Trails } from '../render/Trails';
 import { Vfx, VK, type VfxPalette } from '../render/Vfx';
+import { Fluid } from '../render/Fluid';
+import type { WebGPUEngine } from '@babylonjs/core';
 import type { CameraRig } from './CameraRig';
 import type { CombatFx, HitResult, Projectile } from './Combat';
 import type { Fighter } from './Fighter';
@@ -48,6 +50,8 @@ export class Effects implements CombatFx {
   readonly particles: GpuParticles;
   readonly trails: Trails;
   readonly vfx: Vfx;
+  /** ink in water over the screen */
+  readonly fluid: Fluid;
   private flashes: Flash[] = [];
   private projVisuals = new Map<number, number[]>();
   private projVfx = new Map<number, number[]>();
@@ -70,6 +74,15 @@ export class Effects implements CombatFx {
     this.particles = new GpuParticles(r.engine, r.scene);
     this.trails = new Trails(r.scene);
     this.vfx = new Vfx(r);
+    this.fluid = new Fluid(r.engine as unknown as WebGPUEngine, r.scene);
+    r.post.fluid = this.fluid;
+  }
+
+  /** Pour ink into the screen's water at a world position (a burst of splats outward). */
+  inkBurst(at: Vector3, color: RGB, strength = 1, count = 6): void {
+    const sp = this.screenPos(at);
+    if (sp.x < -0.2 || sp.x > 1.2 || sp.y < -0.2 || sp.y > 1.2) return;
+    this.fluid.burst(sp.x, sp.y, color, count, 0.5 * strength, 0.05 + 0.04 * strength);
   }
 
   private pal(f: Fighter) {
@@ -192,6 +205,8 @@ export class Effects implements CombatFx {
         this.vfx.spawn({ kind: VK.bolt, pos: at, dir: d, scale: new Vector3(0.7, 1, 1.6 + Math.random() * 1.4), life: 0.4, color: PAL[5], p: [1, 0.8, 0.8, 0.16], seed: Math.random() });
       }
       this.vfx.spawn({ kind: VK.crater, pos: new Vector3(at.x, 0.03, at.z), scale: 1.4, life: 4, color: SPARK_LIGHT });
+      // black lightning bleeds red ink across the screen
+      this.inkBurst(at, [0.45, 0.0, 0.03], 1.2, 7);
       this.impactFrame(3, 0.14);
       this.desatT = 0.6;
       this.radialT = 0.4;
@@ -448,6 +463,10 @@ export class Effects implements CombatFx {
     const vowPal: VfxPalette = { body: [1, 0.05, 0.1], core: [1, 0.7, 0.6], edge: [0.6, 0, 0.05] };
     this.vfx.spawn({ kind: VK.aura, pos: f.pos.add(new Vector3(0, 0.95, 0)), scale: new Vector3(0.6, 1.1, 0.6), life: 2.5, color: vowPal, intensity: 1.4, p: [1.3, 1.6, 0, 0], follow: () => (f.alive ? f.pos.add(new Vector3(0, 0.95, 0)) : null) });
     this.vfx.spawn({ kind: VK.pillar, pos: new Vector3(f.pos.x, 0, f.pos.z), scale: new Vector3(1.1, 5, 1.1), life: 1.4, color: vowPal, q: [0, 1, 0, 0] });
+    // red ink pours in from the edges of the screen
+    for (const [x, y, dx, dy] of [[0.02, 0.5, 0.7, 0], [0.98, 0.5, -0.7, 0], [0.5, 0.02, 0, 0.6], [0.5, 0.98, 0, -0.6]] as const) {
+      this.fluid.splat({ x, y, dx, dy, color: [0.4, 0.0, 0.03], amount: 1, radius: 0.12 });
+    }
     this.light(f.ch.bonePos('chest'), [1, 0.05, 0.08], 8, 6, 1.0);
     this.particles.burst({ kind: PK.ember, pos: f.ch.bonePos('chest'), count: 120, speed: 6, spread: 1, color: [1, 0.05, 0.1, 1], size: [0.05, 0.1], life: [0.5, 1.4] });
     this.audio.sfx('vow', f.pos);
@@ -457,6 +476,7 @@ export class Effects implements CombatFx {
   ko(f: Fighter, by: Fighter | null): void {
     this.impactFrame(by === this.player ? 1 : 3, 0.18);
     this.vfx.spawn({ kind: VK.ink, pos: new Vector3(f.pos.x, 0.04, f.pos.z), scale: 1.8, life: 6, color: this.vpal(by ?? f), p: [by ? 1 : 0, 9, 1, 0], delay: 0.35 });
+    this.inkBurst(f.ch.bonePos('chest'), [0.03, 0.02, 0.04], 1.4, 8);
     for (let i = 0; i < 3; i++) this.puff(f.pos.add(new Vector3((Math.random() - 0.5) * 0.8, 0.3, (Math.random() - 0.5) * 0.8)), 0.45 + Math.random() * 0.3, 1.1, 0.25);
     this.desatT = 1.2;
     this.cam.zoomPunch(1);
@@ -494,6 +514,7 @@ export class Effects implements CombatFx {
     const s = this.r.post.settings;
     this.sprites.update(dt);
     this.vfx.update(dt);
+    this.fluid.step(dt);
     this.particles.update(dt);
     this.trails.update(dt, this.r.camera.position);
     this.particles.attractStrength *= Math.exp(-dt * 3);
