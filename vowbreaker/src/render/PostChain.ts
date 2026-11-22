@@ -183,6 +183,12 @@ export class PostSettings {
   /** cursed-energy auras round up to four characters (vbAuraMask, vbAura) */
   auras: AuraSlot[] = [];
   auraAmount = 1;
+  /** scene transitions on real frames (vbTransition): kind 0 shatter, 1 ink, 2 burn, 3 slash, 4 talisman */
+  transKind = 0;
+  /** progress 0..1 while running, -1 when idle */
+  transT = -1;
+  transImpact = new Vector2(0.5, 0.5);
+  transSeed = 0;
 }
 
 /** One burning aura: whose silhouette (G-buffer id base), its colours, style and size. */
@@ -223,6 +229,8 @@ export class PostChain {
   private flareT!: RenderTargetTexture;
   private auraMask!: RenderTargetTexture;
   private auraT!: RenderTargetTexture;
+  private snapshot!: RenderTargetTexture;
+  private snapshotWanted = false;
   private lum!: RenderTargetTexture;
   private reduce: RenderTargetTexture[] = [];
   private adapt: RenderTargetTexture[] = [];
@@ -287,6 +295,7 @@ export class PostChain {
     this.flareT = this.target('flare', w / 4, h / 4);
     this.auraMask = this.target('auraMask', w / 2, h / 2);
     this.auraT = this.target('aura', w / 2, h / 2);
+    this.snapshot = this.target('snapshot', w, h, Constants.TEXTURETYPE_UNSIGNED_BYTE);
     this.lum = this.target('lum', 64, 64);
     this.reduce = [this.target('lum16', 16, 16), this.target('lum4', 4, 4), this.target('lum1', 1, 1)];
     this.adapt = [this.target('adaptA', 1, 1), this.target('adaptB', 1, 1)];
@@ -325,6 +334,8 @@ export class PostChain {
     this.wrap('vbStylize', ['screenParams', 'styleParams', 'styleParams2', 'mangaParams', 'mangaParams2', 'mangaCenter', 'paperColor', 'fluidParams'], ['source', 'fluidDye', 'fluidVel']);
     this.wrap('vbSharpen', ['rcpFrame', 'sharpness'], ['source']);
     this.wrap('vbAuraMask', ['auraIds', 'texel'], ['gbuffer']);
+    this.wrap('vbTransition', ['transParams', 'transImpact'], ['source', 'snapshot']);
+    this.wrap('vbCopy', [], ['source']);
     this.wrap('vbAura', ['auraColors', 'auraEdges', 'auraParams', 'texel'], ['mask']);
   }
 
@@ -339,6 +350,11 @@ export class PostChain {
     for (const t of this.targets) if (t !== this.black) t.dispose();
     this.targets = [this.black];
     this.buildTargets();
+  }
+
+  /** Keep the next frame as the snapshot a scene transition will break away. */
+  captureSnapshot(): void {
+    this.snapshotWanted = true;
   }
 
   /** Forget the eye's adaptation (after a hard cut to a very different scene). */
@@ -681,9 +697,25 @@ export class PostChain {
       fx.effect.setVector2('rcpFrame', new Vector2(1 / w, 1 / h));
       fx.effect.setVector4('fxaaParams', new Vector4(0.6, 0.166, 0.0312, s.fxaa ? 1 : 0));
     });
+    // the frame a transition will break away, captured on request
+    if (this.snapshotWanted) {
+      this.snapshotWanted = false;
+      this.run('vbCopy', this.snapshot, (fx) => fx.effect.setTexture('source', this.ldr));
+    }
+    // scene transitions: the snapshot covering the new scene breaks away
+    let shown: RenderTargetTexture = this.ldr;
+    if (s.transT >= 0 && s.transT < 1) {
+      this.run('vbTransition', this.ldr2, (fx) => {
+        fx.effect.setTexture('source', this.ldr);
+        fx.effect.setTexture('snapshot', this.snapshot);
+        fx.effect.setVector4('transParams', new Vector4(s.transKind, s.transT, w / h, s.transSeed));
+        fx.effect.setVector2('transImpact', s.transImpact);
+      });
+      shown = this.ldr2;
+    }
     (this.engine as Engine).restoreDefaultFramebuffer();
     this.run('vbSharpen', null, (fx) => {
-      fx.effect.setTexture('source', this.ldr);
+      fx.effect.setTexture('source', shown);
       fx.effect.setVector2('rcpFrame', new Vector2(1 / w, 1 / h));
       fx.effect.setFloat('sharpness', s.quality === 'low' ? 0 : s.sharpen);
     });

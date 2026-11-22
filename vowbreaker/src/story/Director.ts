@@ -126,6 +126,16 @@ export class Director {
   // --- stage and cast ------------------------------------------------------------------------------------
 
   async setStage(id: string): Promise<void> {
+    // a change of place mid-story: the old place is held on screen while the new one loads, then
+    // washes away in ink (the first stage just appears)
+    if (this.stage && !this.skipping && !this.transitionBusy) {
+      await this.transition('ink', () => this.loadStage(id), 1.4);
+      return;
+    }
+    await this.loadStage(id);
+  }
+
+  private async loadStage(id: string): Promise<void> {
     this.stage?.dispose();
     const def = STAGES[id] ?? STAGES.void;
     const st = new Stage(this.r, def);
@@ -323,6 +333,8 @@ export class Director {
   }
 
   flashback(on: boolean, keepHue = 0.0): void {
+    // into a memory the present burns away like paper; out of it, ink washes it off
+    if ((on ? 1 : 0) !== this.flashTarget && this.stage) void this.transition(on ? 'burn' : 'ink', () => {}, 1.6);
     this.flashTarget = on ? 1 : 0;
     this.r.post.settings.flashbackHue = keepHue;
   }
@@ -457,10 +469,51 @@ export class Director {
 
   endDomain(): void {
     if (!this.domain.active) return;
-    this.domain.hide();
-    this.stageVisible(true);
-    this.r.lighting.domainAmount = 0;
-    this.r.post.settings.domainActive = 0;
+    // the domain's world shatters like glass back into the real one
+    const center = this.domain.center.clone();
+    void this.transition('shatter', () => {
+      this.domain.hide();
+      this.stageVisible(true);
+      this.r.lighting.domainAmount = 0;
+      this.r.post.settings.domainActive = 0;
+    }, 1.5, center.add(new Vector3(0, 1.2, 0)));
+  }
+
+  private transitionBusy = false;
+
+  /**
+   * A scene transition on real frames: the current frame is kept, `change` sets up the new scene
+   * underneath it, then the old frame breaks away (shatter from `impact`, ink, burn, slash, or
+   * talismans). Skipped while another one runs (the change is applied at once).
+   */
+  async transition(kind: 'shatter' | 'ink' | 'burn' | 'slash' | 'talisman', change: () => void | Promise<void>, dur = 1.3, impact?: Vector3): Promise<void> {
+    const s = this.r.post.settings;
+    if (this.transitionBusy || this.skipping) {
+      await change();
+      return;
+    }
+    this.transitionBusy = true;
+    s.transKind = { shatter: 0, ink: 1, burn: 2, slash: 3, talisman: 4 }[kind];
+    s.transSeed = Math.random();
+    if (impact) {
+      const sp = this.fx.project(impact);
+      s.transImpact.set(sp.x, sp.y);
+    } else {
+      s.transImpact.set(0.5, 0.5);
+    }
+    // keep this frame, cover the screen with it, change the scene underneath
+    this.r.post.captureSnapshot();
+    s.transT = 0;
+    await this.wait(0.02);
+    await change();
+    let t = 0;
+    await this.task((dt) => {
+      t += dt / dur;
+      s.transT = Math.min(t, 0.999);
+      return t >= 1;
+    });
+    s.transT = -1;
+    this.transitionBusy = false;
   }
 
   private stageVisible(v: boolean): void {

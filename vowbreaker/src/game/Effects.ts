@@ -78,6 +78,11 @@ export class Effects implements CombatFx {
     r.post.fluid = this.fluid;
   }
 
+  /** A world position on screen (post-chain uv: x right, y up). */
+  project(p: Vector3): { x: number; y: number } {
+    return this.screenPos(p);
+  }
+
   /** Pour ink into the screen's water at a world position (a burst of splats outward). */
   inkBurst(at: Vector3, color: RGB, strength = 1, count = 6): void {
     const sp = this.screenPos(at);
