@@ -24,6 +24,9 @@ export const HEIGHTS: Record<string, number> = {
  * A sculpted character in the world: the skinned model with its toon material and ink outline,
  * the shared clips on its own skeleton, an anime face, spring bones and props in its hands.
  */
+/** Curse surface kinds by model (vb_toon_curse). */
+const CURSE_KIND: Record<string, number> = { mudhand: 1, umbrella: 2, bride: 3, shiragami: 4, acolyte: 5 };
+
 /** G-buffer id blocks handed out to characters (16 ids each). */
 let idBlocks = 0;
 
@@ -59,6 +62,8 @@ export class Character {
     if (opts.tint) c.look.tint.set(opts.tint[0], opts.tint[1], opts.tint[2], 1);
     if (opts.outline !== undefined) c.look.outlineWidth = opts.outline;
     if (opts.palette !== undefined) c.look.energy.y = opts.palette;
+    // the curses wear their own surfaces
+    c.look.curse.x = CURSE_KIND[model] ?? 0;
     for (const n of c.root.getDescendants(false)) {
       if (n instanceof TransformNode && !(n instanceof AbstractMesh)) c.bones.set(n.name, n);
     }

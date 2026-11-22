@@ -35,6 +35,7 @@
 #include<vb_toon_metal>
 #include<vb_toon_fx>
 #include<vb_toon_marks>
+#include<vb_toon_curse>
 
 varying vWorldPos: vec3f;
 varying vNormalW: vec3f;
@@ -65,6 +66,7 @@ uniform pointCol: array<vec4f, 4>;
 uniform domainParams: vec4f;
 uniform surface: vec4f;
 uniform surface2: vec4f;
+uniform curse: vec4f;          // curse surface kind (0 none, 1 mud, 2 umbrella, 3 ghost, 4 paper, 5 acolyte), -, -, -
 uniform heights: vec4f;
 
 var shadowMap: texture_2d<f32>;
@@ -236,6 +238,16 @@ fn main(input: FragmentInputs) -> FragmentOutputs {
         col = fxDomainWash(col, uniforms.domainParams.x, i32(uniforms.domainParams.y));
     }
     col = fxStillwater(col, fragmentInputs.vWorldPos, vec3f(0.0), uniforms.surface2.w, time);
+    // the curses are not people: their own surfaces
+    let curseKind = i32(uniforms.curse.x + 0.5);
+    if (curseKind > 0 && matId != MAT_EYE) {
+        let co = curseSurface(curseKind, col, objPos, N, V, L, lit.lit, time, figureH, uniforms.heights.y / max(figureH, 0.1),
+                              uniforms.surface.z, sunCol, fragmentInputs.position.xy);
+        if (co.cut > 0.5) {
+            discard;
+        }
+        col = co.col;
+    }
     col = fxHitFlash(col, uniforms.flash);
     fragmentOutputs.color = vec4f(max(col, vec3f(0.0)), 1.0);
 }

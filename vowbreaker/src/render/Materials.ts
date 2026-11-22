@@ -42,7 +42,7 @@ const TOON_UNIFORMS = [
   'world', 'viewProjection', 'view', 'cameraPosition', 'squash', 'pivot',
   'sunDir', 'sunColor', 'skyColor', 'groundColor', 'shadowColor', 'rimColor',
   'tint', 'flash', 'toonParams', 'toonParams2', 'energy', 'headRight', 'headUp', 'headForward',
-  'lightViewProj', 'shadowParams', 'pointPos', 'pointCol', 'domainParams', 'surface', 'surface2', 'heights',
+  'lightViewProj', 'shadowParams', 'pointPos', 'pointCol', 'domainParams', 'surface', 'surface2', 'heights', 'curse',
 ];
 
 /** Per-character shading state, written by the fighter every frame and pushed to its materials. */
@@ -68,6 +68,8 @@ export class CharacterLook {
   surface2 = new Vector4(0, 0, 0, 0);
   /** x figure height, y head height (object space), z hurt rim, w empty eyes */
   heights = new Vector4(1.7, 1.55, 0, 0);
+  /** x curse surface kind (vb_toon_curse: 1 mud, 2 umbrella, 3 ghost, 4 paper, 5 acolyte) */
+  curse = new Vector4(0, 0, 0, 0);
 }
 
 /** glTF models sit under a mirrored root (right- to left-handed): their triangles wind the other way. */
@@ -193,6 +195,7 @@ export class Materials {
     mat.setVector4('surface', look.surface);
     mat.setVector4('surface2', look.surface2);
     mat.setVector4('heights', look.heights);
+    mat.setVector4('curse', look.curse);
     if (l.shadowMap) mat.setTexture('shadowMap', l.shadowMap);
   }
 

@@ -63,3 +63,4 @@ sky_events
 toon_marks
 sumie
 sslight
+toon_curse
