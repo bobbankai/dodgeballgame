@@ -39,23 +39,23 @@ fn main(input: FragmentInputs) -> FragmentOutputs {
     var c = base;
     switch id {
         case 0: {
-            c = lookBell(textureSampleLevel(source, sourceSampler, lookBellUV(i), 0.0).rgb, i);
+            c = dlookBell(textureSampleLevel(source, sourceSampler, dlookBellUV(i), 0.0).rgb, i);
         }
         case 1: {
-            c = lookPrayers(base, i, pixel);
+            c = dlookPrayers(base, i, pixel);
         }
         case 2: {
             let mirror = textureSampleLevel(source, sourceSampler, lakeMirrorUV(i, 0.46), 0.0).rgb;
-            c = lookLake(base, mirror, i);
+            c = dlookLake(base, mirror, i);
         }
         case 3: {
             // ghosts: the frame trailing itself
             let g1 = textureSampleLevel(source, sourceSampler, uv + vec2f(0.012, 0.004), 0.0).rgb;
             let g2 = textureSampleLevel(source, sourceSampler, uv + vec2f(0.026, 0.007), 0.0).rgb;
-            c = lookParade(base, max(g1 * 0.7, g2 * 0.45), i);
+            c = dlookParade(base, max(g1 * 0.7, g2 * 0.45), i);
         }
         case 4: {
-            c = lookBurning(textureSampleLevel(source, sourceSampler, memoryShimmerUV(i), 0.0).rgb, i);
+            c = dlookBurning(textureSampleLevel(source, sourceSampler, memoryShimmerUV(i), 0.0).rgb, i);
         }
         default: {
             c = base;

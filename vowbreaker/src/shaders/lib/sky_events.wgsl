@@ -110,3 +110,49 @@ fn skySunburst(d: vec3f, sunDir: vec3f, sunCol: vec3f, amount: f32, time: f32) -
     let fall = pow(max(sd, 0.0), 6.0);
     return sunCol * rays * fall * amount * 0.5;
 }
+
+// --- rain curtains (rainy moods) ------------------------------------------------------------------------------
+//
+// Far showers seen from under a rainy sky: grey veils hanging from the cloud base down to the
+// horizon at a few places round the sky, streaked downward and leaning with the wind, denser in
+// their cores and ragged at their edges, lit from inside now and then by distant lightning.
+
+fn rainCurtainShape(az: f32, e: f32, centre: f32, width: f32, lean: f32, time: f32, seed: f32) -> f32 {
+    // the veil hangs from about 12 degrees up to the horizon
+    let top = 0.18 + hash11(seed) * 0.08;
+    if (e < -0.01 || e > top) {
+        return 0.0;
+    }
+    let h = 1.0 - e / top;
+    // it leans with the wind: its centre drifts lower down
+    var da = az - centre - h * lean;
+    da = da - TAU * floor(da / TAU + 0.5);
+    let w = width * (0.7 + 0.5 * valueNoise2(vec2f(e * 12.0, seed)));
+    let body = 1.0 - smoothstep(w * 0.5, w, abs(da));
+    // streaks falling through it
+    let streak = valueNoise2(vec2f(da * 260.0, e * 6.0 + time * 1.5 + seed)) * 0.6 + 0.4;
+    // densest in the middle, fading at the bottom into the haze and at the top into the cloud
+    let fade = smoothstep(0.0, 0.25, h) * (1.0 - smoothstep(0.85, 1.0, h) * 0.6);
+    return body * streak * fade;
+}
+
+fn skyRainCurtains(d: vec3f, time: f32, amount: f32, haze: vec3f, flash: f32, seed: f32) -> vec4f {
+    if (amount <= 0.0 || d.y > 0.4) {
+        return vec4f(0.0);
+    }
+    let az = atan2(d.z, d.x);
+    let e = asin(clamp(d.y, -1.0, 1.0));
+    var cover = 0.0;
+    var lit = 0.0;
+    for (var i = 0; i < 5; i++) {
+        let fi = f32(i);
+        let centre = (hash11(fi * 3.1 + seed) - 0.5) * TAU + time * 0.004 * (1.0 + fi * 0.2);
+        let width = 0.25 + hash11(fi * 5.7 + seed) * 0.45;
+        let c = rainCurtainShape(az, e, centre, width, 0.12, time, fi + seed * 10.0);
+        cover = max(cover, c);
+        // distant lightning inside one curtain
+        lit = max(lit, c * step(0.6, hash11(fi + floor(time * 0.3)))) ;
+    }
+    let col = mix(haze * 0.55, haze * 0.85 + vec3f(0.5, 0.55, 0.7) * flash, lit * flash);
+    return vec4f(col, cover * amount * 0.75);
+}

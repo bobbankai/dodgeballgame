@@ -90,7 +90,7 @@ async function prologue(d: Director): Promise<void> {
   ]);
   await d.fade(true, 1.2);
   await d.setStage('apartment');
-  d.flashback(true, 0.02);
+  d.flashback(true, 0.02, 'charcoal');
   const mio = await d.actor('mio');
   d.place('mio', 0, 3, Math.PI);
   mio.anim.play('kneel_grief', 0);
@@ -508,7 +508,7 @@ async function underpass(d: Director): Promise<void> {
 
 async function hina(d: Director): Promise<void> {
   await open(d, 'village', 'CHAPTER FOUR', 'Hina', 'Amagiri · twenty years ago', 'festival');
-  d.flashback(true, 0.02, 'woodblock');
+  d.flashback(true, 0.02, 'film');
   d.r.post.settings.flashbackPaper = 0.5;
   d.r.post.settings.flashbackHalftone = 0.15;
   const sj = await d.actor('sojin_young');
@@ -749,6 +749,9 @@ async function stillwater(d: Director): Promise<void> {
     ['mikami', 'Still Point. Everything stops. Even you, old friend.', 'determined', 'c'],
     ['sojin', 'Genjirō... you fool...', 'fear'],
   ]);
+  // everything stops
+  d.r.post.settings.fxCenter.copyFrom(d.fx.project(d.at('sojin', 1.1)));
+  d.fx.impactFrame(11, 0.6);
   for (let i = 0; i < 5; i++) d.fx.sprites.spawn({ kind: 9, pos: d.at('sojin', 1.1).add(new Vector3(Math.cos(i) * 1.5, Math.sin(i * 2) * 0.4, Math.sin(i) * 1.5)), size: 0.8, color: PAL[3].body, intensity: 2, life: 1.2, vel: d.at('mikami').subtract(d.at('sojin', 1.1)).scale(0.9) });
   await d.wait(1.0);
   d.fx.impactFrame(3, 0.2);
@@ -840,10 +843,13 @@ async function folds(d: Director): Promise<void> {
     ['shiragami', 'TACHIBANA. THE VOW STANDS. WHAT DO YOU OFFER.', undefined, 'w'],
     ['sayo', 'Nothing. I came to take something back.', 'angry', 'c'],
   ]);
+  // the estate folds itself into paper around the god as the fight goes on
+  d.worldTransform('paper', new Vector3(0, 0, 6), 24, 45);
   await d.battle({
     player: 'sayo', intro: 'SHIRAGAMI', introSub: '白紙神',
     fighters: [player('sayo', 'sayo', 0, -3, { energy: 100, domain: 70 }), { id: 'shiragami', model: 'shiragami', kit: 'shiragami', team: 1, pos: [0, 6], ai: 'boss', health: 1700 }],
   });
+  d.worldTransform(null);
   if (d.quit) return;
   d.music('sad');
   sg.setVisible(true);

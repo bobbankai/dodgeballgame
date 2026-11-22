@@ -36,7 +36,7 @@ uniform cloudShadow: vec3f;
 uniform skyParams: vec4f;      // time, cloud cover, stars, sun size
 uniform skyParams2: vec4f;     // moon phase, horizon glow, cursed amount, festival glow
 uniform skyParams3: vec4f;     // cirrus, light fingers, fireworks, rainbow
-uniform skyParams4: vec4f;     // sky lanterns, shooting stars
+uniform skyParams4: vec4f;     // sky lanterns, shooting stars, rain curtains, -
 uniform skyParams5: vec4f;     // lightning flash, bolt seed, aurora, crows
 uniform skyParams6: vec4f;     // sunburst, backdrop kind, backdrop amount, backdrop seed
 uniform cursedColor: vec3f;
@@ -83,6 +83,12 @@ fn main(input: FragmentInputs) -> FragmentOutputs {
     let cp = cloudDefault(uniforms.cloudColor, uniforms.cloudShadow, select(p.sunDir, p.moonDir, maxc3(uniforms.moonColor) > 0.0 && p.sunDir.y < 0.1),
                           uniforms.skyParams.y, time);
     col = cloudsComposite(col, d, cp, uniforms.skyParams3.x, uniforms.skyParams3.y);
+
+    // far showers hanging from the clouds over the horizon, lit now and then by the lightning
+    if (uniforms.skyParams4.z > 0.0) {
+        let rc = skyRainCurtains(d, time, uniforms.skyParams4.z, uniforms.horizon, uniforms.skyParams5.x, 0.71);
+        col = mix(col, rc.rgb, rc.a);
+    }
 
     // the far scenery painted round the horizon: ranges, skylines, temple hills, islands, forest
     let bk = i32(uniforms.skyParams6.y + 0.5);

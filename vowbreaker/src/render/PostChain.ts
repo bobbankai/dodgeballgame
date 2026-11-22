@@ -96,6 +96,13 @@ export class PostSettings {
   clashColorB = new Color3(1, 0.2, 0.1);
   /** how a memory is painted (vbMemory): 0 sumi-e (vbSumie), 1 shadow puppets, 2 photograph, 3 watercolour, 4 crayon, 5 stained glass, 6 woodblock */
   memoryStyle = 0;
+  /** fight screens (vb_fight_screens): versus progress (< 0 off), ending progress and kind (1 won, 2 lost), danger, the two sides' colours */
+  fightVersus = -1;
+  fightEnd = 0;
+  fightEndKind = 0;
+  fightDanger = 0;
+  fightColA = new Color3(1, 0.6, 0.2);
+  fightColB = new Color3(0.3, 0.6, 1);
   /** the open domain's look over the frame (vbDomainLook): domain id + 1 (0 none), amount, the caster on screen */
   domainLook = 0;
   domainLookAmount = 0;
@@ -425,7 +432,7 @@ export class PostChain {
     this.wrap('vbLuminance', ['lumParams'], ['source', 'gbuffer']);
     this.wrap('vbReduce', ['texel'], ['source']);
     this.wrap('vbAdapt', ['adaptParams', 'adaptRange'], ['current', 'previous']);
-    this.wrap('vbStylize', ['screenParams', 'styleParams', 'styleParams2', 'mangaParams', 'mangaParams2', 'mangaCenter', 'paperColor', 'fluidParams', 'callParams', 'callColor'], ['source', 'fluidDye', 'fluidVel']);
+    this.wrap('vbStylize', ['screenParams', 'styleParams', 'styleParams2', 'mangaParams', 'mangaParams2', 'mangaCenter', 'paperColor', 'fluidParams', 'callParams', 'callColor', 'fightParams', 'fightColA', 'fightColB'], ['source', 'fluidDye', 'fluidVel']);
     this.wrap('vbSharpen', ['rcpFrame', 'sharpness'], ['source']);
     this.wrap('vbAuraMask', ['auraIds', 'texel'], ['gbuffer']);
     this.wrap('vbTransition', ['transParams', 'transImpact'], ['source', 'snapshot']);
@@ -945,6 +952,9 @@ export class PostChain {
       e.setVector4('fluidParams', new Vector4(fluidOn ? s.fluidInk : 0, s.fluidRefract, s.fluidBands, 0));
       e.setVector4('callParams', new Vector4(s.callMode, s.callProgress, s.callSeed, s.callAmount));
       e.setColor3('callColor', s.callColor);
+      e.setVector4('fightParams', new Vector4(s.fightVersus, s.fightEnd, s.fightEndKind, s.fightDanger));
+      e.setColor3('fightColA', s.fightColA);
+      e.setColor3('fightColB', s.fightColB);
     });
 
     // FXAA, then contrast-adaptive sharpening to the canvas

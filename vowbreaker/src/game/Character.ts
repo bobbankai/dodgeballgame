@@ -25,6 +25,13 @@ export const HEIGHTS: Record<string, number> = {
  * the shared clips on its own skeleton, an anime face, spring bones and props in its hands.
  */
 /** Curse surface kinds by model (vb_toon_curse). */
+/** Expression marks by expression: blush, gloom, anger, sweat drop, pallor. */
+const FACE_MARKS: Record<string, [number, number, number, number, number]> = {
+  angry: [0.3, 0, 1, 0, 0], shout: [0.2, 0, 0.7, 0, 0], smile: [0.35, 0, 0, 0, 0], gentle: [0.3, 0, 0, 0, 0],
+  surprised: [0, 0, 0, 0.7, 0.1], fear: [0, 1, 0, 0.4, 0.6], grief: [0.15, 0.45, 0, 0, 0.25], sad: [0, 0.35, 0, 0, 0.2],
+  pain: [0, 0.2, 0, 0.8, 0.2], tired: [0, 0, 0, 0.5, 0.4], cold: [0, 0.25, 0, 0, 0.1],
+};
+
 const CURSE_KIND: Record<string, number> = { mudhand: 1, umbrella: 2, bride: 3, shiragami: 4, acolyte: 5 };
 
 /** G-buffer id blocks handed out to characters (16 ids each). */
@@ -179,6 +186,14 @@ export class Character {
     const sparkle = ex === 'joy' || ex === 'smile' || ex === 'determined' ? 1 : ex === 'gentle' ? 0.6 : 0;
     this.look.eyeState.x += (pupil - this.look.eyeState.x) * 0.2;
     this.look.eyeState.y += (sparkle - this.look.eyeState.y) * 0.2;
+    // the marks anime draws on a face: blush, the gloom over the eyes, the anger mark, a sweat drop
+    const m = FACE_MARKS[ex] ?? [0, 0, 0, 0, 0];
+    const fx = this.look.faceFx;
+    fx.x += (m[0] - fx.x) * 0.15;
+    fx.y += (m[1] - fx.y) * 0.15;
+    fx.z += (m[2] - fx.z) * 0.2;
+    fx.w += (m[3] - fx.w) * 0.15;
+    this.look.faceFx2.x += (m[4] - this.look.faceFx2.x) * 0.1;
     this.look.headRight.copyFrom(left);
     this.look.headUp.copyFrom(up.y < 0 ? up.scale(-1) : up);
     this.look.headForward.copyFrom(fwd);

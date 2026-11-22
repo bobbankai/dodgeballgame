@@ -63,7 +63,7 @@ fn flutterAt(matId: i32, objPos: vec3f, worldPos: vec3f, figureH: f32, wind: vec
 }
 
 // the ink line's weight (multiplies the outline width)
-fn lineWeight(nW: vec3f, viewDir: vec3f, sunDir: vec3f, objPos: vec3f, time: f32, seed: f32) -> f32 {
+fn inkLineWeight(nW: vec3f, viewDir: vec3f, sunDir: vec3f, objPos: vec3f, time: f32, seed: f32) -> f32 {
     // thicker in shadow, thinner in light
     let lit = clamp(dot(nW, sunDir) * 0.5 + 0.5, 0.0, 1.0);
     var w = mix(1.25, 0.7, smoothstep(0.35, 0.8, lit));
@@ -77,4 +77,31 @@ fn lineWeight(nW: vec3f, viewDir: vec3f, sunDir: vec3f, objPos: vec3f, time: f32
     let frame = floor(time * 12.0);
     w = w * (0.92 + 0.16 * hash13(floor(objPos * 25.0) + vec3f(frame)));
     return w;
+}
+
+// --- smear frames ---------------------------------------------------------------------------------------------
+//
+// Hand-drawn fight animation stretches a fast limb back along its path for a frame or two (a smear).
+// The striking bone's position and velocity come in as `smear` (xyz, reach) and `smearVel` (xyz,
+// amount); vertices near it that face away from its motion are dragged back along the path, by
+// varying amounts so the trailing edge breaks into streaks. Shared by the body and the ink hull.
+
+fn smearDisplace(worldPos: vec3f, nW: vec3f, smear: vec4f, smearVel: vec4f, objPos: vec3f) -> vec3f {
+    if (smearVel.w <= 0.0 || smear.w <= 0.0) {
+        return vec3f(0.0);
+    }
+    let v = smearVel.xyz;
+    let speed = length(v);
+    if (speed < 0.5) {
+        return vec3f(0.0);
+    }
+    let dir = v / speed;
+    let d = distance(worldPos, smear.xyz);
+    let near = 1.0 - smoothstep(smear.w * 0.4, smear.w, d);
+    // only the side trailing behind the motion is dragged
+    let trailing = smoothstep(0.1, -0.5, dot(nW, dir));
+    // streaks: each vertex drags by its own amount
+    let streak = 0.35 + 0.65 * hash13(floor(objPos * 40.0));
+    let len = min(speed * 0.045, 0.6) * smearVel.w;
+    return -dir * len * near * trailing * streak;
 }

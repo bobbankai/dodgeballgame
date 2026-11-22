@@ -36,6 +36,8 @@ uniform pivot: vec4f;      // squash-and-stretch pivot (the character's root, wo
 uniform heights: vec4f;    // figure height, head height (object space), -, -
 uniform wind: vec4f;       // world wind x, z, strength, time
 uniform motion: vec4f;     // the character's velocity x, z (world), speed, -
+uniform smear: vec4f;      // a striking limb: its bone (world), reach
+uniform smearVel: vec4f;   // its velocity, smear amount
 
 varying vWorldPos: vec3f;
 varying vNormalW: vec3f;
@@ -58,6 +60,9 @@ fn main(input: VertexInputs) -> FragmentInputs {
     let fl = flutterAt(decodeMaterialId(vertexInputs.color.a), p, worldPos.xyz, uniforms.heights.x, uniforms.wind, uniforms.motion);
     worldPos = vec4f(worldPos.xyz + fl.disp, 1.0);
 #endif
+    // a fast limb smeared back along its path (vb_toon_motion)
+    let nS = normalize((finalWorld * vec4f(vertexInputs.normal, 0.0)).xyz);
+    worldPos = vec4f(worldPos.xyz + smearDisplace(worldPos.xyz, nS, uniforms.smear, uniforms.smearVel, p), 1.0);
     vertexOutputs.position = uniforms.viewProjection * worldPos;
     let nW = normalize((finalWorld * vec4f(vertexInputs.normal, 0.0)).xyz);
     vertexOutputs.vWorldPos = worldPos.xyz;

@@ -122,7 +122,7 @@ export class Game {
       { label: 'Chapters', action: () => this.chapterSelect() },
       { label: 'Free Battle', action: () => this.battleSelect() },
       { label: 'Settings', action: () => this.settings(() => void this.title()) },
-      { label: 'Credits', action: () => this.menu.credits(() => void this.title()) },
+      { label: 'Credits', action: () => this.credits(() => void this.title()) },
     ]);
   }
 
@@ -187,7 +187,20 @@ export class Game {
     d.letterbox(false);
     console.log('story complete');
     (window as unknown as { __storyDone: boolean }).__storyDone = true;
-    this.menu.credits(() => void this.title());
+    this.credits(() => void this.title());
+  }
+
+  /** The credits roll over an ink handscroll of the story's places (vbStylize calligraphy mode 3). */
+  private credits(onDone: () => void): void {
+    const ps = this.r.post.settings;
+    ps.callMode = 3;
+    ps.callProgress = 0;
+    ps.callAmount = 1;
+    ps.callSeed = 0.37;
+    this.menu.credits(() => {
+      ps.callMode = 0;
+      onDone();
+    });
   }
 
   private async freeBattle(a: string, b: string, stage: string): Promise<void> {
@@ -239,6 +252,8 @@ export class Game {
     const ps = this.r.post.settings;
     if (this.titleSpin && ps.callMode === 1) ps.callProgress = Math.min(1, ps.callProgress + dt / 2.6);
     else if (ps.callMode === 1) ps.callMode = 0;
+    // the credits' handscroll unrolls over seventy seconds
+    if (ps.callMode === 3) ps.callProgress = Math.min(1, ps.callProgress + dt / 70);
     if (this.menu.open) {
       this.menu.nav(this.input.wasPressed('up', 0.01), this.input.wasPressed('down', 0.01), this.input.wasPressed('confirm', 0.01) && !this.titleSpin ? true : this.input.wasPressed('confirm', 0.01),
         this.input.wasPressed('back', 0.01));

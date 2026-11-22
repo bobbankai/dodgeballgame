@@ -83,3 +83,8 @@ domain_looks
 grass_marks
 train
 scene_trans2
+curse_rot
+face_marks
+env_transform
+credits_scroll
+fight_screens

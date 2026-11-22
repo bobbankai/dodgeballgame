@@ -12,6 +12,8 @@
 //                    outlines, a few bright colours, the sky a band of blue at the top
 //   5 stained glass  the frame cut into panes of coloured glass held by black lead, light glowing
 //                    through each pane, the people's panes darker and richer
+//   7 home movie     an 8 mm film: jitter in the gate, faded warm stock, grain, sprocket holes
+//   8 charcoal       a charcoal study on toned paper, smudged, the highlights lifted out
 //   6 woodblock      an ukiyo-e print: flat colour blocks from a small palette, a black keyblock
 //                    line, a graded (bokashi) sky, paper grain, the colour blocks a little out of
 //                    register with the key
@@ -294,4 +296,91 @@ fn memWoodblock(src: texture_2d<f32>, ss: sampler, uv: vec2f, pixel: vec2f, px: 
     let key = smoothstep(0.35, 0.6, geo.edge);
     c = mix(c, vec3f(0.08, 0.07, 0.07), key);
     return c * memPaper(pixel, seed);
+}
+
+// --- 7 home movie ---------------------------------------------------------------------------------------------
+//
+// An 8 mm home movie: the frame jitters in the gate, the colour faded to warm magentas and creams,
+// heavy grain, the corners burnt dark, sprocket holes down one side, a light leak licking in from an
+// edge, the odd hair caught in the gate, and the frame rate stuttering like a hand-cranked camera.
+
+fn memFilmGate(uv: vec2f, time: f32, seed: f32) -> vec2f {
+    // a jitter that changes eighteen times a second (the frame rate of home film)
+    let f = floor(time * 18.0);
+    let j = (hash22(vec2f(f, seed)) - 0.5) * vec2f(0.004, 0.008);
+    // now and then the frame slips in the gate
+    let slip = step(0.97, hash11(f * 1.3 + seed)) * 0.03;
+    return uv + j + vec2f(0.0, slip);
+}
+
+fn memHomeMovie(src: texture_2d<f32>, ss: sampler, uv: vec2f, pixel: vec2f, aspect: f32, time: f32, seed: f32, keep: f32) -> vec3f {
+    let guv = memFilmGate(uv, time, seed);
+    var c = textureSampleLevel(src, ss, guv, 0.0).rgb;
+    // faded stock: the blues gone, magenta in the shadows, cream highlights
+    let l = luma(c);
+    var faded = mix(vec3f(0.25, 0.12, 0.18), vec3f(1.0, 0.92, 0.75), smoothstep(0.05, 0.95, l));
+    faded = mix(faded, c * vec3f(1.1, 0.95, 0.75), 0.35 + keep * 0.4);
+    c = faded;
+    // grain, changing every frame of the film
+    let f = floor(time * 18.0);
+    let g = hash12(floor(pixel * 0.6) + vec2f(f * 13.1, f * 7.7)) - 0.5;
+    c = c * (1.0 + g * 0.22);
+    // the gate's burnt corners and a soft vignette
+    let q = (uv - 0.5) * vec2f(aspect, 1.0);
+    let corner = smoothstep(0.35, 0.95, length(q * vec2f(0.85, 1.2)));
+    c = c * (1.0 - corner * 0.75);
+    // a light leak from the right edge, breathing
+    let leak = smoothstep(0.6, 1.0, uv.x) * (0.5 + 0.5 * sin(time * 0.7 + seed * 6.0)) * (0.6 + 0.4 * valueNoise2(vec2f(uv.y * 3.0, time * 0.3)));
+    c = c + vec3f(1.0, 0.35, 0.1) * leak * 0.35;
+    // sprocket holes down the left side, rolling with the film
+    let sx = uv.x * aspect;
+    let sy = fract(guv.y * 4.0 + time * 0.0);
+    let hole = step(sx, 0.07) * step(0.02, sx) * (1.0 - smoothstep(0.0, 0.02, abs(sy - 0.5) - 0.12));
+    let strip = step(sx, 0.09);
+    c = mix(c, vec3f(0.08, 0.05, 0.04), strip * 0.9);
+    c = mix(c, vec3f(0.95, 0.9, 0.8), hole);
+    // a hair caught in the gate, now and then
+    let hairOn = step(0.7, hash11(floor(time * 0.4) + seed));
+    let hx = 0.75 + hash11(floor(time * 0.4) + seed * 2.0) * 0.2;
+    let hairD = abs(uv.x - hx - sin(uv.y * 9.0 + seed) * 0.01);
+    c = mix(c, vec3f(0.05), (1.0 - smoothstep(0.0, 0.0012, hairD)) * hairOn * step(0.3, uv.y));
+    // the flicker of the projector
+    c = c * (0.94 + 0.06 * hash11(f * 3.3 + seed));
+    return c;
+}
+
+// --- 8 charcoal -----------------------------------------------------------------------------------------------
+//
+// A charcoal study: the values laid in with the side of the stick (broad, grainy strokes following
+// the forms), smudged with a thumb into soft greys, the darks pressed in hard, lines dragged along
+// the edges, highlights lifted out with a kneaded eraser, all on rough toned paper.
+
+fn memCharcoal(src: texture_2d<f32>, ss: sampler, uv: vec2f, pixel: vec2f, px: vec2f, geo: MemGeo, time: f32, seed: f32) -> vec3f {
+    // smudged values: the frame blurred a little (the thumb)
+    var v = 0.0;
+    for (var i = 0; i < 6; i++) {
+        let a = f32(i) / 6.0 * TAU;
+        v = v + luma(textureSampleLevel(src, ss, uv + vec2f(cos(a), sin(a)) * px * 3.5, 0.0).rgb);
+    }
+    v = v / 6.0;
+    let tone = clamp(1.0 - v * 1.3, 0.0, 1.0);
+    // the stick's grain: broad strokes, their direction following the value's slope
+    let vx = luma(textureSampleLevel(src, ss, uv + vec2f(px.x * 4.0, 0.0), 0.0).rgb) - v;
+    let vy = luma(textureSampleLevel(src, ss, uv + vec2f(0.0, px.y * 4.0), 0.0).rgb) - v;
+    let ang = atan2(vy, vx) + PI * 0.5;
+    let q = rotate2(pixel, ang);
+    let stroke = valueNoise2(vec2f(q.x * 0.05, q.y * 0.5) + seed) * 0.6 + valueNoise2(pixel * 0.9 + seed) * 0.4;
+    // paper tooth catches the charcoal on its peaks
+    let tooth = valueNoise2(pixel * 0.7 + seed * 3.0);
+    var cover = smoothstep(0.2, 0.9, tone + (stroke - 0.5) * 0.5) * mix(0.6, 1.0, step(0.4, tooth));
+    // darks pressed in hard
+    cover = max(cover, smoothstep(0.75, 0.95, tone));
+    // highlights lifted out with an eraser: clean strokes of paper
+    let lift = smoothstep(0.82, 0.95, v) * step(0.5, valueNoise2(vec2f(q.x * 0.02, q.y * 0.3) + seed * 2.0));
+    cover = cover * (1.0 - lift);
+    // lines dragged along the edges
+    cover = max(cover, smoothstep(0.4, 0.8, geo.edge) * 0.85);
+    let paper = vec3f(0.86, 0.82, 0.74) * (0.95 + 0.08 * tooth);
+    let charcoal = vec3f(0.08, 0.075, 0.08);
+    return mix(paper, charcoal, cover);
 }

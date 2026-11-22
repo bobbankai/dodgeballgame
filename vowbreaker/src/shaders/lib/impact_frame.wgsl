@@ -23,6 +23,8 @@ const IMPACT_SHATTER = 5;
 const IMPACT_BURST = 6;
 const IMPACT_SMEAR = 7;
 const IMPACT_PANEL = 8;
+const IMPACT_INKSPLASH = 9;
+const IMPACT_TIMESTOP = 10;
 
 struct ImpactGeo {
     isChar: f32,      // 1 on a fighter
@@ -137,14 +139,14 @@ fn impactBolts(uv: vec2f, center: vec2f, aspect: f32, seed: f32, width: f32) -> 
 }
 
 // the frame as shards: which shard this pixel belongs to, how far it has drifted, the crack line
-struct Shard {
+struct ImpactShard {
     uv: vec2f,
     crack: f32,
     shade: f32,
 }
 
-fn impactShatter(uv: vec2f, center: vec2f, aspect: f32, t: f32, seed: f32) -> Shard {
-    var s: Shard;
+fn impactShatter(uv: vec2f, center: vec2f, aspect: f32, t: f32, seed: f32) -> ImpactShard {
+    var s: ImpactShard;
     let p = vec2f(uv.x * aspect, uv.y);
     // shards are small near the hit and large far from it
     let dc = length(p - vec2f(center.x * aspect, center.y));
@@ -268,6 +270,12 @@ fn impactStyle(style: i32, col: vec3f, geo: ImpactGeo, uv: vec2f, pixel: vec2f, 
             c = mix(c, vec3f(1.0), star);
             return c;
         }
+        case 9: {
+            return impactInkSplash(col, geo, uv, pixel, center, aspect, t, seed, accent);
+        }
+        case 10: {
+            return impactTimeStop(col, geo, uv, pixel, center, aspect, t, seed);
+        }
         case 8: {
             // panel: screentone shading, black lines, a sound balloon at the hit
             let tone = clamp(1.0 - l * 1.2, 0.0, 1.0);
@@ -284,4 +292,80 @@ fn impactStyle(style: i32, col: vec3f, geo: ImpactGeo, uv: vec2f, pixel: vec2f, 
             return col;
         }
     }
+}
+
+// --- more styles: ink splash, time stop ---------------------------------------------------------------------
+//
+//   9 ink splash  a burst of black ink thrown across the frame from the hit, the fighters white
+//                 shapes cut out of it, droplets flung outward, the paper showing at the edges
+//  10 time stop   the world freezes: the frame drained to a cold cyan monochrome, a clock face's
+//                 ticks and hands drawn round the hit, the fighters held in the light, everything
+//                 else under a fine grid of stopped rain
+
+// the splash: a jagged radial blot with fingers reaching outward and droplets beyond them
+fn impactInkBlot(uv: vec2f, center: vec2f, aspect: f32, t: f32, seed: f32) -> f32 {
+    let d = vec2f((uv.x - center.x) * aspect, uv.y - center.y);
+    let r = length(d);
+    let a = atan2(d.y, d.x);
+    // the body of the splash grows quickly, its fingers reach further
+    let reach = 0.25 + 0.6 * easeOutCubic(min(t * 2.5, 1.0));
+    let fingers = pow(valueNoise2(vec2f(a * 4.0 + seed * 9.0, seed)), 2.0) * 0.6 + valueNoise2(vec2f(a * 13.0, seed * 3.0)) * 0.25;
+    let edge = reach * (0.45 + fingers);
+    var blot = 1.0 - smoothstep(edge - 0.004, edge + 0.004, r);
+    // droplets flung past the fingers
+    let cell = floor(vec2f(a * 9.0, r * 14.0) + seed * 5.0);
+    let h = hash22(cell);
+    let fr = fract(vec2f(a * 9.0, r * 14.0) + seed * 5.0) - 0.5 - (h - 0.5) * 0.5;
+    let drop = (1.0 - smoothstep(0.08, 0.12, length(fr * vec2f(1.0, 0.6)))) * step(0.6, h.x) * step(edge, r) * step(r, edge * 1.6);
+    blot = max(blot, drop);
+    return blot;
+}
+
+fn impactInkSplash(col: vec3f, geo: ImpactGeo, uv: vec2f, pixel: vec2f, center: vec2f, aspect: f32, t: f32, seed: f32, accent: vec3f) -> vec3f {
+    let paper = vec3f(0.96, 0.94, 0.88) * (0.96 + 0.06 * valueNoise2(pixel * 0.4));
+    let blot = impactInkBlot(uv, center, aspect, t, seed);
+    let ink = vec3f(0.02, 0.018, 0.025);
+    var c = mix(paper, ink, blot);
+    // fighters cut out of the ink in white, inked outlines
+    c = mix(c, paper, geo.isChar * blot);
+    c = mix(c, ink, geo.isChar * (1.0 - blot) * 0.9);
+    c = mix(c, mix(ink, paper, blot), smoothstep(0.35, 0.7, geo.edge));
+    // a splash of the attacker's colour at the heart of it
+    let heart = 1.0 - smoothstep(0.0, 0.08, length(vec2f((uv.x - center.x) * aspect, uv.y - center.y)));
+    c = mix(c, accent, heart * 0.8 * (1.0 - geo.isChar));
+    return c;
+}
+
+// the clock: a ring of ticks round the hit, two hands, the second hand caught mid-step
+fn impactClock(uv: vec2f, center: vec2f, aspect: f32, seed: f32) -> f32 {
+    let d = vec2f((uv.x - center.x) * aspect, uv.y - center.y);
+    let r = length(d);
+    let a = atan2(d.y, d.x);
+    let R = 0.28;
+    let ring = 1.0 - smoothstep(0.0, 0.003, abs(r - R));
+    let tickA = abs(fract(a / TAU * 12.0) - 0.5);
+    let ticks = (1.0 - smoothstep(0.0, 0.012, tickA * R * TAU / 12.0)) * step(R - 0.03, r) * step(r, R);
+    let hourA = seed * TAU;
+    let minA = seed * TAU * 7.0;
+    let hour = 1.0 - smoothstep(0.0, 0.004, sdSegment2(d, vec2f(0.0), vec2f(cos(hourA), sin(hourA)) * R * 0.5));
+    let minute = 1.0 - smoothstep(0.0, 0.003, sdSegment2(d, vec2f(0.0), vec2f(cos(minA), sin(minA)) * R * 0.85));
+    return max(max(ring, ticks), max(hour, minute));
+}
+
+fn impactTimeStop(col: vec3f, geo: ImpactGeo, uv: vec2f, pixel: vec2f, center: vec2f, aspect: f32, t: f32, seed: f32) -> vec3f {
+    let l = luma(col);
+    // a cold monochrome, the fighters held in a pale light
+    var c = mix(vec3f(0.02, 0.08, 0.12), vec3f(0.75, 0.95, 1.0), smoothstep(0.05, 0.9, l));
+    c = mix(c, mix(vec3f(0.1, 0.2, 0.25), vec3f(1.0), smoothstep(0.1, 0.8, l)), geo.isChar);
+    // stopped rain: a fine grid of short vertical streaks hanging in the air
+    let cell = floor(pixel / vec2f(9.0, 26.0));
+    let h = hash12(cell + seed);
+    let f = fract(pixel / vec2f(9.0, 26.0));
+    let streak = step(0.7, h) * (1.0 - smoothstep(0.0, 0.08, abs(f.x - 0.5))) * step(0.2, f.y) * step(f.y, 0.6);
+    c = mix(c, vec3f(0.85, 0.97, 1.0), streak * 0.5 * (1.0 - geo.isChar));
+    // the clock round the hit
+    c = mix(c, vec3f(0.9, 1.0, 1.0), impactClock(uv, center, aspect, seed) * 0.8);
+    // ink lines stay
+    c = mix(c, vec3f(0.02, 0.05, 0.07), smoothstep(0.4, 0.75, geo.edge));
+    return c;
 }

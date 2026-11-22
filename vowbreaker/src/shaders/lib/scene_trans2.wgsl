@@ -155,7 +155,7 @@ fn transPetals(uv: vec2f, t: f32, aspect: f32, seed: f32) -> TransSample {
 
 // --- brush ----------------------------------------------------------------------------------------------------
 
-fn transBrush(uv: vec2f, t: f32, aspect: f32, seed: f32) -> TransSample {
+fn transBrushSweep(uv: vec2f, t: f32, aspect: f32, seed: f32) -> TransSample {
     var r = transNone(uv);
     // the stroke's front moves left to right, slightly curved, its width the whole screen
     let front = mix(-0.35, 1.35, easeInOutCubic(t)) + sin(uv.y * 3.0 + seed * 6.0) * 0.04;

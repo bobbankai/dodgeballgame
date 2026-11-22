@@ -26,6 +26,8 @@
 #include<vb_manga>
 #include<vb_fluid>
 #include<vb_calligraphy>
+#include<vb_fight_screens>
+#include<vb_credits_scroll>
 
 varying vUV: vec2f;
 
@@ -44,6 +46,9 @@ uniform mangaParams2: vec4f;     // manga page amount, sfx burst amount, beta fi
 uniform mangaCenter: vec4f;      // focus / sparkle centre xy, sfx centre zw
 uniform paperColor: vec3f;
 uniform callParams: vec4f;      // calligraphy: mode (0 off, 1 title, 2 chapter card), progress, seed, amount
+uniform fightParams: vec4f;     // versus progress (< 0 off), ending progress, ending (1 won, 2 lost), danger
+uniform fightColA: vec3f;       // the player's colour
+uniform fightColB: vec3f;       // the enemy's
 uniform callColor: vec3f;       // the accent ink (red strokes, the seal)
 uniform fluidParams: vec4f;     // ink amount, refraction, wash bands, -
 
@@ -175,9 +180,18 @@ fn main(input: FragmentInputs) -> FragmentOutputs {
         col = mix(col, vec3f(0.97, 0.96, 0.93), pl.y);
     }
 
+    // --- the moments that frame a fight: versus, victory, defeat, the player in danger ----------------------------
+    let fp = uniforms.fightParams;
+    if ((fp.x >= 0.0 && fp.x < 1.0) || fp.z > 0.5 || fp.w > 0.0) {
+        col = fightScreens(col, fragmentInputs.vUV, aspect, fp, uniforms.fightColA, uniforms.fightColB, time);
+    }
+
     // --- calligraphy for the title and chapter cards (the HTML text sits on top) ----------------------------------
     let callMode = i32(uniforms.callParams.x + 0.5);
-    if (callMode > 0 && uniforms.callParams.w > 0.0) {
+    if (callMode == 3 && uniforms.callParams.w > 0.0) {
+        // the credits: an ink handscroll of the story's places unrolling behind the names
+        col = mix(col, creditsScroll(fragmentInputs.vUV, pixel, aspect, uniforms.callParams.y, time, uniforms.callParams.z), uniforms.callParams.w);
+    } else if (callMode > 0 && uniforms.callParams.w > 0.0) {
         var k: Ink;
         if (callMode == 1) {
             k = callTitle(fragmentInputs.vUV, aspect, uniforms.callParams.y, uniforms.callParams.z);

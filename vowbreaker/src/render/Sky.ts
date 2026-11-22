@@ -36,6 +36,8 @@ export interface SkyMood {
   crows?: number;
   /** rays fanning from a low sun behind clouds */
   sunburst?: number;
+  /** far showers hanging from the clouds round the horizon */
+  rainCurtains?: number;
 }
 
 /** The sky dome (vb sky shader): follows the camera, drawn behind everything. */
@@ -84,7 +86,7 @@ export class Sky {
     t.setVector4('skyParams', new Vector4(this.lighting.time, m.cloudCover, m.stars, m.sunSize));
     t.setVector4('skyParams2', new Vector4(m.moonPhase ?? 0, m.horizonGlow, m.cursed ?? 0, m.festival ?? 0));
     t.setVector4('skyParams3', new Vector4(m.cirrus ?? 0.3, m.fingers ?? 0, m.fireworks ?? 0, m.rainbow ?? 0));
-    t.setVector4('skyParams4', new Vector4(m.lanterns ?? 0, m.shootingStars ?? 0, 0, 0));
+    t.setVector4('skyParams4', new Vector4(m.lanterns ?? 0, m.shootingStars ?? 0, m.rainCurtains ?? 0, 0));
     t.setVector4('skyParams5', new Vector4(this.lightning, this.boltSeed, m.aurora ?? 0, m.crows ?? 0));
     t.setVector4('skyParams6', new Vector4(m.sunburst ?? 0, this.backdrop, this.backdropAmount, this.backdropSeed));
     t.setColor3('cursedColor', m.cursedColor ?? new Color3(0.8, 0.05, 0.05));
@@ -107,7 +109,7 @@ export const DAWN: SkyMood = {
 export const NIGHT_RAIN: SkyMood = {
   zenith: c(0.02, 0.025, 0.05), horizon: c(0.1, 0.11, 0.16), ground: c(0.03, 0.03, 0.04), sunColor: c(0.3, 0.35, 0.5),
   moonColor: c(0, 0, 0), cloudColor: c(0.12, 0.13, 0.17), cloudShadow: c(0.04, 0.045, 0.06), cloudCover: 0.95, stars: 0, sunSize: 0.0, horizonGlow: 0.15,
-  festival: 0.4, festivalColor: c(0.6, 0.25, 0.5),
+  festival: 0.4, festivalColor: c(0.6, 0.25, 0.5), rainCurtains: 1,
 };
 
 export const MOONLIT: SkyMood = {

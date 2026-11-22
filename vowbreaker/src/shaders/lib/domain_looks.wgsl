@@ -44,14 +44,14 @@ fn bellRings(i: DomainLookIn, period: f32) -> vec2f {
     return vec2f(bend, ring);
 }
 
-fn lookBellUV(i: DomainLookIn) -> vec2f {
+fn dlookBellUV(i: DomainLookIn) -> vec2f {
     let br = bellRings(i, 2.6);
     let d = vec2f((i.uv.x - i.center.x) * i.aspect, i.uv.y - i.center.y);
     let dir = normalize(d + vec2f(1e-4));
     return i.uv + vec2f(dir.x / i.aspect, dir.y) * br.x * i.amount;
 }
 
-fn lookBell(c0: vec3f, i: DomainLookIn) -> vec3f {
+fn dlookBell(c0: vec3f, i: DomainLookIn) -> vec3f {
     var c = c0;
     let br = bellRings(i, 2.6);
     // bronze in the highlights, a faint gold on the ring as it passes
@@ -86,7 +86,7 @@ fn paperCreases(i: DomainLookIn) -> vec2f {
     return vec2f(shade, line);
 }
 
-fn lookPrayers(c0: vec3f, i: DomainLookIn, pixel: vec2f) -> vec3f {
+fn dlookPrayers(c0: vec3f, i: DomainLookIn, pixel: vec2f) -> vec3f {
     var c = c0;
     // paper fibre over everything
     let fibre = valueNoise2(vec2f(pixel.x * 0.03, pixel.y * 0.5)) * valueNoise2(vec2f(pixel.x * 0.5, pixel.y * 0.03));
@@ -120,7 +120,7 @@ fn lakeStillness(time: f32) -> f32 {
     return smoothstep(0.0, 0.03, t) * (1.0 - smoothstep(0.1, 0.2, t));
 }
 
-fn lookLake(c0: vec3f, mirror: vec3f, i: DomainLookIn) -> vec3f {
+fn dlookLake(c0: vec3f, mirror: vec3f, i: DomainLookIn) -> vec3f {
     var c = mix(c0, max(c0, mirror * 0.9), 0.22);
     // moonlight: drained to blue, silver in the highlights
     let l = luma(c);
@@ -169,7 +169,7 @@ fn paradeTorii(i: DomainLookIn) -> f32 {
     return t;
 }
 
-fn lookParade(c0: vec3f, ghost: vec3f, i: DomainLookIn) -> vec3f {
+fn dlookParade(c0: vec3f, ghost: vec3f, i: DomainLookIn) -> vec3f {
     var c = mix(c0, max(c0, ghost), 0.35);
     c = c + paradeBokeh(i);
     // red-black vignette
@@ -187,7 +187,7 @@ fn memoryShimmerUV(i: DomainLookIn) -> vec2f {
     return i.uv + vec2f(n * 0.004, abs(n) * 0.003) * (0.5 + (1.0 - i.uv.y));
 }
 
-fn lookBurning(c0: vec3f, i: DomainLookIn) -> vec3f {
+fn dlookBurning(c0: vec3f, i: DomainLookIn) -> vec3f {
     var c = c0 * vec3f(1.1, 0.92, 0.8);
     // embers stuck on the lens, glowing and dimming
     let cell = floor(i.uv * vec2f(i.aspect, 1.0) * 22.0);

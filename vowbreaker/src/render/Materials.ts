@@ -29,6 +29,12 @@ export class Lighting {
   windDir = new Vector3(1, 0, 0.3);
   /** the wind characters' hems and hair feel (strength, m/s-ish) */
   windStrength = 1;
+  /** what a fighter's nature does to the place (vb_env_transform): kind (1 paper, 2 stillness, 3 spark), amount, radius, seed */
+  envTransform = new Vector4(0, 0, 0, 0);
+  /** its centre and the time it began */
+  envTransformPos = new Vector4(0, 0, 0, 0);
+  /** set while the story holds a transformation (fight effects leave it alone) */
+  envTransformLock = false;
   /** the cutscene light rig (vb_cine_light, 6 vec4s; amount 0 = off) */
   cine = new Float32Array(24);
 
@@ -47,7 +53,7 @@ const TOON_UNIFORMS = [
   'world', 'viewProjection', 'view', 'cameraPosition', 'squash', 'pivot',
   'sunDir', 'sunColor', 'skyColor', 'groundColor', 'shadowColor', 'rimColor',
   'tint', 'flash', 'toonParams', 'toonParams2', 'energy', 'headRight', 'headUp', 'headForward',
-  'lightViewProj', 'shadowParams', 'pointPos', 'pointCol', 'domainParams', 'surface', 'surface2', 'heights', 'curse', 'cine', 'wind', 'motion', 'eyeL', 'eyeR', 'eyeState',
+  'lightViewProj', 'shadowParams', 'pointPos', 'pointCol', 'domainParams', 'surface', 'surface2', 'heights', 'curse', 'cine', 'wind', 'motion', 'smear', 'smearVel', 'eyeL', 'eyeR', 'eyeState', 'faceFx', 'faceFx2',
 ];
 
 /** Per-character shading state, written by the fighter every frame and pushed to its materials. */
@@ -77,11 +83,18 @@ export class CharacterLook {
   curse = new Vector4(0, 0, 0, 0);
   /** x, z world velocity (smoothed), speed: hems and hair trail behind it */
   motion = new Vector4(0, 0, 0, 0);
+  /** a striking limb smeared along its path: bone (world) and reach, velocity and amount */
+  smear = new Vector4(0, 0, 0, 0);
+  smearVel = new Vector4(0, 0, 0, 0);
   /** the eyes' centres (world) and iris radius (w 0 = unknown) */
   eyeL = new Vector4(0, 0, 0, 0);
   eyeR = new Vector4(0, 0, 0, 0);
   /** pupil size (0 pinprick .. 1 wide), sparkle (0..1) */
   eyeState = new Vector4(0.5, 0, 0, 0);
+  /** expression marks: blush, gloom over the eyes, anger mark, sweat drop (0..1) */
+  faceFx = new Vector4(0, 0, 0, 0);
+  /** x pallor */
+  faceFx2 = new Vector4(0, 0, 0, 0);
 }
 
 /** glTF models sit under a mirrored root (right- to left-handed): their triangles wind the other way. */
@@ -142,7 +155,7 @@ export class Materials {
     const { attributes, defines } = attributesFor(mesh);
     const mat = new ShaderMaterial('outline_' + mesh.name, this.scene, { vertex: 'outline', fragment: 'outline' }, {
       attributes: attributes.filter((a) => a !== 'uv2'), defines: defines.filter((d) => d !== 'UV2'),
-      uniforms: ['world', 'viewProjection', 'view', 'squash', 'pivot', 'outlineParams', 'screenSize', 'tint', 'flash', 'energy', 'lineColor', 'heights', 'wind', 'motion', 'sunDir', 'cameraPosition'],
+      uniforms: ['world', 'viewProjection', 'view', 'squash', 'pivot', 'outlineParams', 'screenSize', 'tint', 'flash', 'energy', 'lineColor', 'heights', 'wind', 'motion', 'smear', 'smearVel', 'sunDir', 'cameraPosition'],
       shaderLanguage: ShaderLanguage.WGSL,
     });
     mat.backFaceCulling = true;
@@ -213,9 +226,13 @@ export class Materials {
     mat.setArray4('cine', Array.from(l.cine));
     mat.setVector4('wind', new Vector4(l.windDir.x, l.windDir.z, l.windStrength, l.time));
     mat.setVector4('motion', look.motion);
+    mat.setVector4('smear', look.smear);
+    mat.setVector4('smearVel', look.smearVel);
     mat.setVector4('eyeL', look.eyeL);
     mat.setVector4('eyeR', look.eyeR);
     mat.setVector4('eyeState', look.eyeState);
+    mat.setVector4('faceFx', look.faceFx);
+    mat.setVector4('faceFx2', look.faceFx2);
     if (l.shadowMap) mat.setTexture('shadowMap', l.shadowMap);
   }
 
@@ -232,6 +249,8 @@ export class Materials {
     mat.setVector4('heights', look.heights);
     mat.setVector4('wind', new Vector4(l.windDir.x, l.windDir.z, l.windStrength, l.time));
     mat.setVector4('motion', look.motion);
+    mat.setVector4('smear', look.smear);
+    mat.setVector4('smearVel', look.smearVel);
     mat.setVector3('sunDir', l.sunDir);
     mat.setVector3('cameraPosition', this.scene.activeCamera?.globalPosition ?? Vector3.Zero());
   }

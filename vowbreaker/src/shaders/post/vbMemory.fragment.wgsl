@@ -60,6 +60,12 @@ fn main(input: FragmentInputs) -> FragmentOutputs {
         case 6: {
             col = memWoodblock(source, sourceSampler, uv, pixel, px, geo, seed, keep);
         }
+        case 7: {
+            col = memHomeMovie(source, sourceSampler, uv, pixel, aspect, time, seed, keep);
+        }
+        case 8: {
+            col = memCharcoal(source, sourceSampler, uv, pixel, px, geo, time, seed);
+        }
         default: {
             col = base;
         }

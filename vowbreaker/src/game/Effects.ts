@@ -65,6 +65,9 @@ export class Effects implements CombatFx {
   private fightTime = new Map<Fighter, number>();
   private impactT = 0;
   private impactDur = 0.1;
+  /** a fight-driven world transformation (stillness, black lightning): seconds left, its length */
+  private xformT = 0;
+  private xformDur = 1;
   private flashT = 0;
   private desatT = 0;
   private radialT = 0;
@@ -74,6 +77,8 @@ export class Effects implements CombatFx {
   private activeTrails = new Map<Fighter, ReturnType<Trails['start']>>();
   /** distance each fighter has walked since their last footprint, and which foot is next */
   private stride = new Map<Fighter, { x: number; z: number; d: number; side: number }>();
+  /** the limb each fighter is striking with (smeared along its path), and where it was last frame */
+  private smearBone = new Map<Fighter, { bone: string; heavy: boolean; last: Vector3 | null }>();
   /** the player (screen effects are stronger for their hits) */
   player: Fighter | null = null;
   onHitHud: ((attacker: Fighter, target: Fighter, dmg: number, res: HitResult, spark: boolean) => void) | null = null;
@@ -99,6 +104,16 @@ export class Effects implements CombatFx {
   /** A world position on screen (post-chain uv: x right, y up). */
   project(p: Vector3): { x: number; y: number } {
     return this.screenPos(p);
+  }
+
+  /** A short world transformation from a technique (unless the story holds one). */
+  private worldXform(kind: number, at: Vector3, radius: number, dur: number): void {
+    const L = this.r.lighting;
+    if (L.envTransformLock) return;
+    L.envTransform.set(kind, 0, radius, Math.random());
+    L.envTransformPos.set(at.x, at.y, at.z, L.time);
+    this.xformT = dur;
+    this.xformDur = dur;
   }
 
   /** Leave a scar on the arena floor (src/render/Marks.ts), if this stage keeps them. */
@@ -174,7 +189,7 @@ export class Effects implements CombatFx {
   /**
    * Cut to a drawn impact frame for `dur` seconds (vbImpact). Styles: 1 ink, 2 negative, 3 Black
    * Spark, 4 the old halftone flash, 5 shatter, 6 burst in the attacker's colour, 7 smear along the
-   * blow, 8 manga panel, 9 sketch.
+   * blow, 8 manga panel, 9 sketch, 10 ink splash, 11 time stop.
    */
   impactFrame(style: number, dur = 0.09, accent?: RGB, dir?: { x: number; y: number }): void {
     const s = this.r.post.settings;
@@ -185,7 +200,7 @@ export class Effects implements CombatFx {
       s.impactStyle = 0;
       return;
     }
-    s.impactStyle = style === 9 ? 4 : style;
+    s.impactStyle = style === 9 ? 4 : style === 10 ? 9 : style === 11 ? 10 : style;
     s.impactSeed = Math.random();
     if (accent) {
       s.impactAccent.set(accent[0], accent[1], accent[2]);
@@ -245,6 +260,8 @@ export class Effects implements CombatFx {
     }
     // the floor remembers: ink thrown along the blow, the target's heels dragged back
     if (big || Math.random() < 0.3) this.splatter(t.pos, dir, big ? 0.32 + Math.random() * 0.12 : 0.16, big ? 1 : 0.7);
+    // a curse's blows leave a seed of rot where the target stood
+    if (big && a.ch.look.curse.x > 0) this.r.mats.marks?.rotSeed(t.pos.x, t.pos.z, 0.7, 0.8);
     if (big && at.y < 1.2) this.rubble(new Vector3(t.pos.x, 0, t.pos.z), 6, 3, 0.08, 0, dir);
     if (big) this.mark({ kind: MK.skid, x: t.pos.x - dir.x * 0.2, z: t.pos.z - dir.z * 0.2, angle: Math.atan2(dir.z, dir.x), len: 0.9 + dmg / 80, width: 0.35, strength: 0.8 });
     if (marked) {
@@ -270,6 +287,7 @@ export class Effects implements CombatFx {
       }
       this.vfx.spawn({ kind: VK.crater, pos: new Vector3(at.x, 0.03, at.z), scale: 1.4, life: 4, color: SPARK_LIGHT });
       this.mark({ kind: MK.crater, x: t.pos.x, z: t.pos.z, radius: 1.5, strength: 1, palette: 5 });
+      this.worldXform(3, at, 4.5, 0.9);
       this.rubble(new Vector3(t.pos.x, 0, t.pos.z), 26, 6, 0.14, 1);
       this.mark({ kind: MK.splatter, x: t.pos.x + dir.x, z: t.pos.z + dir.z, radius: 0.45, angle: Math.atan2(dir.z, dir.x), strength: 1 });
       // black lightning bleeds red ink across the screen
@@ -282,7 +300,7 @@ export class Effects implements CombatFx {
       this.audio.sfx('blackspark', at);
     } else if (big && mine) {
       // a drawn frame for the blows that matter: ink, negative, sketch or a manga panel
-      const styles = [1, 2, 9, 8];
+      const styles = [1, 2, 9, 8, 10];
       this.impactFrame(styles[Math.floor(Math.random() * styles.length)], 0.08, pal.body, this.screenDir(at, dir));
       this.cam.zoomPunch(0.5);
     }
@@ -320,6 +338,9 @@ export class Effects implements CombatFx {
       this.sprites.spawn({ kind: kind === 'gravity' ? SK.gravity : SK.seal, pos: at, size: m.area.radius * 2, color: pal.body, intensity: 1, life: m.area.delay + 0.2, mode: 1 });
     }
     if (kind === 'slow-field') {
+      // time itself held: a frozen frame with a clock round the caster, the ground gone still as glass
+      this.impactFrame(11, 0.18);
+      this.worldXform(2, f.pos, 6.5, 5);
       this.sprites.spawn({ kind: SK.ripple, pos: f.pos, size: 12, color: pal.body, intensity: 1.2, life: 5, mode: 1 });
       this.vfx.spawn({ kind: VK.seal, pos: new Vector3(f.pos.x, 0.04, f.pos.z), scale: 6, life: 5, color: this.vpal(f), intensity: 0.9, p: [f.kit.palette, 0.4, 0.15, 0] });
       this.r.post.settings.heatHaze = 0.4;
@@ -348,6 +369,8 @@ export class Effects implements CombatFx {
     // the floor remembers it: a crater for the big ones, debris thrown round every blast
     if (radius > 1.5) this.mark({ kind: MK.crater, x: at.x, z: at.z, radius: Math.min(3.5, radius * 0.6), strength: Math.min(1, radius / 3), palette: owner.kit.palette });
     this.mark({ kind: MK.scatter, x: at.x, z: at.z, radius: radius * 1.3, strength: 0.8 });
+    // curses leave rot growing where their techniques land
+    if (owner.ch.look.curse.x > 0) this.r.mats.marks?.rotSeed(at.x, at.z, Math.max(0.8, radius * 0.6), 1);
     if (radius > 1.5) this.rubble(at, Math.min(60, Math.round(radius * 10)), 3 + radius * 1.2, 0.1 + radius * 0.025, kind === 'fire' || kind === 'firering' ? 0.8 : 0.35);
     switch (kind) {
       case 'fire':
@@ -526,6 +549,7 @@ export class Effects implements CombatFx {
     this.activeTrails.delete(f);
     if (m.bone && (m.kind === 'strike')) {
       const bone = m.bone;
+      this.smearBone.set(f, { bone, heavy: !!m.heavy, last: null });
       const spark = f.blackSpark && (m.name === 'heavy' || m.name === 'heavy2');
       const t = this.trails.start(() => f.ch.bonePos(bone), m.heavy ? 0.5 : 0.32, spark ? 5 : f.kit.palette, spark);
       this.activeTrails.set(f, t);
@@ -599,6 +623,8 @@ export class Effects implements CombatFx {
     this.vfx.spawn({ kind: VK.ink, pos: new Vector3(f.pos.x, 0.04, f.pos.z), scale: 1.8, life: 6, color: this.vpal(by ?? f), p: [by ? 1 : 0, 9, 1, 0], delay: 0.35 });
     this.inkBurst(f.ch.bonePos('chest'), [0.03, 0.02, 0.04], 1.4, 8);
     this.mark({ kind: MK.splatter, x: f.pos.x, z: f.pos.z, radius: 0.7, angle: Math.random() * 6.28, strength: 1 });
+    // a curse exorcised: the rot it spread burns away round it
+    if (f.ch.look.curse.x > 0) this.r.mats.marks?.cleanse(f.pos.x, f.pos.z, 6);
     for (let i = 0; i < 3; i++) this.puff(f.pos.add(new Vector3((Math.random() - 0.5) * 0.8, 0.3, (Math.random() - 0.5) * 0.8)), 0.45 + Math.random() * 0.3, 1.1, 0.25);
     this.desatT = 1.2;
     this.cam.zoomPunch(1);
@@ -641,12 +667,33 @@ export class Effects implements CombatFx {
     this.trails.update(dt, this.r.camera.position);
     this.particles.attractStrength *= Math.exp(-dt * 3);
     this.debris.update(dt);
+    // a technique's world transformation spreads, holds, then gives the place back
+    if (this.xformT > 0 && !this.r.lighting.envTransformLock) {
+      this.xformT -= dt;
+      const age = this.xformDur - this.xformT;
+      this.r.lighting.envTransform.y = Math.max(0, Math.min(1, age * 2.5, this.xformT * 1.5));
+      if (this.xformT <= 0) this.r.lighting.envTransform.x = 0;
+    }
     this.debris.shocks.set(this.particles.shocks);
     this.debris.arena = [this.particles.arena.x, this.particles.arena.z, this.particles.arena.y, 0.35];
     // fighters: flashes and squash ease back, aura fades unless charging
     const marks = this.r.mats.marks;
     for (const f of fighters) {
       const l = f.ch.look;
+      // the striking limb smears back along its path while the blow is fast
+      const sm = this.smearBone.get(f);
+      if (sm && f.move && f.move.kind === 'strike' && dt > 0) {
+        const p = f.ch.bonePos(sm.bone);
+        if (sm.last) {
+          const v = p.subtract(sm.last).scale(1 / dt);
+          l.smear.set(p.x, p.y, p.z, 0.5);
+          l.smearVel.set(v.x, v.y, v.z, sm.heavy ? 1 : 0.65);
+        }
+        sm.last = p.clone();
+      } else {
+        if (sm && !f.move) this.smearBone.delete(f);
+        l.smearVel.w = Math.max(0, l.smearVel.w - dt * 10);
+      }
       // prints in soft ground (snow, ash, sand): one every stride while walking
       if (marks && marks.soft > 0 && f.grounded) {
         const st = this.stride.get(f) ?? { x: f.pos.x, z: f.pos.z, d: 0, side: 0 };
@@ -770,6 +817,7 @@ export class Effects implements CombatFx {
     this.activeTrails.clear();
     this.fightTime.clear();
     this.stride.clear();
+    this.smearBone.clear();
     this.debris.clear();
     this.r.mats.marks?.clear();
   }

@@ -7,7 +7,7 @@ import { Fighter } from './Fighter';
 import { getKit } from './Moves';
 import { AI, PROFILES, Tokens } from './AI';
 import type { CameraRig } from './CameraRig';
-import type { Effects } from './Effects';
+import { PAL, type Effects } from './Effects';
 import type { HUD } from '../ui/UI';
 import type { Stage } from './Stage';
 
@@ -105,6 +105,15 @@ export class Fight {
     };
     this.cam.fight();
     if (this.spec.intro) this.hud.banner(this.spec.intro, '', this.spec.introSub ?? '', 1.8);
+    // the versus strokes sweep in, each in its fighter's colour
+    const s = this.r.post.settings;
+    const pa = PAL[this.player.kit.palette] ?? PAL[0];
+    const pb = PAL[this.enemy?.kit.palette ?? 3] ?? PAL[3];
+    s.fightColA.set(pa.body[0], pa.body[1], pa.body[2]);
+    s.fightColB.set(pb.body[0], pb.body[1], pb.body[2]);
+    s.fightVersus = 0;
+    s.fightEndKind = 0;
+    s.fightEnd = 0;
   }
 
   private async spawn(s: FighterSpec): Promise<Fighter> {
@@ -169,8 +178,18 @@ export class Fight {
   }
 
   update(dt: number): void {
+    const ps = this.r.post.settings;
+    if (ps.fightVersus >= 0) {
+      ps.fightVersus += dt / 1.6;
+      if (ps.fightVersus >= 1) ps.fightVersus = -1;
+    }
+    // near the end of their strength the frame's edges bleed for the player
+    const hp = Math.max(0, this.player.hp) / Math.max(1, this.player.maxHp);
+    const danger = this.result ? 0 : Math.max(0, (0.25 - hp) / 0.25);
+    ps.fightDanger += (danger - ps.fightDanger) * Math.min(1, dt * 4);
     if (this.result) {
       this.endT += dt;
+      ps.fightEnd = Math.min(1, this.endT / 1.6);
       this.combat.update(dt);
       return;
     }
@@ -235,6 +254,8 @@ export class Fight {
     this.result = r;
     this.combat.slowmo = 0.35;
     this.hud.setPrompt(null);
+    this.r.post.settings.fightEndKind = r === 'win' ? 1 : r === 'lose' ? 2 : 0;
+    this.r.post.settings.fightEnd = 0;
     if (r === 'win') this.hud.banner('VICTORY', 'gold', '祓', 2);
     if (r === 'lose') this.hud.banner('DEFEATED', 'red', '', 2);
   }
@@ -246,6 +267,11 @@ export class Fight {
 
   /** Tidy up: stop combat state, drop fighters created only for this fight. */
   dispose(keep: Set<string>): void {
+    const ps = this.r.post.settings;
+    ps.fightVersus = -1;
+    ps.fightEndKind = 0;
+    ps.fightEnd = 0;
+    ps.fightDanger = 0;
     this.combat.clear();
     this.fx.clear();
     for (const f of this.fighters) {

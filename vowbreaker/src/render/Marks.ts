@@ -46,6 +46,13 @@ export class GroundMarks {
   private warm = 0;
   private obs: () => void;
   readonly params: Vector4;
+  /** curse rot (compute/curse_rot.wgsl): Gray-Scott growth over the same square */
+  private rot: RawTexture[];
+  private rotCs: ComputeShader;
+  private rotUb: UniformBuffer;
+  private rotSeeds: [number, number, number, number][] = [];
+  private rotOn = false;
+  readonly rotRes = 256;
   /** how soft the ground is (snow, ash, sand: footprints show), 0..1 */
   soft = 0;
 
@@ -76,6 +83,22 @@ export class GroundMarks {
     this.ub.addUniform('stamps', 4, MAX_STAMPS * 3);
     this.ub.create();
     this.params = new Vector4(centre[0], centre[1], 1 / worldSize, 1);
+    // the rot starts as clean floor everywhere (A = 1, B = 0)
+    const rr = this.rotRes;
+    const clean = new Uint16Array(rr * rr * 4);
+    for (let i = 0; i < rr * rr; i++) clean[i * 4] = 0x3c00;
+    const mkRot = () => RawTexture.CreateRGBAStorageTexture(clean.slice(), rr, rr, scene, false, false,
+      Constants.TEXTURE_BILINEAR_SAMPLINGMODE, Constants.TEXTURETYPE_HALF_FLOAT);
+    this.rot = [mkRot(), mkRot()];
+    this.rotCs = new ComputeShader('curseRot', engine, { computeSource: computeSource('curse_rot') }, {
+      bindingsMapping: { prm: { group: 0, binding: 0 }, src: { group: 0, binding: 1 }, dst: { group: 0, binding: 2 } },
+    });
+    this.rotUb = new UniformBuffer(engine, undefined, false, 'rotParams');
+    for (const [n, k] of [['grid', 2], ['centre', 2], ['worldSize', 1], ['dt', 1], ['feed', 1], ['kill', 1], ['diffA', 1], ['diffB', 1], ['count', 1], ['pad0', 1]] as const) {
+      this.rotUb.addUniform(n, k);
+    }
+    this.rotUb.addUniform('seeds', 4, 8);
+    this.rotUb.create();
     mats.marks = this;
     const o = scene.onBeforeRenderObservable.add(() => this.flush());
     this.obs = () => scene.onBeforeRenderObservable.remove(o);
@@ -90,6 +113,22 @@ export class GroundMarks {
     return this.b[0];
   }
 
+  /** The curse rot the floor reads this frame. */
+  get texRot(): RawTexture {
+    return this.rot[0];
+  }
+
+  /** Seed curse rot (it grows from here for the rest of the round). */
+  rotSeed(x: number, z: number, radius: number, strength = 1): void {
+    this.rotSeeds.push([x, z, radius, strength]);
+    this.rotOn = true;
+  }
+
+  /** Burn the rot away round a point (a curse exorcised). */
+  cleanse(x: number, z: number, radius: number): void {
+    this.rotSeeds.push([x, z, radius, -1]);
+  }
+
   stamp(s: MarkStamp): void {
     // outside the marked square: nothing to draw
     const half = this.worldSize / 2;
@@ -101,6 +140,7 @@ export class GroundMarks {
   /** Wipe the floor clean (a new round). */
   clear(): void {
     this.queue = [{ kind: MK.clear, x: this.params.x, z: this.params.y, radius: -1 }];
+    if (this.rotOn) this.rotSeeds = [[this.params.x, this.params.y, 1e4, -1]];
     this.warm = 0;
   }
 
@@ -110,6 +150,7 @@ export class GroundMarks {
   }
 
   private flush(): void {
+    this.flushRot();
     if (!this.cs.isReady()) return;
     if (this.queue.length === 0 && this.warm <= 0) {
       this.pending = 0;
@@ -147,8 +188,38 @@ export class GroundMarks {
     this.b.reverse();
   }
 
+  /** Grow the rot: a few Gray-Scott steps per frame, seeds and cleanses folded in. */
+  private flushRot(): void {
+    if (!this.rotOn || !this.rotCs.isReady()) return;
+    const seeds = this.rotSeeds.splice(0, 8);
+    const data = new Float32Array(32);
+    seeds.forEach((s, i) => data.set(s, i * 4));
+    const ub = this.rotUb;
+    ub.updateFloat2('grid', this.rotRes, this.rotRes);
+    ub.updateFloat2('centre', this.params.x, this.params.y);
+    ub.updateFloat('worldSize', this.worldSize);
+    ub.updateFloat('dt', 1);
+    ub.updateFloat('feed', 0.055);
+    ub.updateFloat('kill', 0.062);
+    ub.updateFloat('diffA', 1.0);
+    ub.updateFloat('diffB', 0.5);
+    ub.updateFloat('count', seeds.length);
+    ub.updateFloat('pad0', 0);
+    ub.updateFloatArray('seeds', data);
+    ub.update();
+    this.rotCs.setUniformBuffer('prm', ub);
+    for (let i = 0; i < 6; i++) {
+      this.rotCs.setTexture('src', this.rot[0], false);
+      this.rotCs.setStorageTexture('dst', this.rot[1]);
+      this.rotCs.dispatch(Math.ceil(this.rotRes / 8), Math.ceil(this.rotRes / 8), 1);
+      this.rot.reverse();
+    }
+  }
+
   dispose(): void {
     this.obs();
+    for (const t of this.rot) t.dispose();
+    this.rotUb.dispose();
     if (this.mats.marks === this) this.mats.marks = null;
     for (const t of [...this.a, ...this.b]) t.dispose();
     this.ub.dispose();

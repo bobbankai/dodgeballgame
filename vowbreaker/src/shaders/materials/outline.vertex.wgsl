@@ -34,6 +34,8 @@ uniform screenSize: vec2f;
 uniform heights: vec4f;
 uniform wind: vec4f;
 uniform motion: vec4f;
+uniform smear: vec4f;
+uniform smearVel: vec4f;
 uniform sunDir: vec3f;
 uniform cameraPosition: vec3f;
 
@@ -53,6 +55,7 @@ fn main(input: VertexInputs) -> FragmentInputs {
     worldPos = vec4f(worldPos.xyz + fl.disp, 1.0);
 #endif
     let nW = normalize((finalWorld * vec4f(vertexInputs.normal, 0.0)).xyz);
+    worldPos = vec4f(worldPos.xyz + smearDisplace(worldPos.xyz, nW, uniforms.smear, uniforms.smearVel, vertexInputs.position), 1.0);
     var clip = uniforms.viewProjection * worldPos;
     let clipN = (uniforms.viewProjection * vec4f(nW, 0.0)).xy;
     var scale = 1.0;
@@ -62,7 +65,7 @@ fn main(input: VertexInputs) -> FragmentInputs {
     let distScale = clamp(uniforms.outlineParams.y / max(clip.w, 0.1), uniforms.outlineParams.w, 1.25);
     // drawn the way an animator weights a line: heavier in shadow and on the contour (vb_toon_motion)
     let viewDir = normalize(uniforms.cameraPosition - worldPos.xyz);
-    let weight = lineWeight(nW, viewDir, normalize(uniforms.sunDir), vertexInputs.position, uniforms.wind.w, uniforms.pivot.x * 3.1);
+    let weight = inkLineWeight(nW, viewDir, normalize(uniforms.sunDir), vertexInputs.position, uniforms.wind.w, uniforms.pivot.x * 3.1);
     let widthPx = uniforms.outlineParams.x * scale * distScale * weight;
     let dir = normalize(clipN + vec2f(1e-6));
     let offset = dir * widthPx * 2.0 / uniforms.screenSize * clip.w;

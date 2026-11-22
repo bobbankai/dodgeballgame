@@ -91,7 +91,7 @@
 .chapters button span { display: block; font-family: var(--mincho); font-size: 12px; opacity: 0.7; }
 .slider { display: flex; align-items: center; gap: 14px; margin: 8px 0; font-size: 15px; pointer-events: auto; }
 .slider input { width: 220px; accent-color: #c8202a; }
-.credits { position: absolute; inset: 0; background: #050306; display: flex; justify-content: center; overflow: hidden; pointer-events: auto; }
+.credits { position: absolute; inset: 0; background: linear-gradient(90deg, rgba(5,3,6,0) 0%, rgba(5,3,6,0) 26%, rgba(5,3,6,0.84) 36%, rgba(5,3,6,0.84) 64%, rgba(5,3,6,0) 74%, rgba(5,3,6,0) 100%); display: flex; justify-content: center; overflow: hidden; pointer-events: auto; }
 .credits .roll { position: absolute; top: 100%; width: 600px; text-align: center; font-family: var(--mincho); line-height: 1.9; animation: roll 70s linear forwards; }
 .credits h1 { font-family: var(--brush); font-size: 72px; margin: 0 0 30px; font-weight: normal; }
 .credits h3 { color: var(--red); letter-spacing: 0.3em; font-size: 14px; margin: 40px 0 6px; }

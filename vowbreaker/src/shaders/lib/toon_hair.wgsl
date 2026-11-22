@@ -103,3 +103,56 @@ fn hairEnergy(c: vec3f, objPos: vec3f, headY: f32, energy: f32, glowCol: vec3f, 
     let tips = smoothstep(headY - 0.05, headY + 0.2, objPos.y);
     return c + glowCol * energy * flicker * (0.15 + 0.35 * tips);
 }
+
+// --- drawn strands --------------------------------------------------------------------------------------------
+//
+// Key animation adds a few lines inside the hair mass, and lighter and darker streaks run down it.
+// Strands are indexed by their angle round the head's vertical axis (object space), so the lines
+// follow the hair's fall; they are broken into dashes, drawn mostly on the shadow side, and
+// thinned where the light falls. A few flyaway hairs catch the light at the silhouette.
+
+fn hairStrandCoord(objPos: vec3f) -> vec2f {
+    // across: angle round the head; along: height down the hair
+    let a = atan2(objPos.z, objPos.x);
+    return vec2f(a, objPos.y);
+}
+
+// fine dark lines inside the mass, broken into dashes, heavier in shadow
+fn hairStrandLines(objPos: vec3f, lit: f32, px: f32) -> f32 {
+    let sc = hairStrandCoord(objPos);
+    let wob = valueNoise2(vec2f(sc.x * 3.0, sc.y * 2.5)) * 0.9;
+    let k = sc.x * 11.0 + wob;
+    let f = fract(k);
+    let idx = floor(k);
+    let w = 0.035 + px * 4.0;
+    let line = 1.0 - smoothstep(w * 0.4, w, abs(f - 0.5));
+    // each strand line is drawn only part of the way (dashes of different lengths)
+    let dash = step(0.45, valueNoise2(vec2f(idx * 1.7, sc.y * 4.0)));
+    return line * dash * mix(0.7, 0.15, lit);
+}
+
+// lighter and darker streaks down the hair (strand groups of slightly different value)
+fn hairStreaks(objPos: vec3f) -> f32 {
+    let sc = hairStrandCoord(objPos);
+    let n = valueNoise2(vec2f(sc.x * 24.0, sc.y * 0.6)) * 0.6 + valueNoise2(vec2f(sc.x * 61.0, sc.y * 1.2)) * 0.4;
+    return 0.9 + n * 0.2;
+}
+
+// flyaway hairs: a few bright filaments at the silhouette, against the light
+fn hairFlyaways(objPos: vec3f, n: vec3f, v: vec3f, l: vec3f, time: f32) -> f32 {
+    let rim = smoothstep(0.75, 0.95, 1.0 - abs(dot(n, v)));
+    let sc = hairStrandCoord(objPos);
+    let k = sc.x * 40.0 + sin(time * 1.5 + sc.y * 9.0) * 0.1;
+    let fil = 1.0 - smoothstep(0.0, 0.08, abs(fract(k) - 0.5));
+    let some = step(0.8, hash11(floor(k)));
+    let back = clamp(dot(v, -l) * 0.5 + 0.5, 0.0, 1.0);
+    return rim * fil * some * back;
+}
+
+fn hairDetail(c0: vec3f, albedo: vec3f, objPos: vec3f, n: vec3f, v: vec3f, l: vec3f, lit: f32, sunCol: vec3f, time: f32, px: f32) -> vec3f {
+    var c = c0 * hairStreaks(objPos);
+    let ink = hairStrandLines(objPos, lit, px);
+    c = mix(c, c * 0.35 + albedo * 0.05, ink);
+    c = c + sunCol * mix(albedo, vec3f(1.0), 0.6) * hairFlyaways(objPos, n, v, l, time) * 0.5;
+    return c;
+}

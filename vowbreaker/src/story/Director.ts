@@ -180,6 +180,40 @@ export class Director {
     if (this.fight) this.cineLight.set(null, {}, 0.05);
   }
 
+  /**
+   * What a fighter's nature does to the place, held by the story: 'paper' (Shiragami's folds),
+   * 'stillness' (the Still Point), or null to give the place back. It spreads from `at` out to
+   * `radius` over `grow` seconds.
+   */
+  worldTransform(kind: 'paper' | 'stillness' | null, at = new Vector3(), radius = 15, grow = 20): void {
+    const L = this.r.lighting;
+    if (!kind) {
+      const from = L.envTransform.y;
+      let t = 0;
+      void this.task((dt) => {
+        t += dt;
+        L.envTransform.y = Math.max(0, from * (1 - t / 1.5));
+        if (L.envTransform.y <= 0) {
+          L.envTransform.x = 0;
+          L.envTransformLock = false;
+          return true;
+        }
+        return false;
+      });
+      return;
+    }
+    L.envTransformLock = true;
+    L.envTransform.set(kind === 'paper' ? 1 : 2, 0, radius, Math.random());
+    L.envTransformPos.set(at.x, at.y, at.z, L.time);
+    let t = 0;
+    void this.task((dt) => {
+      t += dt;
+      if (!L.envTransformLock) return true;
+      L.envTransform.y = Math.min(1, t / Math.max(0.1, grow));
+      return L.envTransform.y >= 1;
+    });
+  }
+
   /** Light the actors for a shot: a named look (see CINE), a custom rig, or null for none. */
   cine(look: string | CineRig | null, over: Partial<CineRig> = {}, fade = 0.7): void {
     this.cineLight.set(look, over, fade);
@@ -372,11 +406,12 @@ export class Director {
 
   /**
    * Into or out of a memory. `style` is how it is painted: 'sumie' (ink), 'kage' (shadow
-   * puppets), 'photo', 'watercolor', 'crayon', 'glass' (stained glass), 'woodblock'.
+   * puppets), 'photo', 'watercolor', 'crayon', 'glass' (stained glass), 'woodblock', 'film' (8 mm home
+   * movie), 'charcoal'.
    */
-  flashback(on: boolean, keepHue = 0.0, style: 'sumie' | 'kage' | 'photo' | 'watercolor' | 'crayon' | 'glass' | 'woodblock' = 'sumie'): void {
+  flashback(on: boolean, keepHue = 0.0, style: 'sumie' | 'kage' | 'photo' | 'watercolor' | 'crayon' | 'glass' | 'woodblock' | 'film' | 'charcoal' = 'sumie'): void {
     if (on) {
-      this.r.post.settings.memoryStyle = { sumie: 0, kage: 1, photo: 2, watercolor: 3, crayon: 4, glass: 5, woodblock: 6 }[style];
+      this.r.post.settings.memoryStyle = { sumie: 0, kage: 1, photo: 2, watercolor: 3, crayon: 4, glass: 5, woodblock: 6, film: 7, charcoal: 8 }[style];
       this.r.post.settings.memorySeed = Math.random();
     }
     // into a memory the present burns away like paper; out of it, ink washes it off

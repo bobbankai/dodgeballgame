@@ -37,6 +37,7 @@
 #include<vb_toon_marks>
 #include<vb_toon_curse>
 #include<vb_cine_light>
+#include<vb_face_marks>
 
 varying vWorldPos: vec3f;
 varying vNormalW: vec3f;
@@ -71,6 +72,8 @@ uniform curse: vec4f;          // curse surface kind (0 none, 1 mud, 2 umbrella,
 uniform heights: vec4f;
 uniform eyeL: vec4f;           // the eyes' centres (world) and iris radius
 uniform eyeR: vec4f;
+uniform faceFx: vec4f;         // expression marks: blush, gloom, anger, sweat drop
+uniform faceFx2: vec4f;        // pallor, -, -, -
 uniform eyeState: vec4f;       // pupil size (0 pinprick .. 1 wide), sparkle, -, -
 uniform cine: array<vec4f, 6>;  // the cutscene light rig (vb_cine_light)
 
@@ -168,6 +171,7 @@ fn main(input: FragmentInputs) -> FragmentOutputs {
         case 2: {
             col = hairShade(albedo, N, V, L, uniforms.headUp, objPos, lit, sunCol, uniforms.shadowColor, ao, uniforms.toonParams2.y);
             col = hairWet(col, N, V, L, uniforms.surface.x, sunCol);
+            col = hairDetail(col, albedo, objPos, N, V, L, lit.lit, sunCol, time, length(fwidth(objPos)));
             if (uniforms.energy.x > 0.0) {
                 let pal = paletteFor(i32(uniforms.energy.y));
                 col = hairEnergy(col, objPos, uniforms.heights.y, uniforms.energy.x, paletteRamp(pal, 0.8), time);
@@ -201,6 +205,12 @@ fn main(input: FragmentInputs) -> FragmentOutputs {
             col = clothWear(col, objPos, objPos.y / max(figureH, 0.1), uniforms.surface.y, uniforms.surface.z);
             col = col + toonSpecular(N, L, V, 0.012, 0.004) * lit.lit * uniforms.toonParams2.x * albedo * sunCol * 0.6;
         }
+    }
+
+    // --- expression marks: blush hatching, the gloom over the eyes, the anger mark, a sweat drop -------
+    if ((matId == MAT_FACE || matId == MAT_HAIR) && dot(uniforms.faceFx, vec4f(1.0)) + uniforms.faceFx2.x > 0.01) {
+        let ff = faceFrameAt(fragmentInputs.vWorldPos, uniforms.eyeL, uniforms.eyeR, uniforms.headRight, uniforms.headUp);
+        col = faceMarks(col, ff, uniforms.faceFx, uniforms.faceFx2.x, select(0.0, 1.0, matId == MAT_FACE), time, length(fwidth(ff.p)));
     }
 
     // --- rims ------------------------------------------------------------------------------------------

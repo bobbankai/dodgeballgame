@@ -31,6 +31,8 @@
 #include<vb_env_foliage>
 #include<vb_ground_marks>
 #include<vb_train>
+#include<vb_curse_rot>
+#include<vb_env_transform>
 
 varying vWorldPos: vec3f;
 varying vNormalW: vec3f;
@@ -59,6 +61,8 @@ uniform glowColor: vec3f;       // colour behind shoji / in lanterns / neon base
 uniform tintColor: vec4f;       // multiplies the whole stage (flashback paper, domain), a = amount
 uniform cracks: array<vec4f, 8>; // xz centre, radius, palette id (palette < 0: unused)
 uniform domainParams: vec4f;    // amount, palette
+uniform envTransform: vec4f;    // what a fighter does to the place: kind, amount, radius, seed
+uniform envTransformPos: vec4f; // its centre, the time it began
 uniform trainLight: vec4f;      // a passing train: front x, track z, dir * length, amount
 uniform marksParams: vec4f;     // the fight's ground marks: centre x, z, 1 / size, on
 
@@ -67,6 +71,8 @@ var marksA: texture_2d<f32>;
 var marksASampler: sampler;
 var marksB: texture_2d<f32>;
 var marksBSampler: sampler;
+var marksRot: texture_2d<f32>;
+var marksRotSampler: sampler;
 
 @fragment
 fn main(input: FragmentInputs) -> FragmentOutputs {
@@ -122,14 +128,35 @@ fn main(input: FragmentInputs) -> FragmentOutputs {
             N = ms.n;
             markGloss = ms.gloss;
             markEmissive = ms.emissive;
+            // curse rot growing over the floor: dark veins with a living violet edge
+            let rot = textureSampleLevel(marksRot, marksRotSampler, muv, 0.0);
+            if (rot.g > 0.02) {
+                let rl = rotSurface(albedo, rot, vec2f(0.0), time, P);
+                albedo = rl.albedo;
+                markEmissive = markEmissive + rl.emissive;
+            }
             // heat melts the snow and blows the ash away
             w.snow = w.snow * (1.0 - ms.melt);
             w.ash = w.ash * (1.0 - ms.melt * 0.7);
         }
     }
 
+    // --- what a fighter's nature does to the place: paper folds, stillness, black lightning ---------------
+    var xformGloss = 0.0;
+    var xformEmissive = vec3f(0.0);
+    var flatLight = 0.0;
+    if (uniforms.envTransform.x > 0.5 && uniforms.envTransform.y > 0.0) {
+        let wx = worldXform(i32(uniforms.envTransform.x + 0.5), albedo, N, P, uniforms.envTransformPos.xyz, uniforms.envTransform.z,
+                            uniforms.envTransform.y, uniforms.envTransform.w, time, time - uniforms.envTransformPos.w, L, uniforms.skyColor);
+        albedo = wx.albedo;
+        N = wx.n;
+        xformGloss = wx.gloss;
+        xformEmissive = wx.emissive;
+        flatLight = wx.flatLight;
+    }
+
     // --- weather: soaking, puddles, splashes -------------------------------------------------------------
-    var gloss = clamp(max(pat.gloss + det.gloss, markGloss), 0.0, 1.0);
+    var gloss = clamp(max(max(pat.gloss + det.gloss, markGloss), xformGloss), 0.0, 1.0);
     var puddle = 0.0;
     if (wetHere > 0.0) {
         albedo = weatherWetAlbedo(albedo, wetHere, 0.6);
@@ -153,7 +180,8 @@ fn main(input: FragmentInputs) -> FragmentOutputs {
     sh = sh * envCloudShadow(P, L, wind, time, uniforms.envParams5.x, 0.035);
     sh = sh * envDapples(P, N, L, time, uniforms.envParams5.y, length(wind));
     let hl = halfLambert(N, L);
-    let lit = celStep(hl, uniforms.envParams.w, 0.03, ao, 0.35) * sh;
+    // (paper facets carry their own light, so they are lit more evenly)
+    let lit = mix(celStep(hl, uniforms.envParams.w, 0.03, ao, 0.35) * sh, 0.85, flatLight);
     let ambient = hemiAmbient(N, uniforms.skyColor, uniforms.groundColor) * 0.6 + envSkyFill(N, ao, uniforms.skyColor, uniforms.groundColor) * 0.4;
     let shadowCol = shadowTint(albedo, uniforms.shadowColor, 0.15) * (ambient + vec3f(0.05));
     let litCol = albedo * (uniforms.sunColor * envSunPatches(P, L, time, uniforms.envParams5.y * 0.5) + ambient * 0.4);
@@ -212,7 +240,7 @@ fn main(input: FragmentInputs) -> FragmentOutputs {
 
     // emissive patterns and details
     col = col + (pat.emissive + det.emissive) * (1.0 + uniforms.envParams2.z);
-    col = col + markEmissive;
+    col = col + markEmissive + xformEmissive;
 
     // snow, ash, frost, lightning
     col = weatherSnow(w, col, P, N, ao, V, L);
