@@ -3,6 +3,7 @@ import type { Renderer } from '../render/Renderer';
 import { SK, Sprites } from '../render/Sprites';
 import { GpuParticles, PK } from '../render/GpuParticles';
 import { Trails } from '../render/Trails';
+import { Vfx, VK, type VfxPalette } from '../render/Vfx';
 import type { CameraRig } from './CameraRig';
 import type { CombatFx, HitResult, Projectile } from './Combat';
 import type { Fighter } from './Fighter';
@@ -21,6 +22,11 @@ export const PAL: { body: RGB; core: RGB; edge: RGB }[] = [
   { body: [0.08, 0, 0.02], core: [0.02, 0, 0.01], edge: [1, 0.05, 0.12] },
   { body: [0.18, 0.05, 0.22], core: [0.6, 0.35, 0.7], edge: [0.5, 0.1, 0.3] },
 ];
+
+/** How each palette's slashes are drawn (vfx_blade styles: 0 energy, 1 ink, 2 paper, 3 water). */
+const SLASH_STYLE: Record<number, number> = { 0: 0, 1: 2, 2: 3, 3: 0, 4: 0, 5: 0, 6: 1 };
+/** Black Spark as light: crimson body, a pale core, a near-black edge. */
+const SPARK_LIGHT: VfxPalette = { body: [1, 0.05, 0.12], core: [1, 0.75, 0.75], edge: [0.35, 0, 0.03] };
 
 interface Flash {
   slot: number;
@@ -41,8 +47,10 @@ export class Effects implements CombatFx {
   readonly sprites: Sprites;
   readonly particles: GpuParticles;
   readonly trails: Trails;
+  readonly vfx: Vfx;
   private flashes: Flash[] = [];
   private projVisuals = new Map<number, number[]>();
+  private projVfx = new Map<number, number[]>();
   private impactT = 0;
   private flashT = 0;
   private desatT = 0;
@@ -61,10 +69,36 @@ export class Effects implements CombatFx {
     this.sprites = new Sprites(r.scene);
     this.particles = new GpuParticles(r.engine, r.scene);
     this.trails = new Trails(r.scene);
+    this.vfx = new Vfx(r);
   }
 
   private pal(f: Fighter) {
     return PAL[f.kit.palette] ?? PAL[0];
+  }
+
+  private vpal(f: Fighter): VfxPalette {
+    const p = this.pal(f);
+    return { body: p.body, core: p.core, edge: p.edge };
+  }
+
+  /** A crescent of the strike's path round the attacker (heavy blows, finishers). */
+  private slashArc(a: Fighter, toward: Vector3, scale: number, life: number, intensity = 1.4): void {
+    const fwd = new Vector3(toward.x - a.pos.x, 0, toward.z - a.pos.z);
+    if (fwd.lengthSquared() < 1e-4) fwd.set(0, 0, 1);
+    fwd.normalize();
+    const style = SLASH_STYLE[a.kit.palette] ?? 0;
+    this.vfx.spawn({
+      kind: VK.slash, pos: a.ch.bonePos('chest'), dir: fwd, roll: (Math.random() - 0.5) * 1.1, scale, life,
+      color: this.vpal(a), intensity, p: [style, 0.85, 0.6, 0.22],
+    });
+  }
+
+  private dustRing(at: Vector3, radius: number, life = 0.7): void {
+    this.vfx.spawn({ kind: VK.groundRing, pos: new Vector3(at.x, 0.03, at.z), scale: radius, life, color: { body: [0.6, 0.55, 0.5], core: [1, 1, 1], edge: [0.4, 0.38, 0.36] }, p: [0.08, 0, 0, 0], q: [1, 0, 0, 0] });
+  }
+
+  private puff(at: Vector3, size: number, life: number, dark = 0.15): void {
+    this.vfx.spawn({ kind: VK.smoke, pos: at, scale: size, grow: 1.6, life, color: { body: [0.6, 0.58, 0.55], core: [1, 1, 1], edge: [0.3, 0.3, 0.3] }, p: [dark, 0, 0, 0] });
   }
 
   private screenPos(p: Vector3): { x: number; y: number } {
@@ -126,6 +160,10 @@ export class Effects implements CombatFx {
     this.sprites.spawn({ kind: SK.flare, pos: at, size: big ? 2.6 : 1.3, color: pal.core, intensity: 2.5, life: 0.16, rot: Math.random() * 3 });
     this.particles.burst({ kind: PK.spark, pos: at, count: big ? 48 : 20, speed: big ? 14 : 9, spread: 0.55, dir, color: [...pal.body, 1] as [number, number, number, number], size: [0.03, 0.07], life: [0.15, 0.45], drag: 2.5 });
     if (big) {
+      // the blow's path and the air it pushes
+      this.slashArc(a, t.pos, spark ? 1.5 : 1.25, spark ? 0.32 : 0.26);
+      this.vfx.spawn({ kind: VK.shockDome, pos: at, scale: 0.25, grow: spark ? 5 : 4, life: 0.32, color: spark ? SPARK_LIGHT : this.vpal(a), intensity: 1.2, p: [4, 0, 0.8, 0] });
+      if (at.y < 1.4) this.dustRing(at, 1.6, 0.6);
       this.sprites.spawn({ kind: SK.ring, pos: at, size: 3.5, color: pal.body, intensity: 2, life: 0.4 });
       this.particles.burst({ kind: PK.ember, pos: at, count: 30, speed: 4, spread: 1, color: [...pal.body, 1] as [number, number, number, number], size: [0.05, 0.1], life: [0.4, 1.0] });
       this.shockwave(at, spark ? 1.4 : 0.8);
@@ -148,6 +186,12 @@ export class Effects implements CombatFx {
         const d = new Vector3(Math.random() - 0.5, Math.random() - 0.3, Math.random() - 0.5).normalize().scale(1.2 + Math.random() * 1.5);
         this.sprites.spawn({ kind: SK.bolt, pos: at, size: 0.5, color: [0, 0, 0], intensity: 2, life: 0.35, mode: 2, dir: d, seed: Math.random() });
       }
+      // black lightning: forked bolts, black in the core, red round it
+      for (let i = 0; i < 4; i++) {
+        const d = new Vector3(Math.random() - 0.5, Math.random() * 0.8 - 0.2, Math.random() - 0.5).normalize();
+        this.vfx.spawn({ kind: VK.bolt, pos: at, dir: d, scale: new Vector3(0.7, 1, 1.6 + Math.random() * 1.4), life: 0.4, color: PAL[5], p: [1, 0.8, 0.8, 0.16], seed: Math.random() });
+      }
+      this.vfx.spawn({ kind: VK.crater, pos: new Vector3(at.x, 0.03, at.z), scale: 1.4, life: 4, color: SPARK_LIGHT });
       this.impactFrame(3, 0.14);
       this.desatT = 0.6;
       this.radialT = 0.4;
@@ -173,10 +217,16 @@ export class Effects implements CombatFx {
     this.light(at.add(new Vector3(0, 1, 0)), pal.body, 5, 6, 0.5);
     this.audio.sfx(m.sfx ?? 'cast', at);
     if (m.showcase) {
+      // the technique's energy wraps the caster
+      this.vfx.spawn({ kind: VK.aura, pos: f.pos.add(new Vector3(0, 0.95, 0)), scale: new Vector3(0.55, 1.05, 0.55), life: 1.2, color: this.vpal(f), intensity: 1.2, p: [1, 1.3, 0, 0], follow: () => (f.alive ? f.pos.add(new Vector3(0, 0.95, 0)) : null) });
       this.speedT = 0.5;
       this.cam.zoomPunch(0.6);
       const sp = this.screenPos(f.ch.bonePos('chest'));
       this.r.post.settings.fxCenter.set(sp.x, sp.y);
+    }
+    if (m.area) {
+      // the caster's circle under them as the technique is shaped
+      this.vfx.spawn({ kind: VK.seal, pos: new Vector3(f.pos.x, 0.04, f.pos.z), scale: 1.3, life: 0.9, color: this.vpal(f), intensity: 1.1, p: [f.kit.palette === 6 ? 5 : f.kit.palette, 2, 0.8, 0] });
     }
     if (m.area?.at === 'target' && m.area.delay) {
       // a warning sign on the floor where it will land
@@ -184,11 +234,13 @@ export class Effects implements CombatFx {
     }
     if (kind === 'slow-field') {
       this.sprites.spawn({ kind: SK.ripple, pos: f.pos, size: 12, color: pal.body, intensity: 1.2, life: 5, mode: 1 });
+      this.vfx.spawn({ kind: VK.seal, pos: new Vector3(f.pos.x, 0.04, f.pos.z), scale: 6, life: 5, color: this.vpal(f), intensity: 0.9, p: [f.kit.palette, 0.4, 0.15, 0] });
       this.r.post.settings.heatHaze = 0.4;
       this.radialT = 0.3;
     }
     if (kind === 'pull') {
       this.sprites.spawn({ kind: SK.gravity, pos: f.pos.add(dir.scale(3)).add(new Vector3(0, 1.1, 0)), size: 4, color: pal.body, intensity: 1.5, life: 0.6 });
+      this.vfx.spawn({ kind: VK.portal, pos: f.pos.add(dir.scale(3)).add(new Vector3(0, 1.1, 0)), scale: 2.2, life: 0.8, color: this.vpal(f), billboard: 1, p: [4, 0.5, 0, 0] });
     }
     void dir;
   }
@@ -203,11 +255,18 @@ export class Effects implements CombatFx {
     this.sprites.spawn({ kind: SK.dust, pos: ground, size: radius * 2.2, color: [0.6, 0.55, 0.5], intensity: 0.9, life: 0.7, mode: 1 });
     this.light(at.add(new Vector3(0, 1, 0)), pal.body, 7, radius * 2.5, 0.45);
     this.shockwave(at, Math.min(1.2, radius / 3));
+    const vp = this.vpal(owner);
+    this.vfx.spawn({ kind: VK.groundRing, pos: ground, scale: radius * 1.25, life: 0.6, color: vp, intensity: 1.4, p: [0.06, 0, 0.4, 0] });
+    if (radius > 2) this.vfx.spawn({ kind: VK.crater, pos: new Vector3(at.x, 0.03, at.z), scale: radius * 0.7, life: 5, color: vp });
     this.cam.addShake(Math.min(0.9, radius * 0.15));
     switch (kind) {
       case 'toll':
       case 'requiem':
         this.sprites.spawn({ kind: SK.seal, pos: ground, size: radius * 2, color: pal.body, intensity: 2, life: 0.9, mode: 1 });
+        // the bell itself, rung, and its sound as rings of gold
+        this.vfx.spawn({ kind: VK.bell, pos: ground, scale: new Vector3(Math.min(radius * 0.4, 1.6), Math.min(radius * 0.45, 1.8), Math.min(radius * 0.4, 1.6)), life: kind === 'requiem' ? 2 : 1.3, color: vp, intensity: 0.8, p: [1, 1, 0, 0] });
+        this.vfx.spawn({ kind: VK.shockDome, pos: at.add(new Vector3(0, 0.6, 0)), scale: radius * 0.25, grow: 4, life: 0.9, color: vp, intensity: 1, p: [6, 0, 0.6, 0], q: [2, 0, 0, 0] });
+        this.vfx.spawn({ kind: VK.seal, pos: new Vector3(at.x, 0.04, at.z), scale: radius, life: 1.4, color: vp, intensity: 1.2, p: [0, 3, 0.5, 0] });
         this.particles.burst({ kind: PK.dust, pos: at.add(new Vector3(0, 0.5, 0)), count: 80, speed: 3, spread: 1, up: 3, color: [1, 0.8, 0.3, 1], size: [0.04, 0.09], life: [0.6, 1.6] });
         break;
       case 'fire':
@@ -218,19 +277,36 @@ export class Effects implements CombatFx {
           this.sprites.spawn({ kind: SK.fire, pos: p.add(new Vector3(0, 0.9, 0)), size: 1.8 + Math.random(), color: pal.body, intensity: 2, life: 0.9, seed: Math.random(), mode: 0 });
         }
         this.particles.burst({ kind: PK.ember, pos: at, count: 90, speed: 4, spread: 1, up: 4, color: [1, 0.4, 0.1, 1], size: [0.05, 0.1], life: [0.6, 1.5], jitter: radius });
+        if (kind === 'fire') {
+          this.vfx.spawn({ kind: VK.firenado, pos: ground, scale: new Vector3(radius * 0.4, radius * 1.3, radius * 0.4), life: 1.5, color: vp, intensity: 1.2 });
+        }
+        for (let i = 0; i < (kind === 'firering' ? 8 : 4); i++) {
+          const a = (i / (kind === 'firering' ? 8 : 4)) * Math.PI * 2 + Math.random() * 0.3;
+          const r = kind === 'firering' ? radius * 0.85 : radius * (0.3 + Math.random() * 0.4);
+          this.vfx.spawn({ kind: VK.flame, pos: new Vector3(at.x + Math.cos(a) * r, 0, at.z + Math.sin(a) * r), scale: new Vector3(0.45, 1.6 + Math.random() * 0.8, 0.45), life: 1.1 + Math.random() * 0.4, color: vp, intensity: 1.2, p: [owner.kit.palette === 6 ? 1 : 0, 1, 1.4, 0.6], delay: i * 0.03 });
+        }
         break;
       case 'ripple':
         this.sprites.spawn({ kind: SK.ripple, pos: ground, size: radius * 2.6, color: pal.body, intensity: 1.6, life: 0.8, mode: 1 });
+        this.vfx.spawn({ kind: VK.groundRing, pos: new Vector3(at.x, 0.04, at.z), scale: radius * 1.4, life: 1.0, color: vp, p: [0.05, 0, 0, 0], q: [2, 0, 0, 0] });
+        this.vfx.spawn({ kind: VK.splash, pos: ground, scale: new Vector3(radius * 0.35, radius * 0.45, radius * 0.35), life: 0.9, color: vp, flare: 1.1 });
         break;
       case 'moonfall':
         this.sprites.spawn({ kind: SK.moon, pos: at.add(new Vector3(0, 1.5, 0)), size: radius * 2.5, color: pal.core, intensity: 2.5, life: 0.5 });
+        this.vfx.spawn({ kind: VK.column, pos: ground, scale: new Vector3(radius * 0.45, 9, radius * 0.45), life: 1.1, color: vp, intensity: 1.3 });
         break;
       case 'gravity':
         this.sprites.spawn({ kind: SK.gravity, pos: ground, size: radius * 2.2, color: pal.body, intensity: 1.6, life: 0.6, mode: 1 });
+        this.vfx.spawn({ kind: VK.gravity, pos: at.add(new Vector3(0, 1.2, 0)), scale: Math.max(0.5, radius * 0.3), life: 1.0, color: vp, intensity: 1.2 });
+        this.dustRing(at, radius * 1.2, 0.9);
         this.particles.burst({ kind: PK.debris, pos: ground, count: 24, speed: 3, spread: 1, up: 1, color: [0.25, 0.2, 0.3, 1], size: [0.06, 0.14], life: [0.6, 1.2] });
         break;
       case 'blade':
       case 'umbrella':
+        for (let i = 0; i < 3; i++) {
+          const d = new Vector3(Math.random() - 0.5, 0, Math.random() - 0.5);
+          this.vfx.spawn({ kind: VK.slash, pos: at.add(new Vector3(0, 0.9 + i * 0.25, 0)), dir: d, roll: (Math.random() - 0.5) * 1.4, scale: radius * 0.7, life: 0.35, color: vp, intensity: 1.3, p: [kind === 'umbrella' ? 3 : 2, 0.85, 0.5, 0.25], delay: i * 0.06 });
+        }
         this.sprites.spawn({ kind: SK.slash, pos: at.add(new Vector3(0, 1.0, 0)), size: radius * 2, color: pal.body, intensity: 2, life: 0.25, mode: 3, dir: new Vector3(Math.random() - 0.5, 0, Math.random() - 0.5), rot: Math.random() * 6 });
         this.particles.burst({ kind: PK.paper, pos: at.add(new Vector3(0, 1, 0)), count: 20, speed: 5, spread: 1, color: [0.95, 0.92, 0.85, 1], size: [0.05, 0.09], life: [0.8, 1.6] });
         break;
@@ -240,9 +316,25 @@ export class Effects implements CombatFx {
           this.sprites.spawn({ kind: SK.drop, pos: at.add(new Vector3((Math.random() - 0.5) * radius, 2 + Math.random() * 2, (Math.random() - 0.5) * radius)), size: 0.35, color: [0.25, 0.3, 0.45], life: 0.5, vel: new Vector3(0, -9, 0) });
         }
         this.particles.burst({ kind: PK.ink, pos: ground, count: 30, speed: 3, spread: 1, up: 2, color: [0.2, 0.15, 0.25, 1], size: [0.08, 0.16], life: [0.5, 1.2] });
+        for (let i = 0; i < 3; i++) {
+          const o = new Vector3((Math.random() - 0.5) * radius, 0, (Math.random() - 0.5) * radius);
+          this.vfx.spawn({ kind: VK.splash, pos: at.add(o).multiplyByFloats(1, 0, 1), scale: new Vector3(0.4, 0.6, 0.4), life: 0.8, color: vp, delay: 0.25 + i * 0.08 });
+        }
+        this.vfx.spawn({ kind: VK.groundRing, pos: new Vector3(at.x, 0.04, at.z), scale: radius * 1.2, life: 1.0, color: vp, p: [0.05, 0, 0, 0], q: [2, 0, 0, 0] });
         break;
       case 'wail':
       case 'paperquake':
+        if (kind === 'wail') {
+          this.vfx.spawn({ kind: VK.ink, pos: new Vector3(at.x, 0.04, at.z), scale: radius * 0.9, life: 4, color: vp, p: [0, 11, 1, 0] });
+          for (let i = 0; i < 4; i++) {
+            const a = (i / 4) * Math.PI * 2;
+            this.vfx.spawn({ kind: VK.tendril, pos: at.add(new Vector3(Math.cos(a) * radius * 0.4, 0, Math.sin(a) * radius * 0.4)), dir: new Vector3(Math.cos(a) * 0.4, 1, Math.sin(a) * 0.4), scale: new Vector3(0.45, 1, 2.2), life: 1.4, color: vp, delay: i * 0.05 });
+          }
+          this.vfx.spawn({ kind: VK.shockDome, pos: at.add(new Vector3(0, 0.2, 0)), scale: radius * 0.3, grow: 3.5, life: 0.8, color: vp, p: [3, 0, 1, 0], q: [1, 0, 0, 0], shape: 'dome' });
+        } else {
+          this.vfx.spawn({ kind: VK.paper, pos: ground, scale: new Vector3(radius * 0.55, 3, radius * 0.55), life: 1.6, color: vp, p: [14, 1.3, 1, 0] });
+          this.dustRing(at, radius * 1.2, 0.9);
+        }
         this.particles.burst({ kind: kind === 'wail' ? PK.ink : PK.paper, pos: at.add(new Vector3(0, 1, 0)), count: 70, speed: 8, spread: 1, color: kind === 'wail' ? [0.15, 0.1, 0.2, 1] : [0.95, 0.93, 0.88, 1], size: [0.06, 0.14], life: [0.6, 1.4] });
         this.impactFrame(2, 0.07);
         break;
@@ -273,6 +365,18 @@ export class Effects implements CombatFx {
         break;
     }
     this.projVisuals.set(p.id, ids);
+    const vids: number[] = [];
+    const vp = this.vpal(p.owner);
+    const back = () => (p.alive && p.vel.lengthSquared() > 1e-4 ? p.vel.scale(-1) : null);
+    if (p.kind === 'crane') {
+      vids.push(this.vfx.spawn({ kind: VK.crane, pos: p.pos.clone(), dir: p.vel.scale(-1), scale: new Vector3(0.45, 1, 2.2), life, color: vp, follow, followDir: back }));
+    } else if (p.kind === 'wolf') {
+      vids.push(this.vfx.spawn({ kind: VK.tendril, pos: p.pos.clone(), dir: p.vel.scale(-1), scale: new Vector3(0.4, 1, 1.6), life, color: vp, follow, followDir: back }));
+    } else if (p.kind !== 'lantern') {
+      vids.push(this.vfx.spawn({ kind: VK.arcs, pos: p.pos.clone(), scale: p.radius * 1.25, life, color: vp, intensity: 1.3, follow }));
+      vids.push(this.vfx.spawn({ kind: VK.thrust, pos: p.pos.clone(), dir: p.vel.scale(-1), scale: new Vector3(p.radius * 1.6, 1, 1.4), life, color: vp, intensity: 0.9, follow, followDir: back }));
+    }
+    this.projVfx.set(p.id, vids);
   }
 
   projectileUpdate(p: Projectile): void {
@@ -286,6 +390,8 @@ export class Effects implements CombatFx {
   projectileEnd(p: Projectile, hit: boolean): void {
     for (const id of this.projVisuals.get(p.id) ?? []) this.sprites.kill(id);
     this.projVisuals.delete(p.id);
+    for (const id of this.projVfx.get(p.id) ?? []) this.vfx.kill(id);
+    this.projVfx.delete(p.id);
     if (!hit) {
       const pal = this.pal(p.owner);
       this.particles.burst({ kind: PK.ember, pos: p.pos, count: 12, speed: 2, spread: 1, color: [...pal.body, 1] as [number, number, number, number], size: [0.04, 0.07], life: [0.2, 0.5] });
@@ -327,6 +433,8 @@ export class Effects implements CombatFx {
     const g = new Vector3(f.pos.x, 0.05, f.pos.z);
     this.sprites.spawn({ kind: SK.dust, pos: g, size: hard ? 2.5 : 1.2, color: [0.6, 0.58, 0.55], intensity: hard ? 1 : 0.6, life: 0.5, mode: 1 });
     if (hard) {
+      this.dustRing(g, 1.8, 0.7);
+      this.puff(g.add(new Vector3(0, 0.3, 0)), 0.5, 0.9);
       this.particles.burst({ kind: PK.debris, pos: g, count: 14, speed: 3, spread: 1, up: 2.5, color: [0.4, 0.38, 0.36, 1], size: [0.04, 0.09], life: [0.5, 1.0] });
       this.cam.addShake(0.25);
       this.audio.sfx('thud', f.pos);
@@ -336,6 +444,10 @@ export class Effects implements CombatFx {
 
   vow(f: Fighter): void {
     this.impactFrame(3, 0.12);
+    // the Vow: a red-black aura and a pillar of curse rising round the one who swore it
+    const vowPal: VfxPalette = { body: [1, 0.05, 0.1], core: [1, 0.7, 0.6], edge: [0.6, 0, 0.05] };
+    this.vfx.spawn({ kind: VK.aura, pos: f.pos.add(new Vector3(0, 0.95, 0)), scale: new Vector3(0.6, 1.1, 0.6), life: 2.5, color: vowPal, intensity: 1.4, p: [1.3, 1.6, 0, 0], follow: () => (f.alive ? f.pos.add(new Vector3(0, 0.95, 0)) : null) });
+    this.vfx.spawn({ kind: VK.pillar, pos: new Vector3(f.pos.x, 0, f.pos.z), scale: new Vector3(1.1, 5, 1.1), life: 1.4, color: vowPal, q: [0, 1, 0, 0] });
     this.light(f.ch.bonePos('chest'), [1, 0.05, 0.08], 8, 6, 1.0);
     this.particles.burst({ kind: PK.ember, pos: f.ch.bonePos('chest'), count: 120, speed: 6, spread: 1, color: [1, 0.05, 0.1, 1], size: [0.05, 0.1], life: [0.5, 1.4] });
     this.audio.sfx('vow', f.pos);
@@ -344,6 +456,8 @@ export class Effects implements CombatFx {
 
   ko(f: Fighter, by: Fighter | null): void {
     this.impactFrame(by === this.player ? 1 : 3, 0.18);
+    this.vfx.spawn({ kind: VK.ink, pos: new Vector3(f.pos.x, 0.04, f.pos.z), scale: 1.8, life: 6, color: this.vpal(by ?? f), p: [by ? 1 : 0, 9, 1, 0], delay: 0.35 });
+    for (let i = 0; i < 3; i++) this.puff(f.pos.add(new Vector3((Math.random() - 0.5) * 0.8, 0.3, (Math.random() - 0.5) * 0.8)), 0.45 + Math.random() * 0.3, 1.1, 0.25);
     this.desatT = 1.2;
     this.cam.zoomPunch(1);
     this.audio.sfx('ko', f.pos);
@@ -357,6 +471,8 @@ export class Effects implements CombatFx {
     switch (f.kit.domain?.id) {
       case 0:
         this.sprites.spawn({ kind: SK.seal, pos: at, size: 3, color: pal.body, intensity: 2, life: 0.7 });
+        this.vfx.spawn({ kind: VK.bell, pos: new Vector3(target.pos.x, 0, target.pos.z), scale: new Vector3(0.9, 1.3, 0.9), life: 0.9, color: this.vpal(f), intensity: 1.1, p: [1, 1, 0, 0] });
+        this.vfx.spawn({ kind: VK.shockDome, pos: at, scale: 0.4, grow: 4, life: 0.6, color: this.vpal(f), p: [5, 0, 0.6, 0], q: [2, 0, 0, 0] });
         this.audio.sfx('toll', at);
         break;
       case 1:
@@ -364,6 +480,7 @@ export class Effects implements CombatFx {
         break;
       case 2:
         this.sprites.spawn({ kind: SK.moon, pos: at.add(new Vector3(0, 2, 0)), size: 3, color: pal.core, intensity: 2.5, life: 0.4 });
+        this.vfx.spawn({ kind: VK.column, pos: new Vector3(target.pos.x, 0, target.pos.z), scale: new Vector3(0.8, 8, 0.8), life: 0.8, color: this.vpal(f), intensity: 1.2 });
         break;
       default:
         this.sprites.spawn({ kind: SK.fire, pos: at, size: 2.4, color: pal.body, intensity: 2, life: 0.6 });
@@ -376,6 +493,7 @@ export class Effects implements CombatFx {
   update(dt: number, fighters: Fighter[]): void {
     const s = this.r.post.settings;
     this.sprites.update(dt);
+    this.vfx.update(dt);
     this.particles.update(dt);
     this.trails.update(dt, this.r.camera.position);
     this.particles.attractStrength *= Math.exp(-dt * 3);
@@ -441,6 +559,7 @@ export class Effects implements CombatFx {
 
   clear(): void {
     this.sprites.clear();
+    this.vfx.clear();
     this.particles.clear();
     this.trails.clear();
     this.flashes = [];

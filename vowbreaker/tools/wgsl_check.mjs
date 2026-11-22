@@ -134,6 +134,8 @@ function buildBabylon(file) {
   const map = [];
   let line = 1;
   let last = null;
+  // Babylon turns this define into a diagnostic directive at the top of the module
+  if (defines.has('DISABLE_UNIFORMITY_ANALYSIS')) out.unshift(['diagnostic(off, derivative_uniformity);', '<generated>', 0]);
   for (const [text, f, l] of [...out, ...gen.map((g, k) => [g, '<generated>', k + 1])]) {
     const key = f + ':' + (l - line);
     if (key !== last) { map.push([line, f, l]); last = key; }

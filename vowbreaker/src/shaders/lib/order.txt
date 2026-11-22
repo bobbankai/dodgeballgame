@@ -36,3 +36,10 @@ grade
 lens
 film
 manga
+vfx_core
+vfx_blade
+vfx_shock
+vfx_flame
+vfx_bolt
+vfx_matter
+vfx_arcane

@@ -73,6 +73,11 @@ export class Game {
 
   async start(): Promise<void> {
     const p = this.params;
+    if (p.get('vfx') !== null) {
+      const { vfxGallery } = await import('./VfxGallery');
+      await vfxGallery(this.director, p.get('vfx') || 'void', p.get('only') ?? undefined);
+      return;
+    }
     if (p.get('duel')) {
       const [a, b] = p.get('duel')!.split(',');
       void this.freeBattle(a, b ?? 'sayo', p.get('stage') ?? 'void');
