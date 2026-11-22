@@ -159,6 +159,13 @@ export class PostSettings {
   anamorphicLength = 3;
   lensDirt = 0.6;
   starburst = 0.5;
+  /** the star filter on every highlight (vbStar): amount, rays (4/6/8), length (quarter-res texels), angle, rainbow tips, threshold */
+  star = 0.9;
+  starRays = 6;
+  starLength = 28;
+  starAngle = 0.35;
+  starChroma = 0.5;
+  starThreshold = 0.08;
   // auto exposure (eye adaptation)
   autoExposure = true;
   /** relative (default): hold the stage's graded level and answer changes; absolute: aim at a key */
@@ -284,6 +291,7 @@ export class PostChain {
   private vol!: RenderTargetTexture;
   private ssrT!: RenderTargetTexture;
   private flareT!: RenderTargetTexture;
+  private starT!: RenderTargetTexture;
   private auraMask!: RenderTargetTexture;
   private contactT!: RenderTargetTexture;
   private giT!: RenderTargetTexture;
@@ -360,6 +368,7 @@ export class PostChain {
     this.vol = this.target('vol', w / 2, h / 2);
     this.ssrT = this.target('ssr', w / 2, h / 2);
     this.flareT = this.target('flare', w / 4, h / 4);
+    this.starT = this.target('star', w / 4, h / 4);
     this.auraMask = this.target('auraMask', w / 2, h / 2);
     this.contactT = this.target('contact', w / 2, h / 2);
     this.giT = this.target('gi', w / 2, h / 2);
@@ -398,8 +407,9 @@ export class PostChain {
     this.wrap('vbDof', ['dofParams', 'screenParams', 'bokehParams'], ['source', 'gbuffer']);
     this.wrap('vbFinal', ['screenParams', 'projParams', 'invView', 'prevViewProj', 'motionParams', 'caParams', 'bloomParams', 'bloomTint', 'raysColor',
       'dofParams', 'grade1', 'grade2', 'lift', 'gamma', 'gain', 'splitShadow', 'splitHighlight', 'tonemapParams', 'fxParams', 'fxParams2', 'fxCenter',
-      'flashColor', 'flashback', 'transition', 'shockwaves', 'extraParams', 'domainTint', 'volParams', 'lookParams', 'filmParams', 'auraAmount', 'ghostAmount'],
-    ['compositeTex', 'bloomTex', 'raysTex', 'dofTex', 'gbuffer', 'volTex', 'ssrTex', 'flareTex', 'exposureTex', 'auraTex', 'ghostTex']);
+      'flashColor', 'flashback', 'transition', 'shockwaves', 'extraParams', 'domainTint', 'volParams', 'lookParams', 'filmParams', 'auraAmount', 'ghostAmount', 'starAmount'],
+    ['compositeTex', 'bloomTex', 'raysTex', 'dofTex', 'gbuffer', 'volTex', 'ssrTex', 'flareTex', 'exposureTex', 'auraTex', 'ghostTex', 'starTex']);
+    this.wrap('vbStar', ['starParams', 'starParams2'], ['source', 'wide']);
     this.wrap('vbFxaa', ['rcpFrame', 'fxaaParams'], ['source']);
     this.wrap('vbVolumetric', ['projParams', 'screenParams', 'invView', 'cameraPos', 'sunDir', 'sunColor', 'fogColor', 'lightViewProj', 'shadowParams',
       'volParams', 'volParams2', 'pointPos', 'pointCol'], ['gbuffer', 'shadowMap']);
@@ -710,6 +720,17 @@ export class PostChain {
     }
     const bloom = up;
 
+    // star filter: rays from every highlight (quarter resolution, from the second bloom level)
+    const starOn = s.star > 0.001 && s.quality !== 'low' && mips.length > 1;
+    if (starOn) {
+      this.run('vbStar', this.starT, (fx) => {
+        fx.effect.setTexture('source', mips[1]);
+        fx.effect.setTexture('wide', mips[2] ?? mips[1]);
+        fx.effect.setVector4('starParams', new Vector4(s.starRays, s.starLength, s.starAngle, s.starChroma));
+        fx.effect.setVector4('starParams2', new Vector4(s.starThreshold, 4 / w, 4 / h, 0));
+      });
+    }
+
     // lens flare from the bright parts of the image (quarter resolution, from a blurred bloom level)
     const flareOn = s.flare > 0.001 && s.quality !== 'low';
     if (flareOn) {
@@ -820,6 +841,8 @@ export class PostChain {
       e.setTexture('ghostTex', ghostOn ? this.ghostA : this.black);
       e.setFloat('ghostAmount', ghostOn ? s.ghostAmount : 0);
       e.setFloat('auraAmount', auraOn ? s.auraAmount : 0);
+      e.setTexture('starTex', starOn ? this.starT : this.black);
+      e.setFloat('starAmount', starOn ? s.star : 0);
       e.setVector4('volParams', new Vector4(volOn ? s.volumetric : 0, ssrOn ? s.ssr : 0, flareOn ? s.flare : 0, s.lensDirt));
       e.setVector4('lookParams', new Vector4(s.look, s.lookAmount, s.autoExposure ? 1 : 0, s.halation));
       e.setVector4('filmParams', new Vector4(s.grainSize, s.volExtinction, 0, 0));
@@ -916,7 +939,7 @@ export class PostChain {
     }
     // debug views of the buffers, over the finished frame
     if (s.debugView > 0) {
-      const aux = [null, null, null, null, this.ao, this.contactT, this.giT, this.auraT, this.bloomUps[0] ?? null][s.debugView] ?? this.black;
+      const aux = [null, null, null, null, this.ao, this.contactT, this.giT, this.auraT, this.bloomUps[0] ?? null, this.starT][s.debugView] ?? this.black;
       const dst = shown === this.ldr ? this.ldr2 : this.ldr;
       this.run('vbDebug', dst, (fx) => {
         fx.effect.setTexture('source', shown);

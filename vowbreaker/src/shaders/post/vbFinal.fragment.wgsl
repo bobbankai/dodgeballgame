@@ -38,6 +38,8 @@ var ssrTex: texture_2d<f32>;
 var ssrTexSampler: sampler;
 var flareTex: texture_2d<f32>;
 var flareTexSampler: sampler;
+var starTex: texture_2d<f32>;
+var starTexSampler: sampler;
 var exposureTex: texture_2d<f32>;
 var exposureTexSampler: sampler;
 var auraTex: texture_2d<f32>;
@@ -74,6 +76,7 @@ uniform extraParams: vec4f;      // vow vignette, domain twist, heat haze, time
 uniform domainTint: vec4f;       // rgb, amount
 uniform volParams: vec4f;        // volumetric amount, ssr amount, flare amount, lens dirt
 uniform ghostAmount: f32;         // dash afterimages (vbGhost)
+uniform starAmount: f32;          // the star filter's rays (vbStar)
 uniform auraAmount: f32;          // cursed-energy auras (vbAura) added before tone mapping
 uniform lookParams: vec4f;       // look index, look amount, auto exposure (0/1), halation
 uniform filmParams: vec4f;       // grain size, volumetric extinction, -, -
@@ -189,6 +192,9 @@ fn main(input: FragmentInputs) -> FragmentOutputs {
     }
     let rays = textureSampleLevel(raysTex, raysTexSampler, uv, 0.0).rgb;
     col = col + rays * uniforms.raysColor;
+    if (uniforms.starAmount > 0.0) {
+        col = col + textureSampleLevel(starTex, starTexSampler, uv, 0.0).rgb * uniforms.starAmount;
+    }
 
     // --- exposure: the eye's adaptation, then the scene's own offset -------------------------------------------------
     if (uniforms.lookParams.z > 0.5) {

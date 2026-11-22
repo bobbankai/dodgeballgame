@@ -49,6 +49,7 @@ fn main(input: FragmentInputs) -> FragmentOutputs {
         }
         case 4, 5: { col = vec3f(textureSampleLevel(aux, auxSampler, uv, 0.0).r); }
         case 6, 7, 8: { col = textureSampleLevel(aux, auxSampler, uv, 0.0).rgb; }
+        case 9: { col = textureSampleLevel(aux, auxSampler, uv, 0.0).rgb * 4.0; }
         default: {}
     }
     // a legend strip along the bottom

@@ -76,3 +76,4 @@ trail_styles
 cine_light
 domain_clash
 sky_backdrop
+star_filter
