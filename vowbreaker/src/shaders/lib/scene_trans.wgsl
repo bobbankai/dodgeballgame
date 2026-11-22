@@ -11,6 +11,7 @@
 //   2 burn      the old frame burns away like paper from its edges, an ember line, char behind it
 //   3 slash     a diagonal cut; the two halves slide apart along it with a white flash
 //   4 talisman  paper slips cover the old frame, then fly off upward one by one
+//   5-9         fold, petals, brush, blinds, ripple (vb_scene_trans2)
 
 struct TransSample {
     cover: f32,
@@ -254,6 +255,11 @@ fn transEval(kind: i32, uv: vec2f, t: f32, aspect: f32, impact: vec2f, seed: f32
         case 1: { return transInk(uv, t, aspect, seed); }
         case 2: { return transBurn(uv, t, aspect, seed); }
         case 3: { return transSlash(uv, t, aspect, seed * 6.28); }
+        case 5: { return transFold(uv, t, aspect, seed); }
+        case 6: { return transPetals(uv, t, aspect, seed); }
+        case 7: { return transBrush(uv, t, aspect, seed); }
+        case 8: { return transBlinds(uv, t, aspect, seed); }
+        case 9: { return transRipple(uv, t, aspect, impact); }
         default: { return transTalisman(uv, t, aspect, seed); }
     }
 }

@@ -10,6 +10,7 @@
 #include<vb_math>
 #include<vb_sdf2d>
 #include<vb_scene_trans>
+#include<vb_scene_trans2>
 
 varying vUV: vec2f;
 

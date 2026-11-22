@@ -15,6 +15,14 @@ import { SK } from '../render/Sprites';
 import { PK } from '../render/GpuParticles';
 import { CineLight, type CineRig } from './CineLight';
 
+export type TransitionKind = 'shatter' | 'ink' | 'burn' | 'slash' | 'talisman' | 'fold' | 'petals' | 'brush' | 'blinds' | 'ripple';
+
+/** How the story moves into each place (the old frame breaking away). */
+const STAGE_TRANSITION: Record<string, TransitionKind> = {
+  graves: 'petals', academy: 'petals', estate: 'blinds', chapel: 'ripple', village: 'fold', village_burning: 'burn',
+  alley: 'ink', academy_night: 'brush', subway: 'brush', apartment: 'burn', crossing: 'slash', tower: 'talisman',
+};
+
 /** Display names and voices of the speakers. */
 export const WHO: Record<string, { name: string; voice: string }> = {
   itsuki: { name: 'Itsuki', voice: 'itsuki' }, sayo: { name: 'Sayo', voice: 'sayo' }, mikami: { name: 'Mikami', voice: 'mikami' },
@@ -151,7 +159,7 @@ export class Director {
     // a change of place mid-story: the old place is held on screen while the new one loads, then
     // washes away in ink (the first stage just appears)
     if (this.stage && !this.skipping && !this.transitionBusy) {
-      await this.transition('ink', () => this.loadStage(id), 1.4);
+      await this.transition(STAGE_TRANSITION[id] ?? 'ink', () => this.loadStage(id), 1.4);
       return;
     }
     await this.loadStage(id);
@@ -593,14 +601,14 @@ export class Director {
    * underneath it, then the old frame breaks away (shatter from `impact`, ink, burn, slash, or
    * talismans). Skipped while another one runs (the change is applied at once).
    */
-  async transition(kind: 'shatter' | 'ink' | 'burn' | 'slash' | 'talisman', change: () => void | Promise<void>, dur = 1.3, impact?: Vector3): Promise<void> {
+  async transition(kind: TransitionKind, change: () => void | Promise<void>, dur = 1.3, impact?: Vector3): Promise<void> {
     const s = this.r.post.settings;
     if (this.transitionBusy || this.skipping) {
       await change();
       return;
     }
     this.transitionBusy = true;
-    s.transKind = { shatter: 0, ink: 1, burn: 2, slash: 3, talisman: 4 }[kind];
+    s.transKind = { shatter: 0, ink: 1, burn: 2, slash: 3, talisman: 4, fold: 5, petals: 6, brush: 7, blinds: 8, ripple: 9 }[kind];
     s.transSeed = Math.random();
     if (impact) {
       const sp = this.fx.project(impact);
