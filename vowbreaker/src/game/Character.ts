@@ -167,6 +167,18 @@ export class Character {
     const up = Vector3.Cross(fwd, left).normalize();
     // the face looks along `fwd` minus its vertical part relative to `up`
     fwd = Vector3.Cross(left, up).normalize();
+    // the eyes' centres, pushed forward onto the front of the eyeball; the iris about a fifth of
+    // the distance between the eyes
+    const ipd = Vector3.Distance(pl, pr);
+    const front = fwd.scale(ipd * 0.18);
+    this.look.eyeL.set(pl.x + front.x, pl.y + front.y, pl.z + front.z, ipd * 0.2);
+    this.look.eyeR.set(pr.x + front.x, pr.y + front.y, pr.z + front.z, ipd * 0.2);
+    // pupils and sparkle by expression: pinpricks in shock and fear, wide and bright in joy
+    const ex = this.face.expression;
+    const pupil = ex === 'fear' || ex === 'shock' || ex === 'surprise' || ex === 'shout' ? 0.15 : ex === 'joy' || ex === 'smile' || ex === 'gentle' ? 0.7 : ex === 'angry' || ex === 'cold' ? 0.35 : 0.5;
+    const sparkle = ex === 'joy' || ex === 'smile' || ex === 'determined' ? 1 : ex === 'gentle' ? 0.6 : 0;
+    this.look.eyeState.x += (pupil - this.look.eyeState.x) * 0.2;
+    this.look.eyeState.y += (sparkle - this.look.eyeState.y) * 0.2;
     this.look.headRight.copyFrom(left);
     this.look.headUp.copyFrom(up.y < 0 ? up.scale(-1) : up);
     this.look.headForward.copyFrom(fwd);

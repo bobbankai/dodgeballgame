@@ -47,7 +47,7 @@ const TOON_UNIFORMS = [
   'world', 'viewProjection', 'view', 'cameraPosition', 'squash', 'pivot',
   'sunDir', 'sunColor', 'skyColor', 'groundColor', 'shadowColor', 'rimColor',
   'tint', 'flash', 'toonParams', 'toonParams2', 'energy', 'headRight', 'headUp', 'headForward',
-  'lightViewProj', 'shadowParams', 'pointPos', 'pointCol', 'domainParams', 'surface', 'surface2', 'heights', 'curse', 'cine', 'wind', 'motion',
+  'lightViewProj', 'shadowParams', 'pointPos', 'pointCol', 'domainParams', 'surface', 'surface2', 'heights', 'curse', 'cine', 'wind', 'motion', 'eyeL', 'eyeR', 'eyeState',
 ];
 
 /** Per-character shading state, written by the fighter every frame and pushed to its materials. */
@@ -77,6 +77,11 @@ export class CharacterLook {
   curse = new Vector4(0, 0, 0, 0);
   /** x, z world velocity (smoothed), speed: hems and hair trail behind it */
   motion = new Vector4(0, 0, 0, 0);
+  /** the eyes' centres (world) and iris radius (w 0 = unknown) */
+  eyeL = new Vector4(0, 0, 0, 0);
+  eyeR = new Vector4(0, 0, 0, 0);
+  /** pupil size (0 pinprick .. 1 wide), sparkle (0..1) */
+  eyeState = new Vector4(0.5, 0, 0, 0);
 }
 
 /** glTF models sit under a mirrored root (right- to left-handed): their triangles wind the other way. */
@@ -208,6 +213,9 @@ export class Materials {
     mat.setArray4('cine', Array.from(l.cine));
     mat.setVector4('wind', new Vector4(l.windDir.x, l.windDir.z, l.windStrength, l.time));
     mat.setVector4('motion', look.motion);
+    mat.setVector4('eyeL', look.eyeL);
+    mat.setVector4('eyeR', look.eyeR);
+    mat.setVector4('eyeState', look.eyeState);
     if (l.shadowMap) mat.setTexture('shadowMap', l.shadowMap);
   }
 

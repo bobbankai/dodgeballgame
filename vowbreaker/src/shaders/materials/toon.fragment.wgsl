@@ -69,6 +69,9 @@ uniform surface: vec4f;
 uniform surface2: vec4f;
 uniform curse: vec4f;          // curse surface kind (0 none, 1 mud, 2 umbrella, 3 ghost, 4 paper, 5 acolyte), -, -, -
 uniform heights: vec4f;
+uniform eyeL: vec4f;           // the eyes' centres (world) and iris radius
+uniform eyeR: vec4f;
+uniform eyeState: vec4f;       // pupil size (0 pinprick .. 1 wide), sparkle, -, -
 uniform cine: array<vec4f, 6>;  // the cutscene light rig (vb_cine_light)
 
 var shadowMap: texture_2d<f32>;
@@ -178,6 +181,8 @@ fn main(input: FragmentInputs) -> FragmentOutputs {
                 ep.glowColor = paletteRamp(pal, 0.85);
             }
             col = eyeShade(albedo, N, L, lit.lit, sunCol, lit.ambient, ep, time, objPos);
+            let ef = eyeFrameAt(fragmentInputs.vWorldPos, uniforms.eyeL, uniforms.eyeR, uniforms.headRight, uniforms.headUp, uniforms.headForward);
+            col = eyeDetail(col, albedo, ef, N, L, uniforms.eyeState, time);
             col = eyeEmpty(col, albedo, uniforms.heights.w);
         }
         case 4: {
