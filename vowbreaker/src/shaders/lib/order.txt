@@ -78,3 +78,4 @@ domain_clash
 sky_backdrop
 star_filter
 memory_styles
+toon_motion

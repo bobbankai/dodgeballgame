@@ -27,6 +27,8 @@ export class Lighting {
   /** pattern-shader extras: rain wetness 0..1, wind, puddles */
   wetness = 0;
   windDir = new Vector3(1, 0, 0.3);
+  /** the wind characters' hems and hair feel (strength, m/s-ish) */
+  windStrength = 1;
   /** the cutscene light rig (vb_cine_light, 6 vec4s; amount 0 = off) */
   cine = new Float32Array(24);
 
@@ -45,7 +47,7 @@ const TOON_UNIFORMS = [
   'world', 'viewProjection', 'view', 'cameraPosition', 'squash', 'pivot',
   'sunDir', 'sunColor', 'skyColor', 'groundColor', 'shadowColor', 'rimColor',
   'tint', 'flash', 'toonParams', 'toonParams2', 'energy', 'headRight', 'headUp', 'headForward',
-  'lightViewProj', 'shadowParams', 'pointPos', 'pointCol', 'domainParams', 'surface', 'surface2', 'heights', 'curse', 'cine',
+  'lightViewProj', 'shadowParams', 'pointPos', 'pointCol', 'domainParams', 'surface', 'surface2', 'heights', 'curse', 'cine', 'wind', 'motion',
 ];
 
 /** Per-character shading state, written by the fighter every frame and pushed to its materials. */
@@ -73,6 +75,8 @@ export class CharacterLook {
   heights = new Vector4(1.7, 1.55, 0, 0);
   /** x curse surface kind (vb_toon_curse: 1 mud, 2 umbrella, 3 ghost, 4 paper, 5 acolyte) */
   curse = new Vector4(0, 0, 0, 0);
+  /** x, z world velocity (smoothed), speed: hems and hair trail behind it */
+  motion = new Vector4(0, 0, 0, 0);
 }
 
 /** glTF models sit under a mirrored root (right- to left-handed): their triangles wind the other way. */
@@ -133,7 +137,7 @@ export class Materials {
     const { attributes, defines } = attributesFor(mesh);
     const mat = new ShaderMaterial('outline_' + mesh.name, this.scene, { vertex: 'outline', fragment: 'outline' }, {
       attributes: attributes.filter((a) => a !== 'uv2'), defines: defines.filter((d) => d !== 'UV2'),
-      uniforms: ['world', 'viewProjection', 'view', 'squash', 'pivot', 'outlineParams', 'screenSize', 'tint', 'flash', 'energy', 'lineColor'],
+      uniforms: ['world', 'viewProjection', 'view', 'squash', 'pivot', 'outlineParams', 'screenSize', 'tint', 'flash', 'energy', 'lineColor', 'heights', 'wind', 'motion', 'sunDir', 'cameraPosition'],
       shaderLanguage: ShaderLanguage.WGSL,
     });
     mat.backFaceCulling = true;
@@ -202,6 +206,8 @@ export class Materials {
     mat.setVector4('heights', look.heights);
     mat.setVector4('curse', look.curse);
     mat.setArray4('cine', Array.from(l.cine));
+    mat.setVector4('wind', new Vector4(l.windDir.x, l.windDir.z, l.windStrength, l.time));
+    mat.setVector4('motion', look.motion);
     if (l.shadowMap) mat.setTexture('shadowMap', l.shadowMap);
   }
 
@@ -214,6 +220,12 @@ export class Materials {
     mat.setVector4('flash', look.flash);
     mat.setVector4('energy', look.energy);
     mat.setVector4('lineColor', look.lineColor);
+    const l = this.lighting;
+    mat.setVector4('heights', look.heights);
+    mat.setVector4('wind', new Vector4(l.windDir.x, l.windDir.z, l.windStrength, l.time));
+    mat.setVector4('motion', look.motion);
+    mat.setVector3('sunDir', l.sunDir);
+    mat.setVector3('cameraPosition', this.scene.activeCamera?.globalPosition ?? Vector3.Zero());
   }
 
   update(): void {

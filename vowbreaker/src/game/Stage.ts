@@ -257,6 +257,8 @@ export class Stage {
     env.dapples = look.dapples ?? 0;
     env.windows = look.windows ?? 0;
     env.moon = look.moon ?? 0;
+    // the wind characters feel: stronger in storms, ash and snow
+    r.lighting.windStrength = 1.2 + env.rain * 1.6 + env.snow * 0.8 + env.ash * 0.6 + (d.ambient?.kind === 'petals' ? 0.5 : 0);
     env.fireStrength = look.fireStrength ?? 0;
     if (look.fire) env.fire.set(look.fire[0], look.fire[1], look.fire[2], look.fire[3]);
     if (d.glow) this.env.glowColor = c3(d.glow);

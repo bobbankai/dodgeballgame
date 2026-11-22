@@ -133,6 +133,18 @@ export class Character {
     this.anim.update(animDt);
     this.face.update(dt);
     this.root.computeWorldMatrix(true);
+    // how fast the body moves (smoothed): hems and hair trail behind it
+    if (dt > 0) {
+      const p = this.root.position;
+      const vx = (p.x - this.look.pivot.x) / dt;
+      const vz = (p.z - this.look.pivot.z) / dt;
+      const k = Math.min(1, dt * 6);
+      const m = this.look.motion;
+      const ok = Math.abs(vx) < 40 && Math.abs(vz) < 40;
+      m.x += ((ok ? vx : 0) - m.x) * k;
+      m.y += ((ok ? vz : 0) - m.y) * k;
+      m.z = Math.hypot(m.x, m.y);
+    }
     this.look.pivot.set(this.root.position.x, this.root.position.y, this.root.position.z, 0);
     this.springs.update(animDt);
     this.updateHeadFrame();
