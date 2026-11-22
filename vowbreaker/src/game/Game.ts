@@ -76,6 +76,9 @@ export class Game {
     // ?debug=normals|depth|ids|ao|contact|gi|aura|bloom: look at the renderer's buffers
     const dbg = ['', 'normals', 'depth', 'ids', 'ao', 'contact', 'gi', 'aura', 'bloom'].indexOf(p.get('debug') ?? '');
     if (dbg > 0) this.r.post.settings.debugView = dbg;
+    // ?quality=high|medium|low picks the graphics quality from the start
+    const q = p.get('quality');
+    if (q === 'high' || q === 'medium' || q === 'low') this.r.post.settings.quality = q;
     if (p.get('vfx') !== null) {
       const { vfxGallery } = await import('./VfxGallery');
       await vfxGallery(this.director, p.get('vfx') || 'void', p.get('only') ?? undefined);
@@ -169,7 +172,7 @@ export class Game {
       this.r.post.settings.flashback = 0;
       d.flashback(false);
       d.letterbox(true);
-      console.log(`chapter ${i} start: ${CHAPTERS[i].title}`);
+      console.log(`chapter ${i} start at ${d.time.toFixed(0)}s: ${CHAPTERS[i].title}`);
       (window as unknown as { __chapter: number }).__chapter = i;
       await CHAPTERS[i].run(d);
       console.log(`chapter ${i} end at ${d.time.toFixed(0)}s`);

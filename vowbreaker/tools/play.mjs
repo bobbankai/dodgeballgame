@@ -23,7 +23,7 @@ const browser = await chromium.launch({
   headless: false,
   env: { ...process.env, DISPLAY: display },
   args: ['--enable-unsafe-webgpu', '--enable-unsafe-swiftshader', '--enable-features=Vulkan', '--use-vulkan=swiftshader',
-    '--use-webgpu-adapter=swiftshader', '--use-angle=swiftshader', '--ignore-gpu-blocklist', `--window-size=${w},${h}`],
+    '--use-webgpu-adapter=swiftshader', '--use-angle=swiftshader', '--disable-gpu-watchdog', '--ignore-gpu-blocklist', `--window-size=${w},${h}`],
 });
 const page = await browser.newPage({ viewport: { width: +w, height: +h } });
 const logs = [];

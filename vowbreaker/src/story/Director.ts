@@ -509,7 +509,9 @@ export class Director {
       this.fight = f;
       this.input.clear();
       if (this.autoTest) this.autoFight(f);
+      const t0 = this.time;
       await this.task(() => f.over);
+      if (this.autoTest) console.log(`fight ${spec.fighters.map((x) => x.id).join(' vs ')}: ${f.result} in ${(this.time - t0).toFixed(0)}s`);
       const res = f.result!;
       this.hud.show(false);
       this.endDomain();
