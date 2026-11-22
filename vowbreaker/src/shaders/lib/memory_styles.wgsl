@@ -384,3 +384,48 @@ fn memCharcoal(src: texture_2d<f32>, ss: sampler, uv: vec2f, pixel: vec2f, px: v
     let charcoal = vec3f(0.08, 0.075, 0.08);
     return mix(paper, charcoal, cover);
 }
+
+// --- 9 manga ----------------------------------------------------------------------------------------------------
+//
+// The memory as a manga page: the frame cut into panels with white gutters (each panel a different
+// crop of the frame: a wide shot, a close crop on the middle, a detail), shaded in screentone, black
+// ink lines, a heavy black panel border.
+
+fn memManga(src: texture_2d<f32>, ss: sampler, uv: vec2f, pixel: vec2f, aspect: f32, gb: texture_2d<f32>, gbs: sampler, px: vec2f, seed: f32) -> vec3f {
+    // three panels: a wide one on top, two below (the right one a close crop)
+    let g = 0.012;
+    var panel = 0;
+    var local = uv;
+    var crop = vec4f(0.0, 0.0, 1.0, 1.0);   // the part of the frame the panel shows (x0, y0, w, h)
+    if (uv.y > 0.52) {
+        panel = 0;
+        local = vec2f(uv.x, (uv.y - 0.52) / 0.48);
+        crop = vec4f(0.0, 0.3, 1.0, 0.6);
+    } else if (uv.x < 0.55 - (uv.y - 0.26) * 0.08) {
+        panel = 1;
+        local = vec2f(uv.x / 0.55, uv.y / 0.52);
+        crop = vec4f(0.1, 0.1, 0.6, 0.7);
+    } else {
+        panel = 2;
+        local = vec2f((uv.x - 0.55) / 0.45, uv.y / 0.52);
+        crop = vec4f(0.38, 0.3, 0.3, 0.4);
+    }
+    // gutters
+    let gx = min(local.x, 1.0 - local.x) * aspect;
+    let gy = min(local.y, 1.0 - local.y);
+    let inGutter = step(min(gx, gy * 0.5), g);
+    let suv = crop.xy + local * crop.zw;
+    let c = textureSampleLevel(src, ss, suv, 0.0).rgb;
+    let geo = memGeometry(gb, gbs, suv, px * crop.zw, 1.4, 0.4, seed);
+    // screentone by value, ink lines, solid blacks
+    let v = luma(c);
+    let tone = clamp(1.0 - v * 1.25, 0.0, 1.0);
+    let dots = halftoneDots(pixel, 4.5, 0.785, tone);
+    var ink = vec3f(0.97) * (1.0 - dots * 0.85);
+    ink = mix(ink, vec3f(0.03), smoothstep(0.82, 0.92, tone));
+    ink = mix(ink, vec3f(0.03), smoothstep(0.35, 0.7, geo.edge));
+    // the panel's border, heavy
+    let border = step(min(gx, gy * 0.5), g + 0.006) * (1.0 - inGutter);
+    ink = mix(ink, vec3f(0.02), border);
+    return mix(ink, vec3f(0.98, 0.97, 0.95), inGutter);
+}

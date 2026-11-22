@@ -276,6 +276,8 @@ export class Game {
         } },
       ], () => this.resume());
     }
+    // the frame behind the pause menu softens into an ink wash (real time: the game is stopped)
+    ps.pause += ((this.paused ? 1 : 0) - ps.pause) * Math.min(1, dt * 6);
     if (this.paused) return;
     this.director.update(dt);
     this.director.domainUpdate();

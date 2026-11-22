@@ -15,12 +15,17 @@ import { SK } from '../render/Sprites';
 import { PK } from '../render/GpuParticles';
 import { CineLight, type CineRig } from './CineLight';
 
-export type TransitionKind = 'shatter' | 'ink' | 'burn' | 'slash' | 'talisman' | 'fold' | 'petals' | 'brush' | 'blinds' | 'ripple';
+export type TransitionKind = 'shatter' | 'ink' | 'burn' | 'slash' | 'talisman' | 'fold' | 'petals' | 'brush' | 'blinds' | 'ripple' | 'shoji' | 'lanterns';
+
+/** The shape of the out-of-focus lights in each place's cutscenes. */
+const STAGE_BOKEH: Record<string, number | 'sakura' | 'star' | 'crescent'> = {
+  graves: 'sakura', academy: 'sakura', chapel: 'crescent', village: 'star', estate: 6,
+};
 
 /** How the story moves into each place (the old frame breaking away). */
 const STAGE_TRANSITION: Record<string, TransitionKind> = {
-  graves: 'petals', academy: 'petals', estate: 'blinds', chapel: 'ripple', village: 'fold', village_burning: 'burn',
-  alley: 'ink', academy_night: 'brush', subway: 'brush', apartment: 'burn', crossing: 'slash', tower: 'talisman',
+  graves: 'petals', academy: 'petals', estate: 'shoji', chapel: 'ripple', village: 'lanterns', village_burning: 'burn',
+  alley: 'ink', academy_night: 'blinds', subway: 'brush', apartment: 'fold', crossing: 'slash', tower: 'talisman',
 };
 
 /** Display names and voices of the speakers. */
@@ -175,8 +180,9 @@ export class Director {
     this.audio.setRain(def.ambient?.kind === 'rain' ? 1 : 0);
     this.audio.setWind(0.3);
     this.fx.particles.wind.set(def.ambient?.kind === 'petals' ? 0.6 : 0, 0, 0.2);
-    // the place's own cutscene light (off while fighting)
+    // the place's own cutscene light (off while fighting), and the shape of its out-of-focus lights
     this.cineLight.setStage(def.id);
+    this.bokeh(STAGE_BOKEH[def.id] ?? 7);
     if (this.fight) this.cineLight.set(null, {}, 0.05);
   }
 
@@ -212,6 +218,12 @@ export class Director {
       L.envTransform.y = Math.min(1, t / Math.max(0.1, grow));
       return L.envTransform.y >= 1;
     });
+  }
+
+  /** The shape of the out-of-focus lights: an iris of n blades, or a card cut into a shape. */
+  bokeh(shape: number | 'sakura' | 'star' | 'crescent' | 'bell' | 'heart'): void {
+    const map = { sakura: -1, star: -2, crescent: -3, bell: -4, heart: -5 } as const;
+    this.r.post.settings.bokehBlades = typeof shape === 'number' ? shape : map[shape];
   }
 
   /** Light the actors for a shot: a named look (see CINE), a custom rig, or null for none. */
@@ -409,9 +421,9 @@ export class Director {
    * puppets), 'photo', 'watercolor', 'crayon', 'glass' (stained glass), 'woodblock', 'film' (8 mm home
    * movie), 'charcoal'.
    */
-  flashback(on: boolean, keepHue = 0.0, style: 'sumie' | 'kage' | 'photo' | 'watercolor' | 'crayon' | 'glass' | 'woodblock' | 'film' | 'charcoal' = 'sumie'): void {
+  flashback(on: boolean, keepHue = 0.0, style: 'sumie' | 'kage' | 'photo' | 'watercolor' | 'crayon' | 'glass' | 'woodblock' | 'film' | 'charcoal' | 'manga' = 'sumie'): void {
     if (on) {
-      this.r.post.settings.memoryStyle = { sumie: 0, kage: 1, photo: 2, watercolor: 3, crayon: 4, glass: 5, woodblock: 6, film: 7, charcoal: 8 }[style];
+      this.r.post.settings.memoryStyle = { sumie: 0, kage: 1, photo: 2, watercolor: 3, crayon: 4, glass: 5, woodblock: 6, film: 7, charcoal: 8, manga: 9 }[style];
       this.r.post.settings.memorySeed = Math.random();
     }
     // into a memory the present burns away like paper; out of it, ink washes it off
@@ -643,7 +655,7 @@ export class Director {
       return;
     }
     this.transitionBusy = true;
-    s.transKind = { shatter: 0, ink: 1, burn: 2, slash: 3, talisman: 4, fold: 5, petals: 6, brush: 7, blinds: 8, ripple: 9 }[kind];
+    s.transKind = { shatter: 0, ink: 1, burn: 2, slash: 3, talisman: 4, fold: 5, petals: 6, brush: 7, blinds: 8, ripple: 9, shoji: 10, lanterns: 11 }[kind];
     s.transSeed = Math.random();
     if (impact) {
       const sp = this.fx.project(impact);

@@ -9,6 +9,8 @@
 //   4 sea         a flat horizon with islands, a lighthouse sweeping its beam, glitter on the water
 //   5 forest      a treeline of cedars and round crowns
 //   6 burning     a ridge black against the glow of fires, columns of smoke leaning in the wind
+//   7 snowfields  white ranges under snow, bare trees stippled on the near slopes
+//   8 harbour     a quay with moored hulls and gantry cranes, lamps at night, a blinking buoy
 //
 // Directions are unit vectors from the dome's centre; a silhouette is a height above the horizon
 // (radians, roughly) as a function of the azimuth.
@@ -296,8 +298,64 @@ fn skyBackdrop(kind: i32, d: vec3f, px: f32, horizon: vec3f, zenith: vec3f, sun:
         case 6: {
             return backdropBurning(az, e, px, horizon, dark, fire, time, seed, wind);
         }
+        case 7: {
+            return backdropSnowfields(az, e, px, horizon, dark, seed);
+        }
+        case 8: {
+            return backdropHarbour(az, e, px, horizon, dark, night, time, seed);
+        }
         default: {
             return backdropNone();
         }
     }
+}
+
+// --- 7 snowfields, 8 harbour -----------------------------------------------------------------------------------
+
+// snowfields: white ranges under snow, the near slopes stippled with bare trees, snow haze over all
+fn backdropSnowfields(az: f32, e: f32, px: f32, horizon: vec3f, dark: vec3f, seed: f32) -> Backdrop {
+    var b = backdropNone();
+    for (var i = 0; i < 3; i++) {
+        let fi = f32(i);
+        let k = 1.0 - fi / 2.0;
+        let h = 0.015 + ridgeHeight(az, 1.3 + fi * 1.2, 0.13 - fi * 0.035, 0.6, seed + fi * 4.0);
+        var lb = backdropNone();
+        lb.cover = underLine(e, h, px);
+        // snow white, shadowed blue on the slopes facing away, the farthest almost lost in the haze
+        let slope = ridgeHeight(az + 0.01, 1.3 + fi * 1.2, 0.13 - fi * 0.035, 0.6, seed + fi * 4.0) - h + 0.015;
+        let shade = select(1.0, 0.78, slope > 0.0);
+        lb.color = mix(vec3f(0.92, 0.94, 0.98) * shade, horizon, 0.35 + k * 0.5);
+        // bare trees stippled on the nearest slopes
+        let trees = step(0.75, valueNoise2(vec2f(az * 300.0, e * 400.0))) * step(e, h - 0.004) * step(1.5, fi + 0.6);
+        lb.color = mix(lb.color, dark * 0.8, trees * 0.6);
+        b = backdropOver(b, lb);
+    }
+    return b;
+}
+
+// harbour: a breakwater, cranes and moored hulls on the water line, a lit buoy blinking
+fn backdropHarbour(az: f32, e: f32, px: f32, horizon: vec3f, dark: vec3f, night: f32, time: f32, seed: f32) -> Backdrop {
+    var b = backdropNone();
+    let cells = 60.0;
+    let x = (az / TAU + 0.5) * cells + seed * 11.0;
+    let cell = floor(x);
+    let fx = fract(x);
+    let h0 = hash11(cell * 2.3 + seed);
+    // hulls and warehouses low on the water
+    var h = 0.008 + h0 * 0.014;
+    // a gantry crane now and then: legs, a boom
+    let crane = step(0.85, h0);
+    let legs = crane * (step(abs(fx - 0.3), 0.03) + step(abs(fx - 0.7), 0.03)) * step(e, 0.06);
+    let boom = crane * step(abs(e - 0.06), 0.004) * step(0.1, fx);
+    var lb = backdropNone();
+    lb.cover = max(underLine(e, h, px), clamp(legs + boom, 0.0, 1.0));
+    lb.color = layerColor(dark, horizon, 0.35);
+    // lights along the quay at night, a red buoy blinking
+    let lamp = step(0.6, hash11(cell * 5.1)) * (1.0 - smoothstep(0.0, 0.004, length(vec2f((fx - 0.5) * 0.02, e - h - 0.003))));
+    lb.emissive = vec3f(1.0, 0.8, 0.45) * lamp * night * 1.5;
+    b = backdropOver(b, lb);
+    let buoyA = seed * 3.0 - 1.0;
+    let buoy = (1.0 - smoothstep(0.0, 0.003, length(vec2f(az - buoyA, e - 0.002)))) * step(0.5, fract(time * 0.5));
+    b.emissive = b.emissive + vec3f(1.0, 0.1, 0.05) * buoy * 2.0;
+    return b;
 }

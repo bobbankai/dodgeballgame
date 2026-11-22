@@ -57,6 +57,8 @@ fn main(input: FragmentInputs) -> FragmentOutputs {
         col = mix(col, vec3f(luma(col)), 0.35) * (1.0 + 0.4 * (1.0 - t));
         col = mix(col, vec3f(1.0), sh.crack);
         col = mix(col, vec3f(1.0), impactStar(uv, center, aspect, 0.04, t, seed));
+    } else if (style == IMPACT_TEAR) {
+        col = impactPaperTear(source, sourceSampler, wuv, pixel, dir, center, aspect, t, seed);
     } else if (style == IMPACT_SMEAR) {
         col = impactSmear(source, sourceSampler, wuv, dir, center, amount);
         let lines = speedLinesDir(uv, dir, aspect, boil, 55.0, seed);

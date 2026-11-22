@@ -22,6 +22,7 @@
 #include<vb_domain_parade>
 #include<vb_domain_memory>
 #include<vb_domain_scenes>
+#include<vb_domain_growth>
 
 varying vWorld: vec3f;
 
@@ -30,8 +31,11 @@ uniform domainParams: vec4f;   // id, reveal, time, intensity
 uniform domainCenter: vec3f;
 uniform lightViewProj: mat4x4f;
 uniform shadowParams: vec4f;
+uniform growthParams: vec4f;   // the growth field: centre x, z, 1 / size, on
 
 var shadowMap: texture_2d<f32>;
+var growth: texture_2d<f32>;
+var growthSampler: sampler;
 
 @fragment
 fn main(input: FragmentInputs) -> FragmentOutputs {
@@ -52,6 +56,17 @@ fn main(input: FragmentInputs) -> FragmentOutputs {
     let look = domainLookOf(id);
     let V = normalize(uniforms.cameraPosition - P);
     var col = domainFloorOf(id, P, uniforms.domainCenter, t, V, 1.4);
+    // what grows across the floor from the caster's feet (vb_domain_growth)
+    var growGlow = vec3f(0.0);
+    if (uniforms.growthParams.w > 0.5) {
+        let guv = (P.xz - uniforms.growthParams.xy) * uniforms.growthParams.z + 0.5;
+        if (all(guv > vec2f(0.002)) && all(guv < vec2f(0.998))) {
+            let g = textureSampleLevel(growth, growthSampler, guv, 0.0);
+            let gl = domainGrowthLook(id, col, g, P, t);
+            col = gl.col;
+            growGlow = gl.glow;
+        }
+    }
     // the fighters' shadows take the domain's shadow colour (the lake's mirror darkens less)
     let shadowTint = mix(look.shadowCol * 0.9, vec3f(1.0), sh);
     col = col * select(shadowTint, mix(vec3f(0.55), vec3f(1.0), sh), id == 2);
@@ -59,6 +74,6 @@ fn main(input: FragmentInputs) -> FragmentOutputs {
     let dist = length(P - uniforms.cameraPosition);
     col = domainFog(col, dist, uniforms.cameraPosition, -V, look);
     let pal = paletteFor(select(id, 0, id == 4));
-    col = col + pal.body * rv.y * 3.0;
+    col = col + pal.body * rv.y * 3.0 + growGlow;
     fragmentOutputs.color = vec4f(max(col, vec3f(0.0)) * uniforms.domainParams.w, 1.0);
 }

@@ -230,3 +230,67 @@ fn transRipple(uv: vec2f, t: f32, aspect: f32, center: vec2f) -> TransSample {
     r.tint = vec3f(1.0 + wave * 0.6);
     return r;
 }
+
+// --- shoji, lanterns ------------------------------------------------------------------------------------------
+//
+//  10 shoji     two paper doors slide shut over the old frame from the sides, meet, then slide open
+//               on the new scene (the frame behind changes while they are shut)
+//  11 lanterns  the old frame breaks into a grid of paper lanterns that light from within and float
+//               upward, each at its own pace
+
+fn transShoji(uv: vec2f, t: f32, aspect: f32, seed: f32) -> TransSample {
+    var r = transNone(uv);
+    // closing (0..0.45) the doors hide the old frame; opening (0.55..1) they reveal the new
+    let close = easeInOutCubic(clamp(t / 0.45, 0.0, 1.0));
+    let open = easeInOutCubic(clamp((t - 0.55) / 0.45, 0.0, 1.0));
+    let half = 0.5 * close * (1.0 - open);
+    let door = step(uv.x, half) + step(1.0 - half, uv.x);
+    // before they meet, the uncovered middle still shows the old frame
+    r.cover = select(0.0, 1.0, t < 0.5);
+    if (door > 0.5) {
+        // the doors: a lattice of thin wooden bars over lit paper
+        let lx = select(uv.x - (half - 0.5), uv.x - (1.0 - half), uv.x > 0.5);
+        let gx = abs(fract(lx * 8.0) - 0.5);
+        let gy = abs(fract(uv.y * 6.0) - 0.5);
+        let bars = max(1.0 - smoothstep(0.0, 0.03, 0.5 - gx), 1.0 - smoothstep(0.0, 0.03, 0.5 - gy));
+        let paper = vec3f(0.95, 0.9, 0.78) * (0.92 + 0.08 * valueNoise2(uv * vec2f(aspect, 1.0) * 60.0));
+        r.cover = 1.0;
+        r.tint = vec3f(0.0);
+        r.add = mix(paper, vec3f(0.32, 0.22, 0.14), bars);
+    }
+    return r;
+}
+
+fn transLanterns(uv: vec2f, t: f32, aspect: f32, seed: f32) -> TransSample {
+    var r = transNone(uv);
+    let cols = 10.0;
+    let rows = 6.0;
+    var best = 0.0;
+    // (a lantern can have risen from up to nine rows below)
+    for (var dj = -9; dj <= 0; dj++) {
+        let p = vec2f(uv.x * cols, uv.y * rows);
+        let cell = floor(p) + vec2f(0.0, f32(dj));
+        let h = hash22(cell + seed * 9.0);
+        let start = h.x * 0.45;
+        let tc = clamp((t - start) / 0.55, 0.0, 1.0);
+        let rise = easeInQuad(tc) * 1.4;
+        let local = p - cell - vec2f(0.5, 0.5 + rise * rows);
+        // each piece rounds into a lantern as it lifts, and shrinks with distance
+        let s = 1.0 - tc * 0.5;
+        let q = local / vec2f(0.5 * s, 0.5 * s);
+        let box = max(abs(q.x), abs(q.y));
+        let lantern = length(vec2f(q.x, q.y * 0.8));
+        let d = mix(box, lantern, smoothstep(0.0, 0.3, tc));
+        if (d < 1.0 && tc < 1.0) {
+            best = 1.0;
+            r.uv = (cell + vec2f(0.5) + local) / vec2f(cols, rows);
+            // lit from inside as it rises: warm glow, ribs
+            let glow = smoothstep(0.0, 0.4, tc);
+            let ribs = step(0.8, fract(q.y * 3.0)) * glow;
+            r.tint = mix(vec3f(1.0), vec3f(1.2, 0.7, 0.35), glow * 0.8) * (1.0 - ribs * 0.4);
+            r.add = vec3f(1.0, 0.45, 0.12) * glow * (1.0 - d) * 0.6;
+        }
+    }
+    r.cover = best;
+    return r;
+}

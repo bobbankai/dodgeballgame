@@ -957,6 +957,7 @@ async function mio(d: Director): Promise<void> {
     ['itsuki', 'It wasn\'t your job to wait. It was mine to come. I\'m here now.', 'grief'],
   ]);
   d.flashback(true, 0.0, 'crayon');
+  d.bokeh('bell');
   await talk(d, [
     ['mio', '"Onii-chan. I rang the bell so you\'d find me."', undefined, 'n'],
     ['mio', '"And you did. You keep finding me. Every time you hear it."', undefined, 'n'],

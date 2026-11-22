@@ -98,6 +98,8 @@ export class PostSettings {
   memoryStyle = 0;
   /** fight screens (vb_fight_screens): versus progress (< 0 off), ending progress and kind (1 won, 2 lost), danger, the two sides' colours */
   fightVersus = -1;
+  /** the pause wash behind the pause menu (0..1) */
+  pause = 0;
   fightEnd = 0;
   fightEndKind = 0;
   fightDanger = 0;
@@ -432,7 +434,7 @@ export class PostChain {
     this.wrap('vbLuminance', ['lumParams'], ['source', 'gbuffer']);
     this.wrap('vbReduce', ['texel'], ['source']);
     this.wrap('vbAdapt', ['adaptParams', 'adaptRange'], ['current', 'previous']);
-    this.wrap('vbStylize', ['screenParams', 'styleParams', 'styleParams2', 'mangaParams', 'mangaParams2', 'mangaCenter', 'paperColor', 'fluidParams', 'callParams', 'callColor', 'fightParams', 'fightColA', 'fightColB'], ['source', 'fluidDye', 'fluidVel']);
+    this.wrap('vbStylize', ['screenParams', 'styleParams', 'styleParams2', 'mangaParams', 'mangaParams2', 'mangaCenter', 'paperColor', 'fluidParams', 'callParams', 'callColor', 'fightParams', 'fightColA', 'fightColB', 'pauseAmount'], ['source', 'fluidDye', 'fluidVel']);
     this.wrap('vbSharpen', ['rcpFrame', 'sharpness'], ['source']);
     this.wrap('vbAuraMask', ['auraIds', 'texel'], ['gbuffer']);
     this.wrap('vbTransition', ['transParams', 'transImpact'], ['source', 'snapshot']);
@@ -953,6 +955,7 @@ export class PostChain {
       e.setVector4('callParams', new Vector4(s.callMode, s.callProgress, s.callSeed, s.callAmount));
       e.setColor3('callColor', s.callColor);
       e.setVector4('fightParams', new Vector4(s.fightVersus, s.fightEnd, s.fightEndKind, s.fightDanger));
+      e.setFloat('pauseAmount', s.pause);
       e.setColor3('fightColA', s.fightColA);
       e.setColor3('fightColB', s.fightColB);
     });

@@ -6,7 +6,7 @@ type V3 = [number, number, number];
 /** A cutscene light rig (vb_cine_light). Directions are camera-relative: x right, y up, z away. */
 export interface CineRig {
   amount: number;
-  /** 0 none, 1 blinds, 2 leaves, 3 window, 4 rain on glass, 5 caustics, 6 shoji, 7 fire */
+  /** 0 none, 1 blinds, 2 leaves, 3 window, 4 rain on glass, 5 caustics, 6 shoji, 7 fire, 8 stained glass */
   gobo: number;
   goboScale: number;
   flicker: number;
@@ -49,6 +49,8 @@ export const CINE: Record<string, CineRig> = {
   water: P({ gobo: 5, goboScale: 0.8, key: [0.2, 0.9, -0.2], keyColor: [0.4, 0.6, 0.7], rimColor: [0.5, 0.9, 1.0], fill: [0.2, 0.33, 0.42], contrast: 0.25 }),
   // through a shoji screen
   shoji: P({ gobo: 6, goboScale: 1.0, key: [0.85, 0.3, 0.1], keyColor: [0.62, 0.56, 0.45], rimColor: [0.9, 0.8, 0.6], fill: [0.33, 0.3, 0.4], contrast: 0.4 }),
+  // light through a chapel's stained glass, coloured pane by pane
+  glass: P({ gobo: 8, goboScale: 0.9, key: [-0.6, 0.5, 0.3], keyColor: [0.55, 0.55, 0.6], rim: [0.7, 0.3, 0.9], rimColor: [0.6, 0.65, 1.0], fill: [0.15, 0.17, 0.32], contrast: 0.5 }),
   // lantern-lit festival night: warm and soft
   lantern: P({ gobo: 7, flicker: 0.2, key: [0.5, 0.5, -0.5], keyColor: [0.6, 0.42, 0.25], rim: [-0.6, 0.3, 0.9], rimColor: [1.0, 0.55, 0.85], fill: [0.25, 0.2, 0.35], contrast: 0.3 }),
   // a stand-off: red rim from one side, the shadow side in blue
@@ -57,7 +59,7 @@ export const CINE: Record<string, CineRig> = {
 
 /** Which look each place lights its cutscenes with (none: the stage's own light only). */
 const STAGE_CINE: Record<string, string> = {
-  village_burning: 'fire', apartment: 'fire', alley: 'rain', academy_night: 'rain', chapel: 'window', graves: 'leaves',
+  village_burning: 'fire', apartment: 'fire', alley: 'rain', academy_night: 'rain', chapel: 'glass', graves: 'leaves',
   estate: 'shoji', academy: 'leaves', village: 'lantern', subway: 'drama', crossing: 'confront', tower: 'confront',
 };
 

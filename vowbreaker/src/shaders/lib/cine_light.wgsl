@@ -21,6 +21,7 @@ const GOBO_RAIN = 4;
 const GOBO_CAUSTICS = 5;
 const GOBO_SHOJI = 6;
 const GOBO_FIRE = 7;
+const GOBO_GLASS = 8;
 
 struct CineRig {
     amount: f32,
@@ -200,10 +201,16 @@ fn cineApply(col0: vec3f, albedo: vec3f, n: vec3f, v: vec3f, p: vec3f, lit: f32,
     let key = cineKey(r, n, p, time, mix(1.0, castShadow, 0.5));
     let shadowed = mix(col, albedo * r.fillColor, 0.65);
     col = mix(col, shadowed, r.contrast * (1.0 - key));
+    // stained glass colours the key's light pane by pane
+    var keyCol = r.keyColor;
+    if (r.gobo == GOBO_GLASS) {
+        let gl = goboStainedGlass(cineLightPlane(p, r.keyDir), r.goboScale);
+        keyCol = r.keyColor * gl.rgb * gl.a;
+    }
     // the key's light (with its pattern) and its colour on the lit side; dark cloth still catches
     // it (a black coat goes blue-grey in a strong light, as painters do it)
     let catchA = max(albedo, vec3f(0.14));
-    col = col + catchA * r.keyColor * key * 1.3;
+    col = col + catchA * keyCol * key * 1.3;
     // rim, from behind
     col = col + r.rimColor * cineRim(r, n, v) * mix(1.0, 0.6, lit);
     // from below
@@ -213,4 +220,14 @@ fn cineApply(col0: vec3f, albedo: vec3f, n: vec3f, v: vec3f, p: vec3f, lit: f32,
     // a brighter catchlight in the eyes
     col = col + vec3f(1.0) * isEye * r.eyeLight * step(0.9, dot(reflect(-v, n), r.keyDir)) * 0.8;
     return mix(col0, col, r.amount);
+}
+
+// stained glass: the key light comes through panes of coloured glass held by lead (its colour is
+// returned in rgb, its strength in a)
+fn goboStainedGlass(q: vec2f, scale: f32) -> vec4f {
+    let w = worley2(q * scale * 2.0, 0.85);
+    let lead = 1.0 - smoothstep(0.0, 0.05, w.edge);
+    let hue = w.id.x;
+    let col = mix(mix(vec3f(0.9, 0.2, 0.15), vec3f(0.2, 0.35, 0.95), step(0.33, hue)), vec3f(0.95, 0.8, 0.25), step(0.66, hue));
+    return vec4f(col * 1.4, (1.0 - lead) * 0.9);
 }

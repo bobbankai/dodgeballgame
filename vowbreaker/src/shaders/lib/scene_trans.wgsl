@@ -260,6 +260,8 @@ fn transEval(kind: i32, uv: vec2f, t: f32, aspect: f32, impact: vec2f, seed: f32
         case 7: { return transBrushSweep(uv, t, aspect, seed); }
         case 8: { return transBlinds(uv, t, aspect, seed); }
         case 9: { return transRipple(uv, t, aspect, impact); }
+        case 10: { return transShoji(uv, t, aspect, seed); }
+        case 11: { return transLanterns(uv, t, aspect, seed); }
         default: { return transTalisman(uv, t, aspect, seed); }
     }
 }

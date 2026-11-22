@@ -26,6 +26,7 @@
 #include<vb_manga>
 #include<vb_fluid>
 #include<vb_calligraphy>
+#include<vb_pause_wash>
 #include<vb_fight_screens>
 #include<vb_credits_scroll>
 
@@ -46,6 +47,7 @@ uniform mangaParams2: vec4f;     // manga page amount, sfx burst amount, beta fi
 uniform mangaCenter: vec4f;      // focus / sparkle centre xy, sfx centre zw
 uniform paperColor: vec3f;
 uniform callParams: vec4f;      // calligraphy: mode (0 off, 1 title, 2 chapter card), progress, seed, amount
+uniform pauseAmount: f32;        // the pause wash (vb_pause_wash)
 uniform fightParams: vec4f;     // versus progress (< 0 off), ending progress, ending (1 won, 2 lost), danger
 uniform fightColA: vec3f;       // the player's colour
 uniform fightColB: vec3f;       // the enemy's
@@ -199,6 +201,11 @@ fn main(input: FragmentInputs) -> FragmentOutputs {
             k = callChapter(fragmentInputs.vUV, aspect, uniforms.callParams.y, uniforms.callParams.z);
         }
         col = callApply(col, k, uniforms.callColor, uniforms.paperColor, uniforms.callParams.w);
+    }
+
+    // --- paused: the frame softens into an ink wash behind the menu --------------------------------------------------
+    if (uniforms.pauseAmount > 0.0) {
+        col = mix(col, pauseWash(source, sourceSampler, fragmentInputs.vUV, pixel, aspect, uniforms.screenParams.zw, 1.0, time), uniforms.pauseAmount);
     }
 
     // --- lens highlights and frost on top ---------------------------------------------------------------------------

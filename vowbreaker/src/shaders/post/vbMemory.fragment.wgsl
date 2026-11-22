@@ -9,6 +9,7 @@
 #include<vb_color>
 #include<vb_math>
 #include<vb_sdf2d>
+#include<vb_toon>
 #include<vb_memory_styles>
 
 varying vUV: vec2f;
@@ -65,6 +66,9 @@ fn main(input: FragmentInputs) -> FragmentOutputs {
         }
         case 8: {
             col = memCharcoal(source, sourceSampler, uv, pixel, px, geo, time, seed);
+        }
+        case 9: {
+            col = memManga(source, sourceSampler, uv, pixel, aspect, gbuffer, gbufferSampler, px, seed);
         }
         default: {
             col = base;

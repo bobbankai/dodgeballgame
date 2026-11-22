@@ -25,6 +25,8 @@ const IMPACT_SMEAR = 7;
 const IMPACT_PANEL = 8;
 const IMPACT_INKSPLASH = 9;
 const IMPACT_TIMESTOP = 10;
+const IMPACT_KANJI = 11;
+const IMPACT_TEAR = 12;
 
 struct ImpactGeo {
     isChar: f32,      // 1 on a fighter
@@ -276,6 +278,9 @@ fn impactStyle(style: i32, col: vec3f, geo: ImpactGeo, uv: vec2f, pixel: vec2f, 
         case 10: {
             return impactTimeStop(col, geo, uv, pixel, center, aspect, t, seed);
         }
+        case 11: {
+            return impactKanji(col, geo, uv, pixel, center, aspect, t, seed, accent);
+        }
         case 8: {
             // panel: screentone shading, black lines, a sound balloon at the hit
             let tone = clamp(1.0 - l * 1.2, 0.0, 1.0);
@@ -367,5 +372,51 @@ fn impactTimeStop(col: vec3f, geo: ImpactGeo, uv: vec2f, pixel: vec2f, center: v
     c = mix(c, vec3f(0.9, 1.0, 1.0), impactClock(uv, center, aspect, seed) * 0.8);
     // ink lines stay
     c = mix(c, vec3f(0.02, 0.05, 0.07), smoothstep(0.4, 0.75, geo.edge));
+    return c;
+}
+
+// --- kanji stamp, paper tear ----------------------------------------------------------------------------------
+//
+//  11 kanji stamp  a huge brushed character slams onto the frame in red ink over the hit, the world
+//                  behind it pale and still, the stamp's edge spattered
+//  12 paper tear   the frame tears in two along the blow's direction: two halves pulled apart, the
+//                  torn edges ragged and fibrous, white paper showing between them
+
+fn impactKanji(col: vec3f, geo: ImpactGeo, uv: vec2f, pixel: vec2f, center: vec2f, aspect: f32, t: f32, seed: f32, accent: vec3f) -> vec3f {
+    // the world drained pale behind the stamp
+    var c = mix(col, vec3f(0.95, 0.93, 0.88) * (0.7 + 0.3 * luma(col)), 0.75);
+    c = mix(c, vec3f(0.1), smoothstep(0.4, 0.75, geo.edge));
+    // the character: a glyph from the brush library, slammed in large (it shrinks onto the page)
+    let land = 1.0 + 0.6 * (1.0 - easeOutCubic(min(t * 4.0, 1.0)));
+    let q = vec2f((uv.x - center.x) * aspect, uv.y - center.y) / (0.32 * land);
+    let g = sdGlyph(q, floor(seed * 40.0));
+    let ink = 1.0 - smoothstep(-0.01, 0.025, g);
+    // spatter at the stamp's edge
+    let sp = step(0.82, valueNoise2(q * 9.0 + seed * 3.0)) * (1.0 - smoothstep(0.0, 0.25, g)) * step(0.0, g);
+    let red = mix(vec3f(0.75, 0.05, 0.06), accent * 0.6 + vec3f(0.4, 0.0, 0.0), 0.3);
+    c = mix(c, red, max(ink, sp) * 0.95);
+    return c;
+}
+
+fn impactPaperTear(src: texture_2d<f32>, ss: sampler, uv: vec2f, pixel: vec2f, dir: vec2f, center: vec2f, aspect: f32, t: f32, seed: f32) -> vec3f {
+    // the tear runs through the hit along the blow; each half is pulled away across it
+    let n = vec2f(-dir.y, dir.x);
+    let p = vec2f((uv.x - center.x) * aspect, uv.y - center.y);
+    let along = dot(p, dir);
+    let across = dot(p, n);
+    let rag = (valueNoise2(vec2f(along * 18.0, seed)) - 0.5) * 0.05 + (valueNoise2(vec2f(along * 70.0, seed * 3.0)) - 0.5) * 0.012;
+    let side = select(-1.0, 1.0, across > rag);
+    let gap = easeOutCubic(min(t * 2.5, 1.0)) * 0.05;
+    let shifted = across - side * gap;
+    // pixels inside the gap show the paper behind; the fibres fray from the torn edges
+    let inGap = step(abs(across - rag), gap);
+    let fibre = step(0.7, valueNoise2(vec2f(along * 200.0, abs(across - rag) * 300.0))) * (1.0 - smoothstep(0.0, gap * 1.6 + 0.004, abs(across - rag) - gap * 0.5));
+    let o = n * side * gap;
+    let suv = uv - vec2f(o.x / aspect, o.y);
+    var c = textureSampleLevel(src, ss, suv, 0.0).rgb;
+    // each half tilts a little, shading it
+    c = c * (1.0 - 0.15 * step(0.0, side) * t);
+    let paper = vec3f(0.96, 0.94, 0.88) * (0.95 + 0.05 * valueNoise2(pixel * 0.5));
+    c = mix(c, paper, max(inGap, fibre * 0.8));
     return c;
 }

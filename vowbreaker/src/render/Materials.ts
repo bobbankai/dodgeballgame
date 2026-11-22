@@ -1,3 +1,4 @@
+import type { Flock } from './Flock';
 import type { GroundMarks } from './Marks';
 import {
   AbstractMesh, BaseTexture, Color3, Constants, Matrix, Mesh, RawTexture, Scene, ShaderLanguage, ShaderMaterial, Vector2, Vector3, Vector4,
@@ -128,6 +129,8 @@ export class Materials {
   readonly dummy: RawTexture;
   /** the fight's scars on the floor, read by every environment material (src/render/Marks.ts) */
   marks: GroundMarks | null = null;
+  /** what flies over the place (src/render/Flock.ts) */
+  flock: Flock | null = null;
   screenW = 1280;
   screenH = 720;
 

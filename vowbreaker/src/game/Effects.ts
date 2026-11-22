@@ -189,7 +189,7 @@ export class Effects implements CombatFx {
   /**
    * Cut to a drawn impact frame for `dur` seconds (vbImpact). Styles: 1 ink, 2 negative, 3 Black
    * Spark, 4 the old halftone flash, 5 shatter, 6 burst in the attacker's colour, 7 smear along the
-   * blow, 8 manga panel, 9 sketch, 10 ink splash, 11 time stop.
+   * blow, 8 manga panel, 9 sketch, 10 ink splash, 11 time stop, 12 kanji stamp, 13 paper tear.
    */
   impactFrame(style: number, dur = 0.09, accent?: RGB, dir?: { x: number; y: number }): void {
     const s = this.r.post.settings;
@@ -200,7 +200,7 @@ export class Effects implements CombatFx {
       s.impactStyle = 0;
       return;
     }
-    s.impactStyle = style === 9 ? 4 : style === 10 ? 9 : style === 11 ? 10 : style;
+    s.impactStyle = style === 9 ? 4 : style === 10 ? 9 : style === 11 ? 10 : style === 12 ? 11 : style === 13 ? 12 : style;
     s.impactSeed = Math.random();
     if (accent) {
       s.impactAccent.set(accent[0], accent[1], accent[2]);
@@ -288,6 +288,7 @@ export class Effects implements CombatFx {
       this.vfx.spawn({ kind: VK.crater, pos: new Vector3(at.x, 0.03, at.z), scale: 1.4, life: 4, color: SPARK_LIGHT });
       this.mark({ kind: MK.crater, x: t.pos.x, z: t.pos.z, radius: 1.5, strength: 1, palette: 5 });
       this.worldXform(3, at, 4.5, 0.9);
+      this.r.mats.flock?.scare(at, 1.5);
       this.rubble(new Vector3(t.pos.x, 0, t.pos.z), 26, 6, 0.14, 1);
       this.mark({ kind: MK.splatter, x: t.pos.x + dir.x, z: t.pos.z + dir.z, radius: 0.45, angle: Math.atan2(dir.z, dir.x), strength: 1 });
       // black lightning bleeds red ink across the screen
@@ -300,7 +301,7 @@ export class Effects implements CombatFx {
       this.audio.sfx('blackspark', at);
     } else if (big && mine) {
       // a drawn frame for the blows that matter: ink, negative, sketch or a manga panel
-      const styles = [1, 2, 9, 8, 10];
+      const styles = [1, 2, 9, 8, 10, 12, 13];
       this.impactFrame(styles[Math.floor(Math.random() * styles.length)], 0.08, pal.body, this.screenDir(at, dir));
       this.cam.zoomPunch(0.5);
     }
@@ -366,6 +367,8 @@ export class Effects implements CombatFx {
     const vp = this.vpal(owner);
     this.vfx.spawn({ kind: VK.groundRing, pos: ground, scale: radius * 1.25, life: 0.6, color: vp, intensity: 1.4, p: [0.06, 0, 0.4, 0] });
     if (radius > 2) this.vfx.spawn({ kind: VK.crater, pos: new Vector3(at.x, 0.03, at.z), scale: radius * 0.7, life: 5, color: vp });
+    // the birds overhead scatter
+    this.r.mats.flock?.scare(at, Math.min(1.5, radius / 2));
     // the floor remembers it: a crater for the big ones, debris thrown round every blast
     if (radius > 1.5) this.mark({ kind: MK.crater, x: at.x, z: at.z, radius: Math.min(3.5, radius * 0.6), strength: Math.min(1, radius / 3), palette: owner.kit.palette });
     this.mark({ kind: MK.scatter, x: at.x, z: at.z, radius: radius * 1.3, strength: 0.8 });

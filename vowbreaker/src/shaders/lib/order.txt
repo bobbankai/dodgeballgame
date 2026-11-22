@@ -88,3 +88,6 @@ face_marks
 env_transform
 credits_scroll
 fight_screens
+flock
+domain_growth
+pause_wash

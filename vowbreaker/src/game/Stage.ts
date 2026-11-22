@@ -11,8 +11,12 @@ import { Crowd, type CrowdDef } from '../render/Crowd';
 import { Fire, type FireSite } from '../render/Fire';
 import { GroundMarks } from '../render/Marks';
 import { Train, type TrainDef } from '../render/Train';
+import { Flock, type FlockDef } from '../render/Flock';
+import type { WebGPUEngine } from '@babylonjs/core';
 
 export interface StageDef {
+  /** what flies over the place (Flock) */
+  flock?: FlockDef;
   /** a train line through the station (Train) */
   train?: TrainDef;
   /** far scenery painted round the horizon (Sky.backdrop); defaults by place */
@@ -80,9 +84,9 @@ const LOOKS: Record<string, number> = {
 
 const S = (o: StageDef) => o;
 
-/** The far scenery round each place (1 mountains, 2 city, 3 temples, 4 sea, 5 forest, 6 burning). */
+/** The far scenery round each place (1 mountains, 2 city, 3 temples, 4 sea, 5 forest, 6 burning, 7 snowfields, 8 harbour). */
 const BACKDROPS: Record<string, number> = {
-  alley: 2, academy: 3, academy_night: 3, chapel: 4, subway: 2, village: 5, village_burning: 6, estate: 1, apartment: 2,
+  alley: 2, academy: 3, academy_night: 3, chapel: 8, subway: 2, village: 5, village_burning: 6, estate: 7, apartment: 2,
   crossing: 2, tower: 2, graves: 2, void: 1,
 };
 
@@ -95,7 +99,7 @@ export const STAGES: Record<string, StageDef> = {
   academy: S({ id: 'academy', glb: 'stages/academy.glb', sky: DAWN, sunDir: [-0.6, 0.45, 0.55], sunColor: [1.45, 1.1, 0.85], skyColor: [0.3, 0.34, 0.52],
     groundColor: [0.25, 0.22, 0.2], shadowColor: [0.42, 0.45, 0.72], rimColor: [1.0, 0.8, 0.6], fog: { density: 0.0045, color: [0.75, 0.7, 0.75] },
     horizon: [0.85, 0.78, 0.8], aerial: [25, 140], grade: { exposure: -0.15, contrast: 1.12, saturation: 1.05, temperature: 0.1, split: 0.15 },
-    ambient: { kind: 'petals', density: 0.5 }, arena: 13, music: 'calm', rays: true, floor: [0.62, 0.58, 0.5, 6] , look: { age: 0.45, litter: 0.6, season: 0, clouds: 0.35, dapples: 0.6 } }),
+    ambient: { kind: 'petals', density: 0.5 }, arena: 13, flock: { kind: 'birds', count: 48, centre: [0, 0, 0], radius: 26, height: 11, spread: 2 }, music: 'calm', rays: true, floor: [0.62, 0.58, 0.5, 6] , look: { age: 0.45, litter: 0.6, season: 0, clouds: 0.35, dapples: 0.6 } }),
   academy_night: S({ id: 'academy_night', glb: 'stages/academy.glb', sky: NIGHT_RAIN, sunDir: [0.4, 0.75, -0.4], sunColor: [0.4, 0.48, 0.75], skyColor: [0.1, 0.12, 0.22],
     groundColor: [0.06, 0.05, 0.07], shadowColor: [0.25, 0.28, 0.5], rimColor: [0.5, 0.7, 1.0], fog: { density: 0.025, color: [0.08, 0.09, 0.14] },
     horizon: [0.1, 0.11, 0.18], grade: { exposure: 0.3, contrast: 1.12, saturation: 0.9, split: 0.35, bloom: 0.8 }, ambient: { kind: 'sleet', density: 0.8 }, wet: 1,
@@ -115,11 +119,11 @@ export const STAGES: Record<string, StageDef> = {
   village_burning: S({ id: 'village_burning', glb: 'stages/village.glb', sky: FIRE, sunDir: [0.5, 0.6, -0.6], sunColor: [1.2, 0.5, 0.2], skyColor: [0.25, 0.08, 0.05],
     groundColor: [0.12, 0.04, 0.02], shadowColor: [0.3, 0.12, 0.2], rimColor: [1.6, 0.6, 0.2], fog: { density: 0.03, color: [0.3, 0.1, 0.05] },
     horizon: [0.5, 0.15, 0.05], grade: { exposure: -0.05, contrast: 1.15, saturation: 1.15, temperature: 0.3, split: 0.3, bloom: 0.9 }, ambient: { kind: 'embers', density: 1 },
-    glow: [1.0, 0.4, 0.1], lamp: [0, 2, 0, 18, 1.0, 0.4, 0.1, 3], arena: 13, fires: [{ at: [16.5, 0, -3.3], w: 6, h: 8 }, { at: [12.6, 0, -11.1], w: 6, h: 8 }, { at: [5.3, 0, -15.9], w: 6, h: 8 }, { at: [-11.1, 0, -12.6], w: 6, h: 8 }, { at: [-15.9, 0, -5.3], w: 6, h: 8 }, { at: [-16.5, 0, 3.3], w: 6, h: 8 }, { at: [-12.6, 0, 11.1], w: 6, h: 8 }, { at: [-5.3, 0, 15.9], w: 6, h: 8 }, { at: [3.3, 0, 16.5], w: 6, h: 8 }, { at: [11.1, 0, 12.6], w: 6, h: 8 }, { at: [15.9, 0, 5.3], w: 6, h: 8 }], crowd: { center: [0, 0, 0], ring: [13.8, 17], count: 40, behaviours: [0, 0, 0, 1], props: [1, 0, 0, 0.15, 0], fogDensity: 0.025 }, music: 'boss', floor: [0.4, 0.3, 0.25, 22] , look: { age: 0.55, ash: 0.7, fireStrength: 1.6, fire: [0, 2.5, -6, 22] } }),
+    glow: [1.0, 0.4, 0.1], lamp: [0, 2, 0, 18, 1.0, 0.4, 0.1, 3], arena: 13, fires: [{ at: [16.5, 0, -3.3], w: 6, h: 8 }, { at: [12.6, 0, -11.1], w: 6, h: 8 }, { at: [5.3, 0, -15.9], w: 6, h: 8 }, { at: [-11.1, 0, -12.6], w: 6, h: 8 }, { at: [-15.9, 0, -5.3], w: 6, h: 8 }, { at: [-16.5, 0, 3.3], w: 6, h: 8 }, { at: [-12.6, 0, 11.1], w: 6, h: 8 }, { at: [-5.3, 0, 15.9], w: 6, h: 8 }, { at: [3.3, 0, 16.5], w: 6, h: 8 }, { at: [11.1, 0, 12.6], w: 6, h: 8 }, { at: [15.9, 0, 5.3], w: 6, h: 8 }], crowd: { center: [0, 0, 0], ring: [13.8, 17], count: 40, behaviours: [0, 0, 0, 1], props: [1, 0, 0, 0.15, 0], fogDensity: 0.025 }, flock: { kind: 'crows', count: 26, centre: [0, 0, 0], radius: 24, height: 14, spread: 3 }, music: 'boss', floor: [0.4, 0.3, 0.25, 22] , look: { age: 0.55, ash: 0.7, fireStrength: 1.6, fire: [0, 2.5, -6, 22] } }),
   estate: S({ id: 'estate', glb: 'stages/estate.glb', sky: DAY, sunDir: [-0.5, 0.7, 0.4], sunColor: [1.5, 1.4, 1.25], skyColor: [0.45, 0.55, 0.8],
     groundColor: [0.3, 0.28, 0.25], shadowColor: [0.45, 0.5, 0.78], rimColor: [1, 1, 1], fog: { density: 0.006, color: [0.8, 0.85, 0.95] },
     horizon: [0.8, 0.85, 0.95], aerial: [30, 160], grade: { exposure: 0, contrast: 1.04, saturation: 0.95, split: 0.1 }, ambient: { kind: 'snow', density: 0.3 },
-    glow: [1.0, 0.95, 0.85], arena: 12, water: [{ kind: 'pond', center: [10, 0.07, -14], size: [12, 7], shallow: [0.24, 0.4, 0.32], deep: [0.04, 0.13, 0.13], depth: 1.4, rim: 0.6 }], music: 'tense', rays: true, floor: [0.85, 0.83, 0.78, 28] , look: { age: 0.3, litter: 0.15, season: 1, frost: 0.35, clouds: 0.25 } }),
+    glow: [1.0, 0.95, 0.85], arena: 12, water: [{ kind: 'pond', center: [10, 0.07, -14], size: [12, 7], shallow: [0.24, 0.4, 0.32], deep: [0.04, 0.13, 0.13], depth: 1.4, rim: 0.6 }], flock: { kind: 'cranes', count: 36, centre: [0, 0, 0], radius: 13, height: 4.5, spread: 1.5 }, music: 'tense', rays: true, floor: [0.85, 0.83, 0.78, 28] , look: { age: 0.3, litter: 0.15, season: 1, frost: 0.35, clouds: 0.25 } }),
   apartment: S({ id: 'apartment', glb: 'stages/apartment.glb', sky: FIRE, sunDir: [0.2, 0.8, 0.5], sunColor: [1.1, 0.45, 0.2], skyColor: [0.2, 0.06, 0.04],
     groundColor: [0.1, 0.03, 0.02], shadowColor: [0.25, 0.08, 0.15], rimColor: [1.8, 0.7, 0.25], fog: { density: 0.04, color: [0.25, 0.07, 0.03] },
     horizon: [0.4, 0.1, 0.04], grade: { exposure: 0.25, contrast: 1.18, saturation: 1.1, temperature: 0.35, split: 0.35, bloom: 1.3, vignette: 0.6 },
@@ -135,7 +139,7 @@ export const STAGES: Record<string, StageDef> = {
   graves: S({ id: 'graves', glb: 'stages/graves.glb', sky: SPRING, sunDir: [-0.5, 0.5, 0.6], sunColor: [1.5, 1.3, 1.1], skyColor: [0.34, 0.38, 0.6],
     groundColor: [0.3, 0.28, 0.26], shadowColor: [0.5, 0.48, 0.78], rimColor: [1.2, 1.0, 0.9], fog: { density: 0.004, color: [0.9, 0.85, 0.9] },
     horizon: [0.95, 0.85, 0.88], aerial: [25, 140], grade: { exposure: -0.05, contrast: 1.1, saturation: 1.08, temperature: 0.1, split: 0.12 },
-    ambient: { kind: 'petals', density: 1 }, arena: 12, grass: { center: [0, 0, 0], radius: 38, density: 14, height: [0.22, 0.5], ground: [0.32, 0.36, 0.18], blade: [0.42, 0.52, 0.2], tip: [0.78, 0.82, 0.42], flowers: 0.06, clear: [[-1.1, -2.6, 1.1, 15]] }, music: 'sad', rays: true, floor: [0.5, 0.55, 0.35, 12] , look: { age: 0.9, litter: 0.9, season: 0, clouds: 0.3, dapples: 0.4 } }),
+    ambient: { kind: 'petals', density: 1 }, arena: 12, grass: { center: [0, 0, 0], radius: 38, density: 14, height: [0.22, 0.5], ground: [0.32, 0.36, 0.18], blade: [0.42, 0.52, 0.2], tip: [0.78, 0.82, 0.42], flowers: 0.06, clear: [[-1.1, -2.6, 1.1, 15]] }, flock: { kind: 'butterflies', count: 40, centre: [0, 0, 0], radius: 9, height: 1.2, spread: 0.8 }, music: 'sad', rays: true, floor: [0.5, 0.55, 0.35, 12] , look: { age: 0.9, litter: 0.9, season: 0, clouds: 0.3, dapples: 0.4 } }),
   void: S({ id: 'void', glb: null, sky: DUSK, sunDir: [-0.4, 0.6, -0.5], sunColor: [1.4, 1.0, 0.75], skyColor: [0.35, 0.38, 0.6],
     groundColor: [0.2, 0.16, 0.16], shadowColor: [0.45, 0.42, 0.75], rimColor: [1, 0.7, 0.5], fog: { density: 0.01, color: [0.6, 0.45, 0.45] },
     horizon: [1.0, 0.6, 0.45], arena: 14, ambient: { kind: 'slips', density: 0.35 }, music: 'battle', floor: [0.55, 0.5, 0.46, 14] }),
@@ -152,6 +156,7 @@ export class Stage {
   private crowd: Crowd | null = null;
   private fire: Fire | null = null;
   private train: Train | null = null;
+  private flock: Flock | null = null;
   private baseWind = 1.2;
   /** the fight's scars on the floor */
   marks: GroundMarks | null = null;
@@ -298,6 +303,9 @@ export class Stage {
     // the fight's scars on the floor, over the arena and a margin round it
     this.train?.dispose();
     this.train = d.train ? new Train(r, d.train) : null;
+    this.flock?.dispose();
+    this.flock = d.flock ? new Flock(r.engine as unknown as WebGPUEngine, r.scene, r.mats, d.flock) : null;
+    if (this.flock) this.flock.avoidRadius = d.flock!.kind === 'butterflies' ? 3.5 : 6;
     this.marks?.dispose();
     this.marks = new GroundMarks(r.scene, r.mats, [0, 0], Math.ceil(d.arena * 2 + 12));
     this.marks.soft = Math.min(1, env.snow * 1.2 + env.ash * 0.5);
@@ -310,6 +318,7 @@ export class Stage {
   update(dt: number): void {
     this.fire?.update(dt);
     this.marks?.update(dt);
+    this.flock?.update(dt);
     if (this.train) {
       this.train.update(dt);
       this.env.train.copyFrom(this.train.light);
@@ -349,6 +358,8 @@ export class Stage {
     this.fire = null;
     this.train?.dispose();
     this.train = null;
+    this.flock?.dispose();
+    this.flock = null;
     this.marks?.dispose();
     this.marks = null;
     // materials go, but never their textures: the shadow map is shared by every material
