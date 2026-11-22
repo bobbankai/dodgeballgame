@@ -28,6 +28,8 @@ OUT = os.path.join(ROOT, 'public', 'assets', 'stages')
 # pattern ids (vb_surface)
 PLAIN, BRICK, TILE, PLANKS, CONCRETE, ASPHALT, COBBLES, ROOF, SHOJI, TATAMI, PLASTER, METAL, GRASS, SAND, STONE, BARK, PAPER, WINDOWS, NEON, \
     LANTERN, _W, FOLIAGE, DIRT, STATION, FABRIC, CHARRED, STEEL, GRAVEL, RAKED, LACQUER, GLASS, LIGHT = range(32)
+# the giant screens: pattern 32 is the vertex alpha's top value (1.0)
+SCREEN = 32
 
 PIECES = []
 
@@ -625,8 +627,8 @@ def crossing():
                 h = rng.uniform(22, 48)
                 building(x, y, 9, 9, h, wall=rng.choice(['#3A3E48', '#4A4652', '#2E323C']), wall_pat=CONCRETE, rng=rng)
                 # giant screens and signs on the corners facing the crossing
-                box((x - qx * 4.6, y - qy * 2, rng.uniform(8, 18)), (0.3, 6, 4), rng.choice(neon), NEON, name='screen')
-                box((x - qx * 2, y - qy * 4.6, rng.uniform(5, 14)), (5, 0.3, 3), rng.choice(neon), NEON, name='screen')
+                box((x - qx * 4.6, y - qy * 2, rng.uniform(8, 18)), (0.3, 6, 4), rng.choice(neon), SCREEN, name='screen')
+                box((x - qx * 2, y - qy * 4.6, rng.uniform(5, 14)), (5, 0.3, 3), rng.choice(neon), SCREEN, name='screen')
     for (x, y) in ((-9, -9), (9, 9), (-9, 9), (9, -9)):
         cyl((x, y, 0), (x, y, 5), 0.1, '#2A2A2E', STEEL, sides=8)
         box((x, y, 5), (0.4, 0.4, 1.1), '#2A2A2E', STEEL)

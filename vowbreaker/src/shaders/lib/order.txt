@@ -91,3 +91,4 @@ fight_screens
 flock
 domain_growth
 pause_wash
+lanterns3d

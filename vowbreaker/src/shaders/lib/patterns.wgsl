@@ -441,3 +441,123 @@ fn crackOverlay(p: vec2f, center: vec2f, radius: f32, glowCol: vec3f) -> vec4f {
     let glow = core * (0.35 + 0.65 * (1.0 - smoothstep(0.0, radius, d)));
     return vec4f(glowCol * glow, max(mask * 0.9, burnt * 0.35));
 }
+// Giant screens (env pattern 32, the crossing's towers): animated programmes on the big displays
+// over the scramble crossing, drawn so they tile cleanly whatever the screen's size:
+//
+//   0 ad          rows of bold type scrolling over bands of colour
+//   1 music       an equaliser's bars bouncing to a beat, a gradient sweeping behind them
+//   2 news        a slow backdrop with a bright ticker band scrolling headlines
+//   3 plasma      the old demo plasma, a slogan running across it
+//
+// and on the night of the Grand Vow, every so often all of them are taken over at once: static,
+// then red glitching scanlines, then a grid of eyes opening and looking down at the crossing.
+// Seen close, the LCD's red, green and blue stripes show, and its scanlines flicker.
+
+fn screenType(q: vec2f, rows: f32, speed: f32, time: f32, seed: f32) -> f32 {
+    let row = floor(q.y * rows);
+    let dir = select(-1.0, 1.0, hash11(row + seed) > 0.5);
+    let x = q.x * rows * 0.8 + time * speed * dir + hash11(row * 3.1 + seed) * 10.0;
+    let cell = floor(x);
+    let local = vec2f(fract(x) - 0.5, fract(q.y * rows) - 0.5) * 2.2;
+    let g = sdGlyph(local, cell + row * 17.0 + seed * 31.0);
+    return 1.0 - smoothstep(0.0, 0.06, g);
+}
+
+fn screenAd(q: vec2f, time: f32, seed: f32) -> vec3f {
+    let band = floor(q.y * 3.0 - time * 0.2);
+    let bg = hsvToRgb(vec3f(fract(hash11(band + seed) + time * 0.03), 0.8, 0.9));
+    let t = screenType(q, 3.0, 1.5, time, seed);
+    return mix(bg * 0.6, vec3f(1.0), t);
+}
+
+fn screenMusic(q: vec2f, time: f32, seed: f32) -> vec3f {
+    let bars = 18.0;
+    let b = floor(q.x * bars);
+    let beat = pow(fract(time * 2.0), 3.0);
+    let h = 0.2 + 0.6 * valueNoise2(vec2f(b * 0.7, time * 3.0 + seed)) * (1.0 - beat * 0.5);
+    let gap = step(0.15, fract(q.x * bars)) * step(fract(q.x * bars), 0.85);
+    let on = step(fract(q.y), h) * gap;
+    let seg = step(0.2, fract(q.y * 16.0));
+    let bg = mix(vec3f(0.3, 0.0, 0.5), vec3f(0.0, 0.3, 0.6), fract(q.x + time * 0.1));
+    let barCol = mix(vec3f(0.2, 1.0, 0.6), vec3f(1.0, 0.2, 0.4), fract(q.y));
+    return mix(bg * 0.5, barCol, on * seg);
+}
+
+fn screenNews(q: vec2f, time: f32, seed: f32) -> vec3f {
+    var c = mix(vec3f(0.05, 0.12, 0.3), vec3f(0.15, 0.3, 0.55), valueNoise2(q * 2.0 + time * 0.05));
+    // a lower ticker band
+    let band = step(fract(q.y), 0.22);
+    let t = screenType(vec2f(q.x, fract(q.y) / 0.22 * 0.3), 1.0, 2.2, time, seed + 5.0);
+    c = mix(c, vec3f(0.9, 0.1, 0.1), band);
+    c = mix(c, vec3f(1.0), t * band);
+    // the anchor's silhouette in the middle of the frame
+    let anchor = 1.0 - smoothstep(0.0, 0.02, length((fract(q) - vec2f(0.5, 0.58)) * vec2f(1.0, 1.2)) - 0.12);
+    let shoulders = step(abs(fract(q.x) - 0.5), 0.22) * step(0.22, fract(q.y)) * step(fract(q.y), 0.45);
+    c = mix(c, vec3f(0.02, 0.03, 0.08), max(anchor, shoulders) * (1.0 - band));
+    return c;
+}
+
+fn screenPlasma(q: vec2f, time: f32, seed: f32) -> vec3f {
+    let v = sin(q.x * 6.0 + time) + sin(q.y * 5.0 - time * 1.3) + sin((q.x + q.y) * 4.0 + time * 0.7) + sin(length(q - 0.5) * 9.0 - time * 1.6);
+    var c = 0.5 + 0.5 * cos(vec3f(0.0, 2.1, 4.2) + v * 1.3 + seed);
+    let slogan = screenType(vec2f(q.x, fract(q.y * 0.5) * 0.4 + 0.3), 1.0, 1.0, time, seed + 9.0) * step(abs(fract(q.y * 0.5) - 0.5), 0.12);
+    return mix(c * 0.8, vec3f(1.0), slogan);
+}
+
+// the curse takes over every screen: static, red glitch, then eyes opening in a grid, looking down
+fn screenCurse(q: vec2f, k: f32, time: f32) -> vec3f {
+    let stat = hash12(floor(q * 120.0) + floor(time * 30.0));
+    var c = vec3f(stat * 0.8);
+    let glitch = step(0.6, valueNoise2(vec2f(q.y * 40.0, floor(time * 12.0))));
+    c = mix(c, vec3f(0.9, 0.05, 0.05) * (0.5 + 0.5 * stat), smoothstep(0.2, 0.5, k) * max(glitch, 0.5));
+    // eyes
+    let cell = fract(q * vec2f(2.0, 1.5)) - 0.5;
+    let open = smoothstep(0.45, 0.9, k) * (0.6 + 0.4 * sin(time * 0.7));
+    let lid = abs(cell.y) - (1.0 - abs(cell.x) * 2.2) * 0.25 * open;
+    let eye = 1.0 - smoothstep(0.0, 0.02, lid);
+    let look = vec2f(sin(time * 0.6) * 0.08, -0.05);
+    let iris = 1.0 - smoothstep(0.0, 0.02, length(cell - look) - 0.11);
+    let pupil = 1.0 - smoothstep(0.0, 0.02, length(cell - look) - 0.04);
+    var e = mix(vec3f(0.0), vec3f(0.95, 0.9, 0.85), eye);
+    e = mix(e, vec3f(0.8, 0.05, 0.05), iris * eye);
+    e = mix(e, vec3f(0.0), pupil * eye);
+    c = mix(c, e, smoothstep(0.45, 0.6, k));
+    return c;
+}
+
+fn patternScreen(uv: vec2f, time: f32, seed: f32) -> PatternOut {
+    var o = patternDefault();
+    // a programme per region of the skyline (tiles of 9 m), scrolled in screen units of ~4 m
+    let region = floor(uv / 9.0);
+    let prog = i32(hash12(region + seed * 3.0) * 4.0);
+    let q = uv / 4.0;
+    var c = vec3f(0.0);
+    switch prog {
+        case 0: {
+            c = screenAd(q, time, hash12(region));
+        }
+        case 1: {
+            c = screenMusic(q, time, hash12(region));
+        }
+        case 2: {
+            c = screenNews(q, time, hash12(region));
+        }
+        default: {
+            c = screenPlasma(q, time, hash12(region));
+        }
+    }
+    // the curse's broadcast: every 26 seconds, for six, on every screen at once
+    let ph = fract(time / 26.0) * 26.0;
+    let k = smoothstep(0.0, 0.6, ph) * (1.0 - smoothstep(5.4, 6.0, ph));
+    c = mix(c, screenCurse(q, smoothstep(0.0, 4.0, ph), time), k);
+    // the LCD's stripes and a flickering scanline
+    let sub = fract(uv.x * 60.0);
+    let rgb = vec3f(step(sub, 0.33), step(0.33, sub) * step(sub, 0.66), step(0.66, sub));
+    c = c * mix(vec3f(1.0), rgb * 2.2, 0.25);
+    c = c * (0.9 + 0.1 * step(0.5, fract(uv.y * 40.0 - time * 3.0)));
+    o.tint = vec3f(0.04);
+    o.gloss = 0.6;
+    o.emissive = c * 1.5;
+    o.height = 0.5;
+    return o;
+}

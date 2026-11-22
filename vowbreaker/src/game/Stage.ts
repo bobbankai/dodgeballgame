@@ -12,9 +12,12 @@ import { Fire, type FireSite } from '../render/Fire';
 import { GroundMarks } from '../render/Marks';
 import { Train, type TrainDef } from '../render/Train';
 import { Flock, type FlockDef } from '../render/Flock';
+import { Lanterns, type LanternsDef } from '../render/Lanterns';
 import type { WebGPUEngine } from '@babylonjs/core';
 
 export interface StageDef {
+  /** lanterns rising round the place (Lanterns) */
+  lanterns?: LanternsDef;
   /** what flies over the place (Flock) */
   flock?: FlockDef;
   /** a train line through the station (Train) */
@@ -115,7 +118,7 @@ export const STAGES: Record<string, StageDef> = {
   village: S({ id: 'village', glb: 'stages/village.glb', sky: FESTIVAL, sunDir: [0.5, 0.6, -0.6], sunColor: [0.5, 0.45, 0.65], skyColor: [0.12, 0.1, 0.2],
     groundColor: [0.1, 0.06, 0.05], shadowColor: [0.25, 0.22, 0.45], rimColor: [1.2, 0.6, 0.3], fog: { density: 0.012, color: [0.2, 0.1, 0.12] },
     horizon: [0.3, 0.14, 0.15], grade: { exposure: 0.35, contrast: 1.05, saturation: 1.15, temperature: 0.15, split: 0.2, bloom: 0.9 }, ambient: { kind: 'motes', density: 0.6 },
-    glow: [1.0, 0.5, 0.18], lamp: [0, 3, 0, 14, 1.0, 0.5, 0.2, 2], arena: 13, crowd: { center: [0, 0, 0], ring: [13.8, 16.8], count: 90, fogDensity: 0.015 }, music: 'festival', floor: [0.55, 0.45, 0.36, 22] , look: { age: 0.55, litter: 0.3, season: 0.5, windows: 0.6, moon: 0.4 } }),
+    glow: [1.0, 0.5, 0.18], lamp: [0, 3, 0, 14, 1.0, 0.5, 0.2, 2], arena: 13, crowd: { center: [0, 0, 0], ring: [13.8, 16.8], count: 90, fogDensity: 0.015 }, lanterns: { count: 70, ring: [18, 55], climb: 40, cursed: 0 }, music: 'festival', floor: [0.55, 0.45, 0.36, 22] , look: { age: 0.55, litter: 0.3, season: 0.5, windows: 0.6, moon: 0.4 } }),
   village_burning: S({ id: 'village_burning', glb: 'stages/village.glb', sky: FIRE, sunDir: [0.5, 0.6, -0.6], sunColor: [1.2, 0.5, 0.2], skyColor: [0.25, 0.08, 0.05],
     groundColor: [0.12, 0.04, 0.02], shadowColor: [0.3, 0.12, 0.2], rimColor: [1.6, 0.6, 0.2], fog: { density: 0.03, color: [0.3, 0.1, 0.05] },
     horizon: [0.5, 0.15, 0.05], grade: { exposure: -0.05, contrast: 1.15, saturation: 1.15, temperature: 0.3, split: 0.3, bloom: 0.9 }, ambient: { kind: 'embers', density: 1 },
@@ -131,11 +134,11 @@ export const STAGES: Record<string, StageDef> = {
   crossing: S({ id: 'crossing', glb: 'stages/crossing.glb', sky: CURSED, sunDir: [0.3, 0.35, 0.9], sunColor: [1.2, 0.3, 0.2], skyColor: [0.3, 0.05, 0.05],
     groundColor: [0.08, 0.02, 0.02], shadowColor: [0.3, 0.1, 0.2], rimColor: [1.6, 0.3, 0.2], fog: { density: 0.02, color: [0.3, 0.05, 0.04] },
     horizon: [0.5, 0.08, 0.05], grade: { exposure: -0.35, contrast: 1.15, saturation: 1.0, temperature: 0.1, split: 0.3, bloom: 0.65 }, ambient: { kind: 'embers', density: 0.6 },
-    wet: 0.4, glow: [1.0, 0.3, 0.6], lamp: [0, 4, 0, 18, 1.0, 0.3, 0.15, 1.5], arena: 14, music: 'finale', floor: [0.3, 0.3, 0.32, 5] , look: { age: 0.6, urban: 0.8, ash: 0.3, windows: 0.5 } }),
+    wet: 0.4, glow: [1.0, 0.3, 0.6], lamp: [0, 4, 0, 18, 1.0, 0.3, 0.15, 1.5], arena: 14, lanterns: { count: 220, ring: [9, 70], climb: 50, cursed: 0.35 }, music: 'finale', floor: [0.3, 0.3, 0.32, 5] , look: { age: 0.6, urban: 0.8, ash: 0.3, windows: 0.5 } }),
   tower: S({ id: 'tower', glb: 'stages/crossing.glb', sky: CURSED, sunDir: [0.3, 0.35, 0.9], sunColor: [1.3, 0.25, 0.15], skyColor: [0.3, 0.03, 0.03],
     groundColor: [0.06, 0.01, 0.01], shadowColor: [0.3, 0.08, 0.18], rimColor: [1.8, 0.25, 0.2], fog: { density: 0.025, color: [0.35, 0.04, 0.03] },
     horizon: [0.6, 0.06, 0.04], grade: { exposure: 0.2, contrast: 1.2, saturation: 1.15, temperature: 0.15, split: 0.35, bloom: 1.1, vignette: 0.55 },
-    ambient: { kind: 'embers', density: 1 }, glow: [1.0, 0.25, 0.1], lamp: [0, 4, 0, 18, 1.0, 0.25, 0.1, 2], arena: 14, music: 'finale', floor: [0.3, 0.28, 0.3, 5] , look: { age: 0.6, urban: 0.5, ash: 0.5 } }),
+    ambient: { kind: 'embers', density: 1 }, glow: [1.0, 0.25, 0.1], lamp: [0, 4, 0, 18, 1.0, 0.25, 0.1, 2], arena: 14, lanterns: { count: 260, ring: [7, 60], climb: 55, cursed: 0.8 }, music: 'finale', floor: [0.3, 0.28, 0.3, 5] , look: { age: 0.6, urban: 0.5, ash: 0.5 } }),
   graves: S({ id: 'graves', glb: 'stages/graves.glb', sky: SPRING, sunDir: [-0.5, 0.5, 0.6], sunColor: [1.5, 1.3, 1.1], skyColor: [0.34, 0.38, 0.6],
     groundColor: [0.3, 0.28, 0.26], shadowColor: [0.5, 0.48, 0.78], rimColor: [1.2, 1.0, 0.9], fog: { density: 0.004, color: [0.9, 0.85, 0.9] },
     horizon: [0.95, 0.85, 0.88], aerial: [25, 140], grade: { exposure: -0.05, contrast: 1.1, saturation: 1.08, temperature: 0.1, split: 0.12 },
@@ -157,6 +160,7 @@ export class Stage {
   private fire: Fire | null = null;
   private train: Train | null = null;
   private flock: Flock | null = null;
+  private lanterns: Lanterns | null = null;
   private baseWind = 1.2;
   /** the fight's scars on the floor */
   marks: GroundMarks | null = null;
@@ -303,6 +307,13 @@ export class Stage {
     // the fight's scars on the floor, over the arena and a margin round it
     this.train?.dispose();
     this.train = d.train ? new Train(r, d.train) : null;
+    this.lanterns?.dispose();
+    // fewer lanterns at lower quality
+    const q = r.post.settings.quality;
+    const lantScale = q === 'high' ? 1 : q === 'medium' ? 0.6 : 0.35;
+    this.lanterns = d.lanterns
+      ? new Lanterns(r.engine as unknown as WebGPUEngine, r.scene, r.mats, { ...d.lanterns, count: Math.max(8, Math.round(d.lanterns.count * lantScale)) })
+      : null;
     this.flock?.dispose();
     this.flock = d.flock ? new Flock(r.engine as unknown as WebGPUEngine, r.scene, r.mats, d.flock) : null;
     if (this.flock) this.flock.avoidRadius = d.flock!.kind === 'butterflies' ? 3.5 : 6;
@@ -319,6 +330,7 @@ export class Stage {
     this.fire?.update(dt);
     this.marks?.update(dt);
     this.flock?.update(dt);
+    this.lanterns?.update(dt);
     if (this.train) {
       this.train.update(dt);
       this.env.train.copyFrom(this.train.light);
@@ -360,6 +372,8 @@ export class Stage {
     this.train = null;
     this.flock?.dispose();
     this.flock = null;
+    this.lanterns?.dispose();
+    this.lanterns = null;
     this.marks?.dispose();
     this.marks = null;
     // materials go, but never their textures: the shadow map is shared by every material

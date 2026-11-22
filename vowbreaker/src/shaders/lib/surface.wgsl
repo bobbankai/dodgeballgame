@@ -83,6 +83,7 @@ const PAT_RAKED: i32 = 28;
 const PAT_LACQUER: i32 = 29;
 const PAT_GLASS: i32 = 30;
 const PAT_LIGHT: i32 = 31;
+const PAT_SCREEN: i32 = 32;   // the crossing's giant screens (alpha 1.0)
 
 fn decodePatternId(a: f32) -> i32 {
     return i32(round(clamp(a, 0.0, 1.0) * 32.0));
@@ -118,6 +119,7 @@ fn evalPattern(id: i32, p: vec3f, n: vec3f, time: f32, wet: f32, seed: f32, glow
             return o;
         }
         case 17: { return patternWindows(uv + vec2f(seed * 13.0, 0.0), vec2f(2.2, 3.1), 0.45, time); }
+        case 32: { return patternScreen(uv, time, seed); }
         case 18: { return patternNeon(fract(uv * 0.5), glowColor, seed + floor(uv.x * 0.5) * 3.1, time); }
         case 19: { return patternLanternPaper(fract(uv * vec2f(1.0, 1.4)), glowColor, 0.85 + 0.15 * valueNoise2(vec2f(time * 7.0, seed))); }
         case 22: { return patternDirt(uv); }
