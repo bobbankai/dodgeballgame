@@ -3,7 +3,14 @@ import {
 } from '@babylonjs/core';
 import { computeSource } from './ShaderLib';
 
-export const PK = { spark: 0, ember: 1, debris: 2, petal: 3, paper: 4, smoke: 5, ash: 6, drop: 7, ink: 8, dust: 9 } as const;
+/** Particle kinds (behaviours in vb_psim, shapes in particle.fragment). */
+export const PK = {
+  spark: 0, ember: 1, debris: 2, petal: 3, paper: 4, smoke: 5, ash: 6, drop: 7, ink: 8, dust: 9,
+  snow: 10, rain: 11, bubble: 12, firefly: 13, feather: 14, glyph: 15, leaf: 16, tear: 17,
+} as const;
+
+/** Kinds drawn as light (the additive pool). */
+const GLOW_KINDS = new Set<number>([PK.spark, PK.ember, PK.dust, PK.firefly, PK.glyph]);
 
 export interface Burst {
   kind: number;
@@ -18,9 +25,11 @@ export interface Burst {
   life: [number, number];
   drag?: number;
   jitter?: number;        // start position randomisation (m)
+  /** spin (radians per second) for tumbling and fluttering kinds; random if unset */
+  spin?: number;
 }
 
-const STRIDE = 16; // floats per particle
+const STRIDE = 20; // floats per particle (see vb_psim)
 
 /** One pool of compute-simulated particles drawn as instanced quads. */
 class Pool {
@@ -40,11 +49,11 @@ class Pool {
     vd.indices = [0, 1, 2, 0, 2, 3];
     vd.applyToMesh(this.mesh);
     const raw = this.buffer.getBuffer();
-    for (const [name, off] of [['p0', 0], ['p1', 4], ['p2', 8], ['p3', 12]] as const) {
+    for (const [name, off] of [['p0', 0], ['p1', 4], ['p2', 8], ['p3', 12], ['p4', 16]] as const) {
       this.mesh.setVerticesBuffer(new VertexBuffer(engine, raw, name, false, false, STRIDE, true, off, 4));
     }
     this.mat = new ShaderMaterial('particleMat' + (glow ? 'G' : 'M'), scene, { vertex: 'particle', fragment: 'particle' }, {
-      attributes: ['position', 'p0', 'p1', 'p2', 'p3'], uniforms: ['viewProjection', 'view', 'cameraPosition', 'time'],
+      attributes: ['position', 'p0', 'p1', 'p2', 'p3', 'p4'], uniforms: ['viewProjection', 'view', 'cameraPosition', 'time'],
       defines: glow ? ['GLOW'] : [], shaderLanguage: ShaderLanguage.WGSL, needAlphaBlending: true,
     });
     this.mat.backFaceCulling = false;
@@ -97,6 +106,12 @@ class Pool {
       d[o + 13] = b.kind;
       d[o + 14] = Math.random();
       d[o + 15] = b.drag ?? 1.5;
+      // rotation, spin, state (0 flying), extra (embers start hot; others start at zero)
+      const tumbling = b.kind === PK.debris || b.kind === PK.petal || b.kind === PK.paper || b.kind === PK.leaf || b.kind === PK.feather || b.kind === PK.snow || b.kind === PK.ash;
+      d[o + 16] = Math.random() * Math.PI * 2;
+      d[o + 17] = b.spin ?? (tumbling ? (Math.random() - 0.5) * 12 : (Math.random() - 0.5) * 2);
+      d[o + 18] = 0;
+      d[o + 19] = b.kind === PK.ember ? 1 : 0;
     }
     // write into the ring buffer (in up to two pieces)
     const first = Math.min(n, this.max - this.head);
@@ -125,6 +140,14 @@ export class GpuParticles {
   attractStrength = 0;
   wind = new Vector3();
   ground = 0;
+  /** a swirl round a vertical axis (xz centre, angular strength) */
+  vortex = new Vector3();
+  vortexStrength = 0;
+  /** the arena wall: centre xz, radius (0 = none) and how much it bounces */
+  arena = new Vector3(0, 0, 0);
+  arenaBounce = 0.3;
+  /** up to four expanding shockwaves (centre, radius) that shove particles outward */
+  shocks = new Float32Array(16);
 
   constructor(engine: WebGPUEngine, scene: Scene) {
     this.glow = new Pool(engine, scene, 8192, true);
@@ -141,6 +164,9 @@ export class GpuParticles {
       ub.addUniform('turbulence', 1);
       ub.addUniform('attract', 4);
       ub.addUniform('wind', 4);
+      ub.addUniform('vortex', 4);
+      ub.addUniform('arena', 4);
+      ub.addUniform('shocks', 4, 4);
       ub.addUniform('count', 1);
       ub.addUniform('pad0', 1);
       ub.addUniform('pad1', 1);
@@ -159,7 +185,7 @@ export class GpuParticles {
   }
 
   burst(b: Burst): void {
-    const glow = b.kind === PK.spark || b.kind === PK.ember || b.kind === PK.dust;
+    const glow = GLOW_KINDS.has(b.kind);
     (glow ? this.glow : this.matter).emit(b);
   }
 
@@ -170,6 +196,9 @@ export class GpuParticles {
     ub.updateFloat('turbulence', this.turbulence);
     ub.updateFloat4('attract', this.attract.x, this.attract.y, this.attract.z, this.attractStrength);
     ub.updateFloat4('wind', this.wind.x, this.wind.y, this.wind.z, this.ground);
+    ub.updateFloat4('vortex', this.vortex.x, this.vortex.y, this.vortex.z, this.vortexStrength);
+    ub.updateFloat4('arena', this.arena.x, this.arena.z, this.arena.y, this.arenaBounce);
+    ub.updateFloatArray('shocks', this.shocks);
     ub.updateUInt('count', count);
     ub.update();
   }

@@ -554,6 +554,10 @@ export class Effects implements CombatFx {
       }
     }
     this.shocks = this.shocks.filter((x) => x.t < 0.6);
+    // the same shockwaves shove particles: a shell racing outward at 18 m/s
+    const ps = this.particles.shocks;
+    ps.fill(0);
+    this.shocks.slice(-4).forEach((sh, k) => ps.set([sh.pos.x, sh.pos.y, sh.pos.z, sh.t * 18 * sh.strength], k * 4));
     void this.shockIdx;
   }
 

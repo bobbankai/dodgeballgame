@@ -103,6 +103,15 @@ export class Director {
     }
     for (const c of this.cast.values()) if (!inFight.has(c) && c.visible) c.update(dt);
     this.cam.update(dt);
+    // particles stay inside the arena and swirl round an open domain
+    const parts = this.fx.particles;
+    parts.arena.set(0, this.stage ? this.stage.def.arena + 3 : 0, 0);
+    if (this.domain.active) {
+      parts.vortex.copyFrom(this.domain.center);
+      parts.vortexStrength = 2.5 * this.domain.reveal;
+    } else {
+      parts.vortexStrength = 0;
+    }
     this.fx.update(dt, this.fight ? this.fight.fighters : []);
     this.ambient.update(this.r.lighting.time);
     this.stage?.update(dt);
