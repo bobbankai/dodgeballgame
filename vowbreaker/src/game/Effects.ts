@@ -5,6 +5,7 @@ import { GpuParticles, PK } from '../render/GpuParticles';
 import { Trails } from '../render/Trails';
 import { Vfx, VK, type VfxPalette } from '../render/Vfx';
 import { Fluid } from '../render/Fluid';
+import { MK, type MarkStamp } from '../render/Marks';
 import type { WebGPUEngine } from '@babylonjs/core';
 import type { CameraRig } from './CameraRig';
 import type { CombatFx, HitResult, Projectile } from './Combat';
@@ -65,6 +66,8 @@ export class Effects implements CombatFx {
   private shockIdx = 0;
   private shocks: { pos: Vector3; t: number; strength: number }[] = [];
   private activeTrails = new Map<Fighter, ReturnType<Trails['start']>>();
+  /** distance each fighter has walked since their last footprint, and which foot is next */
+  private stride = new Map<Fighter, { x: number; z: number; d: number; side: number }>();
   /** the player (screen effects are stronger for their hits) */
   player: Fighter | null = null;
   onHitHud: ((attacker: Fighter, target: Fighter, dmg: number, res: HitResult, spark: boolean) => void) | null = null;
@@ -83,6 +86,16 @@ export class Effects implements CombatFx {
   /** A world position on screen (post-chain uv: x right, y up). */
   project(p: Vector3): { x: number; y: number } {
     return this.screenPos(p);
+  }
+
+  /** Leave a scar on the arena floor (src/render/Marks.ts), if this stage keeps them. */
+  mark(s: MarkStamp): void {
+    this.r.mats.marks?.stamp(s);
+  }
+
+  /** Ink thrown on the floor under a blow, flung along its direction. */
+  private splatter(at: Vector3, dir: Vector3, size: number, strength = 1): void {
+    this.mark({ kind: MK.splatter, x: at.x + dir.x * 0.4, z: at.z + dir.z * 0.4, radius: size, angle: Math.atan2(dir.z, dir.x), strength });
   }
 
   /** Pour ink into the screen's water at a world position (a burst of splats outward). */
@@ -190,6 +203,9 @@ export class Effects implements CombatFx {
       // manga sound effect
       this.sprites.spawn({ kind: SK.glyph, pos: at.add(new Vector3(0, 0.8, 0)).add(dir.scale(-0.5)), size: spark ? 2.2 : 1.4, color: pal.edge, life: 0.6, seed: Math.floor(Math.random() * 20), rot: (Math.random() - 0.5) * 0.4 });
     }
+    // the floor remembers: ink thrown along the blow, the target's heels dragged back
+    if (big || Math.random() < 0.3) this.splatter(t.pos, dir, big ? 0.32 + Math.random() * 0.12 : 0.16, big ? 1 : 0.7);
+    if (big) this.mark({ kind: MK.skid, x: t.pos.x - dir.x * 0.2, z: t.pos.z - dir.z * 0.2, angle: Math.atan2(dir.z, dir.x), len: 0.9 + dmg / 80, width: 0.35, strength: 0.8 });
     if (marked) {
       // the seal tolls: a ring of gold and a second ripple
       this.sprites.spawn({ kind: SK.seal, pos: at, size: 2.4, color: PAL[0].body, intensity: 2, life: 0.6 });
@@ -212,6 +228,8 @@ export class Effects implements CombatFx {
         this.vfx.spawn({ kind: VK.bolt, pos: at, dir: d, scale: new Vector3(0.7, 1, 1.6 + Math.random() * 1.4), life: 0.4, color: PAL[5], p: [1, 0.8, 0.8, 0.16], seed: Math.random() });
       }
       this.vfx.spawn({ kind: VK.crater, pos: new Vector3(at.x, 0.03, at.z), scale: 1.4, life: 4, color: SPARK_LIGHT });
+      this.mark({ kind: MK.crater, x: t.pos.x, z: t.pos.z, radius: 1.5, strength: 1, palette: 5 });
+      this.mark({ kind: MK.splatter, x: t.pos.x + dir.x, z: t.pos.z + dir.z, radius: 0.45, angle: Math.atan2(dir.z, dir.x), strength: 1 });
       // black lightning bleeds red ink across the screen
       this.inkBurst(at, [0.45, 0.0, 0.03], 1.2, 7);
       this.impactFrame(3, 0.14);
@@ -249,6 +267,7 @@ export class Effects implements CombatFx {
     if (m.area) {
       // the caster's circle under them as the technique is shaped
       this.vfx.spawn({ kind: VK.seal, pos: new Vector3(f.pos.x, 0.04, f.pos.z), scale: 1.3, life: 0.9, color: this.vpal(f), intensity: 1.1, p: [f.kit.palette === 6 ? 5 : f.kit.palette, 2, 0.8, 0] });
+      this.mark({ kind: MK.seal, x: f.pos.x, z: f.pos.z, radius: 1.2, angle: Math.random() * 6.28, strength: 0.6, palette: f.kit.palette });
     }
     if (m.area?.at === 'target' && m.area.delay) {
       // a warning sign on the floor where it will land
@@ -280,6 +299,39 @@ export class Effects implements CombatFx {
     const vp = this.vpal(owner);
     this.vfx.spawn({ kind: VK.groundRing, pos: ground, scale: radius * 1.25, life: 0.6, color: vp, intensity: 1.4, p: [0.06, 0, 0.4, 0] });
     if (radius > 2) this.vfx.spawn({ kind: VK.crater, pos: new Vector3(at.x, 0.03, at.z), scale: radius * 0.7, life: 5, color: vp });
+    // the floor remembers it: a crater for the big ones, debris thrown round every blast
+    if (radius > 1.5) this.mark({ kind: MK.crater, x: at.x, z: at.z, radius: Math.min(3.5, radius * 0.6), strength: Math.min(1, radius / 3), palette: owner.kit.palette });
+    this.mark({ kind: MK.scatter, x: at.x, z: at.z, radius: radius * 1.3, strength: 0.8 });
+    switch (kind) {
+      case 'fire':
+      case 'firering':
+        for (let i = 0; i < 5; i++) {
+          const a = (i / 5) * Math.PI * 2 + Math.random();
+          const rr = kind === 'firering' ? radius * 0.8 : radius * Math.random() * 0.6;
+          this.mark({ kind: MK.scorch, x: at.x + Math.cos(a) * rr, z: at.z + Math.sin(a) * rr, radius: 0.8 + Math.random() * 0.7, strength: 1, palette: owner.kit.palette });
+        }
+        break;
+      case 'tears':
+      case 'rainspike':
+      case 'wail':
+        for (let i = 0; i < 3; i++) {
+          this.mark({ kind: MK.splatter, x: at.x + (Math.random() - 0.5) * radius, z: at.z + (Math.random() - 0.5) * radius, radius: 0.35 + Math.random() * 0.3, angle: Math.random() * 6.28, strength: 0.9 });
+        }
+        break;
+      case 'blade':
+      case 'umbrella':
+        for (let i = 0; i < 2; i++) {
+          this.mark({ kind: MK.slash, x: at.x, z: at.z, angle: Math.random() * 6.28, len: radius * 2.2, width: 0.08, extra: (Math.random() - 0.5) * 2, strength: 1, palette: owner.kit.palette });
+        }
+        break;
+      case 'moonfall':
+      case 'toll':
+      case 'requiem':
+        this.mark({ kind: MK.seal, x: at.x, z: at.z, radius: radius * 0.9, angle: Math.random() * 6.28, strength: 0.8, palette: owner.kit.palette });
+        break;
+      default:
+        break;
+    }
     this.cam.addShake(Math.min(0.9, radius * 0.15));
     switch (kind) {
       case 'toll':
@@ -414,6 +466,7 @@ export class Effects implements CombatFx {
     this.projVisuals.delete(p.id);
     for (const id of this.projVfx.get(p.id) ?? []) this.vfx.kill(id);
     this.projVfx.delete(p.id);
+    if (!hit && p.pos.y < 1.2) this.mark({ kind: MK.scorch, x: p.pos.x, z: p.pos.z, radius: 0.5, strength: 0.7, palette: p.owner.kit.palette });
     if (!hit) {
       const pal = this.pal(p.owner);
       this.particles.burst({ kind: PK.ember, pos: p.pos, count: 12, speed: 2, spread: 1, color: [...pal.body, 1] as [number, number, number, number], size: [0.04, 0.07], life: [0.2, 0.5] });
@@ -444,6 +497,8 @@ export class Effects implements CombatFx {
 
   dash(f: Fighter): void {
     const back = f.vel.clone().normalize().scale(-1);
+    // the push-off scrapes the floor behind the dash
+    this.mark({ kind: MK.skid, x: f.pos.x, z: f.pos.z, angle: Math.atan2(-back.z, -back.x), len: 1.4, width: 0.4, strength: 0.7 });
     this.sprites.spawn({ kind: SK.dust, pos: new Vector3(f.pos.x, 0.05, f.pos.z), size: 1.5, color: [0.6, 0.58, 0.55], intensity: 0.8, life: 0.4, mode: 1 });
     for (let i = 0; i < 3; i++) {
       this.sprites.spawn({ kind: SK.streak, pos: f.pos.add(new Vector3((Math.random() - 0.5) * 0.6, 0.5 + Math.random(), (Math.random() - 0.5) * 0.6)), size: 0.06, color: [1, 1, 1], intensity: 0.7, life: 0.2, mode: 2, dir: back.scale(1.5) });
@@ -454,7 +509,13 @@ export class Effects implements CombatFx {
   land(f: Fighter, hard: boolean): void {
     const g = new Vector3(f.pos.x, 0.05, f.pos.z);
     this.sprites.spawn({ kind: SK.dust, pos: g, size: hard ? 2.5 : 1.2, color: [0.6, 0.58, 0.55], intensity: hard ? 1 : 0.6, life: 0.5, mode: 1 });
+    const facing = Math.atan2(f.vel.z, f.vel.x);
+    for (const side of [0, 1]) {
+      const o = side ? 0.13 : -0.13;
+      this.mark({ kind: MK.footprint, x: f.pos.x - Math.sin(facing) * o, z: f.pos.z + Math.cos(facing) * o, radius: 0.3, angle: facing, extra: side, strength: 1 });
+    }
     if (hard) {
+      this.mark({ kind: MK.crater, x: f.pos.x, z: f.pos.z, radius: 0.9, strength: 0.45, palette: f.kit.palette });
       // dust settles on whoever hit the ground
       f.ch.look.surface.y = Math.min(1, f.ch.look.surface.y + 0.18);
       this.dustRing(g, 1.8, 0.7);
@@ -486,6 +547,7 @@ export class Effects implements CombatFx {
     this.impactFrame(by === this.player ? 1 : 3, 0.18);
     this.vfx.spawn({ kind: VK.ink, pos: new Vector3(f.pos.x, 0.04, f.pos.z), scale: 1.8, life: 6, color: this.vpal(by ?? f), p: [by ? 1 : 0, 9, 1, 0], delay: 0.35 });
     this.inkBurst(f.ch.bonePos('chest'), [0.03, 0.02, 0.04], 1.4, 8);
+    this.mark({ kind: MK.splatter, x: f.pos.x, z: f.pos.z, radius: 0.7, angle: Math.random() * 6.28, strength: 1 });
     for (let i = 0; i < 3; i++) this.puff(f.pos.add(new Vector3((Math.random() - 0.5) * 0.8, 0.3, (Math.random() - 0.5) * 0.8)), 0.45 + Math.random() * 0.3, 1.1, 0.25);
     this.desatT = 1.2;
     this.cam.zoomPunch(1);
@@ -528,8 +590,26 @@ export class Effects implements CombatFx {
     this.trails.update(dt, this.r.camera.position);
     this.particles.attractStrength *= Math.exp(-dt * 3);
     // fighters: flashes and squash ease back, aura fades unless charging
+    const marks = this.r.mats.marks;
     for (const f of fighters) {
       const l = f.ch.look;
+      // prints in soft ground (snow, ash, sand): one every stride while walking
+      if (marks && marks.soft > 0 && f.grounded) {
+        const st = this.stride.get(f) ?? { x: f.pos.x, z: f.pos.z, d: 0, side: 0 };
+        const dx = f.pos.x - st.x;
+        const dz = f.pos.z - st.z;
+        st.d += Math.hypot(dx, dz);
+        if (st.d > 0.75 && Math.hypot(dx, dz) > 1e-4) {
+          const facing = Math.atan2(dz, dx);
+          const o = st.side ? 0.12 : -0.12;
+          this.mark({ kind: MK.footprint, x: f.pos.x - Math.sin(facing) * o, z: f.pos.z + Math.cos(facing) * o, radius: 0.3, angle: facing, extra: st.side, strength: marks.soft });
+          st.d = 0;
+          st.side = 1 - st.side;
+        }
+        st.x = f.pos.x;
+        st.z = f.pos.z;
+        this.stride.set(f, st);
+      }
       // what the fight does to a body: wet in the rain, dust from falls, damage, sweat, Black Spark
       const ft = (this.fightTime.get(f) ?? 0) + dt;
       this.fightTime.set(f, ft);
@@ -628,5 +708,7 @@ export class Effects implements CombatFx {
     this.shocks = [];
     this.activeTrails.clear();
     this.fightTime.clear();
+    this.stride.clear();
+    this.r.mats.marks?.clear();
   }
 }

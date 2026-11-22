@@ -43,7 +43,7 @@ export class EnvSettings {
 
 const UNIFORMS = ['world', 'viewProjection', 'view', 'cameraPosition', 'envTime', 'sunDir', 'sunColor', 'skyColor', 'groundColor', 'shadowColor',
   'lightViewProj', 'shadowParams', 'pointPos', 'pointCol', 'envParams', 'envParams2', 'envParams3', 'envParams4', 'envParams5', 'envParams6', 'firePos',
-  'glowColor', 'tintColor', 'cracks', 'domainParams'];
+  'glowColor', 'tintColor', 'cracks', 'domainParams', 'marksParams'];
 
 export function envMaterial(mats: Materials, mesh: AbstractMesh, settings: EnvSettings): ShaderMaterial {
   // vertex colour alpha carries pattern ids, not transparency
@@ -55,7 +55,7 @@ export function envMaterial(mats: Materials, mesh: AbstractMesh, settings: EnvSe
     defines.push('UV1');
   }
   const mat = new ShaderMaterial('env_' + mesh.name, mats.scene, { vertex: 'env', fragment: 'env' }, {
-    attributes, defines, uniforms: UNIFORMS.slice(), samplers: ['shadowMap'], shaderLanguage: ShaderLanguage.WGSL,
+    attributes, defines, uniforms: UNIFORMS.slice(), samplers: ['shadowMap', 'marksA', 'marksB'], shaderLanguage: ShaderLanguage.WGSL,
   });
   mat.backFaceCulling = false;
   mat.setTexture('shadowMap', mats.lighting.shadowMap ?? mats.dummy);
@@ -82,6 +82,10 @@ export function envMaterial(mats: Materials, mesh: AbstractMesh, settings: EnvSe
     mat.setArray4('cracks', Array.from(settings.cracks));
     mat.setVector4('domainParams', new Vector4(l.domainAmount, l.domainPalette, 0, 0));
     if (l.shadowMap) mat.setTexture('shadowMap', l.shadowMap);
+    const mk = mats.marks;
+    mat.setTexture('marksA', mk ? mk.texA : mats.dummy);
+    mat.setTexture('marksB', mk ? mk.texB : mats.dummy);
+    mat.setVector4('marksParams', mk ? mk.params : new Vector4(0, 0, 0, 0));
   };
   push(mats.lighting);
   const off = mats.onUpdate(push);

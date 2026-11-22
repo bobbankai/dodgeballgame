@@ -9,6 +9,7 @@ import { Water, type WaterDef } from '../render/Water';
 import { Grass, type GrassDef } from '../render/Grass';
 import { Crowd, type CrowdDef } from '../render/Crowd';
 import { Fire, type FireSite } from '../render/Fire';
+import { GroundMarks } from '../render/Marks';
 
 export interface StageDef {
   id: string;
@@ -139,6 +140,8 @@ export class Stage {
   grass: Grass | null = null;
   private crowd: Crowd | null = null;
   private fire: Fire | null = null;
+  /** the fight's scars on the floor */
+  marks: GroundMarks | null = null;
   def: StageDef;
 
   constructor(private r: Renderer, def: StageDef) {
@@ -274,6 +277,10 @@ export class Stage {
     this.crowd = d.crowd ? new Crowd(r, d.crowd, () => this.env.glowColor, () => r.post.settings.fogColor) : null;
     this.fire?.dispose();
     this.fire = d.fires && d.fires.length ? new Fire(r, d.fires) : null;
+    // the fight's scars on the floor, over the arena and a margin round it
+    this.marks?.dispose();
+    this.marks = new GroundMarks(r.scene, r.mats, [0, 0], Math.ceil(d.arena * 2 + 12));
+    this.marks.soft = Math.min(1, env.snow * 1.2 + env.ash * 0.5);
   }
 
   private lightningIn = 6 + Math.random() * 8;
@@ -282,6 +289,7 @@ export class Stage {
   /** Per-frame stage life: lightning on rain stages (a double flicker, then the sky goes dark again). */
   update(dt: number): void {
     this.fire?.update(dt);
+    this.marks?.update(dt);
     const env = this.env;
     if (env.rain > 0.5) {
       this.lightningIn -= dt;
@@ -312,6 +320,8 @@ export class Stage {
     this.crowd = null;
     this.fire?.dispose();
     this.fire = null;
+    this.marks?.dispose();
+    this.marks = null;
     // materials go, but never their textures: the shadow map is shared by every material
     for (const m of this.meshes) {
       m.material?.dispose(false, false);

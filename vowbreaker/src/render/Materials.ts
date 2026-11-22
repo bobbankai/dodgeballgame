@@ -1,3 +1,4 @@
+import type { GroundMarks } from './Marks';
 import {
   AbstractMesh, BaseTexture, Color3, Constants, Matrix, Mesh, RawTexture, Scene, ShaderLanguage, ShaderMaterial, Vector2, Vector3, Vector4,
 } from '@babylonjs/core';
@@ -101,6 +102,8 @@ export class Materials {
   private envs: ShaderMaterial[] = [];
   private custom: ((l: Lighting) => void)[] = [];
   readonly dummy: RawTexture;
+  /** the fight's scars on the floor, read by every environment material (src/render/Marks.ts) */
+  marks: GroundMarks | null = null;
   screenW = 1280;
   screenH = 720;
 

@@ -29,6 +29,7 @@
 #include<vb_weather>
 #include<vb_env_light>
 #include<vb_env_foliage>
+#include<vb_ground_marks>
 
 varying vWorldPos: vec3f;
 varying vNormalW: vec3f;
@@ -57,8 +58,13 @@ uniform glowColor: vec3f;       // colour behind shoji / in lanterns / neon base
 uniform tintColor: vec4f;       // multiplies the whole stage (flashback paper, domain), a = amount
 uniform cracks: array<vec4f, 8>; // xz centre, radius, palette id (palette < 0: unused)
 uniform domainParams: vec4f;    // amount, palette
+uniform marksParams: vec4f;     // the fight's ground marks: centre x, z, 1 / size, on
 
 var shadowMap: texture_2d<f32>;
+var marksA: texture_2d<f32>;
+var marksASampler: sampler;
+var marksB: texture_2d<f32>;
+var marksBSampler: sampler;
 
 @fragment
 fn main(input: FragmentInputs) -> FragmentOutputs {
@@ -70,7 +76,7 @@ fn main(input: FragmentInputs) -> FragmentOutputs {
     let L = normalize(uniforms.sunDir);
     let ao = fragmentInputs.vAO;
     let wind = uniforms.envParams6.zw;
-    let w = weatherOf(uniforms.envParams4.x, uniforms.envParams.y, uniforms.envParams4.y, uniforms.envParams4.z, uniforms.envParams4.w,
+    var w = weatherOf(uniforms.envParams4.x, uniforms.envParams.y, uniforms.envParams4.y, uniforms.envParams4.z, uniforms.envParams4.w,
                       uniforms.envParams5.w, wind);
 
     // --- pattern, the place's history, bump -------------------------------------------------------------
@@ -94,8 +100,34 @@ fn main(input: FragmentInputs) -> FragmentOutputs {
         leafGlint = fo.glint;
     }
 
+    // --- the fight's scars on the floor (vb_ground_marks): craters, scorch, ink, skids, prints, frost -----
+    var markB = vec4f(0.0);
+    var markGloss = 0.0;
+    var markEmissive = vec3f(0.0);
+    let pxW = length(fwidth(P));
+    if (uniforms.marksParams.w > 0.5 && N.y > 0.55) {
+        let muv = (P.xz - uniforms.marksParams.xy) * uniforms.marksParams.z + 0.5;
+        if (all(muv > vec2f(0.002)) && all(muv < vec2f(0.998))) {
+            let markA = textureSampleLevel(marksA, marksASampler, muv, 0.0);
+            markB = textureSampleLevel(marksB, marksBSampler, muv, 0.0);
+            let e = 1.5 / 512.0;
+            let bx = textureSampleLevel(marksB, marksBSampler, muv + vec2f(e, 0.0), 0.0).y;
+            let bz = textureSampleLevel(marksB, marksBSampler, muv + vec2f(0.0, e), 0.0).y;
+            let grad = vec2f(bx - markB.y, bz - markB.y) / (e / uniforms.marksParams.z) * 0.12;
+            let mpal = paletteFor(i32(markB.w * 8.0));
+            let ms = marksSurface(albedo, N, P, markA, markB, grad, mpal.body, mpal.core, mpal.edge, uniforms.envParams4.y, time, pxW);
+            albedo = ms.albedo;
+            N = ms.n;
+            markGloss = ms.gloss;
+            markEmissive = ms.emissive;
+            // heat melts the snow and blows the ash away
+            w.snow = w.snow * (1.0 - ms.melt);
+            w.ash = w.ash * (1.0 - ms.melt * 0.7);
+        }
+    }
+
     // --- weather: soaking, puddles, splashes -------------------------------------------------------------
-    var gloss = clamp(pat.gloss + det.gloss, 0.0, 1.0);
+    var gloss = clamp(max(pat.gloss + det.gloss, markGloss), 0.0, 1.0);
     var puddle = 0.0;
     if (wetHere > 0.0) {
         albedo = weatherWetAlbedo(albedo, wetHere, 0.6);
@@ -171,9 +203,12 @@ fn main(input: FragmentInputs) -> FragmentOutputs {
 
     // emissive patterns and details
     col = col + (pat.emissive + det.emissive) * (1.0 + uniforms.envParams2.z);
+    col = col + markEmissive;
 
     // snow, ash, frost, lightning
     col = weatherSnow(w, col, P, N, ao, V, L);
+    // prints pushed into the snow stay blue in their hollows
+    col = mix(col, col * vec3f(0.7, 0.78, 0.92), clamp(markB.y * 1.5, 0.0, 1.0) * w.snow);
     col = weatherAsh(w, col, P, N, time);
     col = weatherFrost(w, col, P, N, ao);
     col = weatherLightning(w, col, albedo, N);
