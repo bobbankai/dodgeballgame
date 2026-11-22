@@ -48,7 +48,8 @@ fn sslContactShadow(gbuf: texture_2d<f32>, smp: sampler, uv: vec2f, proj: vec4f,
             shadow = max(shadow, 1.0 - t * 0.6);
         }
     }
-    return 1.0 - shadow;
+    // contact shadows belong to things near the eye; far away they would only speckle edges
+    return 1.0 - shadow * (1.0 - smoothstep(18.0, 30.0, z));
 }
 
 // one bounce from a disc of samples round the pixel (scene colour, view positions and normals)

@@ -17,6 +17,8 @@
 #include<vb_grade>
 #include<vb_lens>
 #include<vb_film>
+#include<vb_lineart>
+#include<vb_afterimage>
 
 varying vUV: vec2f;
 
@@ -40,6 +42,8 @@ var exposureTex: texture_2d<f32>;
 var exposureTexSampler: sampler;
 var auraTex: texture_2d<f32>;
 var auraTexSampler: sampler;
+var ghostTex: texture_2d<f32>;
+var ghostTexSampler: sampler;
 
 uniform screenParams: vec4f;     // width, height, 1/w, 1/h
 uniform projParams: vec4f;       // tan(fovY/2), aspect, near, far
@@ -69,6 +73,7 @@ uniform shockwaves: array<vec4f, 4>;
 uniform extraParams: vec4f;      // vow vignette, domain twist, heat haze, time
 uniform domainTint: vec4f;       // rgb, amount
 uniform volParams: vec4f;        // volumetric amount, ssr amount, flare amount, lens dirt
+uniform ghostAmount: f32;         // dash afterimages (vbGhost)
 uniform auraAmount: f32;          // cursed-energy auras (vbAura) added before tone mapping
 uniform lookParams: vec4f;       // look index, look amount, auto exposure (0/1), halation
 uniform filmParams: vec4f;       // grain size, volumetric extinction, -, -
@@ -158,6 +163,13 @@ fn main(input: FragmentInputs) -> FragmentOutputs {
     if (uniforms.volParams.x > 0.0) {
         let v = textureSampleLevel(volTex, volTexSampler, uv, 0.0);
         col = col * mix(1.0, v.a, uniforms.volParams.x * uniforms.filmParams.y) + v.rgb * uniforms.volParams.x;
+    }
+
+    // --- dash afterimages behind the fighters ------------------------------------------------------------------
+    if (uniforms.ghostAmount > 0.0) {
+        let gh = textureSampleLevel(ghostTex, ghostTexSampler, uv, 0.0);
+        let idNow = textureSampleLevel(gbuffer, gbufferSampler, uv, 0.0).a;
+        col = ghostComposite(col, gh, uniforms.ghostAmount, select(0.0, 1.0, lineIsFighter(idNow)));
     }
 
     // --- cursed-energy auras round the fighters (premultiplied light; smoke subtracts) -----------------------

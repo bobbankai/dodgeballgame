@@ -563,6 +563,8 @@ export class Effects implements CombatFx {
     // dramatic moments get manga hatching in the shadows on the fighters
     const drama = fighters.some((f) => f.alive && (f.vowTime > 0 || f.domainActive)) ? 0.65 : 0;
     s.lineHatch += (drama - s.lineHatch) * Math.min(1, dt * 3);
+    // dashing fighters leave afterimages in their colours
+    s.ghosts = fighters.filter((f) => f.alive && f.state === 'dash' && f.ch.idBase >= 0).map((f) => ({ idBase: f.ch.idBase, color: this.pal(f).body }));
     // cursed-energy auras: whoever is gathering energy burns (the Vow smokes, Black Spark crackles)
     s.auras = [];
     for (const f of fighters) {

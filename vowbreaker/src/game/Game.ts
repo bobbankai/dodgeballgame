@@ -73,6 +73,9 @@ export class Game {
 
   async start(): Promise<void> {
     const p = this.params;
+    // ?debug=normals|depth|ids|ao|contact|gi|aura|bloom: look at the renderer's buffers
+    const dbg = ['', 'normals', 'depth', 'ids', 'ao', 'contact', 'gi', 'aura', 'bloom'].indexOf(p.get('debug') ?? '');
+    if (dbg > 0) this.r.post.settings.debugView = dbg;
     if (p.get('vfx') !== null) {
       const { vfxGallery } = await import('./VfxGallery');
       await vfxGallery(this.director, p.get('vfx') || 'void', p.get('only') ?? undefined);

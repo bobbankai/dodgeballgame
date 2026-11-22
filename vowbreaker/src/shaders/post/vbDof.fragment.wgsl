@@ -7,6 +7,8 @@
 #include<vb_common>
 #include<vb_hash>
 #include<vb_color>
+#include<vb_math>
+#include<vb_bokeh>
 
 varying vUV: vec2f;
 
@@ -17,6 +19,7 @@ var gbufferSampler: sampler;
 
 uniform dofParams: vec4f;        // focus distance (m), focus range (m), max radius (px), mode
 uniform screenParams: vec4f;     // width, height of this pass, 1/w, 1/h
+uniform bokehParams: vec4f;      // blades, rotation, anamorphic stretch, cat's eye
 
 const DOF_SAMPLES: i32 = 36;
 
@@ -55,6 +58,10 @@ fn main(input: FragmentInputs) -> FragmentOutputs {
         // a sample contributes if its own blur disc reaches this pixel; background samples can't
         // spread over a sharper foreground
         var w = smoothstep(r - 1.0, r + 1.0, rs);
+        // the aperture's shape and its bright rim (vb_bokeh)
+        let rn = r / max(maxR, 1e-3);
+        w = w * bokehShape(vec2f(cos(a), sin(a)) * rn, uv, uniforms.bokehParams.x, uniforms.bokehParams.y, uniforms.bokehParams.z, uniforms.bokehParams.w);
+        w = w * bokehRim(rn, 0.6);
         if (s.a > center.a + 0.05 && center.a < 0.0) {
             w = w * 0.0;
         }

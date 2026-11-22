@@ -215,6 +215,16 @@ export class PostSettings {
   lineFighter = 1.5;
   lineSurfaceColor = 0.55;
   lineHatch = 0;
+  /** dash afterimages: who is leaving them (G-buffer id base) and in what colour */
+  ghosts: { idBase: number; color: [number, number, number] }[] = [];
+  ghostAmount = 1;
+  /** bokeh: aperture blades, their rotation, anamorphic stretch, cat's eye at the frame's edges */
+  bokehBlades = 7;
+  bokehRotation = 0.3;
+  bokehAnamorphic = 0.3;
+  bokehCatEye = 0.35;
+  /** debug views (vbDebug): 0 off, 1 normals, 2 depth, 3 ids, 4 ao, 5 contact, 6 gi, 7 aura, 8 bloom */
+  debugView = 0;
 }
 
 /** One burning aura: whose silhouette (G-buffer id base), its colours, style and size. */
@@ -258,6 +268,10 @@ export class PostChain {
   private contactT!: RenderTargetTexture;
   private giT!: RenderTargetTexture;
   private giTmp!: RenderTargetTexture;
+  private ghostA!: RenderTargetTexture;
+  private ghostB!: RenderTargetTexture;
+  private ghostFrame = 0;
+  private ghostLive = 0;
   private auraT!: RenderTargetTexture;
   private snapshot!: RenderTargetTexture;
   private snapshotWanted = false;
@@ -328,6 +342,8 @@ export class PostChain {
     this.contactT = this.target('contact', w / 2, h / 2);
     this.giT = this.target('gi', w / 2, h / 2);
     this.giTmp = this.target('giTmp', w / 2, h / 2);
+    this.ghostA = this.target('ghostA', w / 2, h / 2);
+    this.ghostB = this.target('ghostB', w / 2, h / 2);
     this.auraT = this.target('aura', w / 2, h / 2);
     this.snapshot = this.target('snapshot', w, h, Constants.TEXTURETYPE_UNSIGNED_BYTE);
     this.lum = this.target('lum', 64, 64);
@@ -349,16 +365,17 @@ export class PostChain {
     this.wrap('vbSao', ['projParams', 'aoParams', 'screenParams'], ['gbuffer']);
     this.wrap('vbBilateral', ['blurDir', 'sharpness'], ['source']);
     this.wrap('vbContact', ['projParams', 'lightView', 'contactParams'], ['gbuffer']);
+    this.wrap('vbGhost', ['ghostIds', 'ghostColors', 'ghostParams'], ['sceneTex', 'gbuffer', 'history']);
     this.wrap('vbGi', ['projParams', 'giParams'], ['sceneTex', 'gbuffer']);
     this.wrap('vbComposite', ['projParams', 'screenParams', 'invView', 'cameraPos', 'aoParams', 'aoTint', 'ssParams', 'contactTint', 'lineParams', 'lineParams2', 'lineColor', 'lineParams3',
       'fogParams', 'fogColor', 'aerialParams', 'horizonColor', 'sunDir', 'sunColor', 'domainParams', 'domainCenter', 'time'], ['sceneTex', 'gbuffer', 'aoTex']);
     this.wrap('vbBloom', ['texel', 'bloomParams', 'scatter'], ['source', 'higher']);
     this.wrap('vbGodrays', ['lightUV', 'rayParams', 'rayThreshold', 'screenParams'], ['sceneTex', 'gbuffer']);
-    this.wrap('vbDof', ['dofParams', 'screenParams'], ['source', 'gbuffer']);
+    this.wrap('vbDof', ['dofParams', 'screenParams', 'bokehParams'], ['source', 'gbuffer']);
     this.wrap('vbFinal', ['screenParams', 'projParams', 'invView', 'prevViewProj', 'motionParams', 'caParams', 'bloomParams', 'bloomTint', 'raysColor',
       'dofParams', 'grade1', 'grade2', 'lift', 'gamma', 'gain', 'splitShadow', 'splitHighlight', 'tonemapParams', 'fxParams', 'fxParams2', 'fxCenter',
-      'flashColor', 'flashback', 'transition', 'shockwaves', 'extraParams', 'domainTint', 'volParams', 'lookParams', 'filmParams', 'auraAmount'],
-    ['compositeTex', 'bloomTex', 'raysTex', 'dofTex', 'gbuffer', 'volTex', 'ssrTex', 'flareTex', 'exposureTex', 'auraTex']);
+      'flashColor', 'flashback', 'transition', 'shockwaves', 'extraParams', 'domainTint', 'volParams', 'lookParams', 'filmParams', 'auraAmount', 'ghostAmount'],
+    ['compositeTex', 'bloomTex', 'raysTex', 'dofTex', 'gbuffer', 'volTex', 'ssrTex', 'flareTex', 'exposureTex', 'auraTex', 'ghostTex']);
     this.wrap('vbFxaa', ['rcpFrame', 'fxaaParams'], ['source']);
     this.wrap('vbVolumetric', ['projParams', 'screenParams', 'invView', 'cameraPos', 'sunDir', 'sunColor', 'fogColor', 'lightViewProj', 'shadowParams',
       'volParams', 'volParams2', 'pointPos', 'pointCol'], ['gbuffer', 'shadowMap']);
@@ -372,6 +389,7 @@ export class PostChain {
     this.wrap('vbAuraMask', ['auraIds', 'texel'], ['gbuffer']);
     this.wrap('vbTransition', ['transParams', 'transImpact'], ['source', 'snapshot']);
     this.wrap('vbCopy', [], ['source']);
+    this.wrap('vbDebug', ['debugParams'], ['source', 'gbuffer', 'aux']);
     this.wrap('vbSumie', ['screenParams', 'sumieParams', 'sumieParams2'], ['source', 'gbuffer']);
     this.wrap('vbAura', ['auraColors', 'auraEdges', 'auraParams', 'texel'], ['mask']);
   }
@@ -457,6 +475,14 @@ export class PostChain {
         fx.effect.setVector3('lightView', lv);
         fx.effect.setVector4('contactParams', new Vector4(s.contactLength, s.contactThickness, this.frame % 64, 0));
       });
+      // the jittered march is noisy: blur it like the ambient obscurance (depth aware)
+      for (const [src, dst, dir] of [[this.contactT, this.giTmp, new Vector2(2 / w, 0)], [this.giTmp, this.contactT, new Vector2(0, 2 / h)]] as const) {
+        this.run('vbBilateral', dst, (fx) => {
+          fx.effect.setTexture('source', src);
+          fx.effect.setVector2('blurDir', dir);
+          fx.effect.setFloat('sharpness', 40);
+        });
+      }
     }
     const giOn = s.gi > 0 && s.quality === 'high';
     if (giOn) {
@@ -570,6 +596,33 @@ export class PostChain {
       });
     }
 
+    // dash afterimages: the history decays; on strobe frames dashing fighters are captured into it
+    const ghosts = s.ghosts.slice(0, 4);
+    if (ghosts.length > 0) this.ghostLive = 0.6;
+    this.ghostLive = Math.max(0, this.ghostLive - dt);
+    const ghostOn = this.ghostLive > 0 && s.ghostAmount > 0 && s.quality !== 'low';
+    if (ghostOn) {
+      this.ghostFrame++;
+      const ids = [-1, -1, -1, -1];
+      const cols: number[] = [];
+      for (let k = 0; k < 4; k++) {
+        const g = ghosts[k];
+        if (g) ids[k] = g.idBase;
+        cols.push(...(g ? g.color : [0, 0, 0]), 1);
+      }
+      const prev = this.ghostA;
+      this.run('vbGhost', this.ghostB, (fx) => {
+        fx.effect.setTexture('sceneTex', this.composite);
+        fx.effect.setTexture('gbuffer', gb);
+        fx.effect.setTexture('history', prev);
+        fx.effect.setVector4('ghostIds', new Vector4(ids[0], ids[1], ids[2], ids[3]));
+        fx.effect.setArray4('ghostColors', cols);
+        fx.effect.setVector4('ghostParams', new Vector4(Math.exp(-dt * 5), this.ghostFrame % 4 === 0 ? 1 : 0, 1 / w, 1 / h));
+      });
+      this.ghostA = this.ghostB;
+      this.ghostB = prev;
+    }
+
     // the eye's adaptation: log luminance -> reduce to 1x1 -> ease into the previous value
     if (s.autoExposure) {
       this.run('vbLuminance', this.lum, (fx) => {
@@ -680,12 +733,14 @@ export class PostChain {
       this.run('vbDof', this.dofA, (fx) => {
         fx.effect.setTexture('source', this.composite);
         fx.effect.setTexture('gbuffer', gb);
+        fx.effect.setVector4('bokehParams', new Vector4(s.bokehBlades, s.bokehRotation, s.bokehAnamorphic, s.bokehCatEye));
         fx.effect.setVector4('dofParams', new Vector4(s.dofFocus, s.dofRange, s.dofMaxRadius, 0));
         fx.effect.setVector4('screenParams', new Vector4(w / 2, h / 2, 2 / w, 2 / h));
       });
       this.run('vbDof', this.dofB, (fx) => {
         fx.effect.setTexture('source', this.dofA);
         fx.effect.setTexture('gbuffer', gb);
+        fx.effect.setVector4('bokehParams', new Vector4(s.bokehBlades, s.bokehRotation, s.bokehAnamorphic, s.bokehCatEye));
         fx.effect.setVector4('dofParams', new Vector4(s.dofFocus, s.dofRange, s.dofMaxRadius, 1));
         fx.effect.setVector4('screenParams', new Vector4(w / 2, h / 2, 2 / w, 2 / h));
       });
@@ -736,6 +791,8 @@ export class PostChain {
       e.setTexture('flareTex', flareOn ? this.flareT : this.black);
       e.setTexture('exposureTex', this.adapt[this.adaptIndex]);
       e.setTexture('auraTex', auraOn ? this.auraT : this.black);
+      e.setTexture('ghostTex', ghostOn ? this.ghostA : this.black);
+      e.setFloat('ghostAmount', ghostOn ? s.ghostAmount : 0);
       e.setFloat('auraAmount', auraOn ? s.auraAmount : 0);
       e.setVector4('volParams', new Vector4(volOn ? s.volumetric : 0, ssrOn ? s.ssr : 0, flareOn ? s.flare : 0, s.lensDirt));
       e.setVector4('lookParams', new Vector4(s.look, s.lookAmount, s.autoExposure ? 1 : 0, s.halation));
@@ -798,6 +855,18 @@ export class PostChain {
         fx.effect.setVector2('transImpact', s.transImpact);
       });
       shown = this.ldr2;
+    }
+    // debug views of the buffers, over the finished frame
+    if (s.debugView > 0) {
+      const aux = [null, null, null, null, this.ao, this.contactT, this.giT, this.auraT, this.bloomUps[0] ?? null][s.debugView] ?? this.black;
+      const dst = shown === this.ldr ? this.ldr2 : this.ldr;
+      this.run('vbDebug', dst, (fx) => {
+        fx.effect.setTexture('source', shown);
+        fx.effect.setTexture('gbuffer', gb);
+        fx.effect.setTexture('aux', aux);
+        fx.effect.setVector4('debugParams', new Vector4(s.debugView, 60, 0, 0));
+      });
+      shown = dst;
     }
     (this.engine as Engine).restoreDefaultFramebuffer();
     this.run('vbSharpen', null, (fx) => {
