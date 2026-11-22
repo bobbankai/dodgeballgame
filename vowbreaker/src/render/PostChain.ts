@@ -180,6 +180,22 @@ export class PostSettings {
   fluidInk = 1;
   fluidRefract = 1;
   fluidBands = 4;
+  /** cursed-energy auras round up to four characters (vbAuraMask, vbAura) */
+  auras: AuraSlot[] = [];
+  auraAmount = 1;
+}
+
+/** One burning aura: whose silhouette (G-buffer id base), its colours, style and size. */
+export interface AuraSlot {
+  idBase: number;
+  color: [number, number, number];
+  edge: [number, number, number];
+  /** 0 flame, 1 static, 2 smoke, 3 halo */
+  style: number;
+  /** 0..1 */
+  strength: number;
+  /** how far the flames reach, in half-resolution pixels */
+  reach: number;
 }
 
 /**
@@ -205,6 +221,8 @@ export class PostChain {
   private vol!: RenderTargetTexture;
   private ssrT!: RenderTargetTexture;
   private flareT!: RenderTargetTexture;
+  private auraMask!: RenderTargetTexture;
+  private auraT!: RenderTargetTexture;
   private lum!: RenderTargetTexture;
   private reduce: RenderTargetTexture[] = [];
   private adapt: RenderTargetTexture[] = [];
@@ -267,6 +285,8 @@ export class PostChain {
     this.vol = this.target('vol', w / 2, h / 2);
     this.ssrT = this.target('ssr', w / 2, h / 2);
     this.flareT = this.target('flare', w / 4, h / 4);
+    this.auraMask = this.target('auraMask', w / 2, h / 2);
+    this.auraT = this.target('aura', w / 2, h / 2);
     this.lum = this.target('lum', 64, 64);
     this.reduce = [this.target('lum16', 16, 16), this.target('lum4', 4, 4), this.target('lum1', 1, 1)];
     this.adapt = [this.target('adaptA', 1, 1), this.target('adaptB', 1, 1)];
@@ -292,8 +312,8 @@ export class PostChain {
     this.wrap('vbDof', ['dofParams', 'screenParams'], ['source', 'gbuffer']);
     this.wrap('vbFinal', ['screenParams', 'projParams', 'invView', 'prevViewProj', 'motionParams', 'caParams', 'bloomParams', 'bloomTint', 'raysColor',
       'dofParams', 'grade1', 'grade2', 'lift', 'gamma', 'gain', 'splitShadow', 'splitHighlight', 'tonemapParams', 'fxParams', 'fxParams2', 'fxCenter',
-      'flashColor', 'flashback', 'transition', 'shockwaves', 'extraParams', 'domainTint', 'volParams', 'lookParams', 'filmParams'],
-    ['compositeTex', 'bloomTex', 'raysTex', 'dofTex', 'gbuffer', 'volTex', 'ssrTex', 'flareTex', 'exposureTex']);
+      'flashColor', 'flashback', 'transition', 'shockwaves', 'extraParams', 'domainTint', 'volParams', 'lookParams', 'filmParams', 'auraAmount'],
+    ['compositeTex', 'bloomTex', 'raysTex', 'dofTex', 'gbuffer', 'volTex', 'ssrTex', 'flareTex', 'exposureTex', 'auraTex']);
     this.wrap('vbFxaa', ['rcpFrame', 'fxaaParams'], ['source']);
     this.wrap('vbVolumetric', ['projParams', 'screenParams', 'invView', 'cameraPos', 'sunDir', 'sunColor', 'fogColor', 'lightViewProj', 'shadowParams',
       'volParams', 'volParams2', 'pointPos', 'pointCol'], ['gbuffer', 'shadowMap']);
@@ -304,6 +324,8 @@ export class PostChain {
     this.wrap('vbAdapt', ['adaptParams', 'adaptRange'], ['current', 'previous']);
     this.wrap('vbStylize', ['screenParams', 'styleParams', 'styleParams2', 'mangaParams', 'mangaParams2', 'mangaCenter', 'paperColor', 'fluidParams'], ['source', 'fluidDye', 'fluidVel']);
     this.wrap('vbSharpen', ['rcpFrame', 'sharpness'], ['source']);
+    this.wrap('vbAuraMask', ['auraIds', 'texel'], ['gbuffer']);
+    this.wrap('vbAura', ['auraColors', 'auraEdges', 'auraParams', 'texel'], ['mask']);
   }
 
   isReady(): boolean {
@@ -432,6 +454,33 @@ export class PostChain {
         e.setVector4('volParams2', new Vector4(s.volFalloff, s.volBase, s.volNoise, this.time));
         e.setArray4('pointPos', Array.from(L.pointPos));
         e.setArray4('pointCol', Array.from(L.pointCol));
+      });
+    }
+
+    // cursed-energy auras: mark the burning fighters, then grow flames off their silhouettes
+    const auras = s.auras.filter((a) => a.strength > 0.01 && a.idBase >= 0).slice(0, 4);
+    const auraOn = auras.length > 0 && s.auraAmount > 0 && s.quality !== 'low';
+    if (auraOn) {
+      const ids = [-1, -1, -1, -1];
+      const cols: number[] = [];
+      const edges: number[] = [];
+      for (let k = 0; k < 4; k++) {
+        const a = auras[k];
+        if (a) ids[k] = a.idBase;
+        cols.push(...(a ? a.color : [0, 0, 0]), a ? a.style + Math.min(a.strength, 0.99) : 0);
+        edges.push(...(a ? a.edge : [0, 0, 0]), a ? a.reach : 0);
+      }
+      this.run('vbAuraMask', this.auraMask, (fx) => {
+        fx.effect.setTexture('gbuffer', gb);
+        fx.effect.setVector4('auraIds', new Vector4(ids[0], ids[1], ids[2], ids[3]));
+        fx.effect.setVector2('texel', new Vector2(1 / w, 1 / h));
+      });
+      this.run('vbAura', this.auraT, (fx) => {
+        fx.effect.setTexture('mask', this.auraMask);
+        fx.effect.setArray4('auraColors', cols);
+        fx.effect.setArray4('auraEdges', edges);
+        fx.effect.setVector4('auraParams', new Vector4(this.time, w / h, 1, 0));
+        fx.effect.setVector2('texel', new Vector2(2 / w, 2 / h));
       });
     }
 
@@ -600,6 +649,8 @@ export class PostChain {
       e.setTexture('ssrTex', ssrOn ? this.ssrT : this.black);
       e.setTexture('flareTex', flareOn ? this.flareT : this.black);
       e.setTexture('exposureTex', this.adapt[this.adaptIndex]);
+      e.setTexture('auraTex', auraOn ? this.auraT : this.black);
+      e.setFloat('auraAmount', auraOn ? s.auraAmount : 0);
       e.setVector4('volParams', new Vector4(volOn ? s.volumetric : 0, ssrOn ? s.ssr : 0, flareOn ? s.flare : 0, s.lensDirt));
       e.setVector4('lookParams', new Vector4(s.look, s.lookAmount, s.autoExposure ? 1 : 0, s.halation));
       e.setVector4('filmParams', new Vector4(s.grainSize, s.volExtinction, 0, 0));

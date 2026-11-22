@@ -24,7 +24,12 @@ export const HEIGHTS: Record<string, number> = {
  * A sculpted character in the world: the skinned model with its toon material and ink outline,
  * the shared clips on its own skeleton, an anime face, spring bones and props in its hands.
  */
+/** G-buffer id blocks handed out to characters (16 ids each). */
+let idBlocks = 0;
+
 export class Character {
+  /** first of the character's G-buffer object ids (see vb_aura) */
+  idBase = -1;
   readonly root: TransformNode;
   readonly look = new CharacterLook();
   meshes: Mesh[] = [];
@@ -58,6 +63,10 @@ export class Character {
       if (n instanceof TransformNode && !(n instanceof AbstractMesh)) c.bones.set(n.name, n);
     }
     const meshes = c.root.getChildMeshes(false).filter((m): m is Mesh => m instanceof Mesh && m.getTotalVertices() > 0);
+    // a block of G-buffer ids of its own (base + mesh index): the screen-space aura finds the
+    // character's silhouette by these
+    c.idBase = 1000 + (idBlocks++ % 59) * 16;
+    let meshIndex = 0;
     for (const m of meshes) {
       // vertex colour alpha carries material ids, not transparency
       m.hasVertexAlpha = false;
@@ -67,7 +76,7 @@ export class Character {
       const ink = makeOutline(r.mats, m, c.look);
       ink.alwaysSelectAsActiveMesh = true;
       r.shadow.addCaster(m, c.look);
-      r.gbuffer.add(m, c.look);
+      r.gbuffer.add(m, c.look, c.idBase + Math.min(meshIndex++, 15));
       c.meshes.push(m, ink);
     }
     c.anim = new Animator(lib, c.root);

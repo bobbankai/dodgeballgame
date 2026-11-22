@@ -38,6 +38,8 @@ var flareTex: texture_2d<f32>;
 var flareTexSampler: sampler;
 var exposureTex: texture_2d<f32>;
 var exposureTexSampler: sampler;
+var auraTex: texture_2d<f32>;
+var auraTexSampler: sampler;
 
 uniform screenParams: vec4f;     // width, height, 1/w, 1/h
 uniform projParams: vec4f;       // tan(fovY/2), aspect, near, far
@@ -67,6 +69,7 @@ uniform shockwaves: array<vec4f, 4>;
 uniform extraParams: vec4f;      // vow vignette, domain twist, heat haze, time
 uniform domainTint: vec4f;       // rgb, amount
 uniform volParams: vec4f;        // volumetric amount, ssr amount, flare amount, lens dirt
+uniform auraAmount: f32;          // cursed-energy auras (vbAura) added before tone mapping
 uniform lookParams: vec4f;       // look index, look amount, auto exposure (0/1), halation
 uniform filmParams: vec4f;       // grain size, volumetric extinction, -, -
 
@@ -155,6 +158,12 @@ fn main(input: FragmentInputs) -> FragmentOutputs {
     if (uniforms.volParams.x > 0.0) {
         let v = textureSampleLevel(volTex, volTexSampler, uv, 0.0);
         col = col * mix(1.0, v.a, uniforms.volParams.x * uniforms.filmParams.y) + v.rgb * uniforms.volParams.x;
+    }
+
+    // --- cursed-energy auras round the fighters (premultiplied light; smoke subtracts) -----------------------
+    if (uniforms.auraAmount > 0.0) {
+        let au = textureSampleLevel(auraTex, auraTexSampler, uv, 0.0);
+        col = max(col + au.rgb * uniforms.auraAmount, vec3f(0.0));
     }
 
     // --- bloom, halation, lens flare and light shafts ------------------------------------------------------------

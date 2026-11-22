@@ -542,6 +542,20 @@ export class Effects implements CombatFx {
         }
       }
     }
+    // cursed-energy auras: whoever is gathering energy burns (the Vow smokes, Black Spark crackles)
+    s.auras = [];
+    for (const f of fighters) {
+      const l = f.ch.look;
+      if (!f.alive || f.ch.idBase < 0) continue;
+      const vow = f.vowTime > 0;
+      const strength = Math.min(1, Math.max(l.energy.x, vow ? 0.8 : 0));
+      if (strength < 0.15) continue;
+      const pal = f.blackSpark ? PAL[5] : this.pal(f);
+      const style = vow ? 2 : f.blackSpark ? 1 : f.domainActive ? 3 : 0;
+      const color: RGB = vow ? [1, 0.06, 0.1] : f.blackSpark ? [1, 0.08, 0.14] : pal.body;
+      const edge: RGB = vow ? [0.3, 0, 0.02] : pal.edge;
+      s.auras.push({ idBase: f.ch.idBase, color, edge, style, strength, reach: style === 3 ? 10 : 16 });
+    }
     // light flashes into the lighting slots 1..3 (slot 0 belongs to the stage)
     const L = this.r.lighting;
     for (let i = 1; i < 4; i++) L.pointCol.set([0, 0, 0, 0], i * 4);
