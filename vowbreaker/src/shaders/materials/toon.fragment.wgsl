@@ -1,8 +1,14 @@
 // Character toon shader: fragment stage.
-// Two-tone cel shading with artist-controlled thresholds (AO in the vertex data pushes creases into
-// shadow), cool shadow colours that keep the base hue, a warm terminator and scattered red on skin,
-// per-vertex face shadows in head space, an anime hair ring, stepped highlights, a back rim,
-// stepped point lights from cursed energy, an energy aura, the Vow's red, dissolves and hit flashes.
+//
+// Every character surface is shaded by material family (painted into the vertex colour alpha):
+// skin and face (warm scattering shadow edge, head-space face shadows, blush that survives in
+// shadow), hair (two-tone with a deep underside, angel ring broken into strands, two-lobe sheen),
+// eyes (never dead in shadow, caustic iris, pure highlights), cloth (wool velvet, silk sheen,
+// leather grain, weave, painted fold cores), metal (painted environment band, stepped highlights),
+// paper (light passes through) and emissive marks. On top: rain, dust, battle damage and sweat;
+// the story's transformations (paper creeping up a body, memory drawings, Stillwater's grey); the
+// fight's effects (cursed energy flowing in palette bands, the Black Spark crackle, the Vow's red,
+// hit flashes and impact-frame inversions, dissolves into ash) and the domain wash.
 #define DISABLE_UNIFORMITY_ANALYSIS
 
 #include<vb_common>
@@ -15,6 +21,19 @@
 #include<vb_shadow>
 #include<vb_toon>
 #include<vb_vfx>
+#include<vb_atmosphere>
+#include<vb_water>
+#include<vb_patterns>
+#include<vb_surface>
+#include<vb_brdf>
+#include<vb_noise2>
+#include<vb_toon_ramp>
+#include<vb_toon_skin>
+#include<vb_toon_hair>
+#include<vb_toon_eye>
+#include<vb_toon_cloth>
+#include<vb_toon_metal>
+#include<vb_toon_fx>
 
 varying vWorldPos: vec3f;
 varying vNormalW: vec3f;
@@ -43,6 +62,9 @@ uniform shadowParams: vec4f;
 uniform pointPos: array<vec4f, 4>;
 uniform pointCol: array<vec4f, 4>;
 uniform domainParams: vec4f;
+uniform surface: vec4f;
+uniform surface2: vec4f;
+uniform heights: vec4f;
 
 var shadowMap: texture_2d<f32>;
 
@@ -57,17 +79,38 @@ fn sampleShadow(worldPos: vec3f, n: vec3f, l: vec3f, pixel: vec2f) -> f32 {
     return shadowEdgeFade(s, sh);
 }
 
+// a ramp for each family, with the artist-facing look parameters folded in
+fn rampFor(matId: i32) -> ToonRamp {
+    var r = rampDefault();
+    if (matId == MAT_SKIN || matId == MAT_FACE) {
+        r = rampSkin();
+    } else if (matId == MAT_HAIR) {
+        r = rampHair();
+    } else if (matId == MAT_METAL) {
+        r = rampMetal();
+    } else if (matId == MAT_PAPER) {
+        r = rampPaper();
+    } else if (matId == MAT_CLOTH) {
+        r = rampCloth();
+    }
+    r.threshold = r.threshold + (uniforms.toonParams.x - 0.5);
+    r.softness = max(r.softness, uniforms.toonParams.y * 0.5);
+    r.aoInfluence = r.aoInfluence * (uniforms.toonParams.z / 0.45);
+    return r;
+}
+
 @fragment
 fn main(input: FragmentInputs) -> FragmentOutputs {
     let time = uniforms.toonParams2.w;
     let matId = decodeMaterialId(fragmentInputs.vColor.a);
     let pixel = fragmentInputs.position.xy;
+    let objPos = fragmentInputs.vObjPos;
+    let figureH = uniforms.heights.x;
 
-    // --- dissolve (curses fading out, the Little Bell letting go) -------------------------------
+    // --- endings: dissolves (curses exorcised, the Little Bell letting go) -------------------------
     var dissolveEdge = 0.0;
     if (uniforms.energy.w > 0.0) {
-        let n = vfbm3(fragmentInputs.vObjPos * 5.0, 3) * 0.75 + (1.0 - clamp(fragmentInputs.vObjPos.y / 2.0, 0.0, 1.0)) * 0.25;
-        let d = dissolve(n, uniforms.energy.w, 0.08);
+        let d = fxDissolveAsh(objPos, uniforms.energy.w, figureH);
         if (d.x < 0.5) {
             discard;
         }
@@ -77,121 +120,104 @@ fn main(input: FragmentInputs) -> FragmentOutputs {
     var albedo = fragmentInputs.vColor.rgb * uniforms.tint.rgb;
     albedo = adjustSaturation(albedo, uniforms.tint.a);
     let N = normalize(fragmentInputs.vNormalW);
-    let V = normalize(uniforms.cameraPosition - fragmentInputs.vWorldPos);
+    let toCam = uniforms.cameraPosition - fragmentInputs.vWorldPos;
+    let viewDist = length(toCam);
+    let V = toCam / max(viewDist, 1e-4);
     let L = normalize(uniforms.sunDir);
     let ao = fragmentInputs.vData.x;
+    let sunCol = uniforms.sunColor;
 
-    let threshold = uniforms.toonParams.x;
-    let softness = uniforms.toonParams.y;
-    let aoInfluence = uniforms.toonParams.z;
-
-    // --- key light --------------------------------------------------------------------------------
+    // --- light arriving ------------------------------------------------------------------------------
+    let r = rampFor(matId);
     let sh = sampleShadow(fragmentInputs.vWorldPos, N, L, pixel);
-    let hl = halfLambert(N, L);
-    var lit = celStep(hl, threshold, softness, ao, aoInfluence) * sh;
-    if (matId == MAT_FACE) {
-        let lightHead = vec3f(dot(L, uniforms.headRight), dot(L, uniforms.headUp), dot(L, uniforms.headForward));
-        let face = faceShadow(fragmentInputs.vData.z, fragmentInputs.vData.w, lightHead, 0.015);
-        // the face ignores most cast shadow (hair shadow on the face reads as noise) but a fighter
-        // standing in a building's shadow still goes dark
-        lit = face * mix(1.0, sh, 0.75);
-    }
-
-    let ambient = hemiAmbient(N, uniforms.skyColor, uniforms.groundColor);
-    let shadowCol = shadowTint(albedo, uniforms.shadowColor, 0.2) * (ambient + vec3f(0.08)) ;
-    let litCol = albedo * (uniforms.sunColor + ambient * 0.35);
-    var col = mix(shadowCol, litCol, lit);
-
-    // warm terminator: a narrow band of saturated colour where light turns to shadow
-    let band = terminatorBand(hl, threshold + (1.0 - ao) * aoInfluence, softness * 3.0 + 0.04) * sh;
-    col = col + adjustSaturation(albedo, 1.6) * uniforms.sunColor * band * 0.12;
-
-    switch matId {
-        case 1, 5: {
-            // skin: red scattered into the shadow edge, a soft cheek blush stays in shadow too
-            col = col + skinScatter(hl, threshold, vec3f(0.75, 0.18, 0.12) * albedo, 0.12) * uniforms.sunColor * 0.5;
-        }
-        case 2: {
-            // hair: Kajiya-Kay along the strands (they run down, roughly -Y in object space) plus
-            // the crisp angel ring, broken into strands
-            let strandAngle = atan2(fragmentInputs.vObjPos.z, fragmentInputs.vObjPos.x);
-            let strand = valueNoise2(vec2f(strandAngle * 22.0, fragmentInputs.vObjPos.y * 2.0));
-            let ring = angelRing(N, V, uniforms.headUp, 0.45, 0.16, strand);
-            let kk = kajiyaKay(-uniforms.headUp, L, V, (strand - 0.5) * 0.3, N, 80.0);
-            let hiCol = mix(albedo, vec3f(1.0), 0.55) * uniforms.sunColor;
-            // strand sheen only where hair faces up toward the light (crown, shoulders of long hair)
-            let up = clamp(dot(N, uniforms.headUp), 0.0, 1.0);
-            col = col + hiCol * (step(0.5, ring) * 0.55 + smoothstep(0.55, 0.75, kk) * 0.12 * lit * up) * uniforms.toonParams2.y;
-        }
-        case 3: {
-            // eyes: painted, mostly unlit so they never go dead in shadow
-            col = albedo * mix(0.78, 1.0, lit) * (uniforms.sunColor * 0.25 + vec3f(0.75));
-        }
-        case 4: {
-            // metal: a big stepped highlight and a fake environment band
-            let spec = toonSpecular(N, L, V, 0.12, 0.02) * lit;
-            let env = smoothstep(-0.1, 0.3, reflect(-V, N).y);
-            col = mix(col * 0.7, col * 1.3, env) + uniforms.sunColor * spec * 1.5;
-        }
-        case 6: {
-            // painted emissive marks (cursed seals, lantern light on robes)
-            col = albedo * (1.0 + uniforms.toonParams2.z * 3.0);
-        }
-        case 7: {
-            // paper: light passes through, so the shadow side stays bright and warm
-            let through = pow(clamp(dot(-V, L), 0.0, 1.0), 4.0);
-            col = mix(col, albedo * uniforms.sunColor * 1.1, 0.35) + albedo * through * 0.6;
-        }
-        default: {
-            // cloth: only a thin sheen where the weave catches the light (big highlights read as plastic)
-            let spec = toonSpecular(N, L, V, 0.012, 0.004) * lit * uniforms.toonParams2.x;
-            col = col + uniforms.sunColor * albedo * spec * 0.6;
-        }
-    }
-
-    // --- back rim: crisp band of rim colour on the side away from the key light --------------------
-    let rim = toonRim(N, V, -L, 0.13, 0.015, 0.8) * uniforms.toonParams.w;
-    col = col + uniforms.rimColor * rim * (0.6 + 0.4 * luma(albedo));
-
-    // --- cursed energy lights (techniques, lanterns, the bell), stepped into bands -----------------
+    let edgeN = rampEdgeNoise(objPos, 14.0);
+    var lit = toonGather(r, N, L, sunCol, sh, ao, edgeN, uniforms.skyColor, uniforms.groundColor);
     for (var i = 0; i < 4; i++) {
         let lp = uniforms.pointPos[i];
         let lc = uniforms.pointCol[i];
         if (lc.w > 0.0) {
-            let k = toonPointLight(N, fragmentInputs.vWorldPos, lp.xyz, lp.w, 3.0);
-            col = col + albedo * lc.rgb * lc.w * k;
-            col = col + lc.rgb * lc.w * toonRim(N, V, normalize(lp.xyz - fragmentInputs.vWorldPos), 0.18, 0.03, 1.0) * glowFalloff(distance(lp.xyz, fragmentInputs.vWorldPos), lp.w) * 0.6;
+            lit = toonAddPoint(lit, N, fragmentInputs.vWorldPos, lp.xyz, lp.w, lc.rgb * lc.w, 3.0);
         }
     }
 
-    // --- energy aura over the body ------------------------------------------------------------------
+    // --- material families --------------------------------------------------------------------------
+    var col = vec3f(0.0);
+    switch matId {
+        case 5: {
+            // the face: shadow shape from head-space thresholds
+            let lightHead = vec3f(dot(L, uniforms.headRight), dot(L, uniforms.headUp), dot(L, uniforms.headForward));
+            let face = faceShadow(fragmentInputs.vData.z, fragmentInputs.vData.w, lightHead, 0.015);
+            col = skinFace(skinDefault(), albedo, face, sh, N, V, L, lit.ambient, sunCol, uniforms.shadowColor, lit.points);
+            col = skinDamage(col, objPos, uniforms.surface.z * 0.6);
+            col = skinSweat(col, N, V, L, objPos, uniforms.surface.w, sunCol);
+        }
+        case 1: {
+            col = skinShade(skinDefault(), albedo, N, V, L, lit, sunCol, uniforms.shadowColor, ao);
+            col = col + skinTranslucency(N, V, L, ao, skinDefault(), sunCol) * (1.0 - lit.lit);
+            col = skinDamage(col, objPos, uniforms.surface.z);
+            col = skinSweat(col, N, V, L, objPos, uniforms.surface.w, sunCol);
+        }
+        case 2: {
+            col = hairShade(albedo, N, V, L, uniforms.headUp, objPos, lit, sunCol, uniforms.shadowColor, ao, uniforms.toonParams2.y);
+            col = hairWet(col, N, V, L, uniforms.surface.x, sunCol);
+            if (uniforms.energy.x > 0.0) {
+                let pal = paletteFor(i32(uniforms.energy.y));
+                col = hairEnergy(col, objPos, uniforms.heights.y, uniforms.energy.x, paletteRamp(pal, 0.8), time);
+            }
+        }
+        case 3: {
+            var ep = eyeDefault();
+            if (uniforms.energy.x > 0.0) {
+                let pal = paletteFor(i32(uniforms.energy.y));
+                ep.glow = uniforms.energy.x * 0.6;
+                ep.glowColor = paletteRamp(pal, 0.85);
+            }
+            col = eyeShade(albedo, N, L, lit.lit, sunCol, lit.ambient, ep, time, objPos);
+            col = eyeEmpty(col, albedo, uniforms.heights.w);
+        }
+        case 4: {
+            col = metalShade(albedo, N, V, L, lit, sunCol, uniforms.skyColor, uniforms.groundColor);
+        }
+        case 6: {
+            // painted emissive marks (cursed seals, lantern paper, glowing eyes)
+            col = albedo * (1.0 + uniforms.toonParams2.z * 3.0);
+        }
+        case 7: {
+            col = paperShade(albedo, N, V, L, lit, sunCol, uniforms.shadowColor);
+        }
+        default: {
+            col = clothShade(albedo, N, V, L, objPos, lit, sunCol, uniforms.shadowColor, ao, viewDist);
+            col = clothWet(col, N, V, L, uniforms.surface.x, sunCol);
+            col = clothWear(col, objPos, objPos.y / max(figureH, 0.1), uniforms.surface.y, uniforms.surface.z);
+            col = col + toonSpecular(N, L, V, 0.012, 0.004) * lit.lit * uniforms.toonParams2.x * albedo * sunCol * 0.6;
+        }
+    }
+
+    // --- rims ------------------------------------------------------------------------------------------
+    if (matId != MAT_EYE && matId != MAT_EMISSIVE) {
+        col = col + rimBack(N, V, L, 0.13, uniforms.rimColor, albedo) * uniforms.toonParams.w;
+        col = col + rimWrap(N, V, L, sunCol * albedo, 0.12) * lit.lit;
+        // weather and wear on everyone
+        col = fxRain(col, N, V, L, objPos, uniforms.surface.x, time, sunCol);
+        col = fxDust(col, objPos, N, uniforms.surface.y * 0.5);
+    }
+
+    // --- story transformations ----------------------------------------------------------------------------
+    col = fxPaperCreep(col, objPos, N, uniforms.surface2.x);
+    col = fxMemory(col, lit.lit, uniforms.surface2.y);
+
+    // --- the fight ----------------------------------------------------------------------------------------
     if (uniforms.energy.x > 0.0) {
-        let pal = paletteFor(i32(uniforms.energy.y));
-        let f = energyFlame(fragmentInputs.vObjPos, vec3f(0.0, 1.0, 0.0), steppedTime(time, 12.0), 2.4);
-        let fres = fresnelRim(N, V, 1.6);
-        let heat = energyBands(f * fres * 1.4 * uniforms.energy.x, 0.25, 0.5, 0.78);
-        col = mix(col, paletteRamp(pal, heat) * 2.0, step(0.3, heat) * 0.85);
+        col = fxEnergyFlow(col, N, V, objPos, uniforms.energy.x, i32(uniforms.energy.y), time);
     }
-
-    // --- the Vow: a burning red overlay and darker shadows ------------------------------------------
-    if (uniforms.energy.z > 0.0) {
-        let v = uniforms.energy.z;
-        col = mix(col, col * vec3f(1.25, 0.55, 0.55), v * (1.0 - lit) * 0.7);
-        col = col + vec3f(0.9, 0.05, 0.08) * toonRim(N, V, L, 0.3, 0.02, 0.0) * v * 0.9;
-    }
-
-    // dissolve edge glows in the curse's palette
-    if (dissolveEdge > 0.0) {
-        let pal = paletteFor(i32(uniforms.energy.y));
-        col = col + paletteRamp(pal, 0.9) * dissolveEdge * 4.0;
-    }
-
-    // domain: the caster's palette washes over everyone inside
+    col = fxBlackSpark(col, objPos, uniforms.surface2.z, time);
+    col = fxVow(col, N, V, L, lit.lit, uniforms.energy.z, time);
+    col = col + fxHurtRim(N, V, -uniforms.headForward, uniforms.heights.z);
+    col = fxDissolveGlow(col, dissolveEdge, i32(uniforms.energy.y));
     if (uniforms.domainParams.x > 0.0) {
-        let pal = paletteFor(i32(uniforms.domainParams.y));
-        col = mix(col, col * mix(vec3f(1.0), pal.body * 1.4, 0.5), uniforms.domainParams.x * 0.35);
+        col = fxDomainWash(col, uniforms.domainParams.x, i32(uniforms.domainParams.y));
     }
-
-    col = mix(col, uniforms.flash.rgb, uniforms.flash.a);
+    col = fxStillwater(col, fragmentInputs.vWorldPos, vec3f(0.0), uniforms.surface2.w, time);
+    col = fxHitFlash(col, uniforms.flash);
     fragmentOutputs.color = vec4f(max(col, vec3f(0.0)), 1.0);
 }

@@ -42,7 +42,7 @@ const TOON_UNIFORMS = [
   'world', 'viewProjection', 'view', 'cameraPosition', 'squash', 'pivot',
   'sunDir', 'sunColor', 'skyColor', 'groundColor', 'shadowColor', 'rimColor',
   'tint', 'flash', 'toonParams', 'toonParams2', 'energy', 'headRight', 'headUp', 'headForward',
-  'lightViewProj', 'shadowParams', 'pointPos', 'pointCol', 'domainParams',
+  'lightViewProj', 'shadowParams', 'pointPos', 'pointCol', 'domainParams', 'surface', 'surface2', 'heights',
 ];
 
 /** Per-character shading state, written by the fighter every frame and pushed to its materials. */
@@ -62,6 +62,12 @@ export class CharacterLook {
   toon2 = new Vector4(1, 1, 0.5, 0);
   outlineWidth = 2.2;
   lineColor = new Vector4(0, 0, 0, 0);
+  /** x wet (rain), y dust, z battle damage, w sweat */
+  surface = new Vector4(0, 0, 0, 0);
+  /** x paper creep (Shiragami), y memory (flashback drawing), z Black Spark crackle, w Stillwater */
+  surface2 = new Vector4(0, 0, 0, 0);
+  /** x figure height, y head height (object space), z hurt rim, w empty eyes */
+  heights = new Vector4(1.7, 1.55, 0, 0);
 }
 
 /** glTF models sit under a mirrored root (right- to left-handed): their triangles wind the other way. */
@@ -184,6 +190,9 @@ export class Materials {
     mat.setVector3('headForward', look.headForward);
     mat.setVector4('toonParams', look.toon);
     mat.setVector4('toonParams2', new Vector4(look.toon2.x, look.toon2.y, look.toon2.z, l.time));
+    mat.setVector4('surface', look.surface);
+    mat.setVector4('surface2', look.surface2);
+    mat.setVector4('heights', look.heights);
     if (l.shadowMap) mat.setTexture('shadowMap', l.shadowMap);
   }
 

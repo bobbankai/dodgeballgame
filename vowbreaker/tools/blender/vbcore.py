@@ -78,7 +78,9 @@ def subdivide(ob, levels=1):
 
 
 def solidify(ob, thickness, offset=-1.0):
-    return apply_modifier(ob, 'SOLIDIFY', thickness=thickness, offset=offset, use_even_offset=True)
+    # plain vertex-normal offset, clamped where faces fold tight (even offset spikes on folds)
+    return apply_modifier(ob, 'SOLIDIFY', thickness=thickness, offset=offset, use_even_offset=False,
+                          use_quality_normals=True, thickness_clamp=1.0)
 
 
 def decimate(ob, ratio):

@@ -2,6 +2,11 @@
 Vowbreaker's animation library, authored on the reference rig (Itsuki) and shared by every character.
 
   blender -b assets-raw/vowbreaker/itsuki.blend -P vowbreaker/tools/blender/anims.py -- [--export] [--sheet out.png] [--only a,b]
+  blender -b assets-raw/vowbreaker/<name>.blend -P vowbreaker/tools/blender/anims.py -- --char <name> [--export] [--sheet out.png]
+
+With --char, the character's own clips (anim/<name>.py: their stance, strings, techniques, walk and
+acting) are keyed on their own rig and exported to anims/<name>.glb; the game lays them over the
+shared library by name.
 
 Poses are dictionaries of bone rotations in degrees about the ARMATURE axes, applied to each bone
 relative to its parent as if at rest (vbanim.Keyer):
@@ -405,13 +410,13 @@ def to_channels(keys):
     return ch
 
 
-def author(arm, only=None):
+def author(arm, only=None, table=None):
     setup_hinges(arm)
     parent = {b.name: (b.parent.name if b.parent else None) for b in arm.data.bones}
     body = [b for b in BODY if b in arm.data.bones]
     keyer = vbanim.Keyer(arm)
     meta = {}
-    for name, (keys, loop, _) in clips().items():
+    for name, (keys, loop, _) in (table if table is not None else clips()).items():
         if only and name not in only:
             continue
         N = keys[-1][0]
@@ -442,8 +447,9 @@ def sheet(arm, mesh, out, names, frames=4, size=(220, 300)):
     scene.collection.objects.link(cam)
     scene.camera = cam
     from mathutils import Vector
-    t = Vector((0, 0, 0.85))
-    yaw, pitch, dist = math.radians(-35), math.radians(6), 3.6
+    hz = arm.data.bones['hips'].head_local.z
+    t = Vector((0, 0, hz * 0.95))
+    yaw, pitch, dist = math.radians(-35), math.radians(6), hz * 4.3
     cam.location = t + Vector((math.sin(yaw) * math.cos(pitch), -math.cos(yaw) * math.cos(pitch), math.sin(pitch))) * dist
     cam.rotation_euler = (t - cam.location).to_track_quat('-Z', 'Y').to_euler()
     paths = []
@@ -471,7 +477,12 @@ if __name__ == '__main__':
     arm = next(o for o in bpy.data.objects if o.type == 'ARMATURE')
     mesh = next(o for o in bpy.data.objects if o.type == 'MESH')
     bpy.context.scene.render.fps = 30
-    meta = author(arm, only)
+    char = argv[argv.index('--char') + 1] if '--char' in argv else None
+    table = None
+    if char:
+        import importlib
+        table = importlib.import_module(f'anim.{char}').clips(sys.modules[__name__])
+    meta = author(arm, only, table)
     if '--sheet' in argv:
         out = argv[argv.index('--sheet') + 1]
         paths = sheet(arm, mesh, out, only or list(meta))
@@ -484,11 +495,16 @@ if __name__ == '__main__':
         bpy.ops.object.select_all(action='DESELECT')
         arm.select_set(True)
         bpy.context.view_layer.objects.active = arm
-        path = os.path.join(OUT, 'humanoid.glb')
+        path = os.path.join(OUT, f'{char or "humanoid"}.glb')
         bpy.ops.export_scene.gltf(filepath=path, export_format='GLB', use_selection=True, export_yup=True, export_apply=False,
                                   export_animations=True, export_animation_mode='ACTIONS', export_force_sampling=True,
                                   export_frame_step=1, export_skins=True, export_morph=False, export_materials='NONE',
                                   export_def_bones=False, export_optimize_animation_size=False, export_anim_single_armature=True)
         hips = arm.data.bones['hips'].head_local
-        json.dump({'clips': meta, 'refHipHeight': hips.z}, open(os.path.join(OUT, 'humanoid.json'), 'w'), indent=1)
+        json.dump({'clips': meta, 'refHipHeight': hips.z}, open(os.path.join(OUT, f'{char or "humanoid"}.json'), 'w'), indent=1)
+        if char:
+            mpath = os.path.join(OUT, 'manifest.json')
+            man = json.load(open(mpath)) if os.path.exists(mpath) else {'models': {}}
+            man['models'][char] = sorted(meta)
+            json.dump(man, open(mpath, 'w'), indent=1)
         print('wrote', path, os.path.getsize(path) // 1024, 'KB')

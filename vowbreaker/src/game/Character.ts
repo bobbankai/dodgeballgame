@@ -44,9 +44,10 @@ export class Character {
 
   static async create(r: Renderer, model: string, id = model, opts: CharacterOptions = {}): Promise<Character> {
     const c = new Character(r, model, id);
-    const [container, lib] = await Promise.all([loadContainer(r.scene, `chars/${model}.glb`), loadClips(r.scene)]);
+    const [container, lib] = await Promise.all([loadContainer(r.scene, `chars/${model}.glb`), loadClips(r.scene, model)]);
     const inst = container.instantiateModelsToScene((n) => n, false, { doNotInstantiate: true });
     c.height = HEIGHTS[model] ?? 1.7;
+    c.look.heights.set(c.height, c.height * 0.9, 0, 0);
     for (const n of inst.rootNodes) n.parent = c.root;
     const scale = opts.scale ?? 1;
     c.root.scaling.setAll(scale);

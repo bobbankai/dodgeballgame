@@ -1,0 +1,65 @@
+{
+ "clips": {
+  "idle_relaxed": {
+   "frames": 150,
+   "fps": 30,
+   "loop": true
+  },
+  "stand": {
+   "frames": 150,
+   "fps": 30,
+   "loop": true
+  },
+  "idle_fight": {
+   "frames": 60,
+   "fps": 30,
+   "loop": true
+  },
+  "walk": {
+   "frames": 36,
+   "fps": 30,
+   "loop": true
+  },
+  "walk_fwd": {
+   "frames": 36,
+   "fps": 30,
+   "loop": true
+  },
+  "walk_back": {
+   "frames": 40,
+   "fps": 30,
+   "loop": true
+  },
+  "light1": {
+   "frames": 16,
+   "fps": 30,
+   "loop": false
+  },
+  "light2": {
+   "frames": 16,
+   "fps": 30,
+   "loop": false
+  },
+  "light3": {
+   "frames": 18,
+   "fps": 30,
+   "loop": false
+  },
+  "cast_raise": {
+   "frames": 38,
+   "fps": 30,
+   "loop": false
+  },
+  "cast_throw": {
+   "frames": 24,
+   "fps": 30,
+   "loop": false
+  },
+  "cast_palm": {
+   "frames": 28,
+   "fps": 30,
+   "loop": false
+  }
+ },
+ "refHipHeight": 0.8799999952316284
+}

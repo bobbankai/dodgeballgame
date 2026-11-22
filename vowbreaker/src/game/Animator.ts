@@ -23,7 +23,8 @@ export class Animator {
   readonly bones = new Map<string, TransformNode>();
   private rest = new Map<string, Quaternion>();
   private restHips = new Vector3();
-  private hipScale = 1;
+  /** this rig's hip height: clip hips motion is scaled by hipLen / clip.hipRef */
+  private hipLen = 1;
   /** sampled pose cache, refreshed at the stepped rate */
   private pose = new Map<string, Quaternion>();
   private poseHips = new Vector3();
@@ -45,7 +46,7 @@ export class Animator {
     const hips = this.bones.get('hips');
     if (hips) {
       this.restHips.copyFrom(hips.position);
-      this.hipScale = hips.position.length() / Math.max(lib.refHipHeight, 0.01);
+      this.hipLen = hips.position.length();
     }
   }
 
@@ -167,6 +168,7 @@ export class Animator {
     for (const l of this.layers) {
       if (l.weight <= 0 || !l.clip.hips) continue;
       this.sampleHips(l.clip, l.time, hp);
+      hp.scaleInPlace(this.hipLen / Math.max(l.clip.hipRef, 0.01));
       wsum += l.weight;
       Vector3.LerpToRef(this.poseHips, hp, l.weight / wsum, this.poseHips);
     }
@@ -182,7 +184,7 @@ export class Animator {
     }
     const hips = this.bones.get('hips');
     if (hips) {
-      hips.position.copyFrom(this.restHips).addInPlace(this.poseHips.scale(this.hipScale));
+      hips.position.copyFrom(this.restHips).addInPlace(this.poseHips);
     }
   }
 

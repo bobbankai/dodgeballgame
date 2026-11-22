@@ -19,3 +19,10 @@ noise2
 ink
 transitions
 sh
+toon_ramp
+toon_skin
+toon_hair
+toon_eye
+toon_cloth
+toon_metal
+toon_fx
