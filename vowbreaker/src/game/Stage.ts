@@ -8,6 +8,7 @@ import { loadContainer } from './Assets';
 import { Water, type WaterDef } from '../render/Water';
 import { Grass, type GrassDef } from '../render/Grass';
 import { Crowd, type CrowdDef } from '../render/Crowd';
+import { Fire, type FireSite } from '../render/Fire';
 
 export interface StageDef {
   id: string;
@@ -45,6 +46,8 @@ export interface StageDef {
   grass?: GrassDef;
   /** background people round the square (src/render/Crowd.ts) */
   crowd?: CrowdDef;
+  /** simulated fire standing on burning things (src/render/Fire.ts) */
+  fires?: FireSite[];
 }
 
 /** Post-processing a stage chooses: its grade, the light in the air, the lens. */
@@ -100,7 +103,7 @@ export const STAGES: Record<string, StageDef> = {
   village_burning: S({ id: 'village_burning', glb: 'stages/village.glb', sky: FIRE, sunDir: [0.5, 0.6, -0.6], sunColor: [1.2, 0.5, 0.2], skyColor: [0.25, 0.08, 0.05],
     groundColor: [0.12, 0.04, 0.02], shadowColor: [0.3, 0.12, 0.2], rimColor: [1.6, 0.6, 0.2], fog: { density: 0.03, color: [0.3, 0.1, 0.05] },
     horizon: [0.5, 0.15, 0.05], grade: { exposure: -0.05, contrast: 1.15, saturation: 1.15, temperature: 0.3, split: 0.3, bloom: 0.9 }, ambient: { kind: 'embers', density: 1 },
-    glow: [1.0, 0.4, 0.1], lamp: [0, 2, 0, 18, 1.0, 0.4, 0.1, 3], arena: 13, crowd: { center: [0, 0, 0], ring: [13.8, 17], count: 40, behaviours: [0, 0, 0, 1], props: [1, 0, 0, 0.15, 0], fogDensity: 0.025 }, music: 'boss', floor: [0.4, 0.3, 0.25, 22] , look: { age: 0.55, ash: 0.7, fireStrength: 1.6, fire: [0, 2.5, -6, 22] } }),
+    glow: [1.0, 0.4, 0.1], lamp: [0, 2, 0, 18, 1.0, 0.4, 0.1, 3], arena: 13, fires: [{ at: [16.5, 0, -3.3], w: 6, h: 8 }, { at: [12.6, 0, -11.1], w: 6, h: 8 }, { at: [5.3, 0, -15.9], w: 6, h: 8 }, { at: [-11.1, 0, -12.6], w: 6, h: 8 }, { at: [-15.9, 0, -5.3], w: 6, h: 8 }, { at: [-16.5, 0, 3.3], w: 6, h: 8 }, { at: [-12.6, 0, 11.1], w: 6, h: 8 }, { at: [-5.3, 0, 15.9], w: 6, h: 8 }, { at: [3.3, 0, 16.5], w: 6, h: 8 }, { at: [11.1, 0, 12.6], w: 6, h: 8 }, { at: [15.9, 0, 5.3], w: 6, h: 8 }], crowd: { center: [0, 0, 0], ring: [13.8, 17], count: 40, behaviours: [0, 0, 0, 1], props: [1, 0, 0, 0.15, 0], fogDensity: 0.025 }, music: 'boss', floor: [0.4, 0.3, 0.25, 22] , look: { age: 0.55, ash: 0.7, fireStrength: 1.6, fire: [0, 2.5, -6, 22] } }),
   estate: S({ id: 'estate', glb: 'stages/estate.glb', sky: DAY, sunDir: [-0.5, 0.7, 0.4], sunColor: [1.5, 1.4, 1.25], skyColor: [0.45, 0.55, 0.8],
     groundColor: [0.3, 0.28, 0.25], shadowColor: [0.45, 0.5, 0.78], rimColor: [1, 1, 1], fog: { density: 0.006, color: [0.8, 0.85, 0.95] },
     horizon: [0.8, 0.85, 0.95], aerial: [30, 160], grade: { exposure: 0, contrast: 1.04, saturation: 0.95, split: 0.1 }, ambient: { kind: 'snow', density: 0.3 },
@@ -135,6 +138,7 @@ export class Stage {
   /** the stage's grass, if it has any */
   grass: Grass | null = null;
   private crowd: Crowd | null = null;
+  private fire: Fire | null = null;
   def: StageDef;
 
   constructor(private r: Renderer, def: StageDef) {
@@ -268,6 +272,8 @@ export class Stage {
     this.grass = d.grass ? new Grass(r, d.grass) : null;
     this.crowd?.dispose();
     this.crowd = d.crowd ? new Crowd(r, d.crowd, () => this.env.glowColor, () => r.post.settings.fogColor) : null;
+    this.fire?.dispose();
+    this.fire = d.fires && d.fires.length ? new Fire(r, d.fires) : null;
   }
 
   private lightningIn = 6 + Math.random() * 8;
@@ -275,6 +281,7 @@ export class Stage {
 
   /** Per-frame stage life: lightning on rain stages (a double flicker, then the sky goes dark again). */
   update(dt: number): void {
+    this.fire?.update(dt);
     const env = this.env;
     if (env.rain > 0.5) {
       this.lightningIn -= dt;
@@ -303,6 +310,8 @@ export class Stage {
     this.grass = null;
     this.crowd?.dispose();
     this.crowd = null;
+    this.fire?.dispose();
+    this.fire = null;
     // materials go, but never their textures: the shadow map is shared by every material
     for (const m of this.meshes) {
       m.material?.dispose(false, false);

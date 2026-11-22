@@ -68,3 +68,4 @@ lineart
 ambient_weather
 afterimage
 bokeh
+fire_sim
