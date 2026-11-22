@@ -30,10 +30,19 @@ export interface SkyMood {
   /** sky lanterns rising (the Night Parade) */
   lanterns?: number;
   shootingStars?: number;
+  /** curtains of aurora in the north (cold clear nights) */
+  aurora?: number;
+  /** a flock of crows wheeling (dusk) */
+  crows?: number;
+  /** rays fanning from a low sun behind clouds */
+  sunburst?: number;
 }
 
 /** The sky dome (vb sky shader): follows the camera, drawn behind everything. */
 export class Sky {
+  /** a lightning flash in the sky right now (0..1) and the strike it belongs to */
+  lightning = 0;
+  boltSeed = 0;
   readonly mesh: Mesh;
   readonly mat: ShaderMaterial;
   mood: SkyMood;
@@ -46,7 +55,7 @@ export class Sky {
     this.mat = new ShaderMaterial('skyMat', scene, { vertex: 'sky', fragment: 'sky' }, {
       attributes: ['position'],
       uniforms: ['world', 'viewProjection', 'zenith', 'horizon', 'ground', 'sunDir', 'sunColor', 'moonDir', 'moonColor', 'cloudColor', 'cloudShadow',
-        'skyParams', 'skyParams2', 'skyParams3', 'skyParams4', 'cursedColor', 'festivalColor'],
+        'skyParams', 'skyParams2', 'skyParams3', 'skyParams4', 'skyParams5', 'skyParams6', 'cursedColor', 'festivalColor'],
       shaderLanguage: ShaderLanguage.WGSL,
     });
     this.mat.backFaceCulling = false;
@@ -72,6 +81,8 @@ export class Sky {
     t.setVector4('skyParams2', new Vector4(m.moonPhase ?? 0, m.horizonGlow, m.cursed ?? 0, m.festival ?? 0));
     t.setVector4('skyParams3', new Vector4(m.cirrus ?? 0.3, m.fingers ?? 0, m.fireworks ?? 0, m.rainbow ?? 0));
     t.setVector4('skyParams4', new Vector4(m.lanterns ?? 0, m.shootingStars ?? 0, 0, 0));
+    t.setVector4('skyParams5', new Vector4(this.lightning, this.boltSeed, m.aurora ?? 0, m.crows ?? 0));
+    t.setVector4('skyParams6', new Vector4(m.sunburst ?? 0, 0, 0, 0));
     t.setColor3('cursedColor', m.cursedColor ?? new Color3(0.8, 0.05, 0.05));
     t.setColor3('festivalColor', m.festivalColor ?? new Color3(1, 0.45, 0.15));
   }
@@ -81,7 +92,7 @@ const c = (r: number, g: number, b: number) => new Color3(r, g, b);
 
 export const DUSK: SkyMood = {
   zenith: c(0.12, 0.16, 0.38), horizon: c(1.0, 0.55, 0.32), ground: c(0.12, 0.1, 0.12), sunColor: c(1.6, 0.9, 0.5),
-  cloudColor: c(1.0, 0.62, 0.48), cloudShadow: c(0.42, 0.3, 0.45), cloudCover: 0.45, stars: 0.0, sunSize: 0.035, horizonGlow: 0.8, cirrus: 0.5, fingers: 0.5,
+  cloudColor: c(1.0, 0.62, 0.48), cloudShadow: c(0.42, 0.3, 0.45), cloudCover: 0.45, stars: 0.0, sunSize: 0.035, horizonGlow: 0.8, cirrus: 0.5, fingers: 0.5, crows: 1, sunburst: 0.4,
 };
 
 export const DAWN: SkyMood = {
@@ -98,7 +109,7 @@ export const NIGHT_RAIN: SkyMood = {
 export const MOONLIT: SkyMood = {
   zenith: c(0.015, 0.03, 0.08), horizon: c(0.12, 0.18, 0.32), ground: c(0.03, 0.04, 0.06), sunColor: c(0.5, 0.6, 0.85),
   moonDir: new Vector3(-0.4, 0.45, 0.8), moonColor: c(1.2, 1.25, 1.4), cloudColor: c(0.3, 0.35, 0.5), cloudShadow: c(0.08, 0.1, 0.16),
-  cloudCover: 0.35, stars: 1, sunSize: 0.0, moonPhase: 0.25, horizonGlow: 0.2, cirrus: 0.4, shootingStars: 0.6,
+  cloudCover: 0.35, stars: 1, sunSize: 0.0, moonPhase: 0.25, horizonGlow: 0.2, cirrus: 0.4, shootingStars: 0.6, aurora: 0.7,
 };
 
 export const FESTIVAL: SkyMood = {

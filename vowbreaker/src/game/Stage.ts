@@ -281,11 +281,13 @@ export class Stage {
       if (this.lightningIn <= 0) {
         this.flash = 0.45;
         this.lightningIn = 9 + Math.random() * 14;
+        this.r.sky.boltSeed = Math.random() * 100;
       }
     }
     this.flash = Math.max(0, this.flash - dt);
     const t = this.flash;
     env.lightning = t > 0 ? (t > 0.35 ? 0.9 : t > 0.28 ? 0.1 : t > 0.2 ? 0.6 : t * 0.8) : 0;
+    this.r.sky.lightning = env.lightning;
   }
 
   /** Pass the combat world's floor cracks to the environment shader. */

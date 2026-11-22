@@ -55,6 +55,8 @@ export class Effects implements CombatFx {
   private flashes: Flash[] = [];
   private projVisuals = new Map<number, number[]>();
   private projVfx = new Map<number, number[]>();
+  /** seconds each fighter has been fighting (sweat builds up) */
+  private fightTime = new Map<Fighter, number>();
   private impactT = 0;
   private flashT = 0;
   private desatT = 0;
@@ -453,6 +455,8 @@ export class Effects implements CombatFx {
     const g = new Vector3(f.pos.x, 0.05, f.pos.z);
     this.sprites.spawn({ kind: SK.dust, pos: g, size: hard ? 2.5 : 1.2, color: [0.6, 0.58, 0.55], intensity: hard ? 1 : 0.6, life: 0.5, mode: 1 });
     if (hard) {
+      // dust settles on whoever hit the ground
+      f.ch.look.surface.y = Math.min(1, f.ch.look.surface.y + 0.18);
       this.dustRing(g, 1.8, 0.7);
       this.puff(g.add(new Vector3(0, 0.3, 0)), 0.5, 0.9);
       this.particles.burst({ kind: PK.debris, pos: g, count: 14, speed: 3, spread: 1, up: 2.5, color: [0.4, 0.38, 0.36, 1], size: [0.04, 0.09], life: [0.5, 1.0] });
@@ -526,6 +530,15 @@ export class Effects implements CombatFx {
     // fighters: flashes and squash ease back, aura fades unless charging
     for (const f of fighters) {
       const l = f.ch.look;
+      // what the fight does to a body: wet in the rain, dust from falls, damage, sweat, Black Spark
+      const ft = (this.fightTime.get(f) ?? 0) + dt;
+      this.fightTime.set(f, ft);
+      const hurt = 1 - Math.max(0, f.hp) / Math.max(1, f.maxHp);
+      l.surface.x += (this.r.lighting.wetness - l.surface.x) * Math.min(1, dt * 0.5);
+      l.surface.y = Math.max(0, l.surface.y - dt * 0.004);
+      l.surface.z += (hurt - l.surface.z) * Math.min(1, dt * 2);
+      l.surface.w = Math.min(1, ft / 120 + hurt * 0.5);
+      l.surface2.z += ((f.blackSpark ? 1 : 0) - l.surface2.z) * Math.min(1, dt * 6);
       l.flash.w = Math.max(0, l.flash.w - dt * 6);
       l.squash.x += (1 - l.squash.x) * Math.min(1, dt * 12);
       l.squash.y += (1 - l.squash.y) * Math.min(1, dt * 12);
@@ -609,5 +622,6 @@ export class Effects implements CombatFx {
     this.flashes = [];
     this.shocks = [];
     this.activeTrails.clear();
+    this.fightTime.clear();
   }
 }

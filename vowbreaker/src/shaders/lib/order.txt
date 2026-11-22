@@ -59,3 +59,5 @@ calligraphy
 env_foliage
 grass
 crowd
+sky_events
+toon_marks

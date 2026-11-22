@@ -19,6 +19,7 @@
 #include<vb_noise2>
 #include<vb_clouds>
 #include<vb_celestial>
+#include<vb_sky_events>
 
 varying vDir: vec3f;
 
@@ -35,6 +36,8 @@ uniform skyParams: vec4f;      // time, cloud cover, stars, sun size
 uniform skyParams2: vec4f;     // moon phase, horizon glow, cursed amount, festival glow
 uniform skyParams3: vec4f;     // cirrus, light fingers, fireworks, rainbow
 uniform skyParams4: vec4f;     // sky lanterns, shooting stars
+uniform skyParams5: vec4f;     // lightning flash, bolt seed, aurora, crows
+uniform skyParams6: vec4f;     // sunburst, -, -, -
 uniform cursedColor: vec3f;
 uniform festivalColor: vec3f;
 
@@ -73,11 +76,21 @@ fn main(input: FragmentInputs) -> FragmentOutputs {
         col = mix(col, m.rgb, m.a) + m.rgb * (1.0 - m.a);
     }
     col = col + celRainbow(d, p.sunDir, uniforms.skyParams3.w);
+    col = col + skyAurora(d, time, uniforms.skyParams5.z);
 
     // clouds over the sun, moon and stars
     let cp = cloudDefault(uniforms.cloudColor, uniforms.cloudShadow, select(p.sunDir, p.moonDir, maxc3(uniforms.moonColor) > 0.0 && p.sunDir.y < 0.1),
                           uniforms.skyParams.y, time);
     col = cloudsComposite(col, d, cp, uniforms.skyParams3.x, uniforms.skyParams3.y);
+
+    // events: rays from a low sun, a lightning strike with the clouds lit round it, crows at dusk
+    col = col + skySunburst(d, p.sunDir, p.sunColor, uniforms.skyParams6.x, time);
+    let flash = uniforms.skyParams5.x;
+    if (flash > 0.0) {
+        col = col + skyBolt(d, flash, uniforms.skyParams5.y);
+        col = col + vec3f(0.35, 0.4, 0.55) * flash * smoothstep(0.0, 0.4, d.y) * 0.6;
+    }
+    col = mix(col, vec3f(0.02, 0.015, 0.025), skyCrows(d, time, uniforms.skyParams5.w));
 
     // festival night: the village's lantern glow along the horizon, fireworks, lanterns rising
     let fest = uniforms.skyParams2.w;

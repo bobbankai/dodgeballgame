@@ -34,6 +34,7 @@
 #include<vb_toon_cloth>
 #include<vb_toon_metal>
 #include<vb_toon_fx>
+#include<vb_toon_marks>
 
 varying vWorldPos: vec3f;
 varying vNormalW: vec3f;
@@ -212,6 +213,23 @@ fn main(input: FragmentInputs) -> FragmentOutputs {
     }
     col = fxBlackSpark(col, objPos, uniforms.surface2.z, time);
     col = fxVow(col, N, V, L, lit.lit, uniforms.energy.z, time);
+    // the Vow's sigils crawl from the hands toward the heart
+    let sig = marksSigils(objPos, figureH, uniforms.energy.z, time);
+    col = mix(col, vec3f(0.05, 0.0, 0.01), sig.x * 0.85) + vec3f(1.2, 0.05, 0.08) * sig.y;
+    // a long fight shows on the body: scratches, grime, rips, a trickle of ink
+    let dmg = uniforms.surface.z;
+    if (dmg > 0.05 && matId != MAT_EYE && matId != MAT_EMISSIVE) {
+        col = mix(col, col * 0.55, marksGrime(objPos, ao, figureH, dmg) * 0.5);
+        col = mix(col, col * 0.45 + vec3f(0.12, 0.02, 0.03), marksScratches(objPos, N, dmg) * 0.7);
+        if (matId != MAT_SKIN && matId != MAT_FACE) {
+            let rip = marksRips(objPos, dmg);
+            col = mix(col, vec3f(0.03, 0.02, 0.025), rip.x);
+            col = mix(col, col * 1.25 + vec3f(0.06), rip.y * 0.6);
+        }
+        if (matId == MAT_FACE || matId == MAT_SKIN) {
+            col = mix(col, vec3f(0.05, 0.01, 0.02), marksTrickle(objPos, figureH, uniforms.heights.y / max(figureH, 0.1), dmg));
+        }
+    }
     col = col + fxHurtRim(N, V, -uniforms.headForward, uniforms.heights.z);
     col = fxDissolveGlow(col, dissolveEdge, i32(uniforms.energy.y));
     if (uniforms.domainParams.x > 0.0) {
