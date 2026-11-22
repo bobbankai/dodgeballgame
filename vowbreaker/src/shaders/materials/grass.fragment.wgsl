@@ -9,6 +9,7 @@
 #include<vb_math>
 #include<vb_shadow>
 #include<vb_grass>
+#include<vb_grass_marks>
 
 varying vT: f32;
 varying vAcross: f32;
@@ -16,6 +17,8 @@ varying vWorld: vec3f;
 varying vSeed: f32;
 varying vFlower: f32;
 varying vFade: f32;
+varying vScar: vec4f;
+varying vHeat: f32;
 
 uniform cameraPosition: vec3f;
 uniform sunDir: vec3f;
@@ -26,6 +29,7 @@ uniform bladeColor: vec3f;
 uniform tipColor: vec3f;
 uniform lightViewProj: mat4x4f;
 uniform shadowParams: vec4f;
+uniform grassParams: vec4f;     // time, wind, -, -
 
 var shadowMap: texture_2d<f32>;
 
@@ -52,9 +56,12 @@ fn main(input: FragmentInputs) -> FragmentOutputs {
     let V = normalize(uniforms.cameraPosition - P);
     let back = pow(clamp(dot(V, -normalize(uniforms.sunDir)), 0.0, 1.0), 6.0);
     col = col + uniforms.sunColor * uniforms.tipColor * back * fragmentInputs.vT * sh * 0.6;
-    // wildflowers: a small round head on the tip
-    if (fragmentInputs.vFlower > 0.5 && fragmentInputs.vT > 0.82) {
+    // wildflowers: a small round head on the tip (not on burnt or frozen blades)
+    if (fragmentInputs.vFlower > 0.5 && fragmentInputs.vT > 0.82 && fragmentInputs.vScar.x < 0.3 && fragmentInputs.vScar.y < 0.3) {
         col = grassFlowerColor(fragmentInputs.vFlower) * mix(0.6, 1.1, lit);
     }
+    // the fight's scars, and embers on burnt tips while the heat lasts
+    col = grassScarColor(col, fragmentInputs.vT, fragmentInputs.vScar, vec3f(1.0, 0.4, 0.08), uniforms.grassParams.x, fragmentInputs.vSeed);
+    col = col + grassEmber(fragmentInputs.vT, fragmentInputs.vHeat, vec3f(1.0, 0.4, 0.08), uniforms.grassParams.x, fragmentInputs.vSeed);
     fragmentOutputs.color = vec4f(col, 1.0);
 }

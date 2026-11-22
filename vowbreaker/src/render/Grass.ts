@@ -93,8 +93,8 @@ export class Grass {
     this.mat = new ShaderMaterial('grassMat', scene, { vertex: 'grass', fragment: 'grass' }, {
       attributes: ['position', 'g0', 'g1'],
       uniforms: ['viewProjection', 'view', 'cameraPosition', 'grassParams', 'grassParams2', 'pushers', 'sunDir', 'sunColor', 'skyColor',
-        'groundColor', 'bladeColor', 'tipColor', 'lightViewProj', 'shadowParams'],
-      samplers: ['shadowMap'],
+        'groundColor', 'bladeColor', 'tipColor', 'lightViewProj', 'shadowParams', 'marksParams'],
+      samplers: ['shadowMap', 'marksA', 'marksB'],
       shaderLanguage: ShaderLanguage.WGSL,
     });
     this.mat.backFaceCulling = false;
@@ -116,6 +116,11 @@ export class Grass {
       m.setMatrix('lightViewProj', l.lightViewProj);
       m.setVector4('shadowParams', new Vector4(l.shadowSize, l.shadowBias, 1, l.shadowMap ? l.shadowsOn : 0));
       if (l.shadowMap) m.setTexture('shadowMap', l.shadowMap);
+      // the fight's ground marks burn, cut, flatten and freeze the blades
+      const mk = r.mats.marks;
+      m.setTexture('marksA', mk ? mk.texA : r.mats.dummy);
+      m.setTexture('marksB', mk ? mk.texB : r.mats.dummy);
+      m.setVector4('marksParams', mk ? mk.params : new Vector4(0, 0, 0, 0));
     });
   }
 
