@@ -10,8 +10,11 @@ import { Grass, type GrassDef } from '../render/Grass';
 import { Crowd, type CrowdDef } from '../render/Crowd';
 import { Fire, type FireSite } from '../render/Fire';
 import { GroundMarks } from '../render/Marks';
+import { Train, type TrainDef } from '../render/Train';
 
 export interface StageDef {
+  /** a train line through the station (Train) */
+  train?: TrainDef;
   /** far scenery painted round the horizon (Sky.backdrop); defaults by place */
   backdrop?: number;
   id: string;
@@ -104,7 +107,7 @@ export const STAGES: Record<string, StageDef> = {
   subway: S({ id: 'subway', glb: 'stages/subway.glb', sky: NIGHT_RAIN, sunDir: [0.0, 1.0, 0.1], sunColor: [0.85, 0.9, 1.0], skyColor: [0.25, 0.28, 0.3],
     groundColor: [0.12, 0.12, 0.14], shadowColor: [0.3, 0.34, 0.45], rimColor: [0.9, 0.95, 1.0], fog: { density: 0.02, color: [0.12, 0.13, 0.12] },
     horizon: [0.15, 0.16, 0.15], grade: { exposure: 0.15, contrast: 1.1, saturation: 0.85, temperature: -0.1, tint: 0.15, split: 0.2 },
-    glow: [0.9, 1.0, 0.95], lamp: [0, 3.5, 0, 14, 0.9, 1.0, 0.95, 1.2], arena: 11, ambient: { kind: 'dust', density: 0.7 }, music: 'battle', floor: [0.55, 0.55, 0.55, 23] , look: { age: 0.7, urban: 0.6 } }),
+    glow: [0.9, 1.0, 0.95], lamp: [0, 3.5, 0, 14, 0.9, 1.0, 0.95, 1.2], arena: 11, ambient: { kind: 'dust', density: 0.7 }, train: { z: 13.5, y: -1.0, cars: 4, period: 30, speed: 32 }, music: 'battle', floor: [0.55, 0.55, 0.55, 23] , look: { age: 0.7, urban: 0.6 } }),
   village: S({ id: 'village', glb: 'stages/village.glb', sky: FESTIVAL, sunDir: [0.5, 0.6, -0.6], sunColor: [0.5, 0.45, 0.65], skyColor: [0.12, 0.1, 0.2],
     groundColor: [0.1, 0.06, 0.05], shadowColor: [0.25, 0.22, 0.45], rimColor: [1.2, 0.6, 0.3], fog: { density: 0.012, color: [0.2, 0.1, 0.12] },
     horizon: [0.3, 0.14, 0.15], grade: { exposure: 0.35, contrast: 1.05, saturation: 1.15, temperature: 0.15, split: 0.2, bloom: 0.9 }, ambient: { kind: 'motes', density: 0.6 },
@@ -148,6 +151,8 @@ export class Stage {
   grass: Grass | null = null;
   private crowd: Crowd | null = null;
   private fire: Fire | null = null;
+  private train: Train | null = null;
+  private baseWind = 1.2;
   /** the fight's scars on the floor */
   marks: GroundMarks | null = null;
   def: StageDef;
@@ -259,6 +264,7 @@ export class Stage {
     env.moon = look.moon ?? 0;
     // the wind characters feel: stronger in storms, ash and snow
     r.lighting.windStrength = 1.2 + env.rain * 1.6 + env.snow * 0.8 + env.ash * 0.6 + (d.ambient?.kind === 'petals' ? 0.5 : 0);
+    this.baseWind = r.lighting.windStrength;
     env.fireStrength = look.fireStrength ?? 0;
     if (look.fire) env.fire.set(look.fire[0], look.fire[1], look.fire[2], look.fire[3]);
     if (d.glow) this.env.glowColor = c3(d.glow);
@@ -290,6 +296,8 @@ export class Stage {
     this.fire?.dispose();
     this.fire = d.fires && d.fires.length ? new Fire(r, d.fires) : null;
     // the fight's scars on the floor, over the arena and a margin round it
+    this.train?.dispose();
+    this.train = d.train ? new Train(r, d.train) : null;
     this.marks?.dispose();
     this.marks = new GroundMarks(r.scene, r.mats, [0, 0], Math.ceil(d.arena * 2 + 12));
     this.marks.soft = Math.min(1, env.snow * 1.2 + env.ash * 0.5);
@@ -302,6 +310,13 @@ export class Stage {
   update(dt: number): void {
     this.fire?.update(dt);
     this.marks?.update(dt);
+    if (this.train) {
+      this.train.update(dt);
+      this.env.train.copyFrom(this.train.light);
+      // the gust it pushes through the station
+      this.r.lighting.windStrength = this.baseWind + this.train.nearness * 8;
+      this.r.lighting.windDir.set(Math.sign(this.train.light.z) || 1, 0, 0.15);
+    }
     const env = this.env;
     if (env.rain > 0.5) {
       this.lightningIn -= dt;
@@ -332,6 +347,8 @@ export class Stage {
     this.crowd = null;
     this.fire?.dispose();
     this.fire = null;
+    this.train?.dispose();
+    this.train = null;
     this.marks?.dispose();
     this.marks = null;
     // materials go, but never their textures: the shadow map is shared by every material

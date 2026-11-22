@@ -39,11 +39,13 @@ export class EnvSettings {
   /** the burning village's fire: position, radius, strength */
   fire = new Vector4(0, 2, 0, 0);
   fireStrength = 0;
+  /** a passing train's light on the platform: front x, track z, dir * length, amount */
+  train = new Vector4(0, 0, 0, 0);
 }
 
 const UNIFORMS = ['world', 'viewProjection', 'view', 'cameraPosition', 'envTime', 'sunDir', 'sunColor', 'skyColor', 'groundColor', 'shadowColor',
   'lightViewProj', 'shadowParams', 'pointPos', 'pointCol', 'envParams', 'envParams2', 'envParams3', 'envParams4', 'envParams5', 'envParams6', 'firePos',
-  'glowColor', 'tintColor', 'cracks', 'domainParams', 'marksParams'];
+  'glowColor', 'tintColor', 'cracks', 'domainParams', 'marksParams', 'trainLight'];
 
 export function envMaterial(mats: Materials, mesh: AbstractMesh, settings: EnvSettings): ShaderMaterial {
   // vertex colour alpha carries pattern ids, not transparency
@@ -80,6 +82,7 @@ export function envMaterial(mats: Materials, mesh: AbstractMesh, settings: EnvSe
     mat.setColor3('glowColor', settings.glowColor);
     mat.setVector4('tintColor', settings.tint);
     mat.setArray4('cracks', Array.from(settings.cracks));
+    mat.setVector4('trainLight', settings.train);
     mat.setVector4('domainParams', new Vector4(l.domainAmount, l.domainPalette, 0, 0));
     if (l.shadowMap) mat.setTexture('shadowMap', l.shadowMap);
     const mk = mats.marks;

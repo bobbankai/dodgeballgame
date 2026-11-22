@@ -30,6 +30,7 @@
 #include<vb_env_light>
 #include<vb_env_foliage>
 #include<vb_ground_marks>
+#include<vb_train>
 
 varying vWorldPos: vec3f;
 varying vNormalW: vec3f;
@@ -58,6 +59,7 @@ uniform glowColor: vec3f;       // colour behind shoji / in lanterns / neon base
 uniform tintColor: vec4f;       // multiplies the whole stage (flashback paper, domain), a = amount
 uniform cracks: array<vec4f, 8>; // xz centre, radius, palette id (palette < 0: unused)
 uniform domainParams: vec4f;    // amount, palette
+uniform trainLight: vec4f;      // a passing train: front x, track z, dir * length, amount
 uniform marksParams: vec4f;     // the fight's ground marks: centre x, z, 1 / size, on
 
 var shadowMap: texture_2d<f32>;
@@ -165,6 +167,13 @@ fn main(input: FragmentInputs) -> FragmentOutputs {
     col = col + albedo * envMoonlight(N, V, normalize(vec3f(-0.3, 0.8, 0.5)), gloss, uniforms.envParams6.x);
     col = col + albedo * envFireLight(P, N, uniforms.firePos.xyz, uniforms.firePos.w, time, uniforms.envParams6.y);
     col = col + envWindowLight(P, N, time, uniforms.envParams5.z, uniforms.glowColor) * albedo * 2.0;
+    // a passing train: its windows' light sliding along the platform, its headlights ahead of it
+    if (uniforms.trainLight.w > 0.0) {
+        let tl = uniforms.trainLight;
+        let tdir = sign(tl.z);
+        col = col + albedo * trainPlatformLight(P, N, tl.x, abs(tl.z), tl.y, tdir, tl.w, vec3f(1.0, 0.95, 0.82)) * 2.0;
+        col = col + albedo * trainHeadlight(P, N, tl.x, tl.y, tdir, tl.w);
+    }
 
     // graphite hatching in the shadows (very light: a sketchbook texture, not a pencil drawing)
     if (uniforms.envParams.z > 0.0) {
