@@ -195,6 +195,15 @@ export class PostSettings {
   callSeed = 0;
   callAmount = 1;
   callColor = new Color3(0.72, 0.06, 0.07);
+  /** sumi-e: the memories painted as ink on rice paper (vbSumie), 0..1 */
+  sumie = 0;
+  /** how much of the original colour survives as a faint wash */
+  sumieColor = 0.35;
+  sumieDensity = 1;
+  /** one hue kept in full (0..1 round the wheel), negative for none */
+  sumieHue = -1;
+  /** brush stroke width in pixels */
+  sumieStroke = 2.5;
 }
 
 /** One burning aura: whose silhouette (G-buffer id base), its colours, style and size. */
@@ -230,6 +239,7 @@ export class PostChain {
   private dofB!: RenderTargetTexture;
   private ldr!: RenderTargetTexture;
   private ldr2!: RenderTargetTexture;
+  private ldr3!: RenderTargetTexture;
   private vol!: RenderTargetTexture;
   private ssrT!: RenderTargetTexture;
   private flareT!: RenderTargetTexture;
@@ -296,6 +306,7 @@ export class PostChain {
     this.dofB = this.target('dofB', w / 2, h / 2);
     this.ldr = this.target('ldr', w, h, Constants.TEXTURETYPE_UNSIGNED_BYTE);
     this.ldr2 = this.target('ldr2', w, h, Constants.TEXTURETYPE_UNSIGNED_BYTE);
+    this.ldr3 = this.target('ldr3', w, h, Constants.TEXTURETYPE_UNSIGNED_BYTE);
     this.vol = this.target('vol', w / 2, h / 2);
     this.ssrT = this.target('ssr', w / 2, h / 2);
     this.flareT = this.target('flare', w / 4, h / 4);
@@ -342,6 +353,7 @@ export class PostChain {
     this.wrap('vbAuraMask', ['auraIds', 'texel'], ['gbuffer']);
     this.wrap('vbTransition', ['transParams', 'transImpact'], ['source', 'snapshot']);
     this.wrap('vbCopy', [], ['source']);
+    this.wrap('vbSumie', ['screenParams', 'sumieParams', 'sumieParams2'], ['source', 'gbuffer']);
     this.wrap('vbAura', ['auraColors', 'auraEdges', 'auraParams', 'texel'], ['mask']);
   }
 
@@ -679,10 +691,24 @@ export class PostChain {
     });
     this.prevViewProj.copyFrom(vpNow);
 
+    // memories: the frame repainted as sumi-e
+    let styled: RenderTargetTexture = this.ldr;
+    if (s.sumie > 0.001) {
+      this.run('vbSumie', this.ldr3, (fx) => {
+        const e = fx.effect;
+        e.setTexture('source', this.ldr);
+        e.setTexture('gbuffer', gb);
+        e.setVector4('screenParams', screen);
+        e.setVector4('sumieParams', new Vector4(s.sumie, s.sumieColor, s.sumieDensity, this.time));
+        e.setVector4('sumieParams2', new Vector4(s.sumieHue, s.sumieStroke, 0.37, s.flashbackPaper));
+      });
+      styled = this.ldr3;
+    }
+
     // the hand-made layer: lens rain, painting, ink, screentone, paper, old film, manga marks
     this.run('vbStylize', this.ldr2, (fx) => {
       const e = fx.effect;
-      e.setTexture('source', this.ldr);
+      e.setTexture('source', styled);
       e.setVector4('screenParams', screen);
       e.setVector4('styleParams', new Vector4(s.screentone, s.paper, s.quality === 'low' ? 0 : s.inkEdges, s.painterly));
       e.setVector4('styleParams2', new Vector4(s.oldFilm, s.lensRain, s.frost, s.lightLeak));

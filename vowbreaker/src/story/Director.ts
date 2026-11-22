@@ -125,6 +125,8 @@ export class Director {
     s.fadeBlack += Math.sign(this.fadeTarget - s.fadeBlack) * Math.min(Math.abs(this.fadeTarget - s.fadeBlack), dt * this.fadeRate);
     s.letterbox += Math.sign(this.letterTarget - s.letterbox) * Math.min(Math.abs(this.letterTarget - s.letterbox), dt * 2.5);
     s.flashback += Math.sign(this.flashTarget - s.flashback) * Math.min(Math.abs(this.flashTarget - s.flashback), dt * 1.2);
+    // memories are painted in ink
+    s.sumie = s.flashback;
     this.audio.update();
   }
 
@@ -342,6 +344,7 @@ export class Director {
     if ((on ? 1 : 0) !== this.flashTarget && this.stage) void this.transition(on ? 'burn' : 'ink', () => {}, 1.6);
     this.flashTarget = on ? 1 : 0;
     this.r.post.settings.flashbackHue = keepHue;
+    this.r.post.settings.sumieHue = keepHue > 0 ? keepHue : -1;
   }
 
   white(dur = 0.4): Promise<void> {
