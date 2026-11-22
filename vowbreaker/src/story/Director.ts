@@ -354,7 +354,15 @@ export class Director {
     this.letterTarget = on ? 1 : 0;
   }
 
-  flashback(on: boolean, keepHue = 0.0): void {
+  /**
+   * Into or out of a memory. `style` is how it is painted: 'sumie' (ink), 'kage' (shadow
+   * puppets), 'photo', 'watercolor', 'crayon', 'glass' (stained glass), 'woodblock'.
+   */
+  flashback(on: boolean, keepHue = 0.0, style: 'sumie' | 'kage' | 'photo' | 'watercolor' | 'crayon' | 'glass' | 'woodblock' = 'sumie'): void {
+    if (on) {
+      this.r.post.settings.memoryStyle = { sumie: 0, kage: 1, photo: 2, watercolor: 3, crayon: 4, glass: 5, woodblock: 6 }[style];
+      this.r.post.settings.memorySeed = Math.random();
+    }
     // into a memory the present burns away like paper; out of it, ink washes it off
     if ((on ? 1 : 0) !== this.flashTarget && this.stage) void this.transition(on ? 'burn' : 'ink', () => {}, 1.6);
     this.flashTarget = on ? 1 : 0;

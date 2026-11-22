@@ -77,3 +77,4 @@ cine_light
 domain_clash
 sky_backdrop
 star_filter
+memory_styles

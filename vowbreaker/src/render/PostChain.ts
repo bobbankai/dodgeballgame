@@ -94,6 +94,9 @@ export class PostSettings {
   clashSeed = 0;
   clashColorA = new Color3(0.3, 0.8, 1);
   clashColorB = new Color3(1, 0.2, 0.1);
+  /** how a memory is painted (vbMemory): 0 sumi-e (vbSumie), 1 shadow puppets, 2 photograph, 3 watercolour, 4 crayon, 5 stained glass, 6 woodblock */
+  memoryStyle = 0;
+  memorySeed = 0.3;
   impactStyle = 0;
   impactT = 0;
   impactStrength = 0;
@@ -422,6 +425,7 @@ export class PostChain {
     this.wrap('vbSharpen', ['rcpFrame', 'sharpness'], ['source']);
     this.wrap('vbAuraMask', ['auraIds', 'texel'], ['gbuffer']);
     this.wrap('vbTransition', ['transParams', 'transImpact'], ['source', 'snapshot']);
+    this.wrap('vbMemory', ['screenParams', 'memoryParams', 'memoryParams2'], ['source', 'gbuffer']);
     this.wrap('vbClash', ['screenParams', 'clashParams', 'clashCenters', 'clashColorA', 'clashColorB'], ['clashA', 'clashB']);
     this.wrap('vbImpact', ['screenParams', 'impactParams', 'impactGeo', 'impactAccent', 'impactAccentDark'], ['source', 'gbuffer']);
     this.wrap('vbCopy', [], ['source']);
@@ -828,7 +832,8 @@ export class PostChain {
       e.setVector4('fxParams2', new Vector4(s.flashAmount, s.vignette, s.grain, s.letterbox));
       e.setVector2('fxCenter', s.fxCenter);
       e.setColor3('flashColor', s.flashColor);
-      e.setVector4('flashback', new Vector4(s.flashback, s.flashbackHue, s.flashbackPaper, s.flashbackHalftone));
+      // memories painted another way take the frame in full colour (vbMemory does the rest)
+      e.setVector4('flashback', new Vector4(s.memoryStyle > 0 ? 0 : s.flashback, s.flashbackHue, s.flashbackPaper, s.flashbackHalftone));
       e.setVector4('transition', new Vector4(s.fadeBlack, s.fadeWhite, s.wipe, s.wipeKind));
       e.setArray4('shockwaves', Array.from(s.shockwaves));
       e.setVector4('extraParams', new Vector4(s.vowVignette, s.domainTwist, s.heatHaze, this.time));
@@ -866,7 +871,17 @@ export class PostChain {
       });
       this.run('vbCopy', this.ldr, (fx) => fx.effect.setTexture('source', this.ldr3));
     }
-    if (s.sumie > 0.001) {
+    if (s.sumie > 0.001 && s.memoryStyle > 0) {
+      this.run('vbMemory', this.ldr3, (fx) => {
+        const e = fx.effect;
+        e.setTexture('source', this.ldr);
+        e.setTexture('gbuffer', gb);
+        e.setVector4('screenParams', screen);
+        e.setVector4('memoryParams', new Vector4(s.memoryStyle, s.sumie, this.time, s.memorySeed));
+        e.setVector4('memoryParams2', new Vector4(Math.max(0, s.sumieHue), 0, 0, 0));
+      });
+      styled = this.ldr3;
+    } else if (s.sumie > 0.001) {
       this.run('vbSumie', this.ldr3, (fx) => {
         const e = fx.effect;
         e.setTexture('source', this.ldr);

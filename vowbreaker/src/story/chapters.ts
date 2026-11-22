@@ -71,7 +71,7 @@ async function prologue(d: Director): Promise<void> {
   d.r.post.settings.fadeBlack = 1;
   await d.setStage('alley');
   d.music('memory');
-  d.flashback(true, 0.0);
+  d.flashback(true, 0.0, 'watercolor');
   await d.wait(0.8);
   await d.narrate('Three years ago, it rained like this.');
   const it = await d.actor('itsuki');
@@ -339,7 +339,7 @@ async function bride(d: Director): Promise<void> {
   d.hide('itsuki');
   d.hide('sayo');
   d.hide('mikami');
-  d.flashback(true, 0.0);
+  d.flashback(true, 0.0, 'glass');
   d.music('memory');
   d.shot([4, 1.6, 6], [0, 2.2, 13], 0.55);
   await talk(d, [
@@ -508,7 +508,7 @@ async function underpass(d: Director): Promise<void> {
 
 async function hina(d: Director): Promise<void> {
   await open(d, 'village', 'CHAPTER FOUR', 'Hina', 'Amagiri · twenty years ago', 'festival');
-  d.flashback(true, 0.02);
+  d.flashback(true, 0.02, 'woodblock');
   d.r.post.settings.flashbackPaper = 0.5;
   d.r.post.settings.flashbackHalftone = 0.15;
   const sj = await d.actor('sojin_young');
@@ -581,7 +581,7 @@ async function hina(d: Director): Promise<void> {
   // --- home ----------------------------------------------------------------------------------------------
   await d.fade(true, 1.2);
   await d.setStage('village_burning');
-  d.flashback(true, 0.02);
+  d.flashback(true, 0.02, 'kage');
   d.music('memory');
   d.place('sojin_young', -2, -3, 0.6);
   d.place('hina', 0, 0, 0);
@@ -800,7 +800,7 @@ async function folds(d: Director): Promise<void> {
     ['sayo', 'Yes. I know exactly what it takes.', 'angry', 'c'],
   ]);
   d.music('memory');
-  d.flashback(true, 0.97);
+  d.flashback(true, 0.97, 'photo');
   const ko = await d.actor('kota');
   d.place('kota', 1, 6, Math.PI);
   ko.anim.play('stand', 0);
@@ -950,7 +950,7 @@ async function mio(d: Director): Promise<void> {
     ['itsuki', 'I\'m sorry you waited alone in the dark with your little bell, and nobody came.', 'grief'],
     ['itsuki', 'It wasn\'t your job to wait. It was mine to come. I\'m here now.', 'grief'],
   ]);
-  d.flashback(true, 0.0);
+  d.flashback(true, 0.0, 'crayon');
   await talk(d, [
     ['mio', '"Onii-chan. I rang the bell so you\'d find me."', undefined, 'n'],
     ['mio', '"And you did. You keep finding me. Every time you hear it."', undefined, 'n'],
