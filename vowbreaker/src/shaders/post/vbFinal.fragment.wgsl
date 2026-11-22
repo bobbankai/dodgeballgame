@@ -13,6 +13,10 @@
 #include<vb_sdf2d>
 #include<vb_toon>
 #include<vb_vfx>
+#include<vb_tonemap>
+#include<vb_grade>
+#include<vb_lens>
+#include<vb_film>
 
 varying vUV: vec2f;
 
@@ -26,6 +30,14 @@ var dofTex: texture_2d<f32>;
 var dofTexSampler: sampler;
 var gbuffer: texture_2d<f32>;
 var gbufferSampler: sampler;
+var volTex: texture_2d<f32>;
+var volTexSampler: sampler;
+var ssrTex: texture_2d<f32>;
+var ssrTexSampler: sampler;
+var flareTex: texture_2d<f32>;
+var flareTexSampler: sampler;
+var exposureTex: texture_2d<f32>;
+var exposureTexSampler: sampler;
 
 uniform screenParams: vec4f;     // width, height, 1/w, 1/h
 uniform projParams: vec4f;       // tan(fovY/2), aspect, near, far
@@ -54,6 +66,9 @@ uniform transition: vec4f;       // to black, to white, wipe progress, wipe kind
 uniform shockwaves: array<vec4f, 4>;
 uniform extraParams: vec4f;      // vow vignette, domain twist, heat haze, time
 uniform domainTint: vec4f;       // rgb, amount
+uniform volParams: vec4f;        // volumetric amount, ssr amount, flare amount, lens dirt
+uniform lookParams: vec4f;       // look index, look amount, auto exposure (0/1), halation
+uniform filmParams: vec4f;       // grain size, volumetric extinction, -, -
 
 fn sampleScene(uv: vec2f) -> vec3f {
     return textureSampleLevel(compositeTex, compositeTexSampler, clamp(uv, vec2f(0.0005), vec2f(0.9995)), 0.0).rgb;
@@ -132,11 +147,33 @@ fn main(input: FragmentInputs) -> FragmentOutputs {
         col = mix(col, d.rgb, clamp(d.a * 1.6, 0.0, 1.0) * uniforms.dofParams.x);
     }
 
-    // --- bloom and light shafts --------------------------------------------------------------------------------
+    // --- reflections on wet floors and the light in the air ---------------------------------------------------
+    if (uniforms.volParams.y > 0.0) {
+        let r = textureSampleLevel(ssrTex, ssrTexSampler, uv, 0.0);
+        col = mix(col, r.rgb, clamp(r.a, 0.0, 1.0) * uniforms.volParams.y);
+    }
+    if (uniforms.volParams.x > 0.0) {
+        let v = textureSampleLevel(volTex, volTexSampler, uv, 0.0);
+        col = col * mix(1.0, v.a, uniforms.volParams.x * uniforms.filmParams.y) + v.rgb * uniforms.volParams.x;
+    }
+
+    // --- bloom, halation, lens flare and light shafts ------------------------------------------------------------
     let bloom = textureSampleLevel(bloomTex, bloomTexSampler, uv, 0.0).rgb;
     col = col + bloom * uniforms.bloomTint * uniforms.bloomParams.x;
+    col = filmHalation(col, bloom, 0.6, uniforms.lookParams.w);
+    if (uniforms.volParams.z > 0.0) {
+        let fl = textureSampleLevel(flareTex, flareTexSampler, uv, 0.0).rgb;
+        let dirt = 1.0 + lensDirt(uv, aspect) * uniforms.volParams.w;
+        col = col + fl * uniforms.volParams.z * dirt;
+    }
     let rays = textureSampleLevel(raysTex, raysTexSampler, uv, 0.0).rgb;
     col = col + rays * uniforms.raysColor;
+
+    // --- exposure: the eye's adaptation, then the scene's own offset -------------------------------------------------
+    if (uniforms.lookParams.z > 0.5) {
+        let ex = textureSampleLevel(exposureTex, exposureTexSampler, vec2f(0.5), 0.0).g;
+        col = col * clamp(ex, 0.25, 4.0);
+    }
 
     // --- grading (linear) -----------------------------------------------------------------------------------------
     col = adjustExposure(col, uniforms.grade1.x);
@@ -162,13 +199,13 @@ fn main(input: FragmentInputs) -> FragmentOutputs {
     }
 
     // --- tone mapping ---------------------------------------------------------------------------------------------
-    let curve = i32(uniforms.tonemapParams.z);
-    if (curve == 1) {
-        col = tonemapAgx(col, 0.6);
-    } else if (curve == 2) {
-        col = tonemapAcesFitted(col);
-    } else {
-        col = tonemapAnime(col, uniforms.tonemapParams.x, uniforms.tonemapParams.y);
+    col = tonemapSelect(gamutCompress(col), i32(uniforms.tonemapParams.z), uniforms.tonemapParams.x, uniforms.tonemapParams.y);
+
+    // --- the stage's look: authored like a LUT, on display values (a curve point at 0.25 means a
+    // quarter-grey on screen, a +0.03 shadow lift is a breath, not a doubling of the darks) --------
+    if (uniforms.lookParams.x > 0.5 && uniforms.lookParams.y > 0.0) {
+        let disp = linearToSrgb(clamp(col, vec3f(0.0), vec3f(1.0)));
+        col = srgbToLinear(clamp(gradeLook(disp, i32(uniforms.lookParams.x), uniforms.lookParams.y), vec3f(0.0), vec3f(1.0)));
     }
 
     // --- flashback: monochrome paper, one colour kept (Mio's red, Hina's lanterns) --------------------------------
@@ -222,9 +259,7 @@ fn main(input: FragmentInputs) -> FragmentOutputs {
         col = mix(col, vec3f(0.55, 0.0, 0.03), edge * uniforms.extraParams.x * flick * 0.8);
     }
     if (uniforms.fxParams2.z > 0.0) {
-        let gr = hash12(pixel + vec2f(fract(time * 23.0) * 100.0)) - 0.5;
-        let lum = luma(col);
-        col = col + gr * uniforms.fxParams2.z * (0.6 + 0.4 * (1.0 - lum));
+        col = filmGrain(col, pixel, floor(time * 24.0), uniforms.fxParams2.z, max(uniforms.filmParams.x, 1.0));
     }
 
     // --- letterbox, fades and wipes ----------------------------------------------------------------------------------------

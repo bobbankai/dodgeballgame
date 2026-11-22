@@ -31,3 +31,8 @@ weather
 env_light
 clouds
 celestial
+tonemap
+grade
+lens
+film
+manga

@@ -118,16 +118,28 @@ def hip_roof(c, w, d, h, col, pattern=ROOF, rot=0.0, overhang=0.5, curve=0.15, n
 
 
 def disc(c, r, col, pattern, segs=48, name='disc'):
+    """A round floor as concentric rings of near-square quads (no long fan triangles: those get
+    clipped hard by the sun's small shadow frustum and rasterise with the wrong depth on some
+    GPUs, and they smear the baked AO into spokes). A small fan closes the centre."""
     bm = bmesh.new()
-    bmesh.ops.create_circle(bm, cap_ends=True, cap_tris=False, segments=segs, radius=r)
+    segs = max(segs, 48)
+    radii = [0.6]
+    while radii[-1] < r:
+        step = max(0.6, min(4.0, radii[-1] * 2 * math.pi / segs))
+        radii.append(min(r, radii[-1] + step))
+    centre = bm.verts.new((0.0, 0.0, 0.0))
+    rings = []
+    for rad in radii:
+        ring = [bm.verts.new((rad * math.cos(2 * math.pi * k / segs), rad * math.sin(2 * math.pi * k / segs), 0.0)) for k in range(segs)]
+        rings.append(ring)
+    for k in range(segs):
+        bm.faces.new((centre, rings[0][k], rings[0][(k + 1) % segs]))
+    for a, b in zip(rings, rings[1:]):
+        for k in range(segs):
+            k2 = (k + 1) % segs
+            bm.faces.new((a[k], b[k], b[k2], a[k2]))
     bmesh.ops.translate(bm, vec=Vector(c), verts=bm.verts)
     ob = mesh_obj(name, bm)
-    # subdivide a little so AO and fog have vertices to work with
-    md = ob.modifiers.new('sub', 'SUBSURF')
-    md.subdivision_type = 'SIMPLE'
-    md.levels = 3
-    bpy.context.view_layer.objects.active = ob
-    bpy.ops.object.modifier_apply(modifier=md.name)
     return finish_piece(ob, col, pattern)
 
 

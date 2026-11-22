@@ -34,8 +34,8 @@ export class PostSettings {
   aerialStrength = 1;
   horizonColor = new Color3(0.5, 0.55, 0.7);
   // bloom
-  bloomThreshold = 0.95;
-  bloomKnee = 0.5;
+  bloomThreshold = 1.25;
+  bloomKnee = 0.45;
   bloomIntensity = 0.55;
   bloomScatter = 0.7;
   bloomTint = new Color3(1, 1, 1);
@@ -111,6 +111,70 @@ export class PostSettings {
   domainCenter = new Vector3(0, 0, 0);
   /** ink and AO can be dropped on slow devices */
   quality: 'high' | 'medium' | 'low' = 'high';
+  // volumetric light (raymarched through the shadow map)
+  volumetric = 0;
+  volDensity = 0.025;
+  volAnisotropy = 0.55;
+  volMaxDist = 60;
+  volSteps = 20;
+  volFalloff = 0.12;
+  volBase = 0;
+  volNoise = 0.5;
+  // screen-space reflections on wet floors
+  ssr = 0;
+  ssrMaxDist = 18;
+  ssrThickness = 0.5;
+  ssrRoughness = 0.2;
+  ssrSteps = 28;
+  // lens
+  flare = 0.35;
+  flareThreshold = 1.4;
+  flareGhosts = 5;
+  flareSpacing = 0.35;
+  flareDispersal = 0.004;
+  flareHalo = 0.45;
+  flareHaloAmount = 0.4;
+  anamorphic = 0;
+  anamorphicLength = 3;
+  lensDirt = 0.6;
+  starburst = 0.5;
+  // auto exposure (eye adaptation)
+  autoExposure = true;
+  /** relative (default): hold the stage's graded level and answer changes; absolute: aim at a key */
+  exposureMode: 'relative' | 'absolute' = 'relative';
+  /** relative: how much of a change is compensated (0..1); absolute: the key value */
+  exposureKey = 0.7;
+  adaptUp = 3;
+  adaptDown = 1.2;
+  evMin = -1.5;
+  evMax = 1;
+  /** how much the volumetric pass dims what is behind it (the scene's own fog already does most) */
+  volExtinction = 0.3;
+  // grade look (vb_grade) and film
+  look = 0;
+  lookAmount = 1;
+  halation = 0.15;
+  grainSize = 1.5;
+  // stylize (display-referred hand-made layer)
+  screentone = 0;
+  paper = 0;
+  inkEdges = 0.25;
+  painterly = 0;
+  oldFilm = 0;
+  lensRain = 0;
+  frost = 0;
+  lightLeak = 0;
+  focusLines = 0;
+  sparkle = 0;
+  gloom = 0;
+  panels = 0;
+  mangaPage = 0;
+  sfx = 0;
+  betaFill = 0;
+  mangaCenter = new Vector2(0.5, 0.55);
+  sfxCenter = new Vector2(0.7, 0.7);
+  paperColor = new Color3(0.98, 0.96, 0.9);
+  sharpen = 0.35;
 }
 
 /**
@@ -132,6 +196,15 @@ export class PostChain {
   private dofA!: RenderTargetTexture;
   private dofB!: RenderTargetTexture;
   private ldr!: RenderTargetTexture;
+  private ldr2!: RenderTargetTexture;
+  private vol!: RenderTargetTexture;
+  private ssrT!: RenderTargetTexture;
+  private flareT!: RenderTargetTexture;
+  private lum!: RenderTargetTexture;
+  private reduce: RenderTargetTexture[] = [];
+  private adapt: RenderTargetTexture[] = [];
+  private adaptIndex = 0;
+  private adaptReset = true;
   private passes: Record<string, EffectWrapper> = {};
   private prevViewProj = Matrix.Identity();
   private frame = 0;
@@ -183,6 +256,14 @@ export class PostChain {
     this.dofA = this.target('dofA', w / 2, h / 2);
     this.dofB = this.target('dofB', w / 2, h / 2);
     this.ldr = this.target('ldr', w, h, Constants.TEXTURETYPE_UNSIGNED_BYTE);
+    this.ldr2 = this.target('ldr2', w, h, Constants.TEXTURETYPE_UNSIGNED_BYTE);
+    this.vol = this.target('vol', w / 2, h / 2);
+    this.ssrT = this.target('ssr', w / 2, h / 2);
+    this.flareT = this.target('flare', w / 4, h / 4);
+    this.lum = this.target('lum', 64, 64);
+    this.reduce = [this.target('lum16', 16, 16), this.target('lum4', 4, 4), this.target('lum1', 1, 1)];
+    this.adapt = [this.target('adaptA', 1, 1), this.target('adaptB', 1, 1)];
+    this.adaptReset = true;
   }
 
   private wrap(name: string, uniforms: string[], samplers: string[]): EffectWrapper {
@@ -204,8 +285,18 @@ export class PostChain {
     this.wrap('vbDof', ['dofParams', 'screenParams'], ['source', 'gbuffer']);
     this.wrap('vbFinal', ['screenParams', 'projParams', 'invView', 'prevViewProj', 'motionParams', 'caParams', 'bloomParams', 'bloomTint', 'raysColor',
       'dofParams', 'grade1', 'grade2', 'lift', 'gamma', 'gain', 'splitShadow', 'splitHighlight', 'tonemapParams', 'fxParams', 'fxParams2', 'fxCenter',
-      'flashColor', 'flashback', 'transition', 'shockwaves', 'extraParams', 'domainTint'], ['compositeTex', 'bloomTex', 'raysTex', 'dofTex', 'gbuffer']);
+      'flashColor', 'flashback', 'transition', 'shockwaves', 'extraParams', 'domainTint', 'volParams', 'lookParams', 'filmParams'],
+    ['compositeTex', 'bloomTex', 'raysTex', 'dofTex', 'gbuffer', 'volTex', 'ssrTex', 'flareTex', 'exposureTex']);
     this.wrap('vbFxaa', ['rcpFrame', 'fxaaParams'], ['source']);
+    this.wrap('vbVolumetric', ['projParams', 'screenParams', 'invView', 'cameraPos', 'sunDir', 'sunColor', 'fogColor', 'lightViewProj', 'shadowParams',
+      'volParams', 'volParams2', 'pointPos', 'pointCol'], ['gbuffer', 'shadowMap']);
+    this.wrap('vbSsr', ['projParams', 'screenParams', 'ssrParams', 'ssrParams2'], ['sceneTex', 'gbuffer']);
+    this.wrap('vbLensFlare', ['screenParams', 'flareParams', 'flareParams2', 'sunUV'], ['source']);
+    this.wrap('vbLuminance', ['lumParams'], ['source', 'gbuffer']);
+    this.wrap('vbReduce', ['texel'], ['source']);
+    this.wrap('vbAdapt', ['adaptParams', 'adaptRange'], ['current', 'previous']);
+    this.wrap('vbStylize', ['screenParams', 'styleParams', 'styleParams2', 'mangaParams', 'mangaParams2', 'mangaCenter', 'paperColor'], ['source']);
+    this.wrap('vbSharpen', ['rcpFrame', 'sharpness'], ['source']);
   }
 
   isReady(): boolean {
@@ -219,6 +310,11 @@ export class PostChain {
     for (const t of this.targets) if (t !== this.black) t.dispose();
     this.targets = [this.black];
     this.buildTargets();
+  }
+
+  /** Forget the eye's adaptation (after a hard cut to a very different scene). */
+  resetAdaptation(): void {
+    this.adaptReset = true;
   }
 
   private run(name: string, out: RenderTargetTexture | null, set: (e: EffectWrapper) => void): void {
@@ -295,6 +391,74 @@ export class PostChain {
       e.setFloat('time', this.time);
     });
 
+    // screen-space reflections on wet floors (half resolution)
+    const ssrOn = s.ssr > 0.001 && s.quality === 'high';
+    if (ssrOn) {
+      this.run('vbSsr', this.ssrT, (fx) => {
+        const e = fx.effect;
+        e.setTexture('sceneTex', this.composite);
+        e.setTexture('gbuffer', gb);
+        e.setVector4('projParams', proj);
+        e.setVector4('screenParams', new Vector4(w / 2, h / 2, 2 / w, 2 / h));
+        e.setVector4('ssrParams', new Vector4(1, s.ssrMaxDist, s.ssrThickness, s.ssrRoughness));
+        e.setVector4('ssrParams2', new Vector4(s.ssrSteps, 0.45, this.time, 0));
+      });
+    }
+
+    // volumetric light through the shadow map (half resolution)
+    const volOn = s.volumetric > 0.001 && s.quality !== 'low';
+    if (volOn) {
+      this.run('vbVolumetric', this.vol, (fx) => {
+        const e = fx.effect;
+        e.setTexture('gbuffer', gb);
+        e.setTexture('shadowMap', (L.shadowMap as RenderTargetTexture | null) ?? this.black);
+        e.setVector4('projParams', proj);
+        e.setVector4('screenParams', new Vector4(w / 2, h / 2, 2 / w, 2 / h));
+        e.setMatrix('invView', invView);
+        e.setVector3('cameraPos', this.camera.globalPosition);
+        e.setVector3('sunDir', L.sunDir);
+        e.setColor3('sunColor', L.sunColor);
+        e.setColor3('fogColor', s.fogColor);
+        e.setMatrix('lightViewProj', L.lightViewProj);
+        e.setVector4('shadowParams', new Vector4(L.shadowSize, L.shadowBias, 0, L.shadowMap ? L.shadowsOn : 0));
+        e.setVector4('volParams', new Vector4(s.volDensity, s.volAnisotropy, s.volMaxDist, s.quality === 'high' ? s.volSteps : Math.max(8, s.volSteps / 2)));
+        e.setVector4('volParams2', new Vector4(s.volFalloff, s.volBase, s.volNoise, this.time));
+        e.setArray4('pointPos', Array.from(L.pointPos));
+        e.setArray4('pointCol', Array.from(L.pointCol));
+      });
+    }
+
+    // the eye's adaptation: log luminance -> reduce to 1x1 -> ease into the previous value
+    if (s.autoExposure) {
+      this.run('vbLuminance', this.lum, (fx) => {
+        fx.effect.setTexture('source', this.composite);
+        fx.effect.setTexture('gbuffer', gb);
+        fx.effect.setVector4('lumParams', new Vector4(1 / w, 1 / h, 1.5, 0.15));
+      });
+      let src: RenderTargetTexture = this.lum;
+      let size = 64;
+      for (const dst of this.reduce) {
+        const s0 = size;
+        const from = src;
+        this.run('vbReduce', dst, (fx) => {
+          fx.effect.setTexture('source', from);
+          fx.effect.setVector2('texel', new Vector2(1 / s0, 1 / s0));
+        });
+        src = dst;
+        size = size / 4;
+      }
+      const prev = this.adapt[this.adaptIndex];
+      const next = this.adapt[1 - this.adaptIndex];
+      this.run('vbAdapt', next, (fx) => {
+        fx.effect.setTexture('current', this.reduce[this.reduce.length - 1]);
+        fx.effect.setTexture('previous', prev);
+        fx.effect.setVector4('adaptParams', new Vector4(Math.min(dt, 0.1), s.adaptUp, s.adaptDown, s.exposureKey));
+        fx.effect.setVector4('adaptRange', new Vector4(s.evMin, s.evMax, this.adaptReset ? 1 : 0, s.exposureMode === 'absolute' ? 1 : 0));
+      });
+      this.adaptIndex = 1 - this.adaptIndex;
+      this.adaptReset = false;
+    }
+
     // bloom: prefilter into mip 0, downsample, then tent-upsample back up
     const mips = this.bloomMips;
     for (let i = 0; i < mips.length; i++) {
@@ -324,6 +488,27 @@ export class PostChain {
       up = this.bloomUps[i];
     }
     const bloom = up;
+
+    // lens flare from the bright parts of the image (quarter resolution, from a blurred bloom level)
+    const flareOn = s.flare > 0.001 && s.quality !== 'low';
+    if (flareOn) {
+      const sunScreen = (() => {
+        const src = this.camera.globalPosition.add(L.sunDir.scale(500));
+        const vp = this.camera.getViewMatrix().multiply(this.camera.getProjectionMatrix());
+        const c = Vector4.TransformCoordinates(src, vp);
+        if (c.w <= 0) return new Vector4(0, 0, 0, 0);
+        const x = c.x / c.w * 0.5 + 0.5;
+        const y = c.y / c.w * 0.5 + 0.5;
+        return new Vector4(x, y, x > 0 && x < 1 && y > 0 && y < 1 ? 1 : 0, s.starburst);
+      })();
+      this.run('vbLensFlare', this.flareT, (fx) => {
+        fx.effect.setTexture('source', this.bloomUps[1] ?? this.bloomUps[0]);
+        fx.effect.setVector4('screenParams', new Vector4(w / 4, h / 4, 4 / w, 4 / h));
+        fx.effect.setVector4('flareParams', new Vector4(s.flareGhosts, s.flareSpacing, s.flareThreshold, s.flareDispersal));
+        fx.effect.setVector4('flareParams2', new Vector4(s.flareHalo, s.flareHaloAmount, s.anamorphic, s.anamorphicLength));
+        fx.effect.setVector4('sunUV', sunScreen);
+      });
+    }
 
     // light shafts toward the light's screen position
     let raysOn = false;
@@ -404,15 +589,40 @@ export class PostChain {
       e.setArray4('shockwaves', Array.from(s.shockwaves));
       e.setVector4('extraParams', new Vector4(s.vowVignette, s.domainTwist, s.heatHaze, this.time));
       e.setVector4('domainTint', s.domainTint);
+      e.setTexture('volTex', volOn ? this.vol : this.black);
+      e.setTexture('ssrTex', ssrOn ? this.ssrT : this.black);
+      e.setTexture('flareTex', flareOn ? this.flareT : this.black);
+      e.setTexture('exposureTex', this.adapt[this.adaptIndex]);
+      e.setVector4('volParams', new Vector4(volOn ? s.volumetric : 0, ssrOn ? s.ssr : 0, flareOn ? s.flare : 0, s.lensDirt));
+      e.setVector4('lookParams', new Vector4(s.look, s.lookAmount, s.autoExposure ? 1 : 0, s.halation));
+      e.setVector4('filmParams', new Vector4(s.grainSize, s.volExtinction, 0, 0));
     });
     this.prevViewProj.copyFrom(vpNow);
 
-    // FXAA to the canvas
-    (this.engine as Engine).restoreDefaultFramebuffer();
-    this.run('vbFxaa', null, (fx) => {
-      fx.effect.setTexture('source', this.ldr);
+    // the hand-made layer: lens rain, painting, ink, screentone, paper, old film, manga marks
+    this.run('vbStylize', this.ldr2, (fx) => {
+      const e = fx.effect;
+      e.setTexture('source', this.ldr);
+      e.setVector4('screenParams', screen);
+      e.setVector4('styleParams', new Vector4(s.screentone, s.paper, s.quality === 'low' ? 0 : s.inkEdges, s.painterly));
+      e.setVector4('styleParams2', new Vector4(s.oldFilm, s.lensRain, s.frost, s.lightLeak));
+      e.setVector4('mangaParams', new Vector4(s.focusLines, s.sparkle, s.gloom, s.panels));
+      e.setVector4('mangaParams2', new Vector4(s.mangaPage, s.sfx, s.betaFill, this.time));
+      e.setVector4('mangaCenter', new Vector4(s.mangaCenter.x, s.mangaCenter.y, s.sfxCenter.x, s.sfxCenter.y));
+      e.setColor3('paperColor', s.paperColor);
+    });
+
+    // FXAA, then contrast-adaptive sharpening to the canvas
+    this.run('vbFxaa', this.ldr, (fx) => {
+      fx.effect.setTexture('source', this.ldr2);
       fx.effect.setVector2('rcpFrame', new Vector2(1 / w, 1 / h));
       fx.effect.setVector4('fxaaParams', new Vector4(0.6, 0.166, 0.0312, s.fxaa ? 1 : 0));
+    });
+    (this.engine as Engine).restoreDefaultFramebuffer();
+    this.run('vbSharpen', null, (fx) => {
+      fx.effect.setTexture('source', this.ldr);
+      fx.effect.setVector2('rcpFrame', new Vector2(1 / w, 1 / h));
+      fx.effect.setFloat('sharpness', s.quality === 'low' ? 0 : s.sharpen);
     });
   }
 }

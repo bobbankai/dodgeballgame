@@ -375,14 +375,69 @@ fn patternFabric(p: vec2f, weave: f32) -> PatternOut {
     return o;
 }
 
+// one jagged crack from the origin along angle `ang`, `len` long: returns (mask, core, along 0..1)
+// The path wanders by low-frequency noise along its length, splits into finer steps by a second
+// octave, and narrows from the root to a hairline at the tip.
+fn crackRay(q: vec2f, ang: f32, len: f32, width: f32, seed: f32) -> vec3f {
+    let dir = vec2f(cos(ang), sin(ang));
+    let side = vec2f(-dir.y, dir.x);
+    let along = dot(q, dir);
+    if (along < 0.0 || along > len) {
+        return vec3f(0.0);
+    }
+    let t = along / len;
+    // the path: two octaves of wander, growing with distance from the root
+    let wander = (valueNoise2(vec2f(along * 1.3, seed)) - 0.5) * 0.9 + (valueNoise2(vec2f(along * 5.0, seed + 3.1)) - 0.5) * 0.22;
+    let off = dot(q, side) - wander * len * 0.22 * t;
+    let w = width * mix(1.0, 0.12, t * t);
+    let mask = 1.0 - smoothstep(w * 0.5, w, abs(off));
+    let core = 1.0 - smoothstep(0.0, w * 0.35, abs(off));
+    return vec3f(mask, core, t);
+}
+
 // overlay: cracks with a glowing core (damage decals on the arena floor)
+// A crater of crazed fragments at the impact, scorch fading out from it, six to nine main fissures
+// running out with a side branch each, all glowing from inside with the technique's colour,
+// brightest near the impact. Returns (glow rgb, darkening mask).
 fn crackOverlay(p: vec2f, center: vec2f, radius: f32, glowCol: vec3f) -> vec4f {
-    let d = length(p - center);
-    let fade = 1.0 - smoothstep(radius * 0.4, radius, d);
-    let a = atan2(p.y - center.y, p.x - center.x);
-    let radial = ridged2(vec2f(a * 3.0, d * 1.2), 3, 2.0, 0.5, 1.0);
-    let cell = crackle2((p - center) * 2.2, 0.03);
-    let crack = max(smoothstep(0.85, 0.95, radial), cell) * fade;
-    let glow = crack * smoothstep(radius, 0.0, d);
-    return vec4f(glowCol * glow, crack);
+    let q = p - center;
+    let d = length(q);
+    if (d > radius * 1.05 || radius <= 0.0) {
+        return vec4f(0.0);
+    }
+    let seed = hash12(floor(center * 7.0)) * 100.0;
+    let count = 6.0 + floor(hash11(seed) * 4.0);
+    let a = atan2(q.y, q.x);
+    let sector = floor((a + PI) / TAU * count);
+    var mask = 0.0;
+    var core = 0.0;
+    // the crack in this sector and its two neighbours (so none is cut at a sector edge)
+    for (var k = -1; k <= 1; k++) {
+        let s = sector + f32(k);
+        let sid = s - count * floor(s / count);
+        let h = hash12(vec2f(sid, seed));
+        let ang = (sid + 0.5 + (h - 0.5) * 0.7) / count * TAU - PI;
+        let len = radius * (0.55 + 0.45 * hash12(vec2f(sid + 17.0, seed)));
+        let m = crackRay(q, ang, len, 0.07, seed + sid * 11.0);
+        mask = max(mask, m.x);
+        core = max(core, m.y * (1.0 - m.z));
+        // a side branch splitting off partway out
+        let bt = 0.3 + 0.35 * hash12(vec2f(sid + 31.0, seed));
+        let bside = select(-1.0, 1.0, hash12(vec2f(sid + 47.0, seed)) > 0.5);
+        let bang = ang + bside * (0.45 + 0.35 * hash12(vec2f(sid + 53.0, seed)));
+        let root = vec2f(cos(ang), sin(ang)) * len * bt;
+        let b = crackRay(q - root, bang, len * (0.3 + 0.25 * h), 0.04, seed + sid * 5.0 + 2.0);
+        mask = max(mask, b.x);
+        core = max(core, b.y * (1.0 - b.z) * 0.6);
+    }
+    // the crater: crazed fragments round the impact, a raised lip
+    let craterR = radius * 0.22;
+    let crater = 1.0 - smoothstep(craterR * 0.8, craterR * 1.15, d);
+    let craze = crackle2(q * (5.5 / max(radius, 0.5)) + seed, 0.06) * crater;
+    mask = max(mask, craze);
+    core = max(core, craze * 0.7);
+    // scorch: the floor darkened round the impact, broken up so it reads as burnt, not as a disc
+    let burnt = (1.0 - smoothstep(craterR * 0.5, radius * 0.6, d)) * (0.6 + 0.4 * valueNoise2(q * 3.0 + seed));
+    let glow = core * (0.35 + 0.65 * (1.0 - smoothstep(0.0, radius, d)));
+    return vec4f(glowCol * glow, max(mask * 0.9, burnt * 0.35));
 }
