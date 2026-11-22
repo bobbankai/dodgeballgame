@@ -65,3 +65,4 @@ sumie
 sslight
 toon_curse
 lineart
+ambient_weather

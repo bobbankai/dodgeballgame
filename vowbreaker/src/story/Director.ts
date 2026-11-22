@@ -118,6 +118,9 @@ export class Director {
       this.stage.grass.setPushers(fs.filter((f) => f.alive).map((f) => ({ x: f.pos.x, y: f.pos.y, z: f.pos.z, r: 0.9 })));
     }
     this.fx.update(dt, this.fight ? this.fight.fighters : []);
+    this.ambient.flash = this.r.sky.lightning;
+    this.ambient.sunDir.copyFrom(this.r.lighting.sunDir);
+    this.ambient.sunColor.copyFrom(this.r.lighting.sunColor);
     this.ambient.update(this.r.lighting.time);
     this.stage?.update(dt);
     // screen state eases
