@@ -716,15 +716,13 @@ async function stillwater(d: Director): Promise<void> {
     ['mikami', 'Then I\'ll answer you. One last time.', 'determined', 'w'],
     ['mikami', 'Domain Unveiling. Mirror Lake of Ten Thousand Moons.', 'determined', 'w'],
   ]);
-  d.domain.id = 2;
   d.burst('mikami', PAL[2].core, 5);
   d.r.post.settings.domainTwist = 0.3;
-  await d.wait(1.2);
+  d.twoShot('mikami', 'sojin', 7, 1.7);
+  // the two domains push against each other along a breaking seam; the Night Parade slowly wins
+  await d.domainClash({ domain: 3, who: 'sojin', palette: 3 }, { domain: 2, who: 'mikami', palette: 2 }, 4.5,
+    (t) => Math.sin(t * 14) * 0.25 + 0.35 - t * 1.1);
   d.r.post.settings.domainTwist = 0;
-  d.domain.id = 3;
-  await d.wait(0.4);
-  d.domain.id = 2;
-  await d.wait(0.4);
   d.domain.id = 3;
   d.fx.impactFrame(3, 0.15);
   d.domain.hide();

@@ -517,6 +517,47 @@ export class Director {
     this.cineLight.set(null, {}, 0.6);
   }
 
+  /**
+   * Two domains at once: the frame is drawn inside each of them on alternate frames and the
+   * screen split between them along a seam where space breaks (vbClash). `balance(t)` says who is
+   * winning as the clash goes on (t 0..1; below 0 the first, above 0 the second).
+   */
+  async domainClash(a: { domain: number; who: string; palette: number }, b: { domain: number; who: string; palette: number }, dur: number,
+    balance: (t: number) => number = (t) => Math.sin(t * 12) * 0.25): Promise<void> {
+    const s = this.r.post.settings;
+    const pa = PAL[a.palette] ?? PAL[0];
+    const pb = PAL[b.palette] ?? PAL[0];
+    s.clashSeed = Math.random();
+    s.clashColorA.set(pa.body[0], pa.body[1], pa.body[2]);
+    s.clashColorB.set(pb.body[0], pb.body[1], pb.body[2]);
+    this.audio.sfx('toll');
+    let t = 0;
+    let phase = 0;
+    let lastSwing = 0;
+    await this.task((dt) => {
+      t += dt;
+      const k = Math.min(1, t / dur);
+      phase = 1 - phase;
+      s.clashPhase = phase;
+      this.domain.id = phase ? b.domain : a.domain;
+      const ca = this.fx.project(this.at(a.who, 1.2));
+      const cb = this.fx.project(this.at(b.who, 1.2));
+      s.clashA.set(ca.x, ca.y);
+      s.clashB.set(cb.x, cb.y);
+      const bal = balance(k);
+      // every swing of the balance shakes the world
+      if (Math.abs(bal - lastSwing) > 0.25) {
+        this.cam.addShake(0.35);
+        lastSwing = bal;
+      }
+      s.clashBalance = bal;
+      s.clash = Math.min(1, t / 0.4) * (k < 0.92 ? 1 : (1 - k) / 0.08);
+      this.cam.addShake(0.03);
+      return k >= 1 || this.skipping;
+    });
+    s.clash = 0;
+  }
+
   endDomain(): void {
     if (!this.domain.active) return;
     // the domain's world shatters like glass back into the real one

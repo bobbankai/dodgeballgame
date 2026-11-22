@@ -84,6 +84,16 @@ export class PostSettings {
   impactAmount = 0;
   /** the drawn impact frame (vbImpact): style (0 none, 1 ink, 2 negative, 3 Black Spark, 4 sketch,
    * 5 shatter, 6 burst, 7 smear, 8 panel), progress through its hold, strength, seed */
+  /** two domains at once (vbClash): amount, which frame is being drawn (0 inside A, 1 inside B),
+   * the casters on screen, the balance (-1 A winning .. 1 B winning), their colours */
+  clash = 0;
+  clashPhase = 0;
+  clashA = new Vector2(0.3, 0.5);
+  clashB = new Vector2(0.7, 0.5);
+  clashBalance = 0;
+  clashSeed = 0;
+  clashColorA = new Color3(0.3, 0.8, 1);
+  clashColorB = new Color3(1, 0.2, 0.1);
   impactStyle = 0;
   impactT = 0;
   impactStrength = 0;
@@ -284,6 +294,8 @@ export class PostChain {
   private ghostLive = 0;
   private auraT!: RenderTargetTexture;
   private snapshot!: RenderTargetTexture;
+  private clashTexA!: RenderTargetTexture;
+  private clashTexB!: RenderTargetTexture;
   private snapshotWanted = false;
   private lum!: RenderTargetTexture;
   private reduce: RenderTargetTexture[] = [];
@@ -356,6 +368,8 @@ export class PostChain {
     this.ghostB = this.target('ghostB', w / 2, h / 2);
     this.auraT = this.target('aura', w / 2, h / 2);
     this.snapshot = this.target('snapshot', w, h, Constants.TEXTURETYPE_UNSIGNED_BYTE);
+    this.clashTexA = this.target('clashA', w, h, Constants.TEXTURETYPE_UNSIGNED_BYTE);
+    this.clashTexB = this.target('clashB', w, h, Constants.TEXTURETYPE_UNSIGNED_BYTE);
     this.lum = this.target('lum', 64, 64);
     this.reduce = [this.target('lum16', 16, 16), this.target('lum4', 4, 4), this.target('lum1', 1, 1)];
     this.adapt = [this.target('adaptA', 1, 1), this.target('adaptB', 1, 1)];
@@ -398,6 +412,7 @@ export class PostChain {
     this.wrap('vbSharpen', ['rcpFrame', 'sharpness'], ['source']);
     this.wrap('vbAuraMask', ['auraIds', 'texel'], ['gbuffer']);
     this.wrap('vbTransition', ['transParams', 'transImpact'], ['source', 'snapshot']);
+    this.wrap('vbClash', ['screenParams', 'clashParams', 'clashCenters', 'clashColorA', 'clashColorB'], ['clashA', 'clashB']);
     this.wrap('vbImpact', ['screenParams', 'impactParams', 'impactGeo', 'impactAccent', 'impactAccentDark'], ['source', 'gbuffer']);
     this.wrap('vbCopy', [], ['source']);
     this.wrap('vbDebug', ['debugParams'], ['source', 'gbuffer', 'aux']);
@@ -813,6 +828,21 @@ export class PostChain {
 
     // memories: the frame repainted as sumi-e
     let styled: RenderTargetTexture = this.ldr;
+    // two domains at once: keep this frame as the side it was drawn in, then split the two
+    if (s.clash > 0.001) {
+      this.run('vbCopy', s.clashPhase < 0.5 ? this.clashTexA : this.clashTexB, (fx) => fx.effect.setTexture('source', this.ldr));
+      this.run('vbClash', this.ldr3, (fx) => {
+        const e = fx.effect;
+        e.setTexture('clashA', this.clashTexA);
+        e.setTexture('clashB', this.clashTexB);
+        e.setVector4('screenParams', screen);
+        e.setVector4('clashParams', new Vector4(s.clash, s.clashBalance, this.time, s.clashSeed));
+        e.setVector4('clashCenters', new Vector4(s.clashA.x, s.clashA.y, s.clashB.x, s.clashB.y));
+        e.setColor3('clashColorA', s.clashColorA);
+        e.setColor3('clashColorB', s.clashColorB);
+      });
+      this.run('vbCopy', this.ldr, (fx) => fx.effect.setTexture('source', this.ldr3));
+    }
     if (s.sumie > 0.001) {
       this.run('vbSumie', this.ldr3, (fx) => {
         const e = fx.effect;
