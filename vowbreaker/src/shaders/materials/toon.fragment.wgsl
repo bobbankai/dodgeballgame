@@ -36,6 +36,7 @@
 #include<vb_toon_fx>
 #include<vb_toon_marks>
 #include<vb_toon_curse>
+#include<vb_cine_light>
 
 varying vWorldPos: vec3f;
 varying vNormalW: vec3f;
@@ -68,6 +69,7 @@ uniform surface: vec4f;
 uniform surface2: vec4f;
 uniform curse: vec4f;          // curse surface kind (0 none, 1 mud, 2 umbrella, 3 ghost, 4 paper, 5 acolyte), -, -, -
 uniform heights: vec4f;
+uniform cine: array<vec4f, 6>;  // the cutscene light rig (vb_cine_light)
 
 var shadowMap: texture_2d<f32>;
 
@@ -203,6 +205,12 @@ fn main(input: FragmentInputs) -> FragmentOutputs {
         // weather and wear on everyone
         col = fxRain(col, N, V, L, objPos, uniforms.surface.x, time, sunCol);
         col = fxDust(col, objPos, N, uniforms.surface.y * 0.5);
+    }
+
+    // --- the cutscene's lights: key through its gobo, rim, fill, firelight from below, memory glow --------
+    let rig = cineRigFrom(uniforms.cine[0], uniforms.cine[1], uniforms.cine[2], uniforms.cine[3], uniforms.cine[4], uniforms.cine[5]);
+    if (rig.amount > 0.0 && matId != MAT_EMISSIVE) {
+        col = cineApply(col, albedo, N, V, fragmentInputs.vWorldPos, lit.lit, select(0.0, 1.0, matId == MAT_EYE), sh, rig, time);
     }
 
     // --- story transformations ----------------------------------------------------------------------------

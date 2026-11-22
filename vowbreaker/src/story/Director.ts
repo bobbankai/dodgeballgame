@@ -13,6 +13,7 @@ import { Ambient } from '../render/Ambient';
 import { DomainScene } from '../render/Domain';
 import { SK } from '../render/Sprites';
 import { PK } from '../render/GpuParticles';
+import { CineLight, type CineRig } from './CineLight';
 
 /** Display names and voices of the speakers. */
 export const WHO: Record<string, { name: string; voice: string }> = {
@@ -37,6 +38,8 @@ export class Director {
   readonly fx: Effects;
   readonly ambient: Ambient;
   readonly domain: DomainScene;
+  /** the lights cutscenes put on their actors */
+  readonly cineLight = new CineLight();
   fight: Fight | null = null;
   time = 0;
   private waiters: Waiter[] = [];
@@ -103,6 +106,7 @@ export class Director {
     }
     for (const c of this.cast.values()) if (!inFight.has(c) && c.visible) c.update(dt);
     this.cam.update(dt);
+    this.cineLight.update(dt, this.r.camera, this.r.lighting);
     // particles stay inside the arena and swirl round an open domain
     const parts = this.fx.particles;
     parts.arena.set(0, this.stage ? this.stage.def.arena + 3 : 0, 0);
@@ -155,6 +159,14 @@ export class Director {
     this.audio.setRain(def.ambient?.kind === 'rain' ? 1 : 0);
     this.audio.setWind(0.3);
     this.fx.particles.wind.set(def.ambient?.kind === 'petals' ? 0.6 : 0, 0, 0.2);
+    // the place's own cutscene light (off while fighting)
+    this.cineLight.setStage(def.id);
+    if (this.fight) this.cineLight.set(null, {}, 0.05);
+  }
+
+  /** Light the actors for a shot: a named look (see CINE), a custom rig, or null for none. */
+  cine(look: string | CineRig | null, over: Partial<CineRig> = {}, fade = 0.7): void {
+    this.cineLight.set(look, over, fade);
   }
 
   async actor(id: string, model = id, opts: CharacterOptions = {}): Promise<Character> {
@@ -346,6 +358,9 @@ export class Director {
     // into a memory the present burns away like paper; out of it, ink washes it off
     if ((on ? 1 : 0) !== this.flashTarget && this.stage) void this.transition(on ? 'burn' : 'ink', () => {}, 1.6);
     this.flashTarget = on ? 1 : 0;
+    // memories are lit warm and soft, glowing at their edges
+    if (on) this.cineLight.set('memory', {}, 1.2);
+    else this.cineLight.restore(1.2);
     this.r.post.settings.flashbackHue = keepHue;
     this.r.post.settings.sumieHue = keepHue > 0 ? keepHue : -1;
   }
@@ -415,6 +430,8 @@ export class Director {
       this.letterbox(false);
       this.dof(0, 0);
       this.hud.show(true);
+      // fights are lit by the place alone
+      this.cineLight.set(null, {}, 0.4);
       const f = new Fight(this.r, spec, this.input, this.cam, this.fx, this.hud, this.stage!, this.cast);
       f.onDomain = (ff) => this.domainCinematic(ff);
       await f.setup();
@@ -425,6 +442,7 @@ export class Director {
       const res = f.result!;
       this.hud.show(false);
       this.endDomain();
+      this.cineLight.restore(1.0);
       const keep = new Set<string>(spec.fighters.map((x) => x.id).filter((id) => this.cast.has(id) && !id.startsWith('grunt')));
       f.dispose(keep);
       this.fight = null;
@@ -464,6 +482,9 @@ export class Director {
     const head = c.position.add(new Vector3(0, c.height * 0.9, 0));
     const fwd = c.forward();
     this.cam.cut({ pos: head.add(fwd.scale(1.2)).add(new Vector3(0.3, 0.05, 0)), target: head, fov: 0.45 });
+    // the caster lit hard, rimmed in their own colour
+    const rimPal = PAL[f.kit.palette] ?? PAL[0];
+    this.cineLight.set('drama', { rimColor: [rimPal.body[0] * 1.4, rimPal.body[1] * 1.4, rimPal.body[2] * 1.4], amount: 1 }, 0.2);
     this.r.post.settings.desatPulse = 0.8;
     this.fx.impactFrame(1, 0.1);
     await this.wait(0.9);
@@ -492,6 +513,8 @@ export class Director {
     this.domain.reveal = 1;
     this.stageVisible(false);
     await this.wait(0.4);
+    // back to the fight: its own light
+    this.cineLight.set(null, {}, 0.6);
   }
 
   endDomain(): void {

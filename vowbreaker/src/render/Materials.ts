@@ -27,6 +27,8 @@ export class Lighting {
   /** pattern-shader extras: rain wetness 0..1, wind, puddles */
   wetness = 0;
   windDir = new Vector3(1, 0, 0.3);
+  /** the cutscene light rig (vb_cine_light, 6 vec4s; amount 0 = off) */
+  cine = new Float32Array(24);
 
   setPoint(i: number, pos: Vector3, range: number, color: Color3, intensity: number): void {
     this.pointPos.set([pos.x, pos.y, pos.z, range], i * 4);
@@ -43,7 +45,7 @@ const TOON_UNIFORMS = [
   'world', 'viewProjection', 'view', 'cameraPosition', 'squash', 'pivot',
   'sunDir', 'sunColor', 'skyColor', 'groundColor', 'shadowColor', 'rimColor',
   'tint', 'flash', 'toonParams', 'toonParams2', 'energy', 'headRight', 'headUp', 'headForward',
-  'lightViewProj', 'shadowParams', 'pointPos', 'pointCol', 'domainParams', 'surface', 'surface2', 'heights', 'curse',
+  'lightViewProj', 'shadowParams', 'pointPos', 'pointCol', 'domainParams', 'surface', 'surface2', 'heights', 'curse', 'cine',
 ];
 
 /** Per-character shading state, written by the fighter every frame and pushed to its materials. */
@@ -199,6 +201,7 @@ export class Materials {
     mat.setVector4('surface2', look.surface2);
     mat.setVector4('heights', look.heights);
     mat.setVector4('curse', look.curse);
+    mat.setArray4('cine', Array.from(l.cine));
     if (l.shadowMap) mat.setTexture('shadowMap', l.shadowMap);
   }
 
