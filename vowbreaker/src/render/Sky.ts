@@ -46,6 +46,10 @@ export class Sky {
   readonly mesh: Mesh;
   readonly mat: ShaderMaterial;
   mood: SkyMood;
+  /** far scenery round the horizon (vb_sky_backdrop): 0 none, 1 mountains, 2 city, 3 temples, 4 sea, 5 forest, 6 burning */
+  backdrop = 0;
+  backdropAmount = 1;
+  backdropSeed = 0.37;
 
   constructor(scene: Scene, private lighting: Lighting) {
     this.mesh = MeshBuilder.CreateSphere('sky', { diameter: 900, segments: 24, sideOrientation: Mesh.BACKSIDE }, scene);
@@ -82,7 +86,7 @@ export class Sky {
     t.setVector4('skyParams3', new Vector4(m.cirrus ?? 0.3, m.fingers ?? 0, m.fireworks ?? 0, m.rainbow ?? 0));
     t.setVector4('skyParams4', new Vector4(m.lanterns ?? 0, m.shootingStars ?? 0, 0, 0));
     t.setVector4('skyParams5', new Vector4(this.lightning, this.boltSeed, m.aurora ?? 0, m.crows ?? 0));
-    t.setVector4('skyParams6', new Vector4(m.sunburst ?? 0, 0, 0, 0));
+    t.setVector4('skyParams6', new Vector4(m.sunburst ?? 0, this.backdrop, this.backdropAmount, this.backdropSeed));
     t.setColor3('cursedColor', m.cursedColor ?? new Color3(0.8, 0.05, 0.05));
     t.setColor3('festivalColor', m.festivalColor ?? new Color3(1, 0.45, 0.15));
   }

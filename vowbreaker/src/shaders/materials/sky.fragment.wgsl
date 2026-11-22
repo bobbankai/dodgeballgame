@@ -20,6 +20,7 @@
 #include<vb_clouds>
 #include<vb_celestial>
 #include<vb_sky_events>
+#include<vb_sky_backdrop>
 
 varying vDir: vec3f;
 
@@ -37,7 +38,7 @@ uniform skyParams2: vec4f;     // moon phase, horizon glow, cursed amount, festi
 uniform skyParams3: vec4f;     // cirrus, light fingers, fireworks, rainbow
 uniform skyParams4: vec4f;     // sky lanterns, shooting stars
 uniform skyParams5: vec4f;     // lightning flash, bolt seed, aurora, crows
-uniform skyParams6: vec4f;     // sunburst, -, -, -
+uniform skyParams6: vec4f;     // sunburst, backdrop kind, backdrop amount, backdrop seed
 uniform cursedColor: vec3f;
 uniform festivalColor: vec3f;
 
@@ -82,6 +83,17 @@ fn main(input: FragmentInputs) -> FragmentOutputs {
     let cp = cloudDefault(uniforms.cloudColor, uniforms.cloudShadow, select(p.sunDir, p.moonDir, maxc3(uniforms.moonColor) > 0.0 && p.sunDir.y < 0.1),
                           uniforms.skyParams.y, time);
     col = cloudsComposite(col, d, cp, uniforms.skyParams3.x, uniforms.skyParams3.y);
+
+    // the far scenery painted round the horizon: ranges, skylines, temple hills, islands, forest
+    let bk = i32(uniforms.skyParams6.y + 0.5);
+    if (bk > 0 && d.y < 0.4) {
+        let night = clamp(max(uniforms.skyParams.z, smoothstep(0.1, -0.12, p.sunDir.y)), 0.0, 1.0);
+        let px = max(length(fwidth(d)), 1e-4) * 1.2;
+        let bd = skyBackdrop(bk, d, px, uniforms.horizon, uniforms.zenith, p.sunColor, p.sunDir, night, uniforms.festivalColor * 1.5, time,
+                             uniforms.skyParams6.w, 0.6);
+        let amt = uniforms.skyParams6.z;
+        col = mix(col, bd.color, bd.cover * amt) + bd.emissive * amt;
+    }
 
     // events: rays from a low sun, a lightning strike with the clouds lit round it, crows at dusk
     col = col + skySunburst(d, p.sunDir, p.sunColor, uniforms.skyParams6.x, time);

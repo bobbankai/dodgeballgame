@@ -12,6 +12,8 @@ import { Fire, type FireSite } from '../render/Fire';
 import { GroundMarks } from '../render/Marks';
 
 export interface StageDef {
+  /** far scenery painted round the horizon (Sky.backdrop); defaults by place */
+  backdrop?: number;
   id: string;
   glb: string | null;
   sky: SkyMood;
@@ -74,6 +76,12 @@ const LOOKS: Record<string, number> = {
 };
 
 const S = (o: StageDef) => o;
+
+/** The far scenery round each place (1 mountains, 2 city, 3 temples, 4 sea, 5 forest, 6 burning). */
+const BACKDROPS: Record<string, number> = {
+  alley: 2, academy: 3, academy_night: 3, chapel: 4, subway: 2, village: 5, village_burning: 6, estate: 1, apartment: 2,
+  crossing: 2, tower: 2, graves: 2, void: 1,
+};
 
 /** The places the story happens. */
 export const STAGES: Record<string, StageDef> = {
@@ -212,6 +220,8 @@ export class Stage {
       L.setPoint(0, new Vector3(l[0], l[1], l[2]), l[3], new Color3(l[4], l[5], l[6]), l[7]);
     }
     r.sky.mood = d.sky;
+    r.sky.backdrop = d.backdrop ?? BACKDROPS[d.id] ?? 0;
+    r.sky.backdropSeed = (d.id.length * 0.137) % 1;
     const s = r.post.settings;
     s.fogDensity = d.fog.density;
     s.fogColor = c3(d.fog.color);
