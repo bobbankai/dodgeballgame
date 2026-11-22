@@ -54,3 +54,4 @@ psim
 fluid
 aura
 scene_trans
+water_toon

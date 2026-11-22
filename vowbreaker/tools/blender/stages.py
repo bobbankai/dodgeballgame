@@ -443,7 +443,7 @@ def academy():
 def chapel():
     """A ruined seaside wedding chapel: broken white walls and arches, toppled pews, the sea."""
     rng = random.Random(3)
-    plane((0, 0, -0.6), 200, 200, '#1E3448', GLASS, name='sea')
+    # the sea itself is the stage's toon water surface (src/render/Water.ts)
     disc((0, 0, 0), 22, '#C9C4BA', TILE, name='floor')
     box((0, 0, -0.35), (44, 44, 0.6), '#8E8A82', STONE)
     # broken walls: segments with arches cut by leaving gaps, heights uneven

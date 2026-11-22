@@ -70,7 +70,7 @@ fn transInTri(p: vec2f, a: vec2f, b: vec2f, c: vec2f) -> vec3f {
     return vec3f(u, v, 1.0 - u - v);
 }
 
-fn transShatter(uv: vec2f, t: f32, impact: vec2f, aspect: f32) -> TransSample {
+fn transGlassShatter(uv: vec2f, t: f32, impact: vec2f, aspect: f32) -> TransSample {
     var res = transNone(uv);
     // work in an aspect-corrected space so shards are not stretched
     let P = vec2f(uv.x * aspect, uv.y);
@@ -250,7 +250,7 @@ fn transTalisman(uv: vec2f, t: f32, aspect: f32, seed: f32) -> TransSample {
 
 fn transEval(kind: i32, uv: vec2f, t: f32, aspect: f32, impact: vec2f, seed: f32) -> TransSample {
     switch kind {
-        case 0: { return transShatter(uv, t, impact, aspect); }
+        case 0: { return transGlassShatter(uv, t, impact, aspect); }
         case 1: { return transInk(uv, t, aspect, seed); }
         case 2: { return transBurn(uv, t, aspect, seed); }
         case 3: { return transSlash(uv, t, aspect, seed * 6.28); }

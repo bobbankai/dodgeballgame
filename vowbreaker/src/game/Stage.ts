@@ -5,6 +5,7 @@ import { CURSED, DAWN, DAY, DUSK, FESTIVAL, FIRE, MOONLIT, NIGHT_RAIN, SPRING, S
 import type { AmbientKind } from '../render/Ambient';
 import type { Mood } from '../audio/Audio';
 import { loadContainer } from './Assets';
+import { Water, type WaterDef } from '../render/Water';
 
 export interface StageDef {
   id: string;
@@ -36,6 +37,8 @@ export interface StageDef {
     clouds: number; dapples: number; windows: number; moon: number; fireStrength: number; fire: [number, number, number, number] }>;
   /** the camera's side of the place (PostSettings fields); unset fields follow the stage's traits */
   post?: Partial<StagePost>;
+  /** seas, ponds and canals (toon water, src/render/Water.ts) */
+  water?: WaterDef[];
 }
 
 /** Post-processing a stage chooses: its grade, the light in the air, the lens. */
@@ -79,7 +82,7 @@ export const STAGES: Record<string, StageDef> = {
   chapel: S({ id: 'chapel', glb: 'stages/chapel.glb', sky: MOONLIT, sunDir: [-0.4, 0.45, 0.8], sunColor: [0.65, 0.75, 1.1], skyColor: [0.12, 0.17, 0.3],
     groundColor: [0.05, 0.06, 0.08], shadowColor: [0.22, 0.28, 0.5], rimColor: [0.6, 0.8, 1.2], fog: { density: 0.015, color: [0.1, 0.14, 0.22] },
     horizon: [0.12, 0.18, 0.3], grade: { exposure: -0.45, contrast: 1.12, saturation: 0.95, split: 0.3, bloom: 0.5 }, ambient: { kind: 'motes', density: 0.4 },
-    arena: 12, music: 'tense', rays: true, floor: [0.7, 0.68, 0.66, 14] , look: { age: 1, litter: 0.2, season: 1, moon: 1, clouds: 0.2 } }),
+    arena: 12, water: [{ kind: 'sea', center: [0, -0.45, 0], size: [220, 220], shallow: [0.2, 0.42, 0.48], deep: [0.03, 0.09, 0.17], depth: 4, waves: [0.7, 11] }], music: 'tense', rays: true, floor: [0.7, 0.68, 0.66, 14] , look: { age: 1, litter: 0.2, season: 1, moon: 1, clouds: 0.2 } }),
   subway: S({ id: 'subway', glb: 'stages/subway.glb', sky: NIGHT_RAIN, sunDir: [0.0, 1.0, 0.1], sunColor: [0.85, 0.9, 1.0], skyColor: [0.25, 0.28, 0.3],
     groundColor: [0.12, 0.12, 0.14], shadowColor: [0.3, 0.34, 0.45], rimColor: [0.9, 0.95, 1.0], fog: { density: 0.02, color: [0.12, 0.13, 0.12] },
     horizon: [0.15, 0.16, 0.15], grade: { exposure: 0.15, contrast: 1.1, saturation: 0.85, temperature: -0.1, tint: 0.15, split: 0.2 },
@@ -95,7 +98,7 @@ export const STAGES: Record<string, StageDef> = {
   estate: S({ id: 'estate', glb: 'stages/estate.glb', sky: DAY, sunDir: [-0.5, 0.7, 0.4], sunColor: [1.5, 1.4, 1.25], skyColor: [0.45, 0.55, 0.8],
     groundColor: [0.3, 0.28, 0.25], shadowColor: [0.45, 0.5, 0.78], rimColor: [1, 1, 1], fog: { density: 0.006, color: [0.8, 0.85, 0.95] },
     horizon: [0.8, 0.85, 0.95], aerial: [30, 160], grade: { exposure: 0, contrast: 1.04, saturation: 0.95, split: 0.1 }, ambient: { kind: 'petals', density: 0.25 },
-    glow: [1.0, 0.95, 0.85], arena: 12, music: 'tense', rays: true, floor: [0.85, 0.83, 0.78, 28] , look: { age: 0.3, litter: 0.15, season: 1, frost: 0.35, clouds: 0.25 } }),
+    glow: [1.0, 0.95, 0.85], arena: 12, water: [{ kind: 'pond', center: [10, 0.07, -14], size: [12, 7], shallow: [0.24, 0.4, 0.32], deep: [0.04, 0.13, 0.13], depth: 1.4, rim: 0.6 }], music: 'tense', rays: true, floor: [0.85, 0.83, 0.78, 28] , look: { age: 0.3, litter: 0.15, season: 1, frost: 0.35, clouds: 0.25 } }),
   apartment: S({ id: 'apartment', glb: 'stages/apartment.glb', sky: FIRE, sunDir: [0.2, 0.8, 0.5], sunColor: [1.1, 0.45, 0.2], skyColor: [0.2, 0.06, 0.04],
     groundColor: [0.1, 0.03, 0.02], shadowColor: [0.25, 0.08, 0.15], rimColor: [1.8, 0.7, 0.25], fog: { density: 0.04, color: [0.25, 0.07, 0.03] },
     horizon: [0.4, 0.1, 0.04], grade: { exposure: 0.25, contrast: 1.18, saturation: 1.1, temperature: 0.35, split: 0.35, bloom: 1.3, vignette: 0.6 },
@@ -122,6 +125,7 @@ export class Stage {
   readonly env = new EnvSettings();
   private nodes: TransformNode[] = [];
   private meshes: AbstractMesh[] = [];
+  private waters: Water[] = [];
   def: StageDef;
 
   constructor(private r: Renderer, def: StageDef) {
@@ -247,6 +251,10 @@ export class Stage {
     s.lightLeak = pp.lightLeak ?? 0;
     r.post.resetAdaptation();
     r.shadow.extent = Math.max(12, d.arena + 4);
+    // seas and ponds, with rain rings where it rains
+    for (const w of this.waters) w.dispose();
+    this.waters = (d.water ?? []).map((wd) => new Water(r, wd));
+    for (const w of this.waters) w.rain = env.rain > 0.5 ? 1 : 0;
   }
 
   private lightningIn = 6 + Math.random() * 8;
@@ -274,6 +282,8 @@ export class Stage {
   }
 
   dispose(): void {
+    for (const w of this.waters) w.dispose();
+    this.waters = [];
     // materials go, but never their textures: the shadow map is shared by every material
     for (const m of this.meshes) {
       m.material?.dispose(false, false);
