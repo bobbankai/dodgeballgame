@@ -70,3 +70,4 @@ afterimage
 bokeh
 fire_sim
 ground_marks
+debris

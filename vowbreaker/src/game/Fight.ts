@@ -72,6 +72,9 @@ export class Fight {
     readonly hud: HUD, private stage: Stage, private cast: Map<string, Character>) {
     this.combat = new Combat(fx);
     this.combat.arenaRadius = stage.def.arena;
+    // the floor breaks into chunks of its own colour, a shade darker inside
+    const fl = stage.def.floor ?? [0.5, 0.48, 0.45, 0];
+    fx.ground = { color: [fl[0] * 0.85, fl[1] * 0.85, fl[2] * 0.85], kind: 0 };
   }
 
   async setup(): Promise<void> {

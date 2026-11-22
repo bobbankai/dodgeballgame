@@ -6,6 +6,7 @@ import { Trails } from '../render/Trails';
 import { Vfx, VK, type VfxPalette } from '../render/Vfx';
 import { Fluid } from '../render/Fluid';
 import { MK, type MarkStamp } from '../render/Marks';
+import { Debris, DK } from '../render/Debris';
 import type { WebGPUEngine } from '@babylonjs/core';
 import type { CameraRig } from './CameraRig';
 import type { CombatFx, HitResult, Projectile } from './Combat';
@@ -53,6 +54,10 @@ export class Effects implements CombatFx {
   readonly vfx: Vfx;
   /** ink in water over the screen */
   readonly fluid: Fluid;
+  /** chunks of the floor thrown by heavy blows */
+  readonly debris: Debris;
+  /** what this stage's floor breaks into */
+  ground: { color: [number, number, number]; kind: number } = { color: [0.5, 0.48, 0.45], kind: DK.stone };
   private flashes: Flash[] = [];
   private projVisuals = new Map<number, number[]>();
   private projVfx = new Map<number, number[]>();
@@ -81,6 +86,13 @@ export class Effects implements CombatFx {
     this.vfx = new Vfx(r);
     this.fluid = new Fluid(r.engine as unknown as WebGPUEngine, r.scene);
     r.post.fluid = this.fluid;
+    this.debris = new Debris(r.engine as unknown as WebGPUEngine, r.scene, r.mats);
+  }
+
+  /** Throw chunks of the floor up from a point (heavy impacts, craters, techniques). */
+  rubble(at: Vector3, count: number, speed: number, size = 0.12, heat = 0, dir?: Vector3): void {
+    const g = this.ground;
+    this.debris.burst({ pos: new Vector3(at.x, Math.max(0.05, at.y), at.z), count, speed, up: speed * 0.6, spread: dir ? 0.6 : 1, dir, kind: g.kind, color: g.color, size: [size * 0.5, size * 1.4], heat });
   }
 
   /** A world position on screen (post-chain uv: x right, y up). */
@@ -205,6 +217,7 @@ export class Effects implements CombatFx {
     }
     // the floor remembers: ink thrown along the blow, the target's heels dragged back
     if (big || Math.random() < 0.3) this.splatter(t.pos, dir, big ? 0.32 + Math.random() * 0.12 : 0.16, big ? 1 : 0.7);
+    if (big && at.y < 1.2) this.rubble(new Vector3(t.pos.x, 0, t.pos.z), 6, 3, 0.08, 0, dir);
     if (big) this.mark({ kind: MK.skid, x: t.pos.x - dir.x * 0.2, z: t.pos.z - dir.z * 0.2, angle: Math.atan2(dir.z, dir.x), len: 0.9 + dmg / 80, width: 0.35, strength: 0.8 });
     if (marked) {
       // the seal tolls: a ring of gold and a second ripple
@@ -229,6 +242,7 @@ export class Effects implements CombatFx {
       }
       this.vfx.spawn({ kind: VK.crater, pos: new Vector3(at.x, 0.03, at.z), scale: 1.4, life: 4, color: SPARK_LIGHT });
       this.mark({ kind: MK.crater, x: t.pos.x, z: t.pos.z, radius: 1.5, strength: 1, palette: 5 });
+      this.rubble(new Vector3(t.pos.x, 0, t.pos.z), 26, 6, 0.14, 1);
       this.mark({ kind: MK.splatter, x: t.pos.x + dir.x, z: t.pos.z + dir.z, radius: 0.45, angle: Math.atan2(dir.z, dir.x), strength: 1 });
       // black lightning bleeds red ink across the screen
       this.inkBurst(at, [0.45, 0.0, 0.03], 1.2, 7);
@@ -302,6 +316,7 @@ export class Effects implements CombatFx {
     // the floor remembers it: a crater for the big ones, debris thrown round every blast
     if (radius > 1.5) this.mark({ kind: MK.crater, x: at.x, z: at.z, radius: Math.min(3.5, radius * 0.6), strength: Math.min(1, radius / 3), palette: owner.kit.palette });
     this.mark({ kind: MK.scatter, x: at.x, z: at.z, radius: radius * 1.3, strength: 0.8 });
+    if (radius > 1.5) this.rubble(at, Math.min(60, Math.round(radius * 10)), 3 + radius * 1.2, 0.1 + radius * 0.025, kind === 'fire' || kind === 'firering' ? 0.8 : 0.35);
     switch (kind) {
       case 'fire':
       case 'firering':
@@ -516,6 +531,7 @@ export class Effects implements CombatFx {
     }
     if (hard) {
       this.mark({ kind: MK.crater, x: f.pos.x, z: f.pos.z, radius: 0.9, strength: 0.45, palette: f.kit.palette });
+      this.rubble(g, 8, 2.5, 0.08);
       // dust settles on whoever hit the ground
       f.ch.look.surface.y = Math.min(1, f.ch.look.surface.y + 0.18);
       this.dustRing(g, 1.8, 0.7);
@@ -589,6 +605,9 @@ export class Effects implements CombatFx {
     this.particles.update(dt);
     this.trails.update(dt, this.r.camera.position);
     this.particles.attractStrength *= Math.exp(-dt * 3);
+    this.debris.update(dt);
+    this.debris.shocks.set(this.particles.shocks);
+    this.debris.arena = [this.particles.arena.x, this.particles.arena.z, this.particles.arena.y, 0.35];
     // fighters: flashes and squash ease back, aura fades unless charging
     const marks = this.r.mats.marks;
     for (const f of fighters) {
@@ -709,6 +728,7 @@ export class Effects implements CombatFx {
     this.activeTrails.clear();
     this.fightTime.clear();
     this.stride.clear();
+    this.debris.clear();
     this.r.mats.marks?.clear();
   }
 }
