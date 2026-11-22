@@ -28,6 +28,7 @@
 #include<vb_env_detail>
 #include<vb_weather>
 #include<vb_env_light>
+#include<vb_env_foliage>
 
 varying vWorldPos: vec3f;
 varying vNormalW: vec3f;
@@ -80,6 +81,19 @@ fn main(input: FragmentInputs) -> FragmentOutputs {
     albedo = adjustSaturation(albedo, uniforms.envParams2.w);
     N = bumpFromHeight(P, N, pat.height + det.height, uniforms.envParams2.x * 0.012);
 
+    // --- foliage: clumped crowns, leafy silhouettes, blossoms, the season ------------------------------------
+    let isLeaf = id == PAT_FOLIAGE;
+    var leafGlint = 0.0;
+    if (isLeaf) {
+        let fo = foliageShade(P, N, V, albedo, uniforms.envParams3.z, time, length(wind), fragmentInputs.vSeed);
+        if (fo.cut > 0.5) {
+            discard;
+        }
+        N = fo.n;
+        albedo = fo.albedo;
+        leafGlint = fo.glint;
+    }
+
     // --- weather: soaking, puddles, splashes -------------------------------------------------------------
     var gloss = clamp(pat.gloss + det.gloss, 0.0, 1.0);
     var puddle = 0.0;
@@ -110,6 +124,11 @@ fn main(input: FragmentInputs) -> FragmentOutputs {
     let shadowCol = shadowTint(albedo, uniforms.shadowColor, 0.15) * (ambient + vec3f(0.05));
     let litCol = albedo * (uniforms.sunColor * envSunPatches(P, L, time, uniforms.envParams5.y * 0.5) + ambient * 0.4);
     var col = mix(shadowCol, litCol, lit) * mix(0.7, 1.0, ao);
+    if (isLeaf) {
+        col = foliageShadowTint(col, lit);
+        col = col + foliageTranslucency(N, V, L, uniforms.sunColor, albedo) * (1.0 - lit * 0.7);
+        col = col + uniforms.sunColor * leafGlint * lit * 0.6;
+    }
     col = col + albedo * envBounce(N, P, uniforms.groundColor, uniforms.sunColor, 1.0);
     col = col + albedo * envMoonlight(N, V, normalize(vec3f(-0.3, 0.8, 0.5)), gloss, uniforms.envParams6.x);
     col = col + albedo * envFireLight(P, N, uniforms.firePos.xyz, uniforms.firePos.w, time, uniforms.envParams6.y);
