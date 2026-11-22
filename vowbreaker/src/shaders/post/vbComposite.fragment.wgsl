@@ -24,6 +24,10 @@ var gbuffer: texture_2d<f32>;
 var gbufferSampler: sampler;
 var aoTex: texture_2d<f32>;
 var aoTexSampler: sampler;
+var contactTex: texture_2d<f32>;
+var contactTexSampler: sampler;
+var giTex: texture_2d<f32>;
+var giTexSampler: sampler;
 
 uniform projParams: vec4f;      // tan(fovY/2), aspect, near, far
 uniform screenParams: vec4f;    // width, height, 1/width, 1/height
@@ -31,6 +35,8 @@ uniform invView: mat4x4f;
 uniform cameraPos: vec3f;
 uniform aoParams: vec4f;        // strength, -, -, -
 uniform aoTint: vec3f;
+uniform ssParams: vec4f;        // contact shadow strength, bounce light strength, -, -
+uniform contactTint: vec3f;     // the colour a contact shadow takes (the stage's shadow colour)
 uniform lineParams: vec4f;      // width px, depth threshold, normal threshold, strength
 uniform lineParams2: vec4f;     // boil fps, boil amount px, breakup, far fade distance
 uniform lineColor: vec3f;
@@ -92,6 +98,16 @@ fn main(input: FragmentInputs) -> FragmentOutputs {
         let ao = textureSampleLevel(aoTex, aoTexSampler, uv, 0.0).r;
         let occl = (1.0 - ao) * uniforms.aoParams.x;
         col = col * mix(vec3f(1.0), uniforms.aoTint, clamp(occl, 0.0, 1.0));
+        // contact shadows: the small shadows under feet and hands the shadow map cannot resolve
+        if (uniforms.ssParams.x > 0.0) {
+            let cs = textureSampleLevel(contactTex, contactTexSampler, uv, 0.0).r;
+            col = col * mix(vec3f(1.0), uniforms.contactTint, (1.0 - cs) * uniforms.ssParams.x);
+        }
+        // one bounce of colour from the surroundings
+        if (uniforms.ssParams.y > 0.0) {
+            let gi = textureSampleLevel(giTex, giTexSampler, uv, 0.0).rgb;
+            col = col + gi * uniforms.ssParams.y;
+        }
     }
 
     // --- ink lines -------------------------------------------------------------------------------------

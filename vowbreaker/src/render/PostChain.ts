@@ -204,6 +204,13 @@ export class PostSettings {
   sumieHue = -1;
   /** brush stroke width in pixels */
   sumieStroke = 2.5;
+  /** screen-space contact shadows (vbContact): strength, ray length and thickness in metres */
+  contact = 0.85;
+  contactLength = 0.5;
+  contactThickness = 0.3;
+  /** one bounce of screen-space indirect light (vbGi) */
+  gi = 0.3;
+  giRadius = 1.4;
 }
 
 /** One burning aura: whose silhouette (G-buffer id base), its colours, style and size. */
@@ -244,6 +251,9 @@ export class PostChain {
   private ssrT!: RenderTargetTexture;
   private flareT!: RenderTargetTexture;
   private auraMask!: RenderTargetTexture;
+  private contactT!: RenderTargetTexture;
+  private giT!: RenderTargetTexture;
+  private giTmp!: RenderTargetTexture;
   private auraT!: RenderTargetTexture;
   private snapshot!: RenderTargetTexture;
   private snapshotWanted = false;
@@ -311,6 +321,9 @@ export class PostChain {
     this.ssrT = this.target('ssr', w / 2, h / 2);
     this.flareT = this.target('flare', w / 4, h / 4);
     this.auraMask = this.target('auraMask', w / 2, h / 2);
+    this.contactT = this.target('contact', w / 2, h / 2);
+    this.giT = this.target('gi', w / 2, h / 2);
+    this.giTmp = this.target('giTmp', w / 2, h / 2);
     this.auraT = this.target('aura', w / 2, h / 2);
     this.snapshot = this.target('snapshot', w, h, Constants.TEXTURETYPE_UNSIGNED_BYTE);
     this.lum = this.target('lum', 64, 64);
@@ -331,7 +344,9 @@ export class PostChain {
   private buildPasses(): void {
     this.wrap('vbSao', ['projParams', 'aoParams', 'screenParams'], ['gbuffer']);
     this.wrap('vbBilateral', ['blurDir', 'sharpness'], ['source']);
-    this.wrap('vbComposite', ['projParams', 'screenParams', 'invView', 'cameraPos', 'aoParams', 'aoTint', 'lineParams', 'lineParams2', 'lineColor',
+    this.wrap('vbContact', ['projParams', 'lightView', 'contactParams'], ['gbuffer']);
+    this.wrap('vbGi', ['projParams', 'giParams'], ['sceneTex', 'gbuffer']);
+    this.wrap('vbComposite', ['projParams', 'screenParams', 'invView', 'cameraPos', 'aoParams', 'aoTint', 'ssParams', 'contactTint', 'lineParams', 'lineParams2', 'lineColor',
       'fogParams', 'fogColor', 'aerialParams', 'horizonColor', 'sunDir', 'sunColor', 'domainParams', 'domainCenter', 'time'], ['sceneTex', 'gbuffer', 'aoTex']);
     this.wrap('vbBloom', ['texel', 'bloomParams', 'scatter'], ['source', 'higher']);
     this.wrap('vbGodrays', ['lightUV', 'rayParams', 'rayThreshold', 'screenParams'], ['sceneTex', 'gbuffer']);
@@ -428,12 +443,44 @@ export class PostChain {
       }
     }
 
+    // contact shadows toward the sun, and one bounce of colour (half resolution)
+    const contactOn = s.contact > 0 && s.quality !== 'low';
+    if (contactOn) {
+      const lv = Vector3.TransformNormal(L.sunDir, view).normalize();
+      this.run('vbContact', this.contactT, (fx) => {
+        fx.effect.setTexture('gbuffer', gb);
+        fx.effect.setVector4('projParams', proj);
+        fx.effect.setVector3('lightView', lv);
+        fx.effect.setVector4('contactParams', new Vector4(s.contactLength, s.contactThickness, this.frame % 64, 0));
+      });
+    }
+    const giOn = s.gi > 0 && s.quality === 'high';
+    if (giOn) {
+      this.run('vbGi', this.giT, (fx) => {
+        fx.effect.setTexture('sceneTex', this.hdr);
+        fx.effect.setTexture('gbuffer', gb);
+        fx.effect.setVector4('projParams', proj);
+        fx.effect.setVector4('giParams', new Vector4(s.giRadius, this.frame % 64, 0, 0));
+      });
+      for (const [src, dst, dir] of [[this.giT, this.giTmp, new Vector2(2 / w, 0)], [this.giTmp, this.giT, new Vector2(0, 2 / h)]] as const) {
+        this.run('vbBilateral', dst, (fx) => {
+          fx.effect.setTexture('source', src);
+          fx.effect.setVector2('blurDir', dir);
+          fx.effect.setFloat('sharpness', 20);
+        });
+      }
+    }
+
     // composite
     this.run('vbComposite', this.composite, (fx) => {
       const e = fx.effect;
       e.setTexture('sceneTex', this.hdr);
       e.setTexture('gbuffer', gb);
       e.setTexture('aoTex', aoOn ? this.ao : this.black);
+      e.setTexture('contactTex', contactOn ? this.contactT : this.black);
+      e.setTexture('giTex', giOn ? this.giT : this.black);
+      e.setVector4('ssParams', new Vector4(contactOn ? s.contact : 0, giOn ? s.gi : 0, 0, 0));
+      e.setColor3('contactTint', L.shadowColor);
       e.setVector4('projParams', proj);
       e.setVector4('screenParams', screen);
       e.setMatrix('invView', invView);
