@@ -105,6 +105,7 @@ export class Director {
     this.cam.update(dt);
     this.fx.update(dt, this.fight ? this.fight.fighters : []);
     this.ambient.update(this.r.lighting.time);
+    this.stage?.update(dt);
     // screen state eases
     const s = this.r.post.settings;
     s.fadeBlack += Math.sign(this.fadeTarget - s.fadeBlack) * Math.min(Math.abs(this.fadeTarget - s.fadeBlack), dt * this.fadeRate);

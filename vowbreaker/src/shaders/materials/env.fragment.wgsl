@@ -1,8 +1,14 @@
 // Environment shader: fragment stage.
-// Procedural pattern by id (bricks, tatami, shoji, asphalt...), surface-gradient bump from the
-// pattern's height, two-tone toon light with the sun's shadow map and a painterly edge, cool
-// hemispheric fill, AO, stepped coloured point lights, emissive patterns, rain wetness with
-// puddles and ripple normals, graphite hatching in the shadows, glowing battle cracks on floors.
+//
+// Procedural pattern by id (bricks, tatami, shoji, asphalt...), then the life the place has lived
+// (vb_env_detail: moss, stains, rust, cracks, posters, graffiti, fallen leaves and petals), a
+// surface-gradient bump from the combined height, then weather (vb_weather: soaking by exposure,
+// streaks, puddles with rain rings and wind ripples, drips, splashes, snow, ash with embers,
+// frost, lightning), then light: the sun through its shadow map with a painted edge, cloud
+// shadows, dapples through leaves, sky fill by openness, ground bounce, the moon, fire, lantern
+// pools, window light on the street, stepped coloured point lights, glossy and wet reflections of
+// the sky, graphite hatching in the shadows, emissive patterns, glowing battle cracks, the
+// domain wash and the stage-wide tint.
 #define DISABLE_UNIFORMITY_ANALYSIS
 
 #include<vb_common>
@@ -18,6 +24,10 @@
 #include<vb_vfx>
 #include<vb_patterns>
 #include<vb_surface>
+#include<vb_noise2>
+#include<vb_env_detail>
+#include<vb_weather>
+#include<vb_env_light>
 
 varying vWorldPos: vec3f;
 varying vNormalW: vec3f;
@@ -37,6 +47,11 @@ uniform pointPos: array<vec4f, 4>;
 uniform pointCol: array<vec4f, 4>;
 uniform envParams: vec4f;       // time, wetness, hatching amount, toon threshold
 uniform envParams2: vec4f;      // bump strength, puddles, glow boost, saturation
+uniform envParams3: vec4f;      // age, urban decoration, season (0 spring .. 1 autumn), litter
+uniform envParams4: vec4f;      // rain, snow, ash, frost
+uniform envParams5: vec4f;      // cloud coverage, dapples, window light, lightning flash
+uniform envParams6: vec4f;      // moonlight, fire light strength, wind x, wind z
+uniform firePos: vec4f;         // xyz, radius
 uniform glowColor: vec3f;       // colour behind shoji / in lanterns / neon base
 uniform tintColor: vec4f;       // multiplies the whole stage (flashback paper, domain), a = amount
 uniform cracks: array<vec4f, 8>; // xz centre, radius, palette id (palette < 0: unused)
@@ -47,36 +62,39 @@ var shadowMap: texture_2d<f32>;
 @fragment
 fn main(input: FragmentInputs) -> FragmentOutputs {
     let time = uniforms.envParams.x;
-    let wet = uniforms.envParams.y;
     let id = decodePatternId(fragmentInputs.vColor.a);
     let P = fragmentInputs.vWorldPos;
     var N = normalize(fragmentInputs.vNormalW);
     let V = normalize(uniforms.cameraPosition - P);
     let L = normalize(uniforms.sunDir);
-    let pixel = fragmentInputs.position.xy;
+    let ao = fragmentInputs.vAO;
+    let wind = uniforms.envParams6.zw;
+    let w = weatherOf(uniforms.envParams4.x, uniforms.envParams.y, uniforms.envParams4.y, uniforms.envParams4.z, uniforms.envParams4.w,
+                      uniforms.envParams5.w, wind);
 
-    // --- pattern and bump ------------------------------------------------------------------------------
-    let pat = evalPattern(id, P, N, time, wet, fragmentInputs.vSeed, uniforms.glowColor);
-    var albedo = fragmentInputs.vColor.rgb * pat.tint;
+    // --- pattern, the place's history, bump -------------------------------------------------------------
+    let wetHere = weatherWetness(w, N, ao, P, time);
+    let pat = evalPattern(id, P, N, time, wetHere, fragmentInputs.vSeed, uniforms.glowColor);
+    let det = detailFor(id, P, N, ao, fragmentInputs.vSeed, uniforms.envParams3.x, uniforms.envParams3.y, uniforms.envParams3.z, uniforms.envParams3.w);
+    var albedo = detailApply(fragmentInputs.vColor.rgb * pat.tint, det);
     albedo = adjustSaturation(albedo, uniforms.envParams2.w);
-    N = bumpFromHeight(P, N, pat.height, uniforms.envParams2.x * 0.012);
+    N = bumpFromHeight(P, N, pat.height + det.height, uniforms.envParams2.x * 0.012);
 
-    // --- rain: wet darkening, puddles on floors with ripples ---------------------------------------------
-    var gloss = pat.gloss;
+    // --- weather: soaking, puddles, splashes -------------------------------------------------------------
+    var gloss = clamp(pat.gloss + det.gloss, 0.0, 1.0);
     var puddle = 0.0;
-    if (wet > 0.0) {
-        let up = smoothstep(0.75, 0.95, N.y);
-        albedo = wetAlbedo(albedo, wet * (0.5 + 0.5 * up), 0.6);
-        gloss = max(gloss, wet * 0.6 * up);
-        puddle = puddleMask(P.xz, uniforms.envParams2.y * wet) * up * (1.0 - pat.line);
+    if (wetHere > 0.0) {
+        albedo = weatherWetAlbedo(albedo, wetHere, 0.6);
+        gloss = max(gloss, wetHere * 0.6 * smoothstep(0.75, 0.95, N.y));
+        let pd = weatherPuddle(w, P, N, time, uniforms.envParams2.y * (1.0 - pat.line));
+        puddle = pd.x;
         if (puddle > 0.0) {
-            let rip = rainRipples(P.xz, time, 2.5);
-            N = normalize(mix(N, normalize(vec3f(rip.x, 1.0, rip.y)), puddle));
+            N = normalize(mix(N, normalize(vec3f(pd.y, 1.0, pd.z)), puddle));
             gloss = mix(gloss, 1.0, puddle);
         }
     }
 
-    // --- light ----------------------------------------------------------------------------------------------
+    // --- light -------------------------------------------------------------------------------------------
     var sh = 1.0;
     if (uniforms.shadowParams.w > 0.5) {
         let s = shadowProject(P + N * 0.04, uniforms.lightViewProj, uniforms.shadowParams.x);
@@ -84,13 +102,18 @@ fn main(input: FragmentInputs) -> FragmentOutputs {
         sh = shadowEdgeFade(s, shadowPCF5(shadowMap, s, bias, uniforms.shadowParams.z));
         sh = stylizeShadowEdge(sh, P, 6.0, 0.35);
     }
+    sh = sh * envCloudShadow(P, L, wind, time, uniforms.envParams5.x, 0.035);
+    sh = sh * envDapples(P, N, L, time, uniforms.envParams5.y, length(wind));
     let hl = halfLambert(N, L);
-    let ao = fragmentInputs.vAO;
     let lit = celStep(hl, uniforms.envParams.w, 0.03, ao, 0.35) * sh;
-    let ambient = hemiAmbient(N, uniforms.skyColor, uniforms.groundColor);
+    let ambient = hemiAmbient(N, uniforms.skyColor, uniforms.groundColor) * 0.6 + envSkyFill(N, ao, uniforms.skyColor, uniforms.groundColor) * 0.4;
     let shadowCol = shadowTint(albedo, uniforms.shadowColor, 0.15) * (ambient + vec3f(0.05));
-    let litCol = albedo * (uniforms.sunColor + ambient * 0.4);
+    let litCol = albedo * (uniforms.sunColor * envSunPatches(P, L, time, uniforms.envParams5.y * 0.5) + ambient * 0.4);
     var col = mix(shadowCol, litCol, lit) * mix(0.7, 1.0, ao);
+    col = col + albedo * envBounce(N, P, uniforms.groundColor, uniforms.sunColor, 1.0);
+    col = col + albedo * envMoonlight(N, V, normalize(vec3f(-0.3, 0.8, 0.5)), gloss, uniforms.envParams6.x);
+    col = col + albedo * envFireLight(P, N, uniforms.firePos.xyz, uniforms.firePos.w, time, uniforms.envParams6.y);
+    col = col + envWindowLight(P, N, time, uniforms.envParams5.z, uniforms.glowColor) * albedo * 2.0;
 
     // graphite hatching in the shadows (very light: a sketchbook texture, not a pencil drawing)
     if (uniforms.envParams.z > 0.0) {
@@ -109,13 +132,13 @@ fn main(input: FragmentInputs) -> FragmentOutputs {
         col = col + uniforms.sunColor * glint * gloss * 2.0;
     }
 
-    // coloured point lights (lanterns, techniques), stepped
+    // coloured point lights (lanterns, techniques), stepped, with pools and wet-floor streaks
     for (var i = 0; i < 4; i++) {
         let lc = uniforms.pointCol[i];
         if (lc.w > 0.0) {
             let lp = uniforms.pointPos[i];
-            let k = toonPointLight(N, P, lp.xyz, lp.w, 4.0);
-            col = col + albedo * lc.rgb * lc.w * k;
+            col = col + albedo * envLanternPool(P, N, lp.xyz, lc.rgb * lc.w, lp.w);
+            col = col + envNeonSpill(P, N, lp.xyz, lc.rgb * lc.w, lp.w * 0.5, wetHere) * albedo;
             if (gloss > 0.0) {
                 let R = reflect(-V, N);
                 let toL = normalize(lp.xyz - P);
@@ -124,10 +147,19 @@ fn main(input: FragmentInputs) -> FragmentOutputs {
         }
     }
 
-    // emissive patterns
-    col = col + pat.emissive * (1.0 + uniforms.envParams2.z);
+    // drips and splashes catch the light
+    col = col + (uniforms.sunColor * 0.5 + uniforms.skyColor) * (weatherDrips(w, P, N, ao, time) + weatherSplashes(w, P, N, time)) * 0.6;
 
-    // --- battle damage: glowing cracks where techniques hit the floor -------------------------------------------
+    // emissive patterns and details
+    col = col + (pat.emissive + det.emissive) * (1.0 + uniforms.envParams2.z);
+
+    // snow, ash, frost, lightning
+    col = weatherSnow(w, col, P, N, ao, V, L);
+    col = weatherAsh(w, col, P, N, time);
+    col = weatherFrost(w, col, P, N, ao);
+    col = weatherLightning(w, col, albedo, N);
+
+    // --- battle damage: glowing cracks where techniques hit the floor -------------------------------------
     if (N.y > 0.6) {
         for (var i = 0; i < 8; i++) {
             let c = uniforms.cracks[i];

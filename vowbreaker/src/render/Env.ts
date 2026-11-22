@@ -15,10 +15,35 @@ export class EnvSettings {
   wind = 1;
   /** up to 8 floor cracks: x, z, radius, palette (-1 = none) */
   cracks = new Float32Array(32).fill(-1);
+  /** how lived-in the place is: moss, stains, rust, cracks (0..1) */
+  age = 0.5;
+  /** posters and graffiti on walls (city stages) */
+  urban = 0;
+  /** 0 spring petals .. 0.5 summer leaves .. 1 autumn leaves */
+  season = 0;
+  /** fallen leaves and petals collecting in corners */
+  litter = 0;
+  rain = 0;
+  snow = 0;
+  ash = 0;
+  frost = 0;
+  /** cloud shadows sliding across the ground (0 = none) */
+  clouds = 0;
+  /** dappled light through leaves */
+  dapples = 0;
+  /** lit windows throwing light on the street at night */
+  windows = 0;
+  /** lightning flash brightness this frame (animated by the stage) */
+  lightning = 0;
+  moon = 0;
+  /** the burning village's fire: position, radius, strength */
+  fire = new Vector4(0, 2, 0, 0);
+  fireStrength = 0;
 }
 
 const UNIFORMS = ['world', 'viewProjection', 'view', 'cameraPosition', 'envTime', 'sunDir', 'sunColor', 'skyColor', 'groundColor', 'shadowColor',
-  'lightViewProj', 'shadowParams', 'pointPos', 'pointCol', 'envParams', 'envParams2', 'glowColor', 'tintColor', 'cracks', 'domainParams'];
+  'lightViewProj', 'shadowParams', 'pointPos', 'pointCol', 'envParams', 'envParams2', 'envParams3', 'envParams4', 'envParams5', 'envParams6', 'firePos',
+  'glowColor', 'tintColor', 'cracks', 'domainParams'];
 
 export function envMaterial(mats: Materials, mesh: AbstractMesh, settings: EnvSettings): ShaderMaterial {
   // vertex colour alpha carries pattern ids, not transparency
@@ -47,6 +72,11 @@ export function envMaterial(mats: Materials, mesh: AbstractMesh, settings: EnvSe
     mat.setArray4('pointCol', Array.from(l.pointCol));
     mat.setVector4('envParams', new Vector4(l.time, settings.wetness, settings.hatching, settings.threshold));
     mat.setVector4('envParams2', new Vector4(settings.bump, settings.puddles, settings.glowBoost, settings.saturation));
+    mat.setVector4('envParams3', new Vector4(settings.age, settings.urban, settings.season, settings.litter));
+    mat.setVector4('envParams4', new Vector4(settings.rain, settings.snow, settings.ash, settings.frost));
+    mat.setVector4('envParams5', new Vector4(settings.clouds, settings.dapples, settings.windows, settings.lightning));
+    mat.setVector4('envParams6', new Vector4(settings.moon, settings.fireStrength, l.windDir.x * settings.wind, l.windDir.z * settings.wind));
+    mat.setVector4('firePos', settings.fire);
     mat.setColor3('glowColor', settings.glowColor);
     mat.setVector4('tintColor', settings.tint);
     mat.setArray4('cracks', Array.from(settings.cracks));

@@ -26,3 +26,8 @@ toon_eye
 toon_cloth
 toon_metal
 toon_fx
+env_detail
+weather
+env_light
+clouds
+celestial

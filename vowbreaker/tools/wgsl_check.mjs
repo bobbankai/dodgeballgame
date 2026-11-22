@@ -13,6 +13,15 @@ const root = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..')
 const libDir = path.join(root, 'src/shaders/lib');
 const order = fs.readFileSync(path.join(libDir, 'order.txt'), 'utf8').split('\n').map((s) => s.trim()).filter((s) => s && !s.startsWith('//'));
 
+// Babylon's WGSL preprocessor splits on ';' while reading struct bodies: a semicolon inside a
+// comment in a struct breaks the shader at runtime even though the WGSL itself is valid.
+for (const f of fs.readdirSync(libDir).filter((n) => n.endsWith('.wgsl'))) {
+  const src = fs.readFileSync(path.join(libDir, f), 'utf8');
+  for (const m of src.matchAll(/struct\s+(\w+)\s*\{([\s\S]*?)\n\}/g)) {
+    if (m[2].includes(';')) console.log(`lib/${f}: struct ${m[1]} has a ';' in its body (breaks Babylon's preprocessor)`);
+  }
+}
+
 function build(extra) {
   let code = '';
   const map = []; // [startLine, file]
