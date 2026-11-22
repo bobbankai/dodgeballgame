@@ -6,6 +6,7 @@ import type { AmbientKind } from '../render/Ambient';
 import type { Mood } from '../audio/Audio';
 import { loadContainer } from './Assets';
 import { Water, type WaterDef } from '../render/Water';
+import { Grass, type GrassDef } from '../render/Grass';
 
 export interface StageDef {
   id: string;
@@ -39,6 +40,8 @@ export interface StageDef {
   post?: Partial<StagePost>;
   /** seas, ponds and canals (toon water, src/render/Water.ts) */
   water?: WaterDef[];
+  /** instanced grass blades (src/render/Grass.ts) */
+  grass?: GrassDef;
 }
 
 /** Post-processing a stage chooses: its grade, the light in the air, the lens. */
@@ -114,7 +117,7 @@ export const STAGES: Record<string, StageDef> = {
   graves: S({ id: 'graves', glb: 'stages/graves.glb', sky: SPRING, sunDir: [-0.5, 0.5, 0.6], sunColor: [1.5, 1.3, 1.1], skyColor: [0.34, 0.38, 0.6],
     groundColor: [0.3, 0.28, 0.26], shadowColor: [0.5, 0.48, 0.78], rimColor: [1.2, 1.0, 0.9], fog: { density: 0.004, color: [0.9, 0.85, 0.9] },
     horizon: [0.95, 0.85, 0.88], aerial: [25, 140], grade: { exposure: -0.05, contrast: 1.1, saturation: 1.08, temperature: 0.1, split: 0.12 },
-    ambient: { kind: 'petals', density: 1 }, arena: 12, music: 'sad', rays: true, floor: [0.5, 0.55, 0.35, 12] , look: { age: 0.9, litter: 0.9, season: 0, clouds: 0.3, dapples: 0.4 } }),
+    ambient: { kind: 'petals', density: 1 }, arena: 12, grass: { center: [0, 0, 0], radius: 38, density: 14, height: [0.22, 0.5], ground: [0.32, 0.36, 0.18], blade: [0.42, 0.52, 0.2], tip: [0.78, 0.82, 0.42], flowers: 0.06, clear: [[-1.1, -2.6, 1.1, 15]] }, music: 'sad', rays: true, floor: [0.5, 0.55, 0.35, 12] , look: { age: 0.9, litter: 0.9, season: 0, clouds: 0.3, dapples: 0.4 } }),
   void: S({ id: 'void', glb: null, sky: DUSK, sunDir: [-0.4, 0.6, -0.5], sunColor: [1.4, 1.0, 0.75], skyColor: [0.35, 0.38, 0.6],
     groundColor: [0.2, 0.16, 0.16], shadowColor: [0.45, 0.42, 0.75], rimColor: [1, 0.7, 0.5], fog: { density: 0.01, color: [0.6, 0.45, 0.45] },
     horizon: [1.0, 0.6, 0.45], arena: 14, music: 'battle', floor: [0.55, 0.5, 0.46, 14] }),
@@ -126,6 +129,8 @@ export class Stage {
   private nodes: TransformNode[] = [];
   private meshes: AbstractMesh[] = [];
   private waters: Water[] = [];
+  /** the stage's grass, if it has any */
+  grass: Grass | null = null;
   def: StageDef;
 
   constructor(private r: Renderer, def: StageDef) {
@@ -255,6 +260,8 @@ export class Stage {
     for (const w of this.waters) w.dispose();
     this.waters = (d.water ?? []).map((wd) => new Water(r, wd));
     for (const w of this.waters) w.rain = env.rain > 0.5 ? 1 : 0;
+    this.grass?.dispose();
+    this.grass = d.grass ? new Grass(r, d.grass) : null;
   }
 
   private lightningIn = 6 + Math.random() * 8;
@@ -284,6 +291,8 @@ export class Stage {
   dispose(): void {
     for (const w of this.waters) w.dispose();
     this.waters = [];
+    this.grass?.dispose();
+    this.grass = null;
     // materials go, but never their textures: the shadow map is shared by every material
     for (const m of this.meshes) {
       m.material?.dispose(false, false);

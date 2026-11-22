@@ -95,15 +95,13 @@ function buildBabylon(file) {
   if (entry >= 0) {
     for (let k = entry - 1; k >= 0 && k > entry - 3; k--) if (/^\s*@(fragment|vertex)\s*$/.test(out[k][0])) out[k][0] = '';
     out[entry][0] = (vertex ? '@vertex ' : '@fragment ') + out[entry][0].replace(/\{\s*$/, '{ ' + (vertex ? 'vertexInputs = input;' : 'fragmentInputs = input;'));
-    // find the brace that closes main
-    let depth = 0, started = false;
-    for (let k = entry; k < out.length; k++) {
-      for (const ch of out[k][0].replace(/\/\/.*$/, '')) {
-        if (ch === '{') { depth++; started = true; }
-        if (ch === '}') depth--;
-      }
-      if (started && depth === 0) {
-        const idx = out[k][0].lastIndexOf('}');
+    // like Babylon, put the return before the last closing brace of the file (so a helper function
+    // written after main is caught, as it breaks at runtime)
+    for (let k = out.length - 1; k >= 0; k--) {
+      if (out[k][1] !== file) continue;
+      const line = out[k][0].replace(/\/\/.*$/, '');
+      const idx = line.lastIndexOf('}');
+      if (idx >= 0) {
         out[k][0] = out[k][0].slice(0, idx) + (vertex ? 'return vertexOutputs; }' : 'return fragmentOutputs; }') + out[k][0].slice(idx + 1);
         break;
       }

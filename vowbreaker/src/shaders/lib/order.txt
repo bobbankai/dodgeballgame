@@ -57,3 +57,4 @@ scene_trans
 water_toon
 calligraphy
 env_foliage
+grass
