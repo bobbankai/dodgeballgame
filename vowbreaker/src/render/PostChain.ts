@@ -82,6 +82,16 @@ export class PostSettings {
   // anime fx
   impactMode = 1;
   impactAmount = 0;
+  /** the drawn impact frame (vbImpact): style (0 none, 1 ink, 2 negative, 3 Black Spark, 4 sketch,
+   * 5 shatter, 6 burst, 7 smear, 8 panel), progress through its hold, strength, seed */
+  impactStyle = 0;
+  impactT = 0;
+  impactStrength = 0;
+  impactSeed = 0;
+  impactCenter = new Vector2(0.5, 0.5);
+  impactDir = new Vector2(1, 0);
+  impactAccent = new Color3(1, 0.6, 0.2);
+  impactAccentDark = new Color3(0.2, 0.05, 0.02);
   speedLines = 0;
   desatPulse = 0;
   fxCenter = new Vector2(0.5, 0.5);
@@ -388,6 +398,7 @@ export class PostChain {
     this.wrap('vbSharpen', ['rcpFrame', 'sharpness'], ['source']);
     this.wrap('vbAuraMask', ['auraIds', 'texel'], ['gbuffer']);
     this.wrap('vbTransition', ['transParams', 'transImpact'], ['source', 'snapshot']);
+    this.wrap('vbImpact', ['screenParams', 'impactParams', 'impactGeo', 'impactAccent', 'impactAccentDark'], ['source', 'gbuffer']);
     this.wrap('vbCopy', [], ['source']);
     this.wrap('vbDebug', ['debugParams'], ['source', 'gbuffer', 'aux']);
     this.wrap('vbSumie', ['screenParams', 'sumieParams', 'sumieParams2'], ['source', 'gbuffer']);
@@ -812,6 +823,23 @@ export class PostChain {
         e.setVector4('sumieParams2', new Vector4(s.sumieHue, s.sumieStroke, 0.37, s.flashbackPaper));
       });
       styled = this.ldr3;
+    }
+
+    // the drawn impact frame: silhouettes, focus lines, shards, smears
+    if (s.impactStyle > 0 && s.impactStrength > 0) {
+      const src = styled;
+      const dst = src === this.ldr ? this.ldr3 : this.ldr;
+      this.run('vbImpact', dst, (fx) => {
+        const e = fx.effect;
+        e.setTexture('source', src);
+        e.setTexture('gbuffer', gb);
+        e.setVector4('screenParams', screen);
+        e.setVector4('impactParams', new Vector4(s.impactStyle, s.impactT, s.impactStrength, s.impactSeed));
+        e.setVector4('impactGeo', new Vector4(s.impactCenter.x, s.impactCenter.y, s.impactDir.x, s.impactDir.y));
+        e.setColor3('impactAccent', s.impactAccent);
+        e.setColor3('impactAccentDark', s.impactAccentDark);
+      });
+      styled = dst;
     }
 
     // the hand-made layer: lens rain, painting, ink, screentone, paper, old film, manga marks

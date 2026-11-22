@@ -64,6 +64,7 @@ export class Effects implements CombatFx {
   /** seconds each fighter has been fighting (sweat builds up) */
   private fightTime = new Map<Fighter, number>();
   private impactT = 0;
+  private impactDur = 0.1;
   private flashT = 0;
   private desatT = 0;
   private radialT = 0;
@@ -170,10 +171,37 @@ export class Effects implements CombatFx {
     if (this.shocks.length > 4) this.shocks.shift();
   }
 
-  impactFrame(mode: number, dur = 0.09): void {
+  /**
+   * Cut to a drawn impact frame for `dur` seconds (vbImpact). Styles: 1 ink, 2 negative, 3 Black
+   * Spark, 4 the old halftone flash, 5 shatter, 6 burst in the attacker's colour, 7 smear along the
+   * blow, 8 manga panel, 9 sketch.
+   */
+  impactFrame(style: number, dur = 0.09, accent?: RGB, dir?: { x: number; y: number }): void {
     const s = this.r.post.settings;
-    s.impactMode = mode;
     this.impactT = dur;
+    this.impactDur = dur;
+    if (style === 4) {
+      s.impactMode = 4;
+      s.impactStyle = 0;
+      return;
+    }
+    s.impactStyle = style === 9 ? 4 : style;
+    s.impactSeed = Math.random();
+    if (accent) {
+      s.impactAccent.set(accent[0], accent[1], accent[2]);
+      s.impactAccentDark.set(accent[0] * 0.18, accent[1] * 0.12, accent[2] * 0.15);
+    }
+    if (dir) {
+      const l = Math.hypot(dir.x, dir.y) || 1;
+      s.impactDir.set(dir.x / l, dir.y / l);
+    }
+  }
+
+  /** The direction a blow travels on screen. */
+  private screenDir(at: Vector3, dir: Vector3): { x: number; y: number } {
+    const a = this.screenPos(at);
+    const b = this.screenPos(at.add(dir));
+    return { x: b.x - a.x, y: b.y - a.y };
   }
 
   // --- CombatFx --------------------------------------------------------------------------------------
@@ -253,7 +281,9 @@ export class Effects implements CombatFx {
       this.cam.zoomPunch(1);
       this.audio.sfx('blackspark', at);
     } else if (big && mine) {
-      this.impactFrame(Math.random() < 0.5 ? 1 : 2, 0.07);
+      // a drawn frame for the blows that matter: ink, negative, sketch or a manga panel
+      const styles = [1, 2, 9, 8];
+      this.impactFrame(styles[Math.floor(Math.random() * styles.length)], 0.08, pal.body, this.screenDir(at, dir));
       this.cam.zoomPunch(0.5);
     }
     const sp = this.screenPos(at);
@@ -275,6 +305,8 @@ export class Effects implements CombatFx {
       this.vfx.spawn({ kind: VK.aura, pos: f.pos.add(new Vector3(0, 0.95, 0)), scale: new Vector3(0.55, 1.05, 0.55), life: 1.2, color: this.vpal(f), intensity: 1.2, p: [1, 1.3, 0, 0], follow: () => (f.alive ? f.pos.add(new Vector3(0, 0.95, 0)) : null) });
       this.speedT = 0.5;
       this.cam.zoomPunch(0.6);
+      // a burst frame in the caster's colour as the technique is named
+      this.impactFrame(6, 0.1, pal.body);
       const sp = this.screenPos(f.ch.bonePos('chest'));
       this.r.post.settings.fxCenter.set(sp.x, sp.y);
     }
@@ -512,6 +544,8 @@ export class Effects implements CombatFx {
 
   dash(f: Fighter): void {
     const back = f.vel.clone().normalize().scale(-1);
+    // the player's dash smears the frame for an instant
+    if (f === this.player) this.impactFrame(7, 0.05, undefined, this.screenDir(f.pos.add(new Vector3(0, 1, 0)), back.scale(-1)));
     // the push-off scrapes the floor behind the dash
     this.mark({ kind: MK.skid, x: f.pos.x, z: f.pos.z, angle: Math.atan2(-back.z, -back.x), len: 1.4, width: 0.4, strength: 0.7 });
     this.sprites.spawn({ kind: SK.dust, pos: new Vector3(f.pos.x, 0.05, f.pos.z), size: 1.5, color: [0.6, 0.58, 0.55], intensity: 0.8, life: 0.4, mode: 1 });
@@ -560,7 +594,8 @@ export class Effects implements CombatFx {
   }
 
   ko(f: Fighter, by: Fighter | null): void {
-    this.impactFrame(by === this.player ? 1 : 3, 0.18);
+    // the finishing blow breaks the frame itself
+    this.impactFrame(by === this.player ? 5 : 3, by === this.player ? 0.26 : 0.18);
     this.vfx.spawn({ kind: VK.ink, pos: new Vector3(f.pos.x, 0.04, f.pos.z), scale: 1.8, life: 6, color: this.vpal(by ?? f), p: [by ? 1 : 0, 9, 1, 0], delay: 0.35 });
     this.inkBurst(f.ch.bonePos('chest'), [0.03, 0.02, 0.04], 1.4, 8);
     this.mark({ kind: MK.splatter, x: f.pos.x, z: f.pos.z, radius: 0.7, angle: Math.random() * 6.28, strength: 1 });
@@ -689,7 +724,14 @@ export class Effects implements CombatFx {
     this.flashes = this.flashes.filter((f) => f.age < f.life);
     // screen effects
     this.impactT -= dt;
-    s.impactAmount = this.impactT > 0 ? 1 : 0;
+    {
+      const on = this.impactT > 0;
+      s.impactAmount = on && s.impactStyle === 0 && s.impactMode === 4 ? 1 : 0;
+      s.impactStrength = on && s.impactStyle > 0 ? 1 : 0;
+      s.impactT = on ? 1 - this.impactT / Math.max(1e-3, this.impactDur) : 0;
+      s.impactCenter.copyFrom(s.fxCenter);
+      if (!on) s.impactStyle = 0;
+    }
     this.flashT -= dt;
     s.flashAmount = this.flashT > 0 ? 0.6 : 0;
     this.desatT = Math.max(0, this.desatT - dt);
