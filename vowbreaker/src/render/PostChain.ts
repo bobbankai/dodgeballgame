@@ -211,6 +211,10 @@ export class PostSettings {
   /** one bounce of screen-space indirect light (vbGi) */
   gi = 0.3;
   giRadius = 1.4;
+  /** line art: fighters' line weight relative to scenery, colour taken from the surface, manga hatching */
+  lineFighter = 1.5;
+  lineSurfaceColor = 0.55;
+  lineHatch = 0;
 }
 
 /** One burning aura: whose silhouette (G-buffer id base), its colours, style and size. */
@@ -346,7 +350,7 @@ export class PostChain {
     this.wrap('vbBilateral', ['blurDir', 'sharpness'], ['source']);
     this.wrap('vbContact', ['projParams', 'lightView', 'contactParams'], ['gbuffer']);
     this.wrap('vbGi', ['projParams', 'giParams'], ['sceneTex', 'gbuffer']);
-    this.wrap('vbComposite', ['projParams', 'screenParams', 'invView', 'cameraPos', 'aoParams', 'aoTint', 'ssParams', 'contactTint', 'lineParams', 'lineParams2', 'lineColor',
+    this.wrap('vbComposite', ['projParams', 'screenParams', 'invView', 'cameraPos', 'aoParams', 'aoTint', 'ssParams', 'contactTint', 'lineParams', 'lineParams2', 'lineColor', 'lineParams3',
       'fogParams', 'fogColor', 'aerialParams', 'horizonColor', 'sunDir', 'sunColor', 'domainParams', 'domainCenter', 'time'], ['sceneTex', 'gbuffer', 'aoTex']);
     this.wrap('vbBloom', ['texel', 'bloomParams', 'scatter'], ['source', 'higher']);
     this.wrap('vbGodrays', ['lightUV', 'rayParams', 'rayThreshold', 'screenParams'], ['sceneTex', 'gbuffer']);
@@ -490,6 +494,7 @@ export class PostChain {
       e.setVector4('lineParams', new Vector4(s.lineWidth * (h / 720), s.lineDepth, s.lineNormal, s.quality === 'low' ? 0 : s.lineStrength));
       e.setVector4('lineParams2', new Vector4(s.lineBoilFps, s.lineBoil, s.lineBreakup, s.lineFar));
       e.setColor3('lineColor', s.lineColor);
+      e.setVector4('lineParams3', new Vector4(s.lineFighter, s.lineSurfaceColor, s.lineHatch, 0));
       e.setVector4('fogParams', new Vector4(s.fogDensity, s.fogFalloff, s.fogBase, s.fogMax));
       e.setColor3('fogColor', s.fogColor);
       e.setVector4('aerialParams', new Vector4(s.aerialStart, s.aerialEnd, s.aerialDesat, s.aerialStrength));

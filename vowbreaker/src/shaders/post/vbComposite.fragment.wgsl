@@ -15,6 +15,7 @@
 #include<vb_toon>
 #include<vb_atmosphere>
 #include<vb_vfx>
+#include<vb_lineart>
 
 varying vUV: vec2f;
 
@@ -40,6 +41,7 @@ uniform contactTint: vec3f;     // the colour a contact shadow takes (the stage'
 uniform lineParams: vec4f;      // width px, depth threshold, normal threshold, strength
 uniform lineParams2: vec4f;     // boil fps, boil amount px, breakup, far fade distance
 uniform lineColor: vec3f;
+uniform lineParams3: vec4f;     // fighter line weight, colour-from-surface amount, manga hatching, -
 uniform fogParams: vec4f;       // density, height falloff, base height, max opacity
 uniform fogColor: vec3f;
 uniform aerialParams: vec4f;    // start, end, desaturate, strength
@@ -118,20 +120,35 @@ fn main(input: FragmentInputs) -> FragmentOutputs {
         let w = uniforms.lineParams.x * distW;
         let px = uniforms.screenParams.zw * w;
         let c = gb(uv + boil * uniforms.screenParams.zw);
+        // the line's weight depends on what it outlines: sample at the widest weight it could have,
+        // keep a neighbour's edge only if this pixel lies within that edge's own weight
         var e = 0.0;
-        e = max(e, edgeTerm(c, gb(uv + vec2f(px.x, 0.0))));
-        e = max(e, edgeTerm(c, gb(uv - vec2f(px.x, 0.0))));
-        e = max(e, edgeTerm(c, gb(uv + vec2f(0.0, px.y))));
-        e = max(e, edgeTerm(c, gb(uv - vec2f(0.0, px.y))));
-        e = max(e, 0.7 * edgeTerm(c, gb(uv + px * 0.7071)));
-        e = max(e, 0.7 * edgeTerm(c, gb(uv - px * 0.7071)));
+        for (var k = 0; k < 8; k++) {
+            let a = f32(k) * 0.785398;
+            let dir = vec2f(cos(a), sin(a));
+            let far = gb(uv + dir * px * uniforms.lineParams3.x * 1.35);
+            let near = gb(uv + dir * px);
+            let ew = lineWeight(c, far, uniforms.lineParams3.x);
+            let le = lineEdge(c, far, uniforms.lineParams.y, uniforms.lineParams.z);
+            let ln = lineEdge(c, near, uniforms.lineParams.y, uniforms.lineParams.z);
+            let reach = select(0.0, 1.0, ew > 1.15);
+            let diag = select(1.0, 0.75, k % 2 == 1);
+            e = max(e, max(ln.strength, le.strength * reach) * diag);
+        }
+        // stroke confidence: weak edges thin and break, strong ones stay solid
+        e = lineConfidence(e, pixel, uniforms.time, uniforms.lineParams2.x);
         // dry-brush break-up along the stroke
         let brk = valueNoise2(pixel * 0.08 + vec2f(floor(uniforms.time * uniforms.lineParams2.x) * 7.3));
         e = e * mix(1.0, smoothstep(0.15, 0.55, brk), uniforms.lineParams2.z);
-        // coloured ink: darker and richer than the surface it outlines, fading in the distance
-        let ink = mix(uniforms.lineColor, inkLineColor(col, 0.85, 1.0) * 0.5, 0.45);
+        // coloured ink: a deep shade of the surface it borders, fading in the distance
+        let ink = mix(uniforms.lineColor, lineColorFor(col, inkLineColor(col, 0.85, 1.0) * 0.5, 0.6), uniforms.lineParams3.y);
         let fade = 1.0 - smoothstep(uniforms.lineParams2.w * 0.6, uniforms.lineParams2.w * 1.6, min(z, 300.0)) * 0.7;
         col = mix(col, ink, clamp(e * uniforms.lineParams.w * fade, 0.0, 1.0));
+        // manga hatching in the deep shadows on fighters (dramatic moments)
+        if (uniforms.lineParams3.z > 0.0 && lineIsFighter(c.a)) {
+            let dark = 1.0 - smoothstep(0.03, 0.25, luma(col));
+            col = mix(col, ink * 0.6, lineHatch(pixel, dark, uniforms.screenParams.y / 720.0) * uniforms.lineParams3.z * 0.7);
+        }
     }
 
     // --- fog and aerial perspective ------------------------------------------------------------------------

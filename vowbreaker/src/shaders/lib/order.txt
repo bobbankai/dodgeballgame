@@ -64,3 +64,4 @@ toon_marks
 sumie
 sslight
 toon_curse
+lineart
