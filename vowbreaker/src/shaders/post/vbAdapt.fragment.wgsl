@@ -24,12 +24,13 @@ uniform adaptRange: vec4f;       // min EV, max EV, reset (1 = jump straight to 
 
 @fragment
 fn main(input: FragmentInputs) -> FragmentOutputs {
-    let cur = textureSampleLevel(current, currentSampler, vec2f(0.5), 0.0).r;
+    let cur0 = textureSampleLevel(current, currentSampler, vec2f(0.5), 0.0).r;
+    let cur = select(-3.0, clamp(cur0, -14.0, 14.0), isFiniteF(cur0));
     let prevT = textureSampleLevel(previous, previousSampler, vec2f(0.5), 0.0);
     let dt = uniforms.adaptParams.x;
     var adapted = adaptLuminance(prevT.r, cur, dt, uniforms.adaptParams.y, uniforms.adaptParams.z);
     var reference = prevT.b;
-    let reset = uniforms.adaptRange.z > 0.5 || !(abs(prevT.r) < 100.0) || !(abs(prevT.b) < 100.0);
+    let reset = uniforms.adaptRange.z > 0.5 || !isFiniteF(prevT.r) || !isFiniteF(prevT.b) || abs(prevT.r) > 100.0 || abs(prevT.b) > 100.0;
     if (reset) {
         adapted = cur;
         reference = cur;

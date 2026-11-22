@@ -27,8 +27,11 @@ fn main(input: FragmentInputs) -> FragmentOutputs {
             let c = textureSampleLevel(source, sourceSampler, suv, 0.0).rgb;
             let z = textureSampleLevel(gbuffer, gbufferSampler, suv, 0.0).b;
             let sky = step(500.0, z);
-            let w = mix(1.0, uniforms.lumParams.w, sky);
-            acc = acc + log2(max(luma(c), 1e-4)) * w;
+            // a NaN or infinite pixel anywhere must never reach the exposure
+            let l0 = luma(c);
+            let ok = select(0.0, 1.0, isFiniteF(l0) && l0 < 1e4);
+            let w = mix(1.0, uniforms.lumParams.w, sky) * ok;
+            acc = acc + log2(clamp(select(1e-4, l0, ok > 0.5), 1e-4, 1e4)) * w;
             wsum = wsum + w;
         }
     }

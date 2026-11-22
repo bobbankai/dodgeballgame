@@ -278,3 +278,8 @@ fn aagrid(x: f32, widthPx: f32) -> f32 {
     let d = abs(fract(x - 0.5) - 0.5) / max(fwidth(x), 1e-5);
     return 1.0 - clamp(d - widthPx * 0.5 + 0.5, 0.0, 1.0);
 }
+
+// finite test that survives fast-math (compilers may fold x == x away): exponent bits not all set
+fn isFiniteF(x: f32) -> bool {
+    return (bitcast<u32>(x) & 0x7f800000u) != 0x7f800000u;
+}

@@ -43,3 +43,10 @@ vfx_flame
 vfx_bolt
 vfx_matter
 vfx_arcane
+domain_core
+domain_bell
+domain_garden
+domain_lake
+domain_parade
+domain_memory
+domain_scenes
