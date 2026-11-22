@@ -1,6 +1,9 @@
 import { Constants, Mesh, Scene, ShaderLanguage, ShaderMaterial, Vector3, Vector4, VertexBuffer, VertexData } from '@babylonjs/core';
 
 const SEGS = 14;
+/** ribbon segments per recorded point (Catmull-Rom between them) */
+const RES = 3;
+const N = SEGS * RES;
 
 interface Trail {
   mesh: Mesh;
@@ -13,6 +16,7 @@ interface Trail {
   fade: number;
   palette: number;
   spark: boolean;
+  seed: number;
 }
 
 /**
@@ -27,15 +31,15 @@ export class Trails {
 
   private make(): Trail {
     const mesh = new Mesh('trail', this.scene);
-    const pos = new Float32Array((SEGS + 1) * 2 * 3);
-    const uv = new Float32Array((SEGS + 1) * 2 * 2);
+    const pos = new Float32Array((N + 1) * 2 * 3);
+    const uv = new Float32Array((N + 1) * 2 * 2);
     const idx: number[] = [];
-    for (let i = 0; i < SEGS; i++) {
+    for (let i = 0; i < N; i++) {
       const a = i * 2;
       idx.push(a, a + 1, a + 2, a + 1, a + 3, a + 2);
     }
-    for (let i = 0; i <= SEGS; i++) {
-      uv.set([i / SEGS, 0, i / SEGS, 1], i * 4);
+    for (let i = 0; i <= N; i++) {
+      uv.set([i / N, 0, i / N, 1], i * 4);
     }
     const vd = new VertexData();
     vd.positions = pos;
@@ -43,16 +47,17 @@ export class Trails {
     vd.indices = idx;
     vd.applyToMesh(mesh, true);
     const mat = new ShaderMaterial('trailMat', this.scene, { vertex: 'trail', fragment: 'trail' }, {
-      attributes: ['position', 'uv'], uniforms: ['viewProjection', 'trailParams'], shaderLanguage: ShaderLanguage.WGSL, needAlphaBlending: true,
+      attributes: ['position', 'uv'], uniforms: ['viewProjection', 'trailParams', 'trailParams2'], shaderLanguage: ShaderLanguage.WGSL, needAlphaBlending: true,
     });
     mat.backFaceCulling = false;
     mat.disableDepthWrite = true;
-    mat.alphaMode = Constants.ALPHA_ONEONE;
+    // premultiplied: energy adds light, ink and paper cover what is behind
+    mat.alphaMode = Constants.ALPHA_PREMULTIPLIED;
     mesh.material = mat;
     mesh.alwaysSelectAsActiveMesh = true;
     mesh.isPickable = false;
     mesh.renderingGroupId = 1;
-    return { mesh, mat, pts: [], widths: [], source: () => Vector3.Zero(), width: 0.3, active: false, fade: 0, palette: 0, spark: false };
+    return { mesh, mat, pts: [], widths: [], source: () => Vector3.Zero(), width: 0.3, active: false, fade: 0, palette: 0, spark: false, seed: 0 };
   }
 
   /** Start a trail following `source` until `stop` is called. Returns a handle. */
@@ -66,6 +71,7 @@ export class Trails {
     t.width = width;
     t.palette = palette;
     t.spark = spark;
+    t.seed = Math.random();
     t.active = true;
     t.fade = 1;
     const p = source();
@@ -96,20 +102,30 @@ export class Trails {
         t.pts.unshift(t.pts[0]);
         t.pts.length = SEGS + 1;
       }
-      const pos = new Float32Array((SEGS + 1) * 6);
-      for (let i = 0; i <= SEGS; i++) {
-        const p = t.pts[i];
-        const q = t.pts[Math.min(i + 1, SEGS)];
-        const prev = t.pts[Math.max(i - 1, 0)];
-        const along = q.subtract(prev);
+      // a smooth curve through the recorded points (Catmull-Rom), RES samples per segment
+      const curve: Vector3[] = [];
+      for (let i = 0; i < SEGS; i++) {
+        const p0 = t.pts[Math.max(i - 1, 0)];
+        const p1 = t.pts[i];
+        const p2 = t.pts[i + 1];
+        const p3 = t.pts[Math.min(i + 2, SEGS)];
+        for (let k = 0; k < RES; k++) curve.push(Vector3.CatmullRom(p0, p1, p2, p3, k / RES));
+      }
+      curve.push(t.pts[SEGS].clone());
+      const pos = new Float32Array((N + 1) * 6);
+      for (let i = 0; i <= N; i++) {
+        const p = curve[i];
+        const along = curve[Math.min(i + 1, N)].subtract(curve[Math.max(i - 1, 0)]);
         if (along.lengthSquared() < 1e-8) along.set(0, 1, 0);
         const toCam = camPos.subtract(p).normalize();
         const side = Vector3.Cross(along.normalize(), toCam).normalize();
-        const w = t.width * (1 - i / SEGS) * 0.5;
+        // full width at the head (the shader tapers the tail itself)
+        const w = t.width * 0.5;
         pos.set([p.x + side.x * w, p.y + side.y * w, p.z + side.z * w, p.x - side.x * w, p.y - side.y * w, p.z - side.z * w], i * 6);
       }
       t.mesh.updateVerticesData(VertexBuffer.PositionKind, pos);
       t.mat.setVector4('trailParams', new Vector4(t.palette, Math.max(0, t.fade), t.spark ? 1 : 0, this.time));
+      t.mat.setVector4('trailParams2', new Vector4(t.seed, 0, 0, 0));
     }
   }
 
