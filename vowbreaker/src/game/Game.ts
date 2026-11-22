@@ -107,6 +107,11 @@ export class Game {
     d.cam.orbit(new Vector3(0.5, 0.4, 2.5), 4.2, 1.2, 2.4, 0.06);
     this.r.post.settings.dofAmount = 0;
     this.titleSpin = true;
+    // the title's brushwork draws itself in behind the logo
+    const ps = this.r.post.settings;
+    ps.callMode = 1;
+    ps.callProgress = 0;
+    ps.callSeed = 0.37;
     const hasSave = this.save.chapter > 0;
     this.menu.title([
       { label: hasSave ? `Continue — ${CHAPTERS[Math.min(this.save.chapter, CHAPTERS.length - 1)].title}` : 'Begin the Story', action: () => void this.story(this.save.chapter) },
@@ -228,6 +233,9 @@ export class Game {
 
   update(dt: number): void {
     this.input.update(dt);
+    const ps = this.r.post.settings;
+    if (this.titleSpin && ps.callMode === 1) ps.callProgress = Math.min(1, ps.callProgress + dt / 2.6);
+    else if (ps.callMode === 1) ps.callMode = 0;
     if (this.menu.open) {
       this.menu.nav(this.input.wasPressed('up', 0.01), this.input.wasPressed('down', 0.01), this.input.wasPressed('confirm', 0.01) && !this.titleSpin ? true : this.input.wasPressed('confirm', 0.01),
         this.input.wasPressed('back', 0.01));

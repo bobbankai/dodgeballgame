@@ -349,13 +349,29 @@ export class Director {
   }
 
   async card(num: string, title: string, sub: string, hold = 3.2): Promise<void> {
-    const c = el('div', 'chapter-card', `<div class="num">${num}</div><div class="stroke"></div><div class="title">${title}</div><div class="sub">${sub}</div>`);
+    const c = el('div', 'chapter-card', `<div class="num">${num}</div><div class="title">${title}</div><div class="sub">${sub}</div>`);
     this.ui.append(c);
     this.audio.sfx('toll');
-    await this.wait(hold);
+    // the brushwork under the title draws itself on, then fades with the card
+    const s = this.r.post.settings;
+    s.callMode = 2;
+    s.callSeed = Math.random();
+    s.callProgress = 0;
+    s.callAmount = 1;
+    let t = 0;
+    await this.task((dt) => {
+      t += dt;
+      s.callProgress = Math.min(1, t / 1.6);
+      return t >= hold;
+    });
     c.style.transition = 'opacity 0.8s';
     c.style.opacity = '0';
-    await this.wait(0.8);
+    await this.task((dt) => {
+      s.callAmount = Math.max(0, s.callAmount - dt / 0.8);
+      return s.callAmount <= 0;
+    });
+    s.callMode = 0;
+    s.callAmount = 1;
     c.remove();
   }
 

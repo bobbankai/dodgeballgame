@@ -189,6 +189,12 @@ export class PostSettings {
   transT = -1;
   transImpact = new Vector2(0.5, 0.5);
   transSeed = 0;
+  /** calligraphy over the frame: 0 off, 1 the title, 2 a chapter card */
+  callMode = 0;
+  callProgress = 0;
+  callSeed = 0;
+  callAmount = 1;
+  callColor = new Color3(0.72, 0.06, 0.07);
 }
 
 /** One burning aura: whose silhouette (G-buffer id base), its colours, style and size. */
@@ -331,7 +337,7 @@ export class PostChain {
     this.wrap('vbLuminance', ['lumParams'], ['source', 'gbuffer']);
     this.wrap('vbReduce', ['texel'], ['source']);
     this.wrap('vbAdapt', ['adaptParams', 'adaptRange'], ['current', 'previous']);
-    this.wrap('vbStylize', ['screenParams', 'styleParams', 'styleParams2', 'mangaParams', 'mangaParams2', 'mangaCenter', 'paperColor', 'fluidParams'], ['source', 'fluidDye', 'fluidVel']);
+    this.wrap('vbStylize', ['screenParams', 'styleParams', 'styleParams2', 'mangaParams', 'mangaParams2', 'mangaCenter', 'paperColor', 'fluidParams', 'callParams', 'callColor'], ['source', 'fluidDye', 'fluidVel']);
     this.wrap('vbSharpen', ['rcpFrame', 'sharpness'], ['source']);
     this.wrap('vbAuraMask', ['auraIds', 'texel'], ['gbuffer']);
     this.wrap('vbTransition', ['transParams', 'transImpact'], ['source', 'snapshot']);
@@ -689,6 +695,8 @@ export class PostChain {
       e.setTexture('fluidDye', fluidOn ? fl!.dyeTexture : this.black);
       e.setTexture('fluidVel', fluidOn ? fl!.velocityTexture : this.black);
       e.setVector4('fluidParams', new Vector4(fluidOn ? s.fluidInk : 0, s.fluidRefract, s.fluidBands, 0));
+      e.setVector4('callParams', new Vector4(s.callMode, s.callProgress, s.callSeed, s.callAmount));
+      e.setColor3('callColor', s.callColor);
     });
 
     // FXAA, then contrast-adaptive sharpening to the canvas

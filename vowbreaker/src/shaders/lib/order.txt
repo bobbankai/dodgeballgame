@@ -55,3 +55,4 @@ fluid
 aura
 scene_trans
 water_toon
+calligraphy

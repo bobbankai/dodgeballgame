@@ -25,6 +25,7 @@
 #include<vb_film>
 #include<vb_manga>
 #include<vb_fluid>
+#include<vb_calligraphy>
 
 varying vUV: vec2f;
 
@@ -42,6 +43,8 @@ uniform mangaParams: vec4f;      // focus lines, sparkle, gloom, panel layout (0
 uniform mangaParams2: vec4f;     // manga page amount, sfx burst amount, beta fill, time
 uniform mangaCenter: vec4f;      // focus / sparkle centre xy, sfx centre zw
 uniform paperColor: vec3f;
+uniform callParams: vec4f;      // calligraphy: mode (0 off, 1 title, 2 chapter card), progress, seed, amount
+uniform callColor: vec3f;       // the accent ink (red strokes, the seal)
 uniform fluidParams: vec4f;     // ink amount, refraction, wash bands, -
 
 fn src(uv: vec2f) -> vec3f {
@@ -170,6 +173,18 @@ fn main(input: FragmentInputs) -> FragmentOutputs {
     if (panelKind > 0) {
         let pl = panelLayout(fragmentInputs.vUV, aspect, panelKind, 0.012);
         col = mix(col, vec3f(0.97, 0.96, 0.93), pl.y);
+    }
+
+    // --- calligraphy for the title and chapter cards (the HTML text sits on top) ----------------------------------
+    let callMode = i32(uniforms.callParams.x + 0.5);
+    if (callMode > 0 && uniforms.callParams.w > 0.0) {
+        var k: Ink;
+        if (callMode == 1) {
+            k = callTitle(fragmentInputs.vUV, aspect, uniforms.callParams.y, uniforms.callParams.z);
+        } else {
+            k = callChapter(fragmentInputs.vUV, aspect, uniforms.callParams.y, uniforms.callParams.z);
+        }
+        col = callApply(col, k, uniforms.callColor, uniforms.paperColor, uniforms.callParams.w);
     }
 
     // --- lens highlights and frost on top ---------------------------------------------------------------------------
