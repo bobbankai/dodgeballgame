@@ -110,6 +110,14 @@ export class Director {
     // particles stay inside the arena and swirl round an open domain
     const parts = this.fx.particles;
     parts.arena.set(0, this.stage ? this.stage.def.arena + 3 : 0, 0);
+    // the open domain's look over the whole frame
+    const ps = this.r.post.settings;
+    ps.domainLook = this.domain.active ? this.domain.id + 1 : 0;
+    ps.domainLookAmount = this.domain.active ? this.domain.reveal * 0.85 : 0;
+    if (this.domain.active) {
+      const cp = this.fx.project(this.domain.center.add(new Vector3(0, 1.2, 0)));
+      ps.domainLookCenter.set(cp.x, cp.y);
+    }
     if (this.domain.active) {
       parts.vortex.copyFrom(this.domain.center);
       parts.vortexStrength = 2.5 * this.domain.reveal;

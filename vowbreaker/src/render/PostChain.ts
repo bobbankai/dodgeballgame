@@ -96,6 +96,10 @@ export class PostSettings {
   clashColorB = new Color3(1, 0.2, 0.1);
   /** how a memory is painted (vbMemory): 0 sumi-e (vbSumie), 1 shadow puppets, 2 photograph, 3 watercolour, 4 crayon, 5 stained glass, 6 woodblock */
   memoryStyle = 0;
+  /** the open domain's look over the frame (vbDomainLook): domain id + 1 (0 none), amount, the caster on screen */
+  domainLook = 0;
+  domainLookAmount = 0;
+  domainLookCenter = new Vector2(0.5, 0.5);
   memorySeed = 0.3;
   impactStyle = 0;
   impactT = 0;
@@ -425,6 +429,7 @@ export class PostChain {
     this.wrap('vbSharpen', ['rcpFrame', 'sharpness'], ['source']);
     this.wrap('vbAuraMask', ['auraIds', 'texel'], ['gbuffer']);
     this.wrap('vbTransition', ['transParams', 'transImpact'], ['source', 'snapshot']);
+    this.wrap('vbDomainLook', ['screenParams', 'domainLookParams', 'domainLookCenter'], ['source']);
     this.wrap('vbMemory', ['screenParams', 'memoryParams', 'memoryParams2'], ['source', 'gbuffer']);
     this.wrap('vbClash', ['screenParams', 'clashParams', 'clashCenters', 'clashColorA', 'clashColorB'], ['clashA', 'clashB']);
     this.wrap('vbImpact', ['screenParams', 'impactParams', 'impactGeo', 'impactAccent', 'impactAccentDark'], ['source', 'gbuffer']);
@@ -853,6 +858,18 @@ export class PostChain {
       e.setVector4('filmParams', new Vector4(s.grainSize, s.volExtinction, 0, 0));
     });
     this.prevViewProj.copyFrom(vpNow);
+
+    // an open domain's look over the frame (before the clash keeps this frame as its side)
+    if (s.domainLook > 0 && s.domainLookAmount > 0.001) {
+      this.run('vbDomainLook', this.ldr3, (fx) => {
+        const e = fx.effect;
+        e.setTexture('source', this.ldr);
+        e.setVector4('screenParams', screen);
+        e.setVector4('domainLookParams', new Vector4(s.domainLook, s.domainLookAmount, this.time, 0));
+        e.setVector2('domainLookCenter', s.domainLookCenter);
+      });
+      this.run('vbCopy', this.ldr, (fx) => fx.effect.setTexture('source', this.ldr3));
+    }
 
     // memories: the frame repainted as sumi-e
     let styled: RenderTargetTexture = this.ldr;
