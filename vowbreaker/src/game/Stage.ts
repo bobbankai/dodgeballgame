@@ -7,6 +7,7 @@ import type { Mood } from '../audio/Audio';
 import { loadContainer } from './Assets';
 import { Water, type WaterDef } from '../render/Water';
 import { Grass, type GrassDef } from '../render/Grass';
+import { Crowd, type CrowdDef } from '../render/Crowd';
 
 export interface StageDef {
   id: string;
@@ -42,6 +43,8 @@ export interface StageDef {
   water?: WaterDef[];
   /** instanced grass blades (src/render/Grass.ts) */
   grass?: GrassDef;
+  /** background people round the square (src/render/Crowd.ts) */
+  crowd?: CrowdDef;
 }
 
 /** Post-processing a stage chooses: its grade, the light in the air, the lens. */
@@ -93,11 +96,11 @@ export const STAGES: Record<string, StageDef> = {
   village: S({ id: 'village', glb: 'stages/village.glb', sky: FESTIVAL, sunDir: [0.5, 0.6, -0.6], sunColor: [0.5, 0.45, 0.65], skyColor: [0.12, 0.1, 0.2],
     groundColor: [0.1, 0.06, 0.05], shadowColor: [0.25, 0.22, 0.45], rimColor: [1.2, 0.6, 0.3], fog: { density: 0.012, color: [0.2, 0.1, 0.12] },
     horizon: [0.3, 0.14, 0.15], grade: { exposure: 0.35, contrast: 1.05, saturation: 1.15, temperature: 0.15, split: 0.2, bloom: 0.9 }, ambient: { kind: 'motes', density: 0.6 },
-    glow: [1.0, 0.5, 0.18], lamp: [0, 3, 0, 14, 1.0, 0.5, 0.2, 2], arena: 13, music: 'festival', floor: [0.55, 0.45, 0.36, 22] , look: { age: 0.55, litter: 0.3, season: 0.5, windows: 0.6, moon: 0.4 } }),
+    glow: [1.0, 0.5, 0.18], lamp: [0, 3, 0, 14, 1.0, 0.5, 0.2, 2], arena: 13, crowd: { center: [0, 0, 0], ring: [13.8, 16.8], count: 90, fogDensity: 0.015 }, music: 'festival', floor: [0.55, 0.45, 0.36, 22] , look: { age: 0.55, litter: 0.3, season: 0.5, windows: 0.6, moon: 0.4 } }),
   village_burning: S({ id: 'village_burning', glb: 'stages/village.glb', sky: FIRE, sunDir: [0.5, 0.6, -0.6], sunColor: [1.2, 0.5, 0.2], skyColor: [0.25, 0.08, 0.05],
     groundColor: [0.12, 0.04, 0.02], shadowColor: [0.3, 0.12, 0.2], rimColor: [1.6, 0.6, 0.2], fog: { density: 0.03, color: [0.3, 0.1, 0.05] },
     horizon: [0.5, 0.15, 0.05], grade: { exposure: -0.05, contrast: 1.15, saturation: 1.15, temperature: 0.3, split: 0.3, bloom: 0.9 }, ambient: { kind: 'embers', density: 1 },
-    glow: [1.0, 0.4, 0.1], lamp: [0, 2, 0, 18, 1.0, 0.4, 0.1, 3], arena: 13, music: 'boss', floor: [0.4, 0.3, 0.25, 22] , look: { age: 0.55, ash: 0.7, fireStrength: 1.6, fire: [0, 2.5, -6, 22] } }),
+    glow: [1.0, 0.4, 0.1], lamp: [0, 2, 0, 18, 1.0, 0.4, 0.1, 3], arena: 13, crowd: { center: [0, 0, 0], ring: [13.8, 17], count: 40, behaviours: [0, 0, 0, 1], props: [1, 0, 0, 0.15, 0], fogDensity: 0.025 }, music: 'boss', floor: [0.4, 0.3, 0.25, 22] , look: { age: 0.55, ash: 0.7, fireStrength: 1.6, fire: [0, 2.5, -6, 22] } }),
   estate: S({ id: 'estate', glb: 'stages/estate.glb', sky: DAY, sunDir: [-0.5, 0.7, 0.4], sunColor: [1.5, 1.4, 1.25], skyColor: [0.45, 0.55, 0.8],
     groundColor: [0.3, 0.28, 0.25], shadowColor: [0.45, 0.5, 0.78], rimColor: [1, 1, 1], fog: { density: 0.006, color: [0.8, 0.85, 0.95] },
     horizon: [0.8, 0.85, 0.95], aerial: [30, 160], grade: { exposure: 0, contrast: 1.04, saturation: 0.95, split: 0.1 }, ambient: { kind: 'petals', density: 0.25 },
@@ -131,6 +134,7 @@ export class Stage {
   private waters: Water[] = [];
   /** the stage's grass, if it has any */
   grass: Grass | null = null;
+  private crowd: Crowd | null = null;
   def: StageDef;
 
   constructor(private r: Renderer, def: StageDef) {
@@ -262,6 +266,8 @@ export class Stage {
     for (const w of this.waters) w.rain = env.rain > 0.5 ? 1 : 0;
     this.grass?.dispose();
     this.grass = d.grass ? new Grass(r, d.grass) : null;
+    this.crowd?.dispose();
+    this.crowd = d.crowd ? new Crowd(r, d.crowd, () => this.env.glowColor, () => r.post.settings.fogColor) : null;
   }
 
   private lightningIn = 6 + Math.random() * 8;
@@ -293,6 +299,8 @@ export class Stage {
     this.waters = [];
     this.grass?.dispose();
     this.grass = null;
+    this.crowd?.dispose();
+    this.crowd = null;
     // materials go, but never their textures: the shadow map is shared by every material
     for (const m of this.meshes) {
       m.material?.dispose(false, false);
