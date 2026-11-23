@@ -36,6 +36,18 @@ export class Renderer {
     this.sky = new Sky(scene, this.lighting);
     // effects (rendering group 1) are depth-tested against the scene: keep its depth between groups
     scene.setRenderingAutoClearDepthStencil(1, false, false, false);
+    // the sky last among the opaque meshes (the rest grouped by material, as Babylon does): it sits at
+    // the far plane, so the depth test skips its clouds wherever the place already covers the screen
+    const skyMesh = scene.getMeshByName('sky');
+    scene.setRenderingOrder(0, (a, b) => {
+      const ma = a.getMesh();
+      const mb = b.getMesh();
+      const sa = ma === skyMesh ? 1 : 0;
+      const sb = mb === skyMesh ? 1 : 0;
+      if (sa !== sb) return sa - sb;
+      if (ma.material && mb.material) return ma.material.uniqueId - mb.material.uniqueId;
+      return ma.uniqueId - mb.uniqueId;
+    });
   }
 
   static async create(canvas: HTMLCanvasElement): Promise<Renderer> {

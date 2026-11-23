@@ -922,18 +922,20 @@ async function mio(d: Director): Promise<void> {
   const lb = await d.actor('littlebell', 'mio', { tint: [0.2, 0.15, 0.2] });
   d.place('littlebell', 0, 4, Math.PI);
   lb.anim.play('stand', 0);
-  lb.look.energy.set(0.8, 0, 0, 0);
+  lb.look.energy.set(0.5, 0, 0, 0);
   d.place('itsuki', 0, -3, 0);
   it.anim.play('stand', 0);
   d.music('boss');
-  d.shot([2, 1, -6], [0, 1.2, 4], 0.6);
+  // over Itsuki's shoulder, so she is seen past him (straight behind his head she was hidden by it)
+  d.look('itsuki', 'littlebell');
+  d.over('itsuki', 'littlebell');
   await talk(d, [
-    ['littlebell', 'Onii-chan. You came home.', 'smile', 'w'],
+    ['littlebell', 'Onii-chan. You came home.', 'smile', 'o'],
     ['itsuki', 'You\'re not her. You\'re what I made out of her.', 'fear', 'c'],
-    ['littlebell', 'I\'m everything you didn\'t do. Every night you went out to fight so you wouldn\'t have to come home.', 'cold', 'w'],
-    ['littlebell', 'You promised. Twenty minutes. I\'ve been waiting three years. Stay with me now.', 'sad', 'w'],
+    ['littlebell', 'I\'m everything you didn\'t do. Every night you went out to fight so you wouldn\'t have to come home.', 'cold', 'o'],
+    ['littlebell', 'You promised. Twenty minutes. I\'ve been waiting three years. Stay with me now.', 'sad', 'c'],
     ['itsuki', 'I can\'t stay. Sensei told me not to stay put.', 'determined', 'c'],
-    ['littlebell', 'THEN I\'LL MAKE YOU.', 'shout', 'w'],
+    ['littlebell', 'THEN I\'LL MAKE YOU.', 'shout', 'o'],
   ]);
   await d.battle({
     player: 'itsuki', intro: 'THE LITTLE BELL', introSub: '小さな鈴', canLose: false,
