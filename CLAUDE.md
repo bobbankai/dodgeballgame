@@ -134,3 +134,10 @@ chimes on the last page).
 Done: Prologue (attic), Chapter One (Margin Village, green), Chapter Two (Folded Sea, blue),
 Chapter Three (Unfinished Page, gold), Epilogue (morning attic) and credits. The whole story plays
 from the title screen through to the credits.
+
+## Tidebreakers (separate game in `tidebreakers/`)
+
+A Babylon.js + WebGPU anime action brawler with its own story, assets and WGSL renderer; nothing is shared
+with Inkbound. `npm run tidebreakers` (port 5175), `npm run tidebreakers:typecheck`. Everything about it
+(story, controls, asset pipelines including the CMU mocap retargeting, the headless test runner and autoplay
+bot) is in `tidebreakers/README.md`; the design is `tidebreakers/docs/DESIGN.md`.
