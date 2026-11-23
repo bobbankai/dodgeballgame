@@ -1,0 +1,278 @@
+// The frame: sun shadow cascades -> scene into an HDR multi-render-target (colour + normal/depth/id) ->
+// post chain (bloom, final grade) -> canvas. Everything is WGSL; see src/shaders.
+import {
+  WebGPUEngine, Scene, Color4, Constants, MultiRenderTarget, RenderTargetTexture, EffectRenderer, EffectWrapper,
+  ShaderLanguage, ShaderMaterial, FreeCamera, Camera, Vector3, Vector4, Matrix, ThinTexture, MeshBuilder, Mesh,
+} from '@babylonjs/core';
+import type { AbstractMesh, RenderTargetWrapper, InternalTexture, BaseTexture } from '@babylonjs/core';
+import { Globals } from './Globals';
+import { registerShaders } from './shaderRegistry';
+
+export type Quality = 'low' | 'medium' | 'high';
+
+interface Target { rt: RenderTargetWrapper; tex: ThinTexture; w: number; h: number }
+
+export interface PostFx {
+  vignette: number; aberration: number; grain: number; letterbox: number;
+  fade: number; impact: number; speedLines: number; radialBlur: number;
+  radialCenter: [number, number]; bloom: number; memory: number; sepia: number;
+  lift: [number, number, number]; gamma: [number, number, number]; gain: [number, number, number];
+  bloomThreshold: number;
+}
+
+export class Renderer {
+  engine!: WebGPUEngine;
+  scene!: Scene;
+  globals!: Globals;
+  mrt!: MultiRenderTarget;
+  quality: Quality = 'high';
+  fx: PostFx = {
+    vignette: 0.28, aberration: 0, grain: 0.15, letterbox: 0, fade: 0, impact: 0, speedLines: 0, radialBlur: 0,
+    radialCenter: [0.5, 0.5], bloom: 0.55, memory: 0, sepia: 0, lift: [0, 0, 0], gamma: [1, 1, 1], gain: [1, 1, 1],
+    bloomThreshold: 1.05,
+  };
+  readonly casters: AbstractMesh[] = [];
+  shadowCenter = new Vector3();
+  shadowRadius = [14, 60];
+  private shadowRT: RenderTargetTexture[] = [];
+  private shadowCams: FreeCamera[] = [];
+  private depthMat!: ShaderMaterial;
+  private fxr!: EffectRenderer;
+  private finalFx!: EffectWrapper;
+  private bloomDown!: EffectWrapper;
+  private bloomUp!: EffectWrapper;
+  private bloomChain: Target[] = [];
+  private bloomUpChain: Target[] = [];
+  private mrtTex0!: BaseTexture;
+  private frameNo = 0;
+  private skyMesh: Mesh | null = null;
+
+  constructor(readonly canvas: HTMLCanvasElement, readonly test = false) {}
+
+  async init(quality: Quality = 'high'): Promise<void> {
+    registerShaders();
+    this.quality = quality;
+    this.engine = new WebGPUEngine(this.canvas, { antialias: false, adaptToDeviceRatio: !this.test, stencil: false, powerPreference: 'high-performance' });
+    await this.engine.initAsync();
+    if (!this.test) this.engine.setHardwareScalingLevel(quality === 'low' ? 1.5 : quality === 'medium' ? 1.15 : 1 / Math.min(window.devicePixelRatio, 1.5));
+    this.scene = new Scene(this.engine);
+    this.scene.clearColor = new Color4(0, 0, 0, 0);
+    this.scene.skipPointerMovePicking = true;
+    this.scene.autoClear = true;
+    this.globals = new Globals(this.engine);
+    this.createTargets();
+    this.createShadows();
+    this.fxr = new EffectRenderer(this.engine);
+    const common = { engine: this.engine, useShaderStore: true, shaderLanguage: ShaderLanguage.WGSL, uniformBuffers: ['globals'] };
+    this.finalFx = new EffectWrapper({ ...common, name: 'final', fragmentShader: 'tbFinal', samplerNames: ['colorTex', 'bloomTex'],
+      uniformNames: ['fxA', 'fxB', 'fxC', 'liftC', 'gammaC', 'gainC'] });
+    this.bloomDown = new EffectWrapper({ ...common, name: 'bloomDown', fragmentShader: 'tbBloomDown', samplerNames: ['src'], uniformNames: ['texel', 'knee'], uniformBuffers: [] });
+    this.bloomUp = new EffectWrapper({ ...common, name: 'bloomUp', fragmentShader: 'tbBloomUp', samplerNames: ['low', 'cur'], uniformNames: ['texel'], uniformBuffers: [] });
+    this.engine.onResizeObservable.add(() => this.createTargets());
+    window.addEventListener('resize', () => this.engine.resize());
+  }
+
+  // ------------------------------------------------------------------------------------------ targets
+  private createTargets(): void {
+    const w = this.engine.getRenderWidth(), h = this.engine.getRenderHeight();
+    this.mrt?.dispose();
+    this.mrt = new MultiRenderTarget('main', { width: w, height: h }, 2, this.scene, {
+      types: [Constants.TEXTURETYPE_HALF_FLOAT, Constants.TEXTURETYPE_HALF_FLOAT],
+      samplingModes: [Constants.TEXTURE_BILINEAR_SAMPLINGMODE, Constants.TEXTURE_NEAREST_SAMPLINGMODE],
+      samples: this.quality === 'low' ? 1 : 4,
+      generateDepthBuffer: true,
+      doNotChangeAspectRatio: true,
+    }, ['color', 'gbuf']);
+    this.mrt.renderList = null;
+    this.mrtTex0 = this.mrt.textures[0];
+    if (this.scene.activeCamera) this.scene.activeCamera.outputRenderTarget = this.mrt;
+    for (const t of [...this.bloomChain, ...this.bloomUpChain]) t.rt.dispose();
+    this.bloomChain = [];
+    this.bloomUpChain = [];
+    let bw = Math.max(1, w >> 1), bh = Math.max(1, h >> 1);
+    const levels = this.quality === 'low' ? 4 : 6;
+    for (let i = 0; i < levels; i++) {
+      this.bloomChain.push(this.target(bw, bh));
+      if (i < levels - 1) this.bloomUpChain.push(this.target(bw, bh));
+      bw = Math.max(1, bw >> 1); bh = Math.max(1, bh >> 1);
+    }
+    this.globals?.set('viewport', w, h, 1 / w, 1 / h);
+  }
+
+  private target(w: number, h: number): Target {
+    const rt = this.engine.createRenderTargetTexture({ width: w, height: h }, {
+      type: Constants.TEXTURETYPE_HALF_FLOAT, generateMipMaps: false, generateDepthBuffer: false, generateStencilBuffer: false,
+      samplingMode: Constants.TEXTURE_BILINEAR_SAMPLINGMODE, format: Constants.TEXTUREFORMAT_RGBA,
+    });
+    const tex = new ThinTexture(rt.texture as InternalTexture);
+    tex.wrapU = tex.wrapV = Constants.TEXTURE_CLAMP_ADDRESSMODE;
+    return { rt, tex, w, h };
+  }
+
+  // ------------------------------------------------------------------------------------------ shadows
+  private createShadows(): void {
+    const sizes = this.quality === 'low' ? [1024, 512] : this.quality === 'medium' ? [2048, 1024] : [2048, 2048];
+    this.depthMat = new ShaderMaterial('shadowDepth', this.scene, { vertex: 'tbShadowDepth', fragment: 'tbShadowDepth' }, {
+      attributes: ['position'], uniforms: ['world', 'viewProjection', 'sway'], uniformBuffers: ['globals'],
+      shaderLanguage: ShaderLanguage.WGSL,
+    });
+    this.depthMat.setUniformBuffer('globals', this.globals.ubo);
+    this.depthMat.setVector4('sway', new Vector4(0, 0, 0, 0));
+    for (let i = 0; i < 2; i++) {
+      const rtt = new RenderTargetTexture(`shadow${i}`, sizes[i], this.scene, {
+        generateMipMaps: false, type: Constants.TEXTURETYPE_FLOAT, format: Constants.TEXTUREFORMAT_R,
+        samplingMode: Constants.TEXTURE_NEAREST_SAMPLINGMODE, generateDepthBuffer: true,
+      });
+      rtt.clearColor = new Color4(1, 1, 1, 1);
+      rtt.wrapU = rtt.wrapV = Constants.TEXTURE_CLAMP_ADDRESSMODE;
+      const cam = new FreeCamera(`shadowCam${i}`, new Vector3(0, 50, 0), this.scene, false);
+      cam.mode = Camera.ORTHOGRAPHIC_CAMERA;
+      cam.minZ = 0.5;
+      cam.maxZ = 400;
+      rtt.activeCamera = cam;
+      rtt.renderList = this.casters;
+      rtt.refreshRate = 1;
+      this.scene.customRenderTargets.push(rtt);
+      this.shadowRT.push(rtt);
+      this.shadowCams.push(cam);
+    }
+    this.scene.activeCameras = null;
+    this.globals.set('shadowParams', 1 / sizes[0], 0.0015, 0.04, 1);
+  }
+
+  get shadowTextures(): [BaseTexture, BaseTexture] { return [this.shadowRT[0], this.shadowRT[1]]; }
+
+  /** Registers a mesh as a sun shadow caster (sway > 0 for wind-swayed foliage). */
+  addCaster(mesh: AbstractMesh, sway = 0, swayHeight = 3): void {
+    if (this.casters.includes(mesh)) return;
+    this.casters.push(mesh);
+    let mat = this.depthMat;
+    if (sway > 0) {
+      mat = this.depthMat.clone(`shadowDepthSway${sway}`) as ShaderMaterial;
+      mat.setUniformBuffer('globals', this.globals.ubo);
+      mat.setVector4('sway', new Vector4(sway, swayHeight, 0, 0));
+    }
+    for (const rtt of this.shadowRT) rtt.setMaterialForRendering(mesh, mat);
+  }
+
+  removeCaster(mesh: AbstractMesh): void {
+    const i = this.casters.indexOf(mesh);
+    if (i >= 0) this.casters.splice(i, 1);
+  }
+
+  private updateShadowCams(): void {
+    const sun = new Vector3(...(this.globals.get('sunDir').slice(0, 3) as [number, number, number])).normalize();
+    for (let i = 0; i < 2; i++) {
+      const cam = this.shadowCams[i];
+      const r = this.shadowRadius[i];
+      // snap the centre to shadow texels so edges don't crawl when the camera moves
+      const size = this.shadowRT[i].getSize().width;
+      const texel = (2 * r) / size;
+      const c = this.shadowCenter.clone();
+      const dist = 150;
+      const up = Math.abs(sun.y) > 0.95 ? new Vector3(0, 0, 1) : Vector3.Up();
+      const view = Matrix.LookAtLH(c.add(sun.scale(dist)), c, up);
+      const lc = Vector3.TransformCoordinates(c, view);
+      lc.x = Math.round(lc.x / texel) * texel;
+      lc.y = Math.round(lc.y / texel) * texel;
+      const inv = view.clone().invert();
+      const snapped = Vector3.TransformCoordinates(lc, inv);
+      cam.position = snapped.add(sun.scale(dist));
+      cam.setTarget(snapped);
+      cam.upVector = up;
+      cam.orthoLeft = -r; cam.orthoRight = r; cam.orthoTop = r; cam.orthoBottom = -r;
+      cam.minZ = 1; cam.maxZ = dist * 2;
+      cam.getViewMatrix(true);
+      const vp = cam.getViewMatrix().multiply(cam.getProjectionMatrix(true));
+      this.globals.setMatrix(i === 0 ? 'shadowMat' : 'shadowMat1', vp);
+    }
+    this.globals.set('shadowParams', 1 / this.shadowRT[0].getSize().width, this.globals.get('shadowParams')[1], this.globals.get('shadowParams')[2], this.globals.get('shadowParams')[3]);
+  }
+
+  // ------------------------------------------------------------------------------------------ sky
+  setSky(mat: ShaderMaterial): Mesh {
+    if (!this.skyMesh) {
+      this.skyMesh = MeshBuilder.CreateSphere('sky', { diameter: 2, segments: 32, sideOrientation: Mesh.BACKSIDE }, this.scene);
+      this.skyMesh.infiniteDistance = false;
+      this.skyMesh.isPickable = false;
+      this.skyMesh.alwaysSelectAsActiveMesh = true;
+    }
+    this.skyMesh.material = mat;
+    return this.skyMesh;
+  }
+
+  // ------------------------------------------------------------------------------------------ frame
+  render(time: number, dt: number): void {
+    const cam = this.scene.activeCamera;
+    if (!cam) return;
+    cam.outputRenderTarget = this.mrt;
+    const g = this.globals;
+    g.set('time', time, dt, this.frameNo++, time);
+    g.set('camPos', cam.globalPosition.x, cam.globalPosition.y, cam.globalPosition.z, 1);
+    const w = this.engine.getRenderWidth(), h = this.engine.getRenderHeight();
+    g.set('viewport', w, h, 1 / w, 1 / h);
+    this.updateShadowCams();
+    g.upload();
+    this.engine.beginFrame();
+    this.scene.render();
+    this.post();
+    this.engine.endFrame();
+  }
+
+  private ready(...e: EffectWrapper[]): boolean { return e.every((x) => x.isReady()); }
+
+  private post(): void {
+    const fx = this.fx;
+    const bloomOn = fx.bloom > 0 && this.ready(this.bloomDown, this.bloomUp);
+    if (bloomOn) {
+      // downsample chain
+      let src: BaseTexture | ThinTexture = this.mrtTex0;
+      let sw = this.engine.getRenderWidth(), sh = this.engine.getRenderHeight();
+      this.bloomChain.forEach((t, i) => {
+        this.bloomDown.onApplyObservable.clear();
+        const s = src;
+        const tw = sw, th = sh;
+        this.bloomDown.onApplyObservable.add(() => {
+          const e = this.bloomDown.effect;
+          e.setTexture('src', s as any);
+          e.setFloat4('texel', 1 / tw, 1 / th, i === 0 ? 1 : 0, fx.bloomThreshold);
+          e.setFloat4('knee', 0.5, 40, 0, 0);
+        });
+        this.fxr.render(this.bloomDown, t.rt);
+        src = t.tex; sw = t.w; sh = t.h;
+      });
+      // upsample
+      let low: Target = this.bloomChain[this.bloomChain.length - 1];
+      for (let i = this.bloomUpChain.length - 1; i >= 0; i--) {
+        const out = this.bloomUpChain[i];
+        const cur = this.bloomChain[i];
+        const l = low;
+        this.bloomUp.onApplyObservable.clear();
+        this.bloomUp.onApplyObservable.add(() => {
+          const e = this.bloomUp.effect;
+          e.setTexture('low', l.tex as any);
+          e.setTexture('cur', cur.tex as any);
+          e.setFloat4('texel', 1 / l.w, 1 / l.h, 1.0, 1.0);
+        });
+        this.fxr.render(this.bloomUp, out.rt);
+        low = out;
+      }
+    }
+    if (!this.finalFx.isReady()) return;
+    this.finalFx.onApplyObservable.clear();
+    this.finalFx.onApplyObservable.add(() => {
+      const e = this.finalFx.effect;
+      e.setTexture('colorTex', this.mrtTex0);
+      e.setTexture('bloomTex', (bloomOn ? this.bloomUpChain[0].tex : this.bloomChain[0].tex) as any);
+      e.bindUniformBuffer(this.globals.ubo.getBuffer()!, 'globals');
+      e.setFloat4('fxA', fx.vignette, fx.aberration, fx.grain, fx.letterbox);
+      e.setFloat4('fxB', fx.fade, fx.impact, fx.speedLines, fx.radialBlur);
+      e.setFloat4('fxC', fx.radialCenter[0], fx.radialCenter[1], bloomOn ? fx.bloom : 0, fx.memory);
+      e.setFloat4('liftC', fx.lift[0], fx.lift[1], fx.lift[2], 0);
+      e.setFloat4('gammaC', fx.gamma[0], fx.gamma[1], fx.gamma[2], 0);
+      e.setFloat4('gainC', fx.gain[0], fx.gain[1], fx.gain[2], fx.sepia);
+    });
+    this.engine.restoreDefaultFramebuffer();
+    this.fxr.render(this.finalFx);
+  }
+}
