@@ -3,7 +3,9 @@ import type { Renderer } from '../render/Renderer';
 import { Input } from '../core/Input';
 import { Audio } from '../audio/Audio';
 import { DialogueBox, HUD, makeUIRoot } from '../ui/UI';
-import { Menu } from '../ui/Menu';
+import { Menu, type MenuItem } from '../ui/Menu';
+import { TouchControls, type TouchScene } from '../ui/TouchControls';
+import { loadPrefs, savePrefs } from '../core/Device';
 import { Director } from '../story/Director';
 import { CHAPTERS } from '../story/chapters';
 import { KITS } from './Moves';
@@ -48,7 +50,10 @@ export class Game {
   readonly dialogue: DialogueBox;
   readonly director: Director;
   readonly menu: Menu;
+  readonly touch: TouchControls;
   private paused = false;
+  /** the page went to the background or the phone was turned upright: open the pause menu when we can */
+  private wantPause = false;
   private save = loadSave();
   private titleSpin = false;
   private mode: 'title' | 'story' | 'battle' = 'title';
@@ -59,6 +64,9 @@ export class Game {
     this.hud = new HUD(this.ui);
     this.dialogue = new DialogueBox(this.ui);
     this.menu = new Menu(this.ui, this.audio);
+    this.touch = new TouchControls(this.ui, this.input);
+    const prefs = loadPrefs();
+    if (prefs.music !== undefined || prefs.sfx !== undefined) this.audio.setVolumes(prefs.music ?? this.audio.musicVolume, prefs.sfx ?? this.audio.sfxVolume);
     this.director = new Director(r, this.input, this.ui, this.hud, this.dialogue, this.audio);
     this.test = params.has('test');
     if (this.test) {
@@ -75,6 +83,14 @@ export class Game {
     this.director.onLose = () => this.retryPrompt();
     window.addEventListener('pointerdown', () => this.audio.unlock(), { once: true });
     window.addEventListener('keydown', () => this.audio.unlock(), { once: true });
+    // iOS only starts audio from the end of a touch or a click
+    window.addEventListener('touchend', () => this.audio.unlock(), { once: true });
+    window.addEventListener('click', () => this.audio.unlock(), { once: true });
+    // a phone's home button or a tab switch: stop the sound and hold the game at its pause menu
+    document.addEventListener('visibilitychange', () => {
+      this.audio.setHidden(document.hidden);
+      if (document.hidden) this.wantPause = true;
+    });
   }
 
   async start(): Promise<void> {
@@ -152,13 +168,23 @@ export class Game {
 
   private settings(back: () => void): void {
     const s = this.r.post.settings;
-    this.menu.settings(this.audio, [
+    const items: MenuItem[] = [
       { label: `Quality: ${s.quality}`, action: () => {
         s.quality = s.quality === 'high' ? 'medium' : s.quality === 'medium' ? 'low' : 'high';
+        savePrefs({ quality: s.quality });
         this.settings(back);
       } },
-      { label: 'Back', action: back },
-    ], back);
+    ];
+    if (document.fullscreenEnabled) {
+      items.push({ label: `Fullscreen: ${document.fullscreenElement ? 'on' : 'off'}`, action: () => {
+        const on = !document.fullscreenElement;
+        savePrefs({ fullscreen: on });
+        const done = on ? document.documentElement.requestFullscreen({ navigationUI: 'hide' }) : document.exitFullscreen();
+        void done.catch(() => {}).finally(() => this.settings(back));
+      } });
+    }
+    items.push({ label: 'Back', action: back });
+    this.menu.settings(this.audio, items, back, (music, sfx) => savePrefs({ music, sfx }));
   }
 
   // --- story ----------------------------------------------------------------------------------------------
@@ -258,6 +284,13 @@ export class Game {
 
   update(dt: number): void {
     this.input.update(dt);
+    // the on-screen controls: sticks and buttons in a fight, tap-to-advance in a cutscene, nothing in a menu
+    const fight = this.director.fight;
+    const scene: TouchScene = this.menu.open || this.paused || this.mode === 'title' ? 'none' : fight && !fight.result ? 'fight' : 'cutscene';
+    this.touch.sync(dt, scene, fight?.player ?? null);
+    if (this.touch.enabled && this.touch.portrait && scene !== 'none') this.wantPause = true;
+    // (nothing to pause at a menu or the title: forget the request rather than pausing the story that starts next)
+    if (this.menu.open || this.mode === 'title') this.wantPause = false;
     const ps = this.r.post.settings;
     if (this.titleSpin && ps.callMode === 1) ps.callProgress = Math.min(1, ps.callProgress + dt / 2.6);
     else if (ps.callMode === 1) ps.callMode = 0;
@@ -267,8 +300,9 @@ export class Game {
       this.menu.nav(this.input.wasPressed('up', 0.01), this.input.wasPressed('down', 0.01), this.input.wasPressed('confirm', 0.01) && !this.titleSpin ? true : this.input.wasPressed('confirm', 0.01),
         this.input.wasPressed('back', 0.01));
       for (const a of ['up', 'down', 'confirm', 'back'] as const) this.input.consume(a);
-    } else if (this.input.wasPressed('pause', 0.01) && this.mode !== 'title') {
+    } else if ((this.input.wasPressed('pause', 0.01) || this.wantPause) && this.mode !== 'title') {
       this.input.consume('pause');
+      this.wantPause = false;
       this.paused = true;
       this.menu.pause([
         { label: 'Resume', action: () => this.resume() },

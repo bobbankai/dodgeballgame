@@ -103,7 +103,9 @@ export class Director {
       this.skipping = true;
       this.dialogue.hide();
     }
-    const adv = this.input.anyConfirm();
+    // (the Light button doubles as "next line": in a fight it must stay the player's attack, not be
+    // swallowed here before the fight reads it)
+    const adv = !this.fight && this.input.anyConfirm();
     this.dialogue.update(dt, adv || this.skipping);
     for (const w of this.waiters.slice()) {
       if (this.time >= w.until || this.skipping) {

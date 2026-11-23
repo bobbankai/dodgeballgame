@@ -5,6 +5,16 @@ import { GBufferPass, ShadowPass } from './Passes';
 import { PostChain } from './PostChain';
 import { Sky } from './Sky';
 
+/** What the device can afford (core/Device.ts graphicsFor): render scale, shadow map, MSAA. */
+export interface RenderOptions {
+  /** the render scale to start at (the device pixel ratio, capped to this) */
+  dprCap?: number;
+  /** the sharpest scale the adaptive scaler may climb to when the device has room */
+  maxScale?: number;
+  shadowSize?: number;
+  msaa?: 1 | 4;
+}
+
 /** Engine, scene, camera and every render pass, created once for the whole game. */
 export class Renderer {
   readonly scene: Scene;
@@ -16,7 +26,12 @@ export class Renderer {
   readonly post: PostChain;
   readonly sky: Sky;
 
-  private constructor(readonly engine: WebGPUEngine) {
+  /** the render scale the device starts at (1 / hardware scaling) */
+  baseScale = 1;
+  /** the sharpest render scale the adaptive scaler may climb to */
+  bestScale = 1;
+
+  private constructor(readonly engine: WebGPUEngine, opts: RenderOptions = {}) {
     registerShaders();
     const scene = new Scene(engine);
     this.scene = scene;
@@ -30,9 +45,9 @@ export class Renderer {
     this.mats = new Materials(scene, this.lighting);
     this.mats.screenW = engine.getRenderWidth();
     this.mats.screenH = engine.getRenderHeight();
-    this.shadow = new ShadowPass(scene, this.mats, this.lighting, 2048);
+    this.shadow = new ShadowPass(scene, this.mats, this.lighting, opts.shadowSize ?? 2048);
     this.gbuffer = new GBufferPass(scene, this.mats, this.camera, 1);
-    this.post = new PostChain(engine, scene, this.camera, this.gbuffer, this.lighting);
+    this.post = new PostChain(engine, scene, this.camera, this.gbuffer, this.lighting, opts.msaa ?? 4);
     this.sky = new Sky(scene, this.lighting);
     // effects (rendering group 1) are depth-tested against the scene: keep its depth between groups
     scene.setRenderingAutoClearDepthStencil(1, false, false, false);
@@ -50,12 +65,15 @@ export class Renderer {
     });
   }
 
-  static async create(canvas: HTMLCanvasElement): Promise<Renderer> {
+  static async create(canvas: HTMLCanvasElement, opts: RenderOptions = {}): Promise<Renderer> {
     const engine = new WebGPUEngine(canvas, { antialias: false, stencil: true, adaptToDeviceRatio: false, powerPreference: 'high-performance' });
     await engine.initAsync();
-    const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
+    const dpr = Math.min(window.devicePixelRatio || 1, opts.dprCap ?? 1.5);
     engine.setHardwareScalingLevel(1 / dpr);
-    return new Renderer(engine);
+    const r = new Renderer(engine, opts);
+    r.baseScale = dpr;
+    r.bestScale = Math.max(dpr, Math.min(window.devicePixelRatio || 1, opts.maxScale ?? dpr));
+    return r;
   }
 
   async ready(): Promise<void> {

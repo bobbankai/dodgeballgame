@@ -1,4 +1,4 @@
-import { el } from './UI';
+import { el, uiState } from './UI';
 import type { Audio } from '../audio/Audio';
 
 export interface MenuItem {
@@ -61,7 +61,9 @@ export class Menu {
 
   title(items: MenuItem[]): void {
     this.build('title', '<div class="logo">誓破り<br>VOWBREAKER</div><div class="logo-sub">a story of curses and the people who carry them</div>', items,
-      'A story-driven fighting game. Keyboard: WASD move · J light · K heavy · L guard · Space jump · Shift dash · U I O techniques · P domain · Y vow · E/Enter advance · Tab skip scene · Esc pause. Gamepads work too.');
+      uiState.touch
+        ? 'A story-driven fighting game. Play it on its side: the left thumb moves (the stick appears where you touch), the right thumb strikes, guards, dashes and casts. Tap anywhere to move the story on.'
+        : 'A story-driven fighting game. Keyboard: WASD move · J light · K heavy · L guard · Space jump · Shift dash · U I O techniques · P domain · Y vow · E/Enter advance · Tab skip scene · Esc pause. Gamepads work too.');
   }
 
   pause(items: MenuItem[], onBack: () => void): void {
@@ -74,7 +76,7 @@ export class Menu {
     this.onBack = onBack;
   }
 
-  settings(audio: Audio, extra: MenuItem[], onBack: () => void): void {
+  settings(audio: Audio, extra: MenuItem[], onBack: () => void, onChange: (music: number, sfx: number) => void = () => {}): void {
     this.build('pause', '<h2>Settings</h2>', extra);
     const mk = (label: string, value: number, set: (v: number) => void) => {
       const row = el('label', 'slider', `<span style="width:90px">${label}</span>`);
@@ -88,8 +90,14 @@ export class Menu {
       row.append(inp);
       this.root!.insertBefore(row, this.root!.querySelector('button'));
     };
-    mk('Music', audio.musicVolume, (v) => audio.setVolumes(v, audio.sfxVolume));
-    mk('Effects', audio.sfxVolume, (v) => audio.setVolumes(audio.musicVolume, v));
+    mk('Music', audio.musicVolume, (v) => {
+      audio.setVolumes(v, audio.sfxVolume);
+      onChange(v, audio.sfxVolume);
+    });
+    mk('Effects', audio.sfxVolume, (v) => {
+      audio.setVolumes(audio.musicVolume, v);
+      onChange(audio.musicVolume, v);
+    });
     this.onBack = onBack;
   }
 

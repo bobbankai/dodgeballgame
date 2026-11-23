@@ -105,6 +105,13 @@ export class Audio {
     return b;
   }
 
+  /** The game left the screen (a phone's home button, another tab): stop the sound until it's back. */
+  setHidden(hidden: boolean): void {
+    if (!this.ctx) return;
+    if (hidden) void this.ctx.suspend();
+    else void this.ctx.resume();
+  }
+
   setVolumes(music: number, sfx: number): void {
     this.musicVolume = music;
     this.sfxVolume = sfx;

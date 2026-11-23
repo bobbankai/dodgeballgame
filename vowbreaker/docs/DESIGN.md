@@ -115,6 +115,29 @@ freely in 3D relative to the opponent (lock-on).
   `vbcast.py` (the fourteen character specs), `vbanim.py` + `anims.py` (pose library keyed with a
   shape-preserving cubic), `stages.py`.
 
+## Mobile
+
+Phones and tablets play in landscape (a portrait phone is asked to turn; a background tab or turning it
+upright opens the pause menu). `src/core/Device.ts` tells the tier (phone / tablet / desktop) and the
+graphics defaults for it; `?touch=1|0` forces the on-screen controls on or off and `?device=phone|tablet|desktop`
+overrides the guess.
+
+* **Controls** (`src/ui/TouchControls.ts`): a floating analogue stick anywhere in the left half (it follows the
+  thumb, so it never runs out of travel); the right thumb has Light (big), Heavy, Jump, Dash, Guard (hold) and the
+  three techniques in an arc, named for the fighter in play; Domain and Vow appear at the bottom middle only when
+  they can be used. In a cutscene a tap anywhere advances the line, with a pause button and a two-tap Skip.
+  Everything feeds `Input` (`press` / `release` / `touchX` / `touchY`), so the game can't tell a finger from a key,
+  and a tap shorter than a frame still lands. Prompts and the title text are reworded for buttons.
+* **Graphics**: phones start on Low quality at one render pixel per CSS pixel, 1024 shadows and no MSAA (FXAA
+  stays); tablets on Medium. `AdaptiveScale` watches the real frame time and drops the resolution when the device
+  can't hold ~40 fps, climbing back (slowly, with back-off) when it has room, up to 1.5x on a phone. Quality, volumes
+  and fullscreen are remembered. The first touch goes fullscreen, locks landscape and keeps the screen awake
+  where the browser allows it; `manifest.webmanifest` lets it be installed fullscreen from the home screen.
+* **Layout**: `env(safe-area-inset-*)` for notches, compact menus and dialogue under 520 px of height, menus that
+  scroll, no sticky hover on touch.
+* **Testing**: `MOBILE=1 node tools/play.mjs '<url>?test&touch=1...' <outDir> '<steps>' 844 390` emulates a phone
+  and takes `touch` steps with real multi-touch events (see the header of `tools/play.mjs`).
+
 ## Testing headless
 
 The container has no GPU: tests run Chromium's WebGPU on SwiftShader (software Vulkan), about ten

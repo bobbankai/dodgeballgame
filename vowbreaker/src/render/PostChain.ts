@@ -336,11 +336,11 @@ export class PostChain {
   /** set by the director on a camera cut so motion blur doesn't smear across it */
   cutPending = true;
 
-  constructor(private engine: AbstractEngine, private scene: Scene, private camera: Camera, private gbuffer: GBufferPass, private lighting: Lighting) {
+  constructor(private engine: AbstractEngine, private scene: Scene, private camera: Camera, private gbuffer: GBufferPass, private lighting: Lighting, samples: 1 | 4 = 4) {
     this.renderer = new EffectRenderer(engine);
     this.hdr = new RenderTargetTexture('hdr', { width: engine.getRenderWidth(), height: engine.getRenderHeight() }, scene, {
       generateMipMaps: false, type: Constants.TEXTURETYPE_HALF_FLOAT, samplingMode: Constants.TEXTURE_BILINEAR_SAMPLINGMODE,
-      generateDepthBuffer: true, generateStencilBuffer: true, samples: 4, format: Constants.TEXTUREFORMAT_RGBA,
+      generateDepthBuffer: true, generateStencilBuffer: true, samples, format: Constants.TEXTUREFORMAT_RGBA,
     });
     this.black = this.target('black', 4, 4);
     camera.outputRenderTarget = this.hdr;

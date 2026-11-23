@@ -49,11 +49,19 @@ export class Input {
   history: { action: Action; t: number }[] = [];
   time = 0;
   enabled = true;
-  /** touch / UI buttons can inject presses */
+  /** touch / UI buttons can inject presses: held while a finger is on the button */
   readonly virtual = new Set<Action>();
+  /** presses too short to span a frame (a quick tap): seen once by the next update */
+  private taps = new Set<Action>();
+  /** the on-screen stick, -1..1 on each axis (0 when untouched) */
+  touchX = 0;
+  touchY = 0;
+  /** which kind of device the player used last: the HUD shows the right prompts for it */
+  device: 'keys' | 'touch' | 'pad' = 'keys';
 
   constructor(target: Window = window) {
     target.addEventListener('keydown', (e) => {
+      if (!e.repeat) this.device = 'keys';
       if (e.code === 'Tab' || e.code === 'Space') e.preventDefault();
       if (!this.down.has(e.code)) this.pressedKeys.add(e.code);
       this.down.add(e.code);
@@ -62,20 +70,35 @@ export class Input {
     target.addEventListener('blur', () => this.down.clear());
   }
 
+  /** Press an action from an on-screen control (pass `hold` for a button that stays down). */
+  press(a: Action, hold = false): void {
+    this.device = 'touch';
+    this.taps.add(a);
+    if (hold) this.virtual.add(a);
+  }
+
+  /** Let go of an on-screen button. */
+  release(a: Action): void {
+    this.virtual.delete(a);
+  }
+
   update(dt: number): void {
     this.time += dt;
     this.released.clear();
     const pads = navigator.getGamepads ? Array.from(navigator.getGamepads()).filter((p): p is Gamepad => !!p) : [];
     const pad = pads[0];
     for (const a of Object.keys(KEYS) as Action[]) {
-      let h = KEYS[a].some((k) => this.down.has(k)) || this.virtual.has(a);
-      let p = KEYS[a].some((k) => this.pressedKeys.has(k));
+      let h = KEYS[a].some((k) => this.down.has(k)) || this.virtual.has(a) || this.taps.has(a);
+      let p = KEYS[a].some((k) => this.pressedKeys.has(k)) || this.taps.has(a);
       if (pad) {
         for (const b of PAD[a] ?? []) {
           const v = !!pad.buttons[b]?.pressed;
           const prev = this.padPrev.get(b * 100 + a.length) ?? false;
           if (v) h = true;
-          if (v && !prev) p = true;
+          if (v && !prev) {
+            p = true;
+            this.device = 'pad';
+          }
           this.padPrev.set(b * 100 + a.length, v);
         }
       }
@@ -89,6 +112,7 @@ export class Input {
       }
     }
     this.pressedKeys.clear();
+    this.taps.clear();
     if (this.history.length > 16) this.history.splice(0, this.history.length - 16);
     let x = (this.held.get('right') ? 1 : 0) - (this.held.get('left') ? 1 : 0);
     let y = (this.held.get('up') ? 1 : 0) - (this.held.get('down') ? 1 : 0);
@@ -99,6 +123,11 @@ export class Input {
         x = ax;
         y = ay;
       }
+    }
+    // the on-screen stick: analogue, so a gentle push is a walk and a full push a run
+    if (Math.hypot(this.touchX, this.touchY) > 0.01) {
+      x = this.touchX;
+      y = this.touchY;
     }
     const l = Math.hypot(x, y);
     this.moveX = l > 1 ? x / l : x;

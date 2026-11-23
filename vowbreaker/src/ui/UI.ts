@@ -5,6 +5,22 @@ import '@fontsource/zen-kaku-gothic-new';
 import './styles.css';
 import type { Fighter } from '../game/Fighter';
 
+/** Shared by the HUD and the menus: the player is using a finger, so show touch prompts, not keys. */
+export const uiState = { touch: false };
+
+const TOUCH_NAMES: Record<string, string> = {
+  J: 'Light', K: 'Heavy', L: 'Guard', Space: 'Jump', Shift: 'Dash', U: '1', I: '2', O: '3', P: 'Domain', Y: 'Vow',
+};
+
+/** A tutorial line written for the keyboard, reworded for the on-screen buttons. */
+export function touchPrompt(html: string): string {
+  return html
+    .replace(/<kbd>W<\/kbd>\s*<kbd>A<\/kbd>\s*<kbd>S<\/kbd>\s*<kbd>D<\/kbd>/g, '<kbd>the stick</kbd>')
+    .replace(/<kbd>([A-Za-z]+)<\/kbd>/g, (m, k: string) => (TOUCH_NAMES[k] ? `<kbd>${TOUCH_NAMES[k]}</kbd>` : m))
+    .replace(/Press <kbd>/g, 'Tap <kbd>')
+    .replace(/press <kbd>/g, 'tap <kbd>');
+}
+
 const el = (tag: string, cls = '', html = ''): HTMLElement => {
   const e = document.createElement(tag);
   if (cls) e.className = cls;
@@ -56,7 +72,7 @@ class Side {
     this.gauge.classList.toggle('ready', f.domainGauge >= 100 && !!f.kit.domain);
     this.gauge.classList.toggle('hidden', !f.kit.domain);
     this.vow.classList.toggle('hidden', f.vowTime <= 0 && !(f.hp < f.maxHp * 0.3 && !f.vowUsed));
-    this.vow.textContent = f.vowTime > 0 ? `VOW  ${Math.ceil(f.vowTime)}` : 'VOW READY  [Y]';
+    this.vow.textContent = f.vowTime > 0 ? `VOW  ${Math.ceil(f.vowTime)}` : uiState.touch ? 'VOW READY' : 'VOW READY  [Y]';
     this.count.textContent = extra;
   }
 }
@@ -146,9 +162,17 @@ export class HUD {
     setTimeout(() => b.remove(), dur * 1000);
   }
 
+  private promptHtml = '';
+
   setPrompt(html: string | null): void {
     this.prompt.classList.toggle('hidden', !html);
-    if (html) this.prompt.innerHTML = html;
+    if (!html) return;
+    const out = uiState.touch ? touchPrompt(html) : html;
+    // (set every frame by the fight: only touch the DOM when the text changes)
+    if (out !== this.promptHtml) {
+      this.promptHtml = out;
+      this.prompt.innerHTML = out;
+    }
   }
 }
 
