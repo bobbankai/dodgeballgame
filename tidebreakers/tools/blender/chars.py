@@ -296,6 +296,8 @@ def kai():
 
 
 CHARS = {'kai': kai}
+import cast  # noqa: E402
+CHARS.update(cast.CAST)
 
 if __name__ == '__main__':
     args = sys.argv[sys.argv.index('--') + 1:] if '--' in sys.argv else ['kai']

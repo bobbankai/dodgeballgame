@@ -1,0 +1,14 @@
+stage 1 reference analysis written
+stage 2 parametric blockout
+stage 3 cage: 1706 verts, 1704 quads, non-manifold edges 0
+stage 4 subdivided x1 + projected: 6818 verts
+stage 5 relaxed: non-manifold 0, surface deviation mean 0.00 mm max 0.0 mm
+  garment shirt: 1328 quads extracted
+  garment trousers: 1198 quads extracted
+  garment shoes: 688 quads extracted
+  garment haircap: 692 quads extracted
+  skin after culling hidden faces: 3146 of 6816 quads
+stage 6 materials (albedo, class, AO, face UVs) + stage 7 weights
+rig: 51 deform bones; mesh 11272 verts, 22112 tris
+stage 10 LOD1: 9950 tris (LOD0 22112)
+exported /home/user/dodgeballgame/tidebreakers/tools/blender/../../public/assets/chars/teo.glb (1297 KB) in 19s

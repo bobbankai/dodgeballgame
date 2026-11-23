@@ -1,0 +1,16 @@
+stage 1 reference analysis written
+stage 2 parametric blockout
+stage 3 cage: 1706 verts, 1704 quads, non-manifold edges 0
+stage 4 subdivided x1 + projected: 6818 verts
+stage 5 relaxed: non-manifold 0, surface deviation mean 0.00 mm max 1.8 mm
+  garment coat: 1798 quads extracted
+  garment trousers: 1472 quads extracted
+  garment boots: 1072 quads extracted
+  garment belt: 48 quads extracted
+  garment scarf: 40 quads extracted
+  garment haircap: 692 quads extracted
+  skin after culling hidden faces: 2225 of 6816 quads
+stage 6 materials (albedo, class, AO, face UVs) + stage 7 weights
+rig: 54 deform bones; mesh 13022 verts, 25682 tris
+stage 10 LOD1: 11556 tris (LOD0 25682)
+exported /home/user/dodgeballgame/tidebreakers/tools/blender/../../public/assets/chars/wrecker.glb (1497 KB) in 20s

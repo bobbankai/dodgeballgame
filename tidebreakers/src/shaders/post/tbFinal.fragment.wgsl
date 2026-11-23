@@ -15,6 +15,7 @@ uniform fxC: vec4f;   // xy radial centre (uv), z bloom strength, w desaturate (
 uniform liftC: vec4f;  // rgb lift, w split-tone balance
 uniform gammaC: vec4f; // rgb gamma
 uniform gainC: vec4f;  // rgb gain, w = sepia (flashbacks)
+uniform inkC: vec4f;   // x scenery ink strength, y line width (px)
 
 // Tone curve: linear through the mids (keeps flat anime colours true), soft shoulder for highlights,
 // with highlights desaturating toward white like film.
@@ -63,6 +64,31 @@ fn main(input: FragmentInputs) -> FragmentOutputs {
   } else {
     col = textureSampleLevel(colorTex, colorTexSampler, uv, 0.0).rgb;
   }
+  // screen-space ink lines for scenery (characters have their own hull outlines): depth and normal
+  // discontinuities in the G-buffer, thinner and lighter with distance
+  let g0 = textureSampleLevel(gbufTex, gbufTexSampler, uv, 0.0);
+  if (g0.z > 0.0 && uniforms.inkC.x > 0.0) {
+    let o = px * uniforms.inkC.y;
+    let ga = textureSampleLevel(gbufTex, gbufTexSampler, uv + vec2f(o.x, 0.0), 0.0);
+    let gb2 = textureSampleLevel(gbufTex, gbufTexSampler, uv - vec2f(o.x, 0.0), 0.0);
+    let gc = textureSampleLevel(gbufTex, gbufTexSampler, uv + vec2f(0.0, o.y), 0.0);
+    let gd = textureSampleLevel(gbufTex, gbufTexSampler, uv - vec2f(0.0, o.y), 0.0);
+    let dz = g0.z;
+    let farA = select(1e4, ga.z, ga.z > 0.0);
+    let farB = select(1e4, gb2.z, gb2.z > 0.0);
+    let farC = select(1e4, gc.z, gc.z > 0.0);
+    let farD = select(1e4, gd.z, gd.z > 0.0);
+    let dEdge = max(max(abs(farA - dz), abs(farB - dz)), max(abs(farC - dz), abs(farD - dz))) / max(dz, 0.5);
+    let n0 = decodeNormal(g0.xy);
+    let nEdge = 1.0 - min(min(dot(n0, decodeNormal(ga.xy)), dot(n0, decodeNormal(gb2.xy))), min(dot(n0, decodeNormal(gc.xy)), dot(n0, decodeNormal(gd.xy))));
+    let idEdge = select(0.0, 1.0, abs(ga.w - g0.w) + abs(gc.w - g0.w) > 0.001);
+    var e = max(smoothstep(0.06, 0.16, dEdge), smoothstep(0.35, 0.6, nEdge) * 0.8);
+    e = max(e, idEdge * 0.6);
+    let isChar = g0.w > 0.0005 && g0.w < 0.5;
+    e = e * select(1.0, 0.35, isChar) * (1.0 - smoothstep(25.0, 120.0, dz)) * uniforms.inkC.x;
+    let ink = saturateColor(col * 0.22, 1.3) + vec3f(0.01, 0.006, 0.012);
+    col = mix(col, ink, saturate(e));
+  }
   col = col + textureSampleLevel(bloomTex, bloomTexSampler, uv, 0.0).rgb * uniforms.fxC.z;
   // debug views (globals.counts.y): 1 normals, 2 depth, 3 object ids, 4 raw HDR colour
   let dbg = i32(globals.counts.y);
@@ -98,12 +124,20 @@ fn main(input: FragmentInputs) -> FragmentOutputs {
     let streak = step(0.72, n) * smoothstep(0.28, 0.62, r + n * 0.12);
     col = mix(col, vec3f(1.0), streak * sl * 0.75);
   }
-  // impact frame: inverted two-tone flash for a couple of frames
+  // impact frame (anime): characters become black silhouettes on white (mode 1) or red (mode 2),
+  // with radial streaks bursting from the hit
   let imp = uniforms.fxB.y;
   if (imp > 0.5) {
-    let l = luma(col);
-    let inv = select(vec3f(0.02, 0.02, 0.04), vec3f(1.0, 0.97, 0.92), l < 0.42);
-    col = mix(col, inv, select(0.85, 1.0, imp > 1.5));
+    let gb = textureSampleLevel(gbufTex, gbufTexSampler, uv, 0.0);
+    let isChar = gb.w > 0.0005 && gb.w < 0.5 && gb.z > 0.0;
+    let d = uv - uniforms.fxC.xy;
+    let ang = atan2(d.y, d.x);
+    let rr = length(d * vec2f(globals.viewport.x / globals.viewport.y, 1.0));
+    let ray = step(0.55, hash11(floor(ang * 48.0))) * smoothstep(0.08, 0.5, rr);
+    let paper = select(vec3f(1.0, 0.97, 0.9), vec3f(0.95, 0.12, 0.08), imp > 1.5);
+    var ic = mix(paper, paper * 0.55, ray);
+    if (isChar) { ic = vec3f(0.02, 0.01, 0.03); }
+    col = ic;
   }
   // vignette
   let vd = (uv - 0.5) * vec2f(1.0, globals.viewport.y / globals.viewport.x) * 1.6;

@@ -1,0 +1,15 @@
+stage 1 reference analysis written
+stage 2 parametric blockout
+stage 3 cage: 1706 verts, 1704 quads, non-manifold edges 0
+stage 4 subdivided x1 + projected: 6818 verts
+stage 5 relaxed: non-manifold 0, surface deviation mean 0.00 mm max 0.8 mm
+  garment blouse: 1709 quads extracted
+  garment shoes: 640 quads extracted
+  garment scarf: 163 quads extracted
+  garment haircap: 714 quads extracted
+  skin after culling hidden faces: 3893 of 6816 quads
+  !! piece skirt: max distance from body 0.200 after solidify
+stage 6 materials (albedo, class, AO, face UVs) + stage 7 weights
+rig: 51 deform bones; mesh 11441 verts, 22390 tris
+stage 10 LOD1: 10074 tris (LOD0 22390)
+exported /home/user/dodgeballgame/tidebreakers/tools/blender/../../public/assets/chars/hana.glb (1317 KB) in 20s

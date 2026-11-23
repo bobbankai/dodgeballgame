@@ -272,6 +272,9 @@ def build(spec, out_glb, art, renders=True):
         elif weights == 'body':
             bn, W = skin.body_weights(sk, body.parts, Vp2)
             W = pc.smooth_weights(W, F2, iters=2, amount=0.45)
+        elif weights[0] == 'custom':
+            bn, W = weights[1](Vp2)
+            W = skin._finish(W, 4)
         elif weights[0] == 'rigid':
             bn, W = skin.rigid_weights(sk, weights[1], Vp2)
         elif weights[0] == 'chain':

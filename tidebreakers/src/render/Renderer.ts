@@ -19,6 +19,7 @@ export interface PostFx {
   radialCenter: [number, number]; bloom: number; memory: number; sepia: number;
   lift: [number, number, number]; gamma: [number, number, number]; gain: [number, number, number];
   bloomThreshold: number;
+  ink: number; inkWidth: number;
 }
 
 export class Renderer {
@@ -30,7 +31,7 @@ export class Renderer {
   fx: PostFx = {
     vignette: 0.28, aberration: 0, grain: 0.15, letterbox: 0, fade: 0, impact: 0, speedLines: 0, radialBlur: 0,
     radialCenter: [0.5, 0.5], bloom: 0.3, memory: 0, sepia: 0, lift: [0, 0, 0], gamma: [1, 1, 1], gain: [1, 1, 1],
-    bloomThreshold: 1.35,
+    bloomThreshold: 1.35, ink: 0.85, inkWidth: 1.0,
   };
   readonly casters: AbstractMesh[] = [];
   shadowCenter = new Vector3();
@@ -66,7 +67,7 @@ export class Renderer {
     this.fxr = new EffectRenderer(this.engine);
     const common = { engine: this.engine, useShaderStore: true, shaderLanguage: ShaderLanguage.WGSL, uniformBuffers: ['globals'] };
     this.finalFx = new EffectWrapper({ ...common, name: 'final', fragmentShader: 'tbFinal', samplerNames: ['colorTex', 'bloomTex', 'gbufTex'],
-      uniformNames: ['fxA', 'fxB', 'fxC', 'liftC', 'gammaC', 'gainC'] });
+      uniformNames: ['fxA', 'fxB', 'fxC', 'liftC', 'gammaC', 'gainC', 'inkC'] });
     this.bloomDown = new EffectWrapper({ ...common, name: 'bloomDown', fragmentShader: 'tbBloomDown', samplerNames: ['src'], uniformNames: ['texel', 'knee'], uniformBuffers: [] });
     this.bloomUp = new EffectWrapper({ ...common, name: 'bloomUp', fragmentShader: 'tbBloomUp', samplerNames: ['low', 'cur'], uniformNames: ['texel'], uniformBuffers: [] });
     this.engine.onResizeObservable.add(() => this.createTargets());
@@ -259,6 +260,7 @@ export class Renderer {
       e.setFloat4('liftC', fx.lift[0], fx.lift[1], fx.lift[2], 0);
       e.setFloat4('gammaC', fx.gamma[0], fx.gamma[1], fx.gamma[2], 0);
       e.setFloat4('gainC', fx.gain[0], fx.gain[1], fx.gain[2], fx.sepia);
+      e.setFloat4('inkC', fx.ink, fx.inkWidth, 0, 0);
     });
   }
 

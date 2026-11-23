@@ -1,0 +1,18 @@
+stage 1 reference analysis written
+stage 2 parametric blockout
+stage 3 cage: 1706 verts, 1704 quads, non-manifold edges 0
+stage 4 subdivided x1 + projected: 6818 verts
+stage 5 relaxed: non-manifold 0, surface deviation mean 0.02 mm max 18.1 mm
+  garment coat: 1890 quads extracted
+  garment trousers: 1136 quads extracted
+  garment boots: 1288 quads extracted
+  garment belt: 48 quads extracted
+  garment haircap: 688 quads extracted
+  skin after culling hidden faces: 2127 of 6816 quads
+  !! piece coattail: max distance from body 0.132 after solidify
+  !! piece cape: max distance from body 0.185 after solidify
+  !! piece bicorne: max distance from body 0.146 after solidify
+stage 6 materials (albedo, class, AO, face UVs) + stage 7 weights
+rig: 63 deform bones; mesh 13100 verts, 25754 tris
+stage 10 LOD1: 11588 tris (LOD0 25754)
+exported /home/user/dodgeballgame/tidebreakers/tools/blender/../../public/assets/chars/halvard.glb (1506 KB) in 23s

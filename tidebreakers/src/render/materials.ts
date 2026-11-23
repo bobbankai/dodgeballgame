@@ -10,7 +10,9 @@ export function v4(x: number, y = 0, z = 0, w = 0): Vector4 { return new Vector4
 export function c4(c: Color3, w = 0): Vector4 { return new Vector4(c.r, c.g, c.b, w); }
 
 let nextId = 1;
-export function newObjectId(): number { return (nextId++ % 250) / 255; }
+/** Character ids stay below 0.5 (the impact frame and outlines tell characters from scenery). */
+export function newObjectId(): number { return ((nextId++ % 120) + 1) / 255; }
+export const ENV_ID = 0.75;
 
 const TOON_UNIFORMS = ['world', 'viewProjection', 'view', 'faceA', 'faceB', 'faceC', 'faceD', 'irisA', 'irisB', 'faceInk', 'faceMisc', 'tint', 'fx', 'glowColor'];
 
