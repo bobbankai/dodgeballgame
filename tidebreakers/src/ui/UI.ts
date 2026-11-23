@@ -113,7 +113,12 @@ export class UI {
   }
 
   // ------------------------------------------------------------------------------------------ dialogue
-  say(sp: Speaker, text: string): Promise<void> {
+  private lineAuto = 0;
+
+  /** `auto` > 0: the line moves on by itself after that many seconds (walk-and-talk). */
+  say(sp: Speaker, text: string, auto = 0): Promise<void> {
+    this.lineAuto = auto;
+    this.dlg.classList.toggle('walk', auto > 0);
     this.dlg.classList.add('show');
     this.dlgName.textContent = sp.name;
     this.dlgName.style.background = sp.color;
@@ -156,11 +161,25 @@ export class UI {
       }
       if (n >= t.full.length) { t.done = true; this.dlgNext.classList.add('show'); }
     }
-    if (t && this.autoAdvance > 0) {
+    const aa = this.autoAdvance > 0 ? this.autoAdvance : this.lineAuto;
+    if (t && aa > 0) {
       this.autoT += dt;
-      if (t.done && this.autoT > this.autoAdvance) this.advance();
-      else if (!t.done && this.autoT > this.autoAdvance * 3) this.advance();
+      if (t.done && this.autoT > aa) this.advance();
+      else if (!t.done && this.autoT > aa * 3) this.advance();
     }
+  }
+
+  /** Drops whatever the previous level left on screen (a pending line is abandoned, not resolved). */
+  reset(): void {
+    this.typing = null;
+    this.advanceResolve = null;
+    this.dlg.classList.remove('show');
+    this.setObjective(null);
+    this.showHint(null);
+    this.setBoss(null);
+    this.setCombo(0);
+    this.showSubtitle(null);
+    this.card.classList.remove('show', 'credits');
   }
 
   // ------------------------------------------------------------------------------------------ cards / fades

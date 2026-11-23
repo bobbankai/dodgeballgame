@@ -12,6 +12,11 @@ import type { AnimLibrary } from './Animator';
 
 export interface Projectile { pos: Vector3; vel: Vector3; def: ProjectileDef; owner: Fighter; life: number; reflected: boolean }
 
+export interface Hazard { pos: Vector3; radius: number; delay: number; damage: number; kind: 'blast' | 'spike' | 'fire'; team: string; done?: boolean }
+export interface Ring { pos: Vector3; r: number; speed: number; maxR: number; damage: number; team: string; hit: Set<Fighter> }
+
+export const sameSide = (a: string, b: string): boolean => a === b || (a !== 'enemy' && b !== 'enemy' && a !== 'neutral' && b !== 'neutral');
+
 export interface GameHooks {
   sfx?: (name: string, pos?: Vector3, vol?: number) => void;
   hud?: () => void;
@@ -44,10 +49,30 @@ export class Game {
   private impactT = 0;
   private speedT = 0;
   attackTokens = 2;   // how many enemies may attack the player at once
+  hazards: Hazard[] = [];
+  rings: Ring[] = [];
 
   constructor(readonly r: Renderer, readonly input: Input, readonly lib: AnimLibrary) {
     this.cam = new CameraRig(r.scene, this.collision);
     this.vfx = new Vfx(r);
+  }
+
+  /** Clears everything level-specific; the player survives level changes. */
+  reset(): void {
+    for (const f of this.fighters) if (f !== this.player) f.model.dispose();
+    this.fighters = this.player ? [this.player] : [];
+    this.projectiles = [];
+    this.hazards = [];
+    this.rings = [];
+    this.collision.reset();
+    this.combatActive = false;
+    this.slowmo = 1;
+    this.slowT = 0;
+    this.hitstop = 0;
+    this.combo = 0;
+    this.onUpdate = [];
+    this.hooks.bossBar?.(null);
+    this.r.globals.lights = [];
   }
 
   sfx(name: string, pos?: Vector3, vol = 1): void { this.hooks.sfx?.(name, pos, vol); }
@@ -188,6 +213,7 @@ export class Game {
       for (const f of [...this.fighters]) f.update(gdt);
       this.separate();
       this.updateProjectiles(gdt);
+      this.updateHazards(gdt);
     }
     for (const u of this.onUpdate) u(dt);
     this.vfx.update(dt * (this.hitstop > 0 ? 0.25 : this.slowmo));
@@ -195,6 +221,60 @@ export class Game {
     const p = this.player;
     if (p) this.r.shadowCenter.copyFrom(p.pos);
     this.hooks.hud?.();
+  }
+
+  /** A telegraphed area attack: a warning circle, then damage to everyone not on `team`'s side. */
+  hazard(pos: Vector3, radius: number, delay: number, damage: number, kind: Hazard['kind'] = 'blast', team = 'enemy'): void {
+    const p = pos.clone();
+    p.y = this.collision.groundAt(p.x, p.z, p.y + 2);
+    this.hazards.push({ pos: p, radius, delay, damage, kind, team });
+    this.vfx.warnCircle(p, radius, delay);
+  }
+
+  /** An expanding ground ring (jump over it). */
+  ring(pos: Vector3, speed: number, maxR: number, damage: number, team = 'enemy'): void {
+    this.rings.push({ pos: pos.clone(), r: 0.5, speed, maxR, damage, team, hit: new Set() });
+    this.sfx('wind_blast', pos, 0.8);
+  }
+
+  private updateHazards(dt: number): void {
+    for (const h of this.hazards) {
+      h.delay -= dt;
+      if (h.delay > 0) continue;
+      h.done = true;
+      const def: AttackDef = { id: 'hazard', clip: '', hit: [], damage: h.damage, reach: 0, arc: 0, knock: 7, launch: h.kind === 'spike' ? 9 : 5, stagger: 0.6, hitstop: 0.06, shake: 0.4, knockdown: true, unblockable: true };
+      for (const t of this.fighters) {
+        if (!t.alive || sameSide(t.team, h.team) || t.team === 'neutral') continue;
+        if (Math.hypot(t.pos.x - h.pos.x, t.pos.z - h.pos.z) < h.radius + t.radius * 0.5 && t.pos.y < h.pos.y + 2.2) {
+          const src = this.fighters.find((f) => f.team === h.team && f.alive) ?? t;
+          t.receive(src === t ? this.player ?? t : src, def);
+          this.hooks.damage?.(t.center, h.damage, t === this.player ? 'take' : 'deal');
+        }
+      }
+      const col: [number, number, number] = h.kind === 'fire' ? [3, 1.2, 0.3] : h.kind === 'spike' ? [1.2, 2.2, 2.8] : [2.5, 1.6, 0.8];
+      this.vfx.shock(h.pos, h.radius, col);
+      this.vfx.burst(h.pos.add(new Vector3(0, 0.3, 0)), col, 18, 7, h.kind === 'spike' ? 'shard' : 'smoke', 0.4, 0.6, h.kind === 'spike' ? 0 : -2);
+      this.shake(0.25);
+      this.sfx(h.kind === 'fire' ? 'wind_blast' : 'slam', h.pos, 0.7);
+    }
+    this.hazards = this.hazards.filter((h) => !h.done);
+    for (const g of this.rings) {
+      g.r += g.speed * dt;
+      if (Math.random() < 0.8) {
+        const a = Math.random() * Math.PI * 2;
+        this.vfx.burst(g.pos.add(new Vector3(Math.cos(a) * g.r, 0.2, Math.sin(a) * g.r)), [1.2, 2.0, 2.6], 1, 1, 'drop', 0.3, 0.4, -3);
+      }
+      for (const t of this.fighters) {
+        if (!t.alive || g.hit.has(t) || sameSide(t.team, g.team) || t.team === 'neutral') continue;
+        const d = Math.hypot(t.pos.x - g.pos.x, t.pos.z - g.pos.z);
+        if (Math.abs(d - g.r) < 0.55 && t.pos.y - this.collision.groundAt(t.pos.x, t.pos.z, t.pos.y + 0.5) < 0.5) {
+          g.hit.add(t);
+          const src = this.fighters.find((f) => f.team === g.team && f.alive) ?? t;
+          t.receive(src, { id: 'ring', clip: '', hit: [], damage: g.damage, reach: 0, arc: 0, knock: 8, launch: 6, stagger: 0.6, hitstop: 0.05, shake: 0.3, knockdown: true, unblockable: true });
+        }
+      }
+    }
+    this.rings = this.rings.filter((g) => g.r < g.maxR);
   }
 
   private separate(): void {
@@ -226,7 +306,7 @@ export class Game {
       let dead = pr.life <= 0 || pr.pos.y < this.collision.groundAt(pr.pos.x, pr.pos.z, pr.pos.y + 1);
       if (!dead) {
         for (const t of this.fighters) {
-          if (!t.alive || t === pr.owner || (t.team === pr.owner.team && !pr.reflected)) continue;
+          if (!t.alive || t === pr.owner || t.team === 'neutral' || (sameSide(t.team, pr.owner.team) && !pr.reflected)) continue;
           if (pr.reflected && t.team !== 'enemy') continue;
           const c = t.center;
           const dxz = Math.hypot(c.x - pr.pos.x, c.z - pr.pos.z);

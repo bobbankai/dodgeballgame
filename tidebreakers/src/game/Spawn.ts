@@ -32,6 +32,20 @@ export const KINDS: Record<string, Kind> = {
   thug: { model: 'thug', hp: 42, team: 'enemy', archetype: 'thug', runSpeed: 5.0, name: 'Ashport Thug', look: { face: { eyeStyle: 1 } } },
   elite: { model: 'elite', hp: 90, team: 'enemy', archetype: 'elite', anims: SWORD_ANIMS, runSpeed: 5.2, name: 'Gilded Elite', look: { face: { eyeStyle: 1 } } },
   wrecker: { model: 'wrecker', hp: 50, team: 'enemy', archetype: 'wrecker', anims: SWORD_ANIMS, runSpeed: 5.0, name: 'Wrecker', look: { face: { eyeStyle: 1 } } },
+  // crew
+  mira: { model: 'mira', hp: 120, team: 'ally', runSpeed: 5.8, name: 'Mira', anims: { idle: 'sword_idle' }, look: { face: { eyeStyle: 2, irisTop: [0.05, 0.3, 0.2], irisBottom: [0.35, 0.85, 0.55] } } },
+  bram: { model: 'bram', hp: 200, team: 'ally', runSpeed: 5.0, radius: 0.6, height: 2.15, poise: 40, name: 'Bram', look: { face: { eyeStyle: 3, irisTop: [0.25, 0.15, 0.06], irisBottom: [0.6, 0.42, 0.2] } } },
+  nell: { model: 'nell', hp: 90, team: 'ally', runSpeed: 5.6, radius: 0.34, height: 1.35, name: 'Nell', look: { face: { eyeStyle: 0, eyeSize: 1.12, irisTop: [0.3, 0.2, 0.05], irisBottom: [0.95, 0.75, 0.25] } } },
+  // story
+  ines: { model: 'ines', hp: 100, team: 'neutral', walkSpeed: 1.2, runSpeed: 3.2, name: 'Ines', look: { face: { eyeStyle: 3, irisTop: [0.2, 0.18, 0.3], irisBottom: [0.5, 0.45, 0.7] } } },
+  seren: { model: 'seren', hp: 100, team: 'neutral', name: 'Seren', look: { face: { eyeStyle: 2, irisTop: [0.42, 0.18, 0.03], irisBottom: [1.0, 0.72, 0.22] } } },
+  teo: { model: 'teo', hp: 60, team: 'neutral', radius: 0.32, height: 1.3, name: 'Teo', look: { face: { eyeStyle: 0, eyeSize: 1.1 } } },
+  hana: { model: 'hana', hp: 60, team: 'neutral', name: 'Hana', look: { face: { eyeStyle: 2, irisTop: [0.15, 0.08, 0.1], irisBottom: [0.55, 0.3, 0.35] } } },
+  villager: { model: 'villager', hp: 60, team: 'neutral', name: 'Villager', look: { face: { eyeStyle: 1 } } },
+  // bosses
+  halvard: { model: 'halvard', hp: 420, team: 'enemy', anims: { idle: 'sword_idle', block: 'block' }, runSpeed: 5.0, radius: 0.5, height: 1.95, poise: 45, name: 'Commodore Halvard Crane', look: { face: { eyeStyle: 1, irisTop: [0.1, 0.15, 0.3], irisBottom: [0.4, 0.55, 0.8] } } },
+  gorrick: { model: 'gorrick', hp: 520, team: 'enemy', anims: { idle: 'guard' }, runSpeed: 4.0, radius: 0.75, height: 2.1, poise: 70, name: 'Baron Gorrick Vane', look: { face: { eyeStyle: 3 } } },
+  vale: { model: 'vale', hp: 640, team: 'enemy', anims: { idle: 'sword_idle', block: 'block' }, runSpeed: 5.8, radius: 0.45, height: 1.9, poise: 50, name: 'Grand Admiral Severin Vale', look: { face: { eyeStyle: 1, irisTop: [0.25, 0.3, 0.35], irisBottom: [0.7, 0.8, 0.9] } } },
 };
 
 export const brains = new Map<Fighter, Brain>();

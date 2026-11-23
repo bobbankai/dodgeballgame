@@ -45,6 +45,9 @@ export class CharacterModel {
   outlineMat!: ShaderMaterial;
   face!: Face;
   bones = new Map<string, TransformNode>();
+  /** held props (parented to bones) */
+  props: TransformNode[] = [];
+  tint: [number, number, number] = [1, 1, 1];
   restRot = new Map<string, import('@babylonjs/core').Quaternion>();
   restPos = new Map<string, import('@babylonjs/core').Vector3>();
   readonly id = newObjectId();
@@ -75,7 +78,8 @@ export class CharacterModel {
     }
     c.mat = toonMaterial(`${name}-toon`, r);
     c.mat.setVector4('fx', v4(0, 0, 0, c.id));
-    if (look.tint) c.mat.setVector4('tint', v4(look.tint[0], look.tint[1], look.tint[2], 0));
+    if (look.tint) c.tint = look.tint;
+    c.mat.setVector4('tint', v4(c.tint[0], c.tint[1], c.tint[2], 0));
     // Ink outline: a second sub-mesh over the same triangles drawn with the inverted-hull material.
     // (A cloned mesh would share draw wrappers with the original in Babylon 9.37.)
     c.outlineMat = outlineMaterial(`${name}-ol`, r, look.outline ?? 2.4, look.ink ?? '#1b1220', 0.5);
@@ -113,10 +117,12 @@ export class CharacterModel {
   setFx(dissolve: number, flash: number): void {
     this.mat.setVector4('fx', v4(dissolve, 0, 0, this.id));
     this.outlineMat.setVector4('fx', v4(dissolve, (this.outlineMat as any)._outlineW ?? 2.4, 0, this.id));
-    this.mat.setVector4('tint', v4(1, 1, 1, flash));
+    this.mat.setVector4('tint', v4(this.tint[0], this.tint[1], this.tint[2], flash));
   }
 
   dispose(): void {
+    for (const p of this.props) p.dispose();
+    this.props = [];
     this.r.removeCaster(this.mesh);
     this.anchor.dispose(false, true);
   }

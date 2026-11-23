@@ -73,6 +73,9 @@ export class Fighter {
   weapon: Mesh | TransformNode | null = null;
   boss = false;
   onDeath?: () => void;
+  /** hp never drops below this (allies, scripted boss phases); onFloor fires once when it is reached */
+  floorHp = 0;
+  onFloor?: () => void;
   onHit?: (dmg: number, from: Fighter | null) => void;
   speedScale = 1;
   lastHitBy: Fighter | null = null;
@@ -182,12 +185,14 @@ export class Fighter {
       const parryWindow = this.game.time - this.guardSince < 0.2;
       if (parryWindow) return 'parry';
       this.hp -= Math.max(1, Math.round(def.damage * 0.15 * dmgScale));
+      this.checkFloor();
       this.vel.addInPlace(toAtt.normalize().scale(-def.knock * 0.4));
       this.stun = 0.2;
       return 'block';
     }
     const dmg = Math.round(def.damage * dmgScale);
     this.hp -= dmg;
+    const floored = this.checkFloor();
     this.lastHitBy = from;
     this.flash = 1;
     this.onHit?.(dmg, from);
@@ -198,6 +203,7 @@ export class Fighter {
       this.die(away.scale(Math.max(def.knock, 4)), def.launch ?? 3);
       return 'hit';
     }
+    if (floored) return 'hit';
     if (armored && !def.knockdown) {
       this.animator.addFlinch('chest', Quaternion.RotationAxis(new Vector3(1, 0, 0), -0.18), 0.2);
       return 'hit';
@@ -226,6 +232,15 @@ export class Fighter {
       this.play(front ? this.anims.hit : this.anims.hitBack, false, 0.03);
     }
     return 'hit';
+  }
+
+  private checkFloor(): boolean {
+    if (this.floorHp <= 0 || this.hp > this.floorHp) return false;
+    this.hp = this.floorHp;
+    const cb = this.onFloor;
+    this.onFloor = undefined;
+    cb?.();
+    return !!cb;
   }
 
   die(push: Vector3, up: number): void {
@@ -350,6 +365,12 @@ export class Fighter {
     // gravity / ground
     if (!grounded) this.vel.y -= this.gravity * dts * (this.state === 'knock' && this.vel.y < 0 ? 1.1 : 1);
     const next = this.pos.add(this.vel.scale(dts));
+    if (this.state !== 'dead' && !col.passable(this.pos.x, this.pos.y, this.pos.z, next.x, next.z)) {
+      // slide along cliffs and the shoreline
+      if (col.passable(this.pos.x, this.pos.y, this.pos.z, next.x, this.pos.z)) next.z = this.pos.z;
+      else if (col.passable(this.pos.x, this.pos.y, this.pos.z, this.pos.x, next.z)) next.x = this.pos.x;
+      else { next.x = this.pos.x; next.z = this.pos.z; }
+    }
     const g = col.groundAt(next.x, next.z, this.pos.y + 0.45);
     if (next.y <= g + 0.001 && this.vel.y <= 0) {
       if (!grounded) this.land();

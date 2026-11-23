@@ -19,6 +19,30 @@ export class Collision {
   /** world bounds (kill / respawn plane) */
   minY = -20;
   water = -1e9;
+  /** terrain below this height (deep water) is a wall unless a platform covers it */
+  wallBelow = -1e9;
+  /** steepest terrain rise per metre that can be walked up */
+  maxSlope = 1.6;
+
+  /** Can a fighter at `from` (feet) step horizontally to (x, z)? Blocks cliffs and deep water. */
+  passable(fromX: number, fromY: number, fromZ: number, x: number, z: number): boolean {
+    const g = this.groundAt(x, z, fromY + 0.45);
+    const onPlat = g > this.terrain(x, z) + 1e-3;
+    if (!onPlat && g < this.wallBelow) return false;
+    const run = Math.hypot(x - fromX, z - fromZ);
+    if (g - fromY > Math.max(0.45, run * this.maxSlope)) return false;
+    return true;
+  }
+
+  reset(): void {
+    this.colliders = [];
+    this.platforms = [];
+    this.terrain = () => 0;
+    this.arena = null;
+    this.minY = -20;
+    this.water = -1e9;
+    this.wallBelow = -1e9;
+  }
 
   addCircle(x: number, z: number, r: number, y0 = -10, y1 = 10, tag?: string): void {
     this.colliders.push({ kind: 'circle', x, z, r, y0, y1, tag });

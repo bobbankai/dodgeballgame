@@ -89,3 +89,7 @@
 .controls { max-width: 760px; margin: 0 auto; font-size: 14px; opacity: .85; line-height: 1.8; }
 .controls b { color: #ffe34d; }
 .chapters { display: grid; gap: 10px; }
+.dialogue.walk { bottom: auto; top: 9vh; min-height: 0; width: min(640px, 80vw); opacity: 0; }
+.dialogue.walk.show { opacity: 0.92; }
+.dialogue.walk .dnext { display: none; }
+.defeat { color: #f3e6c8; font: 72px 'Bangers', sans-serif; letter-spacing: 3px; text-shadow: 0 4px 0 #6a1d12; margin-bottom: 18px; }

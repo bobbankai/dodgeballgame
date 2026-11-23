@@ -78,3 +78,37 @@ export const ENEMY = {
   saber2: A({ id: 'saber2', clip: 'slash2', speed: 1.35, hit: [0.4], damage: 12, reach: 2.6, arc: 100, knock: 4, stagger: 0.45, hitstop: 0.07, shake: 0.25, telegraph: 0.18, vfx: 'slash', sfx: 'blade' }),
   saber3: A({ id: 'saber3', clip: 'thrust', speed: 1.3, hit: [0.33], damage: 15, reach: 3.6, arc: 25, knock: 7, stagger: 0.6, hitstop: 0.1, shake: 0.35, telegraph: 0.22, lunge: 3.5, lungeTime: [0.2, 0.35], vfx: 'thrust', sfx: 'blade_heavy', knockdown: true }),
 };
+
+// ------------------------------------------------------------------------------------------------ crew
+export const ALLY = {
+  // Mira: harpoon-spear
+  m_thrust: A({ id: 'm_thrust', clip: 'thrust', speed: 1.2, hit: [0.33], damage: 9, reach: 3.0, arc: 30, knock: 4, stagger: 0.5, hitstop: 0.05, shake: 0.12, lunge: 1.0, lungeTime: [0.2, 0.34], vfx: 'thrust', sfx: 'blade' }),
+  m_sweep: A({ id: 'm_sweep', clip: 'sweep', speed: 1.2, hit: [0.62], damage: 10, reach: 3.2, arc: 140, knock: 5, stagger: 0.6, hitstop: 0.06, shake: 0.18, vfx: 'slash_big', sfx: 'blade' }),
+  m_throw: A({ id: 'm_throw', clip: 'throw', hit: [0.4], damage: 0, reach: 0, arc: 0, knock: 0, stagger: 0, hitstop: 0, shake: 0.08,
+    projectile: { speed: 30, damage: 12, radius: 0.35, life: 0.8, vfx: 'harpoon', knock: -7 } }),
+  // Bram: anchor-ladle
+  b_punch: A({ id: 'b_punch', clip: 'cross', hit: [0.14], damage: 10, reach: 2.0, arc: 60, knock: 4, stagger: 0.5, hitstop: 0.07, shake: 0.2, vfx: 'punch', sfx: 'heavy_hit' }),
+  b_slam: A({ id: 'b_slam', clip: 'overhead', hit: [0.7], damage: 16, reach: 3.2, arc: 180, aoe: true, knock: 7, stagger: 0.8, hitstop: 0.1, shake: 0.4, knockdown: true, vfx: 'shock', sfx: 'slam', armor: true }),
+  b_sweep: A({ id: 'b_sweep', clip: 'sweep', hit: [0.62], damage: 12, reach: 3.0, arc: 140, knock: 7, stagger: 0.6, hitstop: 0.08, shake: 0.3, vfx: 'slash_big', sfx: 'blade_heavy' }),
+  // Nell: flares and a stubborn kick
+  n_flare: A({ id: 'n_flare', clip: 'throw', hit: [0.4], damage: 0, reach: 0, arc: 0, knock: 0, stagger: 0, hitstop: 0, shake: 0,
+    projectile: { speed: 16, damage: 8, radius: 0.5, life: 1.2, vfx: 'flare', knock: 3, gravity: 6 } }),
+  n_kick: A({ id: 'n_kick', clip: 'windkick', speed: 1.1, hit: [0.25], damage: 6, reach: 1.8, arc: 70, knock: 4, stagger: 0.5, hitstop: 0.05, shake: 0.1, vfx: 'punch', sfx: 'punch' }),
+};
+
+// ------------------------------------------------------------------------------------------------ bosses
+export const BOSS = {
+  h_lance: A({ ...ENEMY.lance, id: 'h_lance', damage: 14 }),
+  h_sweep: A({ ...ENEMY.sweep, id: 'h_sweep', damage: 14 }),
+  h_cleave: A({ ...ENEMY.cleave, id: 'h_cleave', damage: 20 }),
+  h_spin: A({ id: 'h_spin', clip: 'sweep', speed: 0.9, hit: [0.55, 0.75, 0.95], damage: 9, reach: 3.8, arc: 180, aoe: true, knock: 6, stagger: 0.5, hitstop: 0.06, shake: 0.3, telegraph: 0.7, spin: 720, end: 1.25, vfx: 'slash_big', sfx: 'blade_heavy', armor: true }),
+  h_dash: A({ ...ENEMY.lance, id: 'h_dash', lunge: 7, lungeTime: [0.18, 0.36], telegraph: 0.3, speed: 1.15 }),
+  g_chain: A({ ...ENEMY.chain, id: 'g_chain', reach: 8, telegraph: 0.55 }),
+  g_stomp: A({ ...ENEMY.stomp, id: 'g_stomp', reach: 5.2 }),
+  g_smash: A({ ...ENEMY.smash, id: 'g_smash', damage: 20, reach: 3.2 }),
+  g_rush: A({ id: 'g_rush', clip: 'cross', speed: 0.8, hit: [0.25], damage: 18, reach: 2.6, arc: 50, knock: 10, stagger: 0.8, hitstop: 0.12, shake: 0.5, telegraph: 0.6, lunge: 8, lungeTime: [0.05, 0.25], knockdown: true, vfx: 'shock', sfx: 'slam', armor: true }),
+  v_s1: A({ ...ENEMY.saber1, id: 'v_s1', damage: 13, telegraph: 0.2 }),
+  v_s2: A({ ...ENEMY.saber2, id: 'v_s2', damage: 13, telegraph: 0.12 }),
+  v_s3: A({ ...ENEMY.saber3, id: 'v_s3', damage: 16, telegraph: 0.15 }),
+  v_still: A({ id: 'v_still', clip: 'overhead', hit: [0.7], damage: 0, reach: 0, arc: 0, knock: 0, stagger: 0, hitstop: 0, shake: 0.2, telegraph: 0.3, armor: true }),
+};

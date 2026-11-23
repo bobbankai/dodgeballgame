@@ -219,6 +219,22 @@ def lighthouse():
     return p
 
 
+def marker(name='marker', small=False):
+    """A grave marker for the drowned and the hanged: a weathered post, a crossbar, a ribbon."""
+    p = Piece(name)
+    k = 0.6 if small else 1.0
+    p.add(*box(v(0, 0, 0.55 * k), (0.06 * k, 0.05 * k, 0.6 * k), bevel=0.015, R=sdf.rot_z(0.05) @ sdf.rot_x(0.04)), '#a89478', 'wood')
+    p.add(*box(v(0, 0, 0.88 * k), (0.28 * k, 0.045 * k, 0.05 * k), bevel=0.012), '#a89478', 'wood')
+    rib = np.array([[0.02, -0.06, 0.82], [0.12, -0.07, 0.83], [0.16, -0.08, 0.5], [0.06, -0.07, 0.55]], float) * k
+    V, F = pc.shell(rib, [(0, 1, 2, 3)], 0.01)
+    p.add(V, F, '#e8c84a' if small else '#c84a3a', 'cloth', sway=np.clip((0.83 * k - V[:, 2]) / (0.33 * k), 0, 1))
+    if small:
+        for i in range(5):
+            a = i * 1.26
+            p.add(*pc.quad_sphere(v(math.cos(a) * 0.25, math.sin(a) * 0.25, 0.04), (0.08, 0.07, 0.05), res=2), '#d8d2c4', 'rock')
+    return p
+
+
 def keeper_house():
     p = cottage('keeperhouse', w=5.0, d=4.0, h=2.8, roof='#3f5f8a', wall='#f4efe6', door='#c8383a', seed=3)
     return p
@@ -463,14 +479,189 @@ def cannon():
     return p
 
 
+# ------------------------------------------------------------------------------------------ props (held)
+# Grip at the origin, the business end along +Z (Blender) = +Y in the engine.
+
+def sabre(name='cutlass', blade='#d8dde4', guard='#c9a23a', grip='#3a2418', length=0.8, curve=0.08):
+    p = Piece(name)
+    pts = [v(0, 0, 0.08 + length * t) + v(0, curve * t * t, 0) for t in np.linspace(0, 1, 8)]
+    w = [0.022 * (1 - 0.6 * t ** 3) for t in np.linspace(0, 1, 8)]
+    side = np.tile(v(1, 0, 0), (8, 1))
+    p.add(*pc.tube(np.array(pts), w, n=4, normals=side, flat=0.18, cap_tip=True, cap_root=True), blade, 'metal')
+    p.add(*cyl(v(0, 0, -0.07), v(0, 0, 0.07), 0.016, n=8), grip, 'wood')
+    from tb.wardrobe import disc
+    p.add(*disc(v(0, 0, 0.075), 0.055, 0.0, n=12, thick=0.012), guard, 'metal')
+    p.add(*pc.quad_sphere(v(0, 0, -0.085), (0.022, 0.022, 0.022), res=2), guard, 'metal')
+    # knuckle bow
+    bow = [v(0, -0.045 * math.sin(math.pi * t), -0.08 + 0.155 * t) for t in np.linspace(0, 1, 6)]
+    p.add(*pc.tube(np.array(bow), [0.006] * 6, n=5), guard, 'metal')
+    return p
+
+
+def halberd():
+    p = Piece('halberd')
+    p.add(*cyl(v(0, 0, -0.7), v(0, 0, 1.55), 0.022, n=8), '#f2efe6', 'wood')
+    for z in (-0.7, 0.0, 0.6):
+        p.add(*cyl(v(0, 0, z - 0.02), v(0, 0, z + 0.02), 0.028, n=8), '#c9a23a', 'metal')
+    # axe blade, back spike and top spike
+    ax = np.array([[0.0, 0.0, 1.25], [0.0, -0.28, 1.12], [0.0, -0.32, 1.38], [0.0, 0.0, 1.5]], float)
+    p.add(*pc.shell(ax, [(0, 1, 2, 3)], 0.02), '#dfe4ea', 'metal')
+    p.add(*cyl(v(0, 0.02, 1.33), v(0, 0.16, 1.36), 0.022, 0.003, n=6), '#dfe4ea', 'metal')
+    p.add(*cyl(v(0, 0, 1.5), v(0, 0, 1.82), 0.03, 0.002, n=6), '#dfe4ea', 'metal')
+    p.add(*cyl(v(0, 0, 1.53), v(0, 0, 1.56), 0.045, n=8), '#c9a23a', 'metal')
+    return p
+
+
+def rifle():
+    p = Piece('rifle')
+    p.add(*cyl(v(0, 0, 0.05), v(0, 0, 1.05), 0.014, n=8), '#2c2f36', 'metal')
+    p.add(*box(v(0, 0.012, -0.12), (0.025, 0.045, 0.3), bevel=0.01), '#7a4a2a', 'wood')
+    p.add(*box(v(0, 0.035, 0.32), (0.022, 0.025, 0.3), bevel=0.008), '#7a4a2a', 'wood')
+    p.add(*box(v(0, -0.02, 0.02), (0.012, 0.03, 0.05), bevel=0.004), '#c9a23a', 'metal')
+    p.add(*cyl(v(0, 0, 1.05), v(0, 0, 1.2), 0.006, 0.002, n=5), '#bfc4cc', 'metal')
+    return p
+
+
+def shield():
+    p = Piece('shield')
+    # a tall Armada kite shield, convex, white with a gold sun
+    pts, F = [], []
+    rows, cols = 9, 7
+    for i in range(rows):
+        t = i / (rows - 1)
+        z = -0.55 + 1.1 * t
+        half = 0.36 * (math.sin(math.pi * min(1.0, (t * 0.85 + 0.15))) ** 0.6 if t < 0.85 else 1.0) if t > 0.0 else 0.04
+        half = max(half, 0.04)
+        for j in range(cols):
+            u = j / (cols - 1) * 2 - 1
+            x = u * half
+            y = -0.08 * (1 - u * u)
+            pts.append(v(x, y, z))
+    for i in range(rows - 1):
+        for j in range(cols - 1):
+            a = i * cols + j
+            F.append((a, a + 1, a + cols + 1, a + cols))
+    V, F2 = pc.shell(np.array(pts), F, 0.035)
+    cols_ = np.where((np.linalg.norm(V[:, [0, 2]] - [0, 0.05], axis=1) < 0.16)[:, None], srgb('#d8a93c'), srgb('#f1eee6'))
+    p.add(V, F2, cols_, 'metal')
+    return p
+
+
+def mace():
+    p = Piece('mace')
+    p.add(*cyl(v(0, 0, -0.12), v(0, 0, 0.55), 0.022, n=8), '#5a3a22', 'wood')
+    p.add(*pc.quad_sphere(v(0, 0, 0.62), (0.09, 0.09, 0.11), res=3), '#6a6e76', 'metal')
+    for k in range(6):
+        a = 2 * math.pi * k / 6
+        p.add(*cyl(v(math.cos(a) * 0.06, math.sin(a) * 0.06, 0.62), v(math.cos(a) * 0.15, math.sin(a) * 0.15, 0.62), 0.03, 0.004, n=5), '#6a6e76', 'metal')
+    return p
+
+
+def club():
+    p = Piece('club')
+    p.add(*cyl(v(0, 0, -0.1), v(0, 0, 0.62), 0.024, 0.05, n=8), '#7a5232', 'wood')
+    p.add(*cyl(v(0, 0, 0.3), v(0, 0, 0.36), 0.045, n=8), '#3a3a40', 'metal')
+    return p
+
+
+def harpoon():
+    p = Piece('harpoon')
+    p.add(*cyl(v(0, 0, -0.85), v(0, 0, 1.25), 0.02, n=8), '#9a7046', 'wood')
+    p.add(*cyl(v(0, 0, 1.25), v(0, 0, 1.6), 0.026, 0.002, n=6), '#cfd6dc', 'metal')
+    for sd in (1, -1):
+        p.add(*cyl(v(0, 0, 1.32), v(0, sd * 0.07, 1.24), 0.012, 0.002, n=5), '#cfd6dc', 'metal')
+    p.add(*cyl(v(0, 0, 1.18), v(0, 0, 1.26), 0.03, n=8), '#2f9a6a', 'cloth')
+    # rope wrap
+    for z in np.linspace(-0.2, 0.2, 6):
+        p.add(*cyl(v(0, 0, z - 0.012), v(0, 0, z + 0.012), 0.026, n=8), '#d8c79a', 'cloth')
+    return p
+
+
+def ladle():
+    p = Piece('ladle')
+    p.add(*cyl(v(0, 0, -0.35), v(0, 0, 0.95), 0.03, n=8), '#6a4a30', 'wood')
+    # anchor-shaped head: a bowl plus two flukes
+    bowl = pc.quad_sphere(v(0, 0.02, 1.05), (0.2, 0.12, 0.17), res=3)
+    p.add(*bowl, '#7a8088', 'metal')
+    for sd in (1, -1):
+        p.add(*cyl(v(0, 0, 0.92), v(sd * 0.26, 0, 0.82), 0.035, 0.02, n=6), '#7a8088', 'metal')
+        p.add(*cyl(v(sd * 0.26, 0, 0.82), v(sd * 0.32, 0, 0.98), 0.02, 0.004, n=6), '#7a8088', 'metal')
+    p.add(*cyl(v(0, 0, 0.6), v(0, 0, 0.66), 0.045, n=8), '#a8662e', 'metal')
+    return p
+
+
+def cane():
+    p = Piece('cane')
+    p.add(*cyl(v(0, 0, -0.85), v(0, 0, 0.05), 0.014, 0.018, n=8), '#5a3a22', 'wood')
+    hook = [v(0, -0.07 * math.sin(math.pi * t), 0.05 + 0.08 * math.sin(math.pi * t * 0.5)) for t in np.linspace(0, 1, 6)]
+    p.add(*pc.tube(np.array(hook), [0.018] * 6, n=6), '#5a3a22', 'wood')
+    return p
+
+
+def boathook():
+    p = Piece('boathook')
+    p.add(*cyl(v(0, 0, -0.5), v(0, 0, 1.1), 0.02, n=8), '#6a5038', 'wood')
+    hook = [v(0, -0.12 * math.sin(math.pi * t * 0.9), 1.1 + 0.18 * math.sin(math.pi * t * 0.6)) for t in np.linspace(0, 1, 7)]
+    p.add(*pc.tube(np.array(hook), [0.016 * (1 - 0.7 * t) for t in np.linspace(0, 1, 7)], n=6), '#5a5e66', 'metal')
+    return p
+
+
+def lantern(name='lantern', glow='#ffcf7a'):
+    p = Piece(name)
+    p.add(*cyl(v(0, 0, -0.32), v(0, 0, -0.29), 0.085, n=10), '#3a3a40', 'metal')
+    p.add(*cyl(v(0, 0, -0.29), v(0, 0, -0.08), 0.07, n=10, caps=False), glow, 'glow')
+    for k in range(4):
+        a = math.pi / 4 + k * math.pi / 2
+        p.add(*cyl(v(math.cos(a) * 0.075, math.sin(a) * 0.075, -0.3), v(math.cos(a) * 0.075, math.sin(a) * 0.075, -0.07), 0.008, n=4), '#3a3a40', 'metal')
+    p.add(*cyl(v(0, 0, -0.08), v(0, 0, -0.02), 0.085, 0.03, n=10), '#3a3a40', 'metal')
+    ring = [v(0, 0.04 * math.sin(math.pi * 2 * t), 0.04 * math.cos(math.pi * 2 * t) - 0.0) for t in np.linspace(0, 1, 9)]
+    p.add(*pc.tube(np.array(ring), [0.006] * 9, n=4), '#3a3a40', 'metal')
+    return p
+
+
+def logbook():
+    p = Piece('logbook')
+    p.add(*box(v(0, 0, 0), (0.11, 0.03, 0.15), bevel=0.01), '#5a2a1e', 'cloth')
+    p.add(*box(v(0.005, 0, 0), (0.1, 0.026, 0.142), bevel=0.004), '#efe4c8', 'plain')
+    p.add(*box(v(0, -0.032, 0.02), (0.04, 0.004, 0.04), bevel=0.002), '#c9a23a', 'metal')
+    return p
+
+
+def crown():
+    p = Piece('crown')
+    from tb.wardrobe import disc
+    p.add(*cyl(v(0, 0, 0), v(0, 0, 0.09), 0.11, 0.115, n=16, caps=False), '#e2b84a', 'metal')
+    for k in range(7):
+        a = 2 * math.pi * k / 7
+        base = v(math.cos(a) * 0.112, math.sin(a) * 0.112, 0.08)
+        p.add(*cyl(base, base + v(math.cos(a) * 0.015, math.sin(a) * 0.015, 0.11), 0.02, 0.004, n=5), '#e2b84a', 'metal')
+        p.add(*pc.quad_sphere(base + v(math.cos(a) * 0.012, math.sin(a) * 0.012, -0.03), (0.017, 0.017, 0.017), res=2), '#bfeaff', 'glow')
+    p.add(*disc(v(0, 0, 0.0), 0.12, 0.1, n=16, thick=0.01), '#c99a2e', 'metal')
+    return p
+
+
+def chain():
+    p = Piece('chain')
+    for i in range(14):
+        z = -0.1 - i * 0.075
+        rot = sdf.rot_z(math.pi / 2 * (i % 2))
+        ring = [rot @ v(0.028 * math.cos(math.pi * 2 * t), 0, 0.045 * math.sin(math.pi * 2 * t)) + v(0.02 * math.sin(i * 0.5), 0, z) for t in np.linspace(0, 1, 9)]
+        p.add(*pc.tube(np.array(ring), [0.009] * 9, n=4), '#5a5e66', 'metal')
+    p.add(*cyl(v(0, 0, -1.12), v(0.0, -0.12, -1.25), 0.025, 0.004, n=6), '#5a5e66', 'metal')
+    return p
+
+
 KITS = {
     'common': lambda: [crate(), barrel(), lamp_post(), fence(), stall(), stairs(), wall(), net_rack(), flag_pole(), cannon(),
                        rock(1), rock(2, (1.8, 1.3, 1.4)), rock(3, (3.0, 2.2, 2.0), '#7f7f7c'), rock(4, (5.0, 3.5, 3.4), '#7a7874'),
                        bush(1), bush(2, '#5aa84a'), tree(1), tree(2, 6.0, '#3f8a3a'), palm(1), palm(2, 7.2), palm(3, 5.8)],
     'gulls': lambda: [cottage('cottageA', roof='#c4553a', seed=0), cottage('cottageB', 3.6, 3.2, 2.4, roof='#3f6f9a', wall='#f4e8d0', door='#c8383a', seed=1),
                       cottage('cottageC', 4.8, 3.6, 2.7, roof='#d8873a', wall='#e8f0e4', door='#4a8a5a', seed=2), keeper_house(), lighthouse(),
-                      dock(), boardwalk(), rowboat()],
+                      dock(), boardwalk(), rowboat(), marker(), marker('marker_small', True)],
     'ships': lambda: [wren(), frigate()],
+    'props': lambda: [sabre(), sabre('sabre_gold', '#eef2f6', '#e2b84a', '#f2efe6', 0.86, 0.04), sabre('hookblade', '#9aa0a8', '#5a5e66', '#3a2418', 0.6, 0.16),
+                      halberd(), rifle(), shield(), mace(), club(), harpoon(), ladle(), cane(), boathook(), lantern(), lantern('lantern_blue', '#9fe6ff'),
+                      logbook(), crown(), chain()],
 }
 
 

@@ -194,6 +194,14 @@ export class Renderer {
   }
 
   // ------------------------------------------------------------------------------------------ sky
+  /** Resolution scale changes now; MSAA and shadow sizes follow on the next load (remembered). */
+  setQuality(q: Quality): void {
+    this.quality = q;
+    if (!this.test) this.engine.setHardwareScalingLevel(q === 'low' ? 1.5 : q === 'medium' ? 1.15 : 1 / Math.min(window.devicePixelRatio, 1.5));
+    this.globals.set('counts', this.globals.get('counts')[0], this.globals.get('counts')[1], q === 'low' ? 0 : q === 'medium' ? 1 : 2, 0);
+    try { localStorage.setItem('tidebreakers.quality', q); } catch { /* */ }
+  }
+
   setSky(mat: ShaderMaterial): Mesh {
     if (!this.skyMesh) {
       this.skyMesh = MeshBuilder.CreateSphere('sky', { diameter: 2, segments: 32, sideOrientation: Mesh.BACKSIDE }, this.scene);

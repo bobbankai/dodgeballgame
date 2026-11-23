@@ -181,6 +181,15 @@ export class EnvKit {
   }
 
   has(name: string): boolean { return this.protos.has(name); }
+
+  /** A bare instance (no collision, not parented to the level root). */
+  instance(name: string): InstancedMesh | null {
+    const p = this.protos.get(name);
+    if (!p) return null;
+    const inst = p.createInstance(`${name}#i${this.placed.length}`);
+    this.placed.push(inst);
+    return inst;
+  }
   names(): string[] { return [...this.protos.keys()]; }
 
   /** Places an instance of a kit piece. Returns the instance. */
