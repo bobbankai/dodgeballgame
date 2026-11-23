@@ -309,13 +309,13 @@ def hullhouse(name='hullhouse', length=10.0, beam=4.2, color='#7a5a3a', shack='#
     return p
 
 
-def barge(name='barge', length=14.0, beam=7.0):
+def barge(name='barge', length=14.0, beam=7.0, stalls=True):
     p = Piece(name)
     p.add(*box(v(0, 0, -0.6), (length / 2, beam / 2, 0.7), bevel=0.15), '#5a4a3a', 'wood')
     p.add(*box(v(0, 0, 0.12), (length / 2 - 0.15, beam / 2 - 0.15, 0.05), bevel=0.02), '#a8845a', 'wood')
     for x in (-length / 2 + 0.2, length / 2 - 0.2):
         p.add(*box(v(x, 0, 0.35), (0.12, beam / 2, 0.25), bevel=0.03), '#6a4a30', 'wood')
-    for i, (x, y) in enumerate([(-4, -2), (0, 2.2), (4, -2)]):
+    for i, (x, y) in enumerate([(-4, -2), (0, 2.2), (4, -2)] if stalls else []):
         for sx in (1, -1):
             for sy in (1, -1):
                 p.add(*cyl(v(x + sx * 1.1, y + sy * 0.8, 0.15), v(x + sx * 1.1, y + sy * 0.8, 2.4), 0.05, n=6), '#6a4a30', 'wood')
@@ -681,7 +681,7 @@ KITS = {
                         rowhouse('rowhouseC', 4.4, 5, 5.6, '#b8774a', '#41464e', 2), chimney_stack(), chimney_stack('stack_s', 14, 0.9), foundry(), headframe(),
                         tunnel('tunnel', seed=0), tunnel('tunnel_b', seed=3), rails(), minecart(), ore_furnace(), vent(), coal_pile(), sacks(), gate_iron(), dock_crane(), pipes(), chalk_wall()],
     'market': lambda: [hullhouse('hullhouseA', seed=0), hullhouse('hullhouseB', 9, 3.8, '#5a4a6a', '#d8b070', '#8a3a3a', 1), hullhouse('hullhouseC', 11, 4.4, '#3a5a4a', '#c86a4a', '#3a4a6a', 2),
-                       barge(), plank_bridge(), lantern_string(10, 1.2, 7, 0), lantern_string(14, 1.8, 9, 1), soup_pot(), mooring_post()],
+                       barge(), barge('barge_open', stalls=False), plank_bridge(), lantern_string(10, 1.2, 7, 0), lantern_string(14, 1.8, 9, 1), soup_pot(), mooring_post()],
     'shoals': lambda: [sea_stack(0), sea_stack(1, 18, 4.2), sea_stack(2, 9, 2.6), wreck(), wreck('wreck_b', 12), nell_light(), bottle(), maw_head(), maw_segment(), maw_tail()],
     'citadel': lambda: [column(), column('column_broken', broken=True), column('column_coral', coral=True), column('column_coral_b', broken=True, coral=True),
                         floor_slab(), floor_slab('slab_dark', 6, '#cfc8bc', '#9fe6ff'), grand_stairs(), citadel_gate(), brazier(), banner(), altar(),

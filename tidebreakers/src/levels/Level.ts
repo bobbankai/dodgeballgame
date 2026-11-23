@@ -71,7 +71,7 @@ export abstract class Level {
   readonly meshes: AbstractMesh[] = [];
   readonly mats: ShaderMaterial[] = [];
   crew = new Map<CrewKind, { f: Fighter; brain: CrewBrain }>();
-  boss: { f: Fighter; brain: BossBrain } | null = null;
+  boss: { f: Fighter; brain?: BossBrain } | null = null;
   private arenaT = 0;
   done = false;
   startedAt = '';
@@ -195,8 +195,9 @@ export abstract class Level {
     brains.set(f, brain);
     equip(this.ctx.flow.props, f, kind);
     this.dir.add(kind, f);
-    this.boss = { f, brain };
-    return this.boss;
+    const b = { f, brain };
+    this.boss = b;
+    return b;
   }
 
   async enemy(kind: string, x: number, z: number, yaw?: number, over: Partial<Kind> = {}): Promise<Fighter> {

@@ -246,8 +246,8 @@ export class Game {
       for (const t of this.fighters) {
         if (!t.alive || sameSide(t.team, h.team) || t.team === 'neutral') continue;
         if (Math.hypot(t.pos.x - h.pos.x, t.pos.z - h.pos.z) < h.radius + t.radius * 0.5 && t.pos.y < h.pos.y + 2.2) {
-          const src = this.fighters.find((f) => f.team === h.team && f.alive) ?? t;
-          t.receive(src === t ? this.player ?? t : src, def);
+          // knocked away from the blast's centre
+          t.receive({ pos: h.pos.add(new Vector3(0.01, 0, 0.01)) } as Fighter, def);
           this.hooks.damage?.(t.center, h.damage, t === this.player ? 'take' : 'deal');
         }
       }
@@ -269,8 +269,7 @@ export class Game {
         const d = Math.hypot(t.pos.x - g.pos.x, t.pos.z - g.pos.z);
         if (Math.abs(d - g.r) < 0.55 && t.pos.y - this.collision.groundAt(t.pos.x, t.pos.z, t.pos.y + 0.5) < 0.5) {
           g.hit.add(t);
-          const src = this.fighters.find((f) => f.team === g.team && f.alive) ?? t;
-          t.receive(src, { id: 'ring', clip: '', hit: [], damage: g.damage, reach: 0, arc: 0, knock: 8, launch: 6, stagger: 0.6, hitstop: 0.05, shake: 0.3, knockdown: true, unblockable: true });
+          t.receive({ pos: g.pos.add(new Vector3(0.01, 0, 0.01)) } as Fighter, { id: 'ring', clip: '', hit: [], damage: g.damage, reach: 0, arc: 0, knock: 8, launch: 6, stagger: 0.6, hitstop: 0.05, shake: 0.3, knockdown: true, unblockable: true });
         }
       }
     }
