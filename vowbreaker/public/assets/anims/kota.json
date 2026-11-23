@@ -1,0 +1,30 @@
+{
+ "clips": {
+  "idle_relaxed": {
+   "frames": 140,
+   "fps": 30,
+   "loop": true
+  },
+  "stand": {
+   "frames": 160,
+   "fps": 30,
+   "loop": true
+  },
+  "walk": {
+   "frames": 44,
+   "fps": 30,
+   "loop": true
+  },
+  "walk_sad": {
+   "frames": 50,
+   "fps": 30,
+   "loop": true
+  },
+  "talk": {
+   "frames": 80,
+   "fps": 30,
+   "loop": true
+  }
+ },
+ "refHipHeight": 0.5460000038146973
+}

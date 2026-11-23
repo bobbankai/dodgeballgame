@@ -1,0 +1,40 @@
+{
+ "clips": {
+  "idle_relaxed": {
+   "frames": 60,
+   "fps": 30,
+   "loop": true
+  },
+  "stand": {
+   "frames": 60,
+   "fps": 30,
+   "loop": true
+  },
+  "walk": {
+   "frames": 20,
+   "fps": 30,
+   "loop": true
+  },
+  "run": {
+   "frames": 16,
+   "fps": 30,
+   "loop": true
+  },
+  "talk": {
+   "frames": 40,
+   "fps": 30,
+   "loop": true
+  },
+  "look_down": {
+   "frames": 80,
+   "fps": 30,
+   "loop": true
+  },
+  "cry": {
+   "frames": 24,
+   "fps": 30,
+   "loop": true
+  }
+ },
+ "refHipHeight": 0.5005000233650208
+}
