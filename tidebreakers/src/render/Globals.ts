@@ -1,6 +1,6 @@
 // CPU mirror of the WGSL `TBGlobals` block (src/shaders/lib/tbGlobals.wgsl). All members are vec4/mat4.
 import { UniformBuffer, Vector3, Matrix } from '@babylonjs/core';
-import type { Engine } from '@babylonjs/core';
+import type { AbstractEngine } from '@babylonjs/core';
 
 export const MAX_LIGHTS = 12;
 
@@ -20,8 +20,8 @@ export class Globals {
   readonly ubo: UniformBuffer;
   lights: PointLight[] = [];
 
-  constructor(engine: Engine) {
-    this.ubo = new UniformBuffer(engine, undefined, true, 'globals');
+  constructor(engine: AbstractEngine) {
+    this.ubo = new UniformBuffer(engine as any, undefined, true, 'globals');
     this.ubo.addUniform('data', SIZE);
     this.ubo.create();
     this.set('time', 0, 0, 0, 0);

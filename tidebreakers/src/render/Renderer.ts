@@ -7,6 +7,7 @@ import {
 import type { AbstractMesh, RenderTargetWrapper, InternalTexture, BaseTexture } from '@babylonjs/core';
 import { Globals } from './Globals';
 import { registerShaders } from './shaderRegistry';
+import './babylonFixes';
 
 export type Quality = 'low' | 'medium' | 'high';
 
@@ -28,8 +29,8 @@ export class Renderer {
   quality: Quality = 'high';
   fx: PostFx = {
     vignette: 0.28, aberration: 0, grain: 0.15, letterbox: 0, fade: 0, impact: 0, speedLines: 0, radialBlur: 0,
-    radialCenter: [0.5, 0.5], bloom: 0.55, memory: 0, sepia: 0, lift: [0, 0, 0], gamma: [1, 1, 1], gain: [1, 1, 1],
-    bloomThreshold: 1.05,
+    radialCenter: [0.5, 0.5], bloom: 0.3, memory: 0, sepia: 0, lift: [0, 0, 0], gamma: [1, 1, 1], gain: [1, 1, 1],
+    bloomThreshold: 1.35,
   };
   readonly casters: AbstractMesh[] = [];
   shadowCenter = new Vector3();
@@ -64,7 +65,7 @@ export class Renderer {
     this.createShadows();
     this.fxr = new EffectRenderer(this.engine);
     const common = { engine: this.engine, useShaderStore: true, shaderLanguage: ShaderLanguage.WGSL, uniformBuffers: ['globals'] };
-    this.finalFx = new EffectWrapper({ ...common, name: 'final', fragmentShader: 'tbFinal', samplerNames: ['colorTex', 'bloomTex'],
+    this.finalFx = new EffectWrapper({ ...common, name: 'final', fragmentShader: 'tbFinal', samplerNames: ['colorTex', 'bloomTex', 'gbufTex'],
       uniformNames: ['fxA', 'fxB', 'fxC', 'liftC', 'gammaC', 'gainC'] });
     this.bloomDown = new EffectWrapper({ ...common, name: 'bloomDown', fragmentShader: 'tbBloomDown', samplerNames: ['src'], uniformNames: ['texel', 'knee'], uniformBuffers: [] });
     this.bloomUp = new EffectWrapper({ ...common, name: 'bloomUp', fragmentShader: 'tbBloomUp', samplerNames: ['low', 'cur'], uniformNames: ['texel'], uniformBuffers: [] });
@@ -118,6 +119,7 @@ export class Renderer {
     });
     this.depthMat.setUniformBuffer('globals', this.globals.ubo);
     this.depthMat.setVector4('sway', new Vector4(0, 0, 0, 0));
+    this.depthMat.alphaMode = Constants.ALPHA_DISABLE;
     for (let i = 0; i < 2; i++) {
       const rtt = new RenderTargetTexture(`shadow${i}`, sizes[i], this.scene, {
         generateMipMaps: false, type: Constants.TEXTURETYPE_FLOAT, format: Constants.TEXTUREFORMAT_R,
@@ -150,6 +152,7 @@ export class Renderer {
     if (sway > 0) {
       mat = this.depthMat.clone(`shadowDepthSway${sway}`) as ShaderMaterial;
       mat.setUniformBuffer('globals', this.globals.ubo);
+      mat.alphaMode = Constants.ALPHA_DISABLE;
       mat.setVector4('sway', new Vector4(sway, swayHeight, 0, 0));
     }
     for (const rtt of this.shadowRT) rtt.setMaterialForRendering(mesh, mat);
@@ -221,57 +224,67 @@ export class Renderer {
 
   private ready(...e: EffectWrapper[]): boolean { return e.every((x) => x.isReady()); }
 
-  private post(): void {
-    const fx = this.fx;
-    const bloomOn = fx.bloom > 0 && this.ready(this.bloomDown, this.bloomUp);
-    if (bloomOn) {
-      // downsample chain
-      let src: BaseTexture | ThinTexture = this.mrtTex0;
-      let sw = this.engine.getRenderWidth(), sh = this.engine.getRenderHeight();
-      this.bloomChain.forEach((t, i) => {
-        this.bloomDown.onApplyObservable.clear();
-        const s = src;
-        const tw = sw, th = sh;
-        this.bloomDown.onApplyObservable.add(() => {
-          const e = this.bloomDown.effect;
-          e.setTexture('src', s as any);
-          e.setFloat4('texel', 1 / tw, 1 / th, i === 0 ? 1 : 0, fx.bloomThreshold);
-          e.setFloat4('knee', 0.5, 40, 0, 0);
-        });
-        this.fxr.render(this.bloomDown, t.rt);
-        src = t.tex; sw = t.w; sh = t.h;
-      });
-      // upsample
-      let low: Target = this.bloomChain[this.bloomChain.length - 1];
-      for (let i = this.bloomUpChain.length - 1; i >= 0; i--) {
-        const out = this.bloomUpChain[i];
-        const cur = this.bloomChain[i];
-        const l = low;
-        this.bloomUp.onApplyObservable.clear();
-        this.bloomUp.onApplyObservable.add(() => {
-          const e = this.bloomUp.effect;
-          e.setTexture('low', l.tex as any);
-          e.setTexture('cur', cur.tex as any);
-          e.setFloat4('texel', 1 / l.w, 1 / l.h, 1.0, 1.0);
-        });
-        this.fxr.render(this.bloomUp, out.rt);
-        low = out;
-      }
-    }
-    if (!this.finalFx.isReady()) return;
-    this.finalFx.onApplyObservable.clear();
+  // per-pass inputs read by persistent onApply observers (Babylon's own observer sets the UV scale, so
+  // observers must never be cleared)
+  private pass: { src: BaseTexture | ThinTexture | null; sw: number; sh: number; first: boolean; low: Target | null; cur: Target | null; bloomOn: boolean } =
+    { src: null, sw: 1, sh: 1, first: true, low: null, cur: null, bloomOn: false };
+  private observersReady = false;
+
+  private setupObservers(): void {
+    if (this.observersReady) return;
+    this.observersReady = true;
+    const P = this.pass;
+    this.bloomDown.onApplyObservable.add(() => {
+      const e = this.bloomDown.effect;
+      e.setTexture('src', P.src as any);
+      e.setFloat4('texel', 1 / P.sw, 1 / P.sh, P.first ? 1 : 0, this.fx.bloomThreshold);
+      e.setFloat4('knee', 0.5, 40, 0, 0);
+    });
+    this.bloomUp.onApplyObservable.add(() => {
+      const e = this.bloomUp.effect;
+      e.setTexture('low', P.low!.tex as any);
+      e.setTexture('cur', P.cur!.tex as any);
+      e.setFloat4('texel', 1 / P.low!.w, 1 / P.low!.h, 1.0, 1.0);
+    });
     this.finalFx.onApplyObservable.add(() => {
       const e = this.finalFx.effect;
+      const fx = this.fx;
       e.setTexture('colorTex', this.mrtTex0);
-      e.setTexture('bloomTex', (bloomOn ? this.bloomUpChain[0].tex : this.bloomChain[0].tex) as any);
+      e.setTexture('gbufTex', this.mrt.textures[1]);
+      e.setTexture('bloomTex', (P.bloomOn ? this.bloomUpChain[0].tex : this.bloomChain[0].tex) as any);
       e.bindUniformBuffer(this.globals.ubo.getBuffer()!, 'globals');
       e.setFloat4('fxA', fx.vignette, fx.aberration, fx.grain, fx.letterbox);
       e.setFloat4('fxB', fx.fade, fx.impact, fx.speedLines, fx.radialBlur);
-      e.setFloat4('fxC', fx.radialCenter[0], fx.radialCenter[1], bloomOn ? fx.bloom : 0, fx.memory);
+      e.setFloat4('fxC', fx.radialCenter[0], fx.radialCenter[1], P.bloomOn ? fx.bloom : 0, fx.memory);
       e.setFloat4('liftC', fx.lift[0], fx.lift[1], fx.lift[2], 0);
       e.setFloat4('gammaC', fx.gamma[0], fx.gamma[1], fx.gamma[2], 0);
       e.setFloat4('gainC', fx.gain[0], fx.gain[1], fx.gain[2], fx.sepia);
     });
+  }
+
+  private post(): void {
+    const fx = this.fx;
+    const P = this.pass;
+    this.setupObservers();
+    P.bloomOn = fx.bloom > 0 && this.ready(this.bloomDown, this.bloomUp);
+    if (P.bloomOn) {
+      P.src = this.mrtTex0;
+      P.sw = this.engine.getRenderWidth();
+      P.sh = this.engine.getRenderHeight();
+      this.bloomChain.forEach((t, i) => {
+        P.first = i === 0;
+        this.fxr.render(this.bloomDown, t.rt);
+        P.src = t.tex; P.sw = t.w; P.sh = t.h;
+      });
+      let low: Target = this.bloomChain[this.bloomChain.length - 1];
+      for (let i = this.bloomUpChain.length - 1; i >= 0; i--) {
+        P.low = low;
+        P.cur = this.bloomChain[i];
+        this.fxr.render(this.bloomUp, this.bloomUpChain[i].rt);
+        low = this.bloomUpChain[i];
+      }
+    }
+    if (!this.finalFx.isReady()) return;
     this.engine.restoreDefaultFramebuffer();
     this.fxr.render(this.finalFx);
   }

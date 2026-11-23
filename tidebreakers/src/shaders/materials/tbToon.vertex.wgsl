@@ -33,5 +33,5 @@ fn main(input: VertexInputs) -> FragmentInputs {
 #endif
   vertexOutputs.vUV = vertexInputs.uv;
   vertexOutputs.vAoCls = vertexInputs.uv2;
-  vertexOutputs.vViewZ = (uniforms.view * wp).z;
+  vertexOutputs.vViewZ = vertexOutputs.position.w;
 }

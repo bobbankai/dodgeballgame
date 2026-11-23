@@ -26,7 +26,7 @@ fn main(input: VertexInputs) -> FragmentInputs {
   var clip = uniforms.viewProjection * wp;
   let nc = (uniforms.viewProjection * vec4f(nw, 0.0)).xy;
   let len = max(length(nc), 1e-5);
-  let cls = i32(round(vertexInputs.uv2.y * 10.0));
+  let cls = i32(round((1.0 - vertexInputs.uv2.y) * 10.0));
   var w = uniforms.fx.y * (globals.viewport.y / 1080.0);
   w = w * mix(0.35, 1.0, smoothstep(0.35, 0.85, vertexInputs.uv2.x));
   if (cls == 2) { w = w * 1.25; }

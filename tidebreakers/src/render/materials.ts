@@ -52,8 +52,9 @@ export function outlineMaterial(name: string, r: Renderer, widthPx = 2.2, ink = 
     shaderLanguage: ShaderLanguage.WGSL,
   });
   m.setUniformBuffer('globals', r.globals.ubo);
-  m.cullBackFaces = false; // render back faces only -> inverted hull
-  m.backFaceCulling = true;
+  // inverted hull: no cull state games (Babylon's cull state can leak between materials); the fragment
+  // shader keeps only back faces
+  m.backFaceCulling = false;
   const c = hex(ink);
   m.setVector4('inkColor', v4(c.r, c.g, c.b, bleed));
   m.setVector4('fx', v4(0, widthPx, 0, 0));

@@ -43,7 +43,7 @@ fn main(input: FragmentInputs) -> FragmentOutputs {
     if (nz < dis) { discard; }
     edgeGlow = smoothstep(dis + 0.06, dis, nz);
   }
-  let cls = i32(round(input.vAoCls.y * 10.0));
+  let cls = i32(round((1.0 - input.vAoCls.y) * 10.0));  // glTF flips V on every UV set
   var albedo = input.vColor.rgb * uniforms.tint.rgb;
   let ao = input.vAoCls.x;
   var fp: FaceParams;
@@ -73,5 +73,5 @@ fn main(input: FragmentInputs) -> FragmentOutputs {
   col = applyFog(col, pos);
   fragmentOutputs.fragData0 = vec4f(col, 1.0);
   let nv = normalize((uniforms.view * vec4f(n, 0.0)).xyz);
-  fragmentOutputs.fragData1 = vec4f(encodeNormal(nv), -input.vViewZ, uniforms.fx.w);
+  fragmentOutputs.fragData1 = vec4f(encodeNormal(nv), input.vViewZ, uniforms.fx.w);
 }

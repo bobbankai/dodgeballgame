@@ -7,6 +7,8 @@ var colorTexSampler: sampler;
 var colorTex: texture_2d<f32>;
 var bloomTexSampler: sampler;
 var bloomTex: texture_2d<f32>;
+var gbufTexSampler: sampler;
+var gbufTex: texture_2d<f32>;
 uniform fxA: vec4f;   // x vignette, y chromatic aberration, z grain, w letterbox (0..1)
 uniform fxB: vec4f;   // x fade to black, y impact frame (0/1 + mode), z speed lines, w radial blur
 uniform fxC: vec4f;   // xy radial centre (uv), z bloom strength, w desaturate (memories)
@@ -62,6 +64,17 @@ fn main(input: FragmentInputs) -> FragmentOutputs {
     col = textureSampleLevel(colorTex, colorTexSampler, uv, 0.0).rgb;
   }
   col = col + textureSampleLevel(bloomTex, bloomTexSampler, uv, 0.0).rgb * uniforms.fxC.z;
+  // debug views (globals.counts.y): 1 normals, 2 depth, 3 object ids, 4 raw HDR colour
+  let dbg = i32(globals.counts.y);
+  if (dbg > 0) {
+    let gb = textureSampleLevel(gbufTex, gbufTexSampler, uv, 0.0);
+    var o = col;
+    if (dbg == 1) { o = vec3f(gb.xy, 0.5); }
+    if (dbg == 2) { o = vec3f(fract(gb.z * 0.25), saturate(gb.z / 40.0), 0.0); }
+    if (dbg == 3) { o = hsv2rgb(vec3f(fract(gb.w * 7.31), 0.7, step(0.001, gb.w))); }
+    fragmentOutputs.color = vec4f(linearToSrgb(o), 1.0);
+    return fragmentOutputs;
+  }
   col = col + globals.flash.rgb * globals.flash.w;
   col = grade(col);
   col = tonemap(col);

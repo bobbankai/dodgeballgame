@@ -21,7 +21,7 @@ let overlay: HTMLCanvasElement | null = null;
 export function installHeadlessShim(): void {
   const orig = HTMLCanvasElement.prototype.getContext;
   (HTMLCanvasElement.prototype as any).getContext = function (this: HTMLCanvasElement, kind: string, opts?: unknown) {
-    if (kind !== 'webgpu') return orig.call(this, kind as any, opts as any);
+    if (kind !== 'webgpu') return (orig as any).call(this, kind, opts);
     fakeCanvas = this;
     let config: GPUCanvasConfiguration | null = null;
     const ctx: FakeContext = {
