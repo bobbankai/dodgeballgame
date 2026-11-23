@@ -67,7 +67,7 @@ export class Epilogue extends Level {
     d.act(kai, 'salute');
     await d.wait(0.6);
     for (const p of kai.model.props) p.setEnabled(false);
-    const lan = this.kit.instance('lantern')!;
+    const lan = this.ctx.flow.props.instance('lantern')!;
     this.meshes.push(lan);
     const bow = w.deck(0, 4.9).add(V(0, 1.3, 0));
     lan.position.copyFrom(bow);

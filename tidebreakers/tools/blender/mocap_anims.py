@@ -17,13 +17,13 @@ CACHE = os.path.join(ROOT, 'tools', 'blender', 'mocap_cache')
 
 # name: (subject, trial, options). Frames are at 120 fps in the source; `range` is [start, end) there.
 CLIPS = {
-    'idle': (77, 2, dict(loop=True, cycle=(90, 240))),
-    'wait': (40, 10, dict(loop=True, cycle=(90, 240))),
-    'walk': (7, 1, dict(inplace=True, loop=True, cycle=(26, 44))),
-    'jog': (9, 1, dict(inplace=True, loop=True, cycle=(16, 30))),
-    'run': (143, 1, dict(inplace=True, loop=True, cycle=(12, 24))),
+    'idle': (77, 2, dict(loop=True, cycle=(90, 240), head_up=12.0)),
+    'wait': (40, 10, dict(loop=True, cycle=(90, 240), head_up=8.0)),
+    'walk': (7, 1, dict(inplace=True, loop=True, cycle=(26, 44), head_up=6.0)),
+    'jog': (9, 1, dict(inplace=True, loop=True, cycle=(16, 30), head_up=6.0)),
+    'run': (143, 1, dict(inplace=True, loop=True, cycle=(12, 24), head_up=4.0)),
     'sad_walk': (82, 10, dict(inplace=True, loop=True, cycle=(30, 60))),
-    'talk': (18, 8, dict(loop=True, cycle=(120, 260), hands=(15.0, 10.0, 1.0))),
+    'talk': (18, 8, dict(loop=True, cycle=(120, 260), hands=(15.0, 10.0, 1.0), head_up=6.0)),
     'cry': (79, 72, dict(loop=True, cycle=(90, 240), hands=(40.0, 25.0, 0.3))),
     'sad': (79, 71, dict(loop=True, cycle=(90, 240), hands=(35.0, 20.0, 0.3))),
     'laugh': (79, 70, dict(loop=False)),
@@ -66,7 +66,7 @@ def build(rig, names=None, verbose=True, arm=None, skel=None):
         hp = o.get('hands', (25.0, 15.0, 0.6))
         if arm is not None and hp not in hands:
             hands[hp] = finger_pose(arm, skel, *hp)
-        clip = M.retarget(rig, asf, poses, name, inplace=o.get('inplace', False), loop=False, recenter=True, fingers=hands.get(hp))
+        clip = M.retarget(rig, asf, poses, name, inplace=o.get('inplace', False), loop=False, recenter=True, fingers=hands.get(hp), head_up=o.get('head_up', 0.0))
         if o.get('cycle'):
             d, i, j = M.find_cycle(clip, *o['cycle'])
             M.trim(clip, i, j)

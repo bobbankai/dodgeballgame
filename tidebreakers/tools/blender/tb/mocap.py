@@ -234,7 +234,7 @@ def load(asf_path, amc_path, start=0, end=None, step=4):
     return asf, [fk(asf, f) for f in amc]
 
 
-def retarget(rig, asf, poses, name, inplace=False, loop=False, recenter=True, face=None, fingers=None, smooth=1):
+def retarget(rig, asf, poses, name, inplace=False, loop=False, recenter=True, face=None, fingers=None, smooth=1, head_up=0.0):
     """poses: list of (R, P) in CMU space. Returns Clip with per-frame basis quaternions."""
     # rest pose of the CMU skeleton (all dofs zero) for directions and leg length
     R0, P0 = fk(asf, {})
@@ -276,6 +276,11 @@ def retarget(rig, asf, poses, name, inplace=False, loop=False, recenter=True, fa
             else:
                 D = T @ H @ R[cmu] @ TI
             Rw[ours] = D @ A[ours] @ rig.R[ours]
+        # captured performers often look at the floor: lift the gaze (half at the neck, all of it at the head)
+        if head_up:
+            for b, k in (('neck', 0.5), ('head', 1.0)):
+                if b in Rw:
+                    Rw[b] = euler(-head_up * k, 0, 0) @ Rw[b]
         world.append(Rw)
         root_pos.append(T @ H @ P['root'] * k)
     root_pos = np.array(root_pos)

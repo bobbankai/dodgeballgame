@@ -54,11 +54,18 @@ fn main(input: FragmentInputs) -> FragmentOutputs {
   let h = normalize(globals.sunDir.xyz + v);
   let sp = pow(saturate(dot(n, h)), 380.0);
   col = col + globals.sunColor.rgb * smoothstep(0.25, 0.3, sp) * 3.0 * globals.sunDir.w;
-  // foam: crests, and moving lines toward the shore
-  let crestF = smoothstep(0.42, 0.7, input.vCrest + gnoise2(p.xz * 1.5 + t * 0.2) * 0.12) * (0.35 + globals.sea.w * 0.9);
+  // foam: whitecaps on the crests, torn into streaks along the wind, and moving lines toward the shore
+  let wind = normalize(globals.wind.xy + vec2f(1e-3, 0.0));
+  let along = vec2f(dot(p.xz, wind), dot(p.xz, vec2f(-wind.y, wind.x)));
+  let streak = gnoise2(along * vec2f(0.35, 2.6) + vec2f(-t * 0.6, 0.0)) * 0.5 + 0.5;
+  let tear = gnoise2(along * vec2f(1.4, 5.0) + vec2f(-t * 1.1, 3.0)) * 0.5 + 0.5;
+  let crestF = smoothstep(0.5, 0.78, input.vCrest + (streak - 0.5) * 0.25) * (0.3 + globals.sea.w * 0.8);
+  let whitecap = crestF * smoothstep(0.35, 0.65, streak * 0.7 + tear * 0.3);
+  // wind streaks on the open water in a storm: long thin lines, not blotches
+  let lines2 = smoothstep(0.82, 0.92, streak) * smoothstep(0.4, 0.7, tear) * globals.sea.w * 0.35;
   let lines = sin(depth * 2.6 - t * 1.6 + gnoise2(p.xz * 0.6) * 2.0) * 0.5 + 0.5;
   let shoreF = smoothstep(1.4, 0.2, depth) * smoothstep(0.55, 0.8, lines) * uniforms.seaFx.x + smoothstep(0.35, 0.0, depth);
-  let foam = saturate(crestF + shoreF) * smoothstep(-0.2, 0.4, gnoise2(p.xz * 3.5 + vec2f(t * 0.4, 0.0)) + 0.3);
+  let foam = saturate(whitecap + lines2 + shoreF * smoothstep(0.3, 0.6, tear + 0.25));
   col = mix(col, vec3f(0.95, 0.98, 1.0) * (0.6 + 0.5 * saturate(ndl + 0.3)) * (globals.sunDir.w * 0.8 + 0.3), saturate(foam * globals.seaColor.w * 1.4));
   col = applyFog(col, p);
   fragmentOutputs.fragData0 = vec4f(col, 1.0);

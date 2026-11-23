@@ -55,8 +55,9 @@ fn lensBeads(uv: vec2f, t: f32, amount: f32) -> vec2f {
   let life = fract(t * 0.15 + rnd.x);
   let c = (rnd - 0.5) * 0.6;
   let d = f - c;
-  let r = 0.12 * rnd.y * step(0.6, rnd.x) * smoothstep(1.0, 0.7, life);
-  let inside = smoothstep(r, r * 0.7, length(d));
+  let r = 0.12 * rnd.y * step(0.6, rnd.x) * (1.0 - smoothstep(0.7, 1.0, life));
+  if (r < 0.01) { return vec2f(0.0); }
+  let inside = 1.0 - smoothstep(r * 0.7, r, length(d));
   return -d * inside * 0.06 * amount;
 }
 

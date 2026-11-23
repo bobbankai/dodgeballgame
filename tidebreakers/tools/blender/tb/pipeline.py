@@ -16,10 +16,11 @@ class Garment:
     """Extracted from the body topology and inflated onto `base` (its outer surface) where cut < 0."""
 
     def __init__(self, name, base, cut, color, cls='cloth', thickness=0.004, paint=None, covers=True,
-                 relax=2, region=None, weights='body', snap=True, cover_margin=0.006):
+                 relax=2, region=None, weights='body', snap=True, cover_margin=0.006, refine=True, folds=1.0):
         self.name, self.base, self.cut, self.color, self.cls = name, base, cut, color, cls
         self.thickness, self.paint, self.covers, self.relax = thickness, paint, covers, relax
         self.region, self.weights, self.snap, self.cover_margin = region, weights, snap, cover_margin
+        self.refine, self.folds = refine, folds
 
 
 class Part:
@@ -121,6 +122,94 @@ def _make(name, V, F, smooth=True):
 
 # ------------------------------------------------------------------------------------------ build
 
+# ------------------------------------------------------------------------------------------ garment refinement
+def boundary_neighbours(F):
+    """For each boundary vertex, its neighbours along boundary edges (edges used by one face)."""
+    cnt = {}
+    for f in F:
+        for i in range(len(f)):
+            e = tuple(sorted((f[i], f[(i + 1) % len(f)])))
+            cnt[e] = cnt.get(e, 0) + 1
+    nb = {}
+    for (a, b), c in cnt.items():
+        if c == 1:
+            nb.setdefault(a, []).append(b)
+            nb.setdefault(b, []).append(a)
+    return nb
+
+
+def smooth_hem(V, F, base, iters=4, amount=0.5):
+    """Hems as clean curves: Laplacian smoothing along each boundary loop, re-projected onto the garment."""
+    nb = boundary_neighbours(F)
+    if not nb:
+        return V
+    idx = np.array(sorted(nb))
+    V = V.copy()
+    for _ in range(iters):
+        avg = np.array([V[nb[i]].mean(0) for i in idx])
+        V[idx] = V[idx] * (1 - amount) + avg * amount
+        V[idx] = pm.project(base, V[idx], 2)
+    return V
+
+
+def transfer_weights(Vsrc, Wsrc, Vdst, k=3):
+    """Inverse-distance blend of the k nearest source vertices' weights (keeps the body-derived weights
+    that stop trousers webbing between the legs)."""
+    from mathutils.kdtree import KDTree
+    from mathutils import Vector
+    kd = KDTree(len(Vsrc))
+    for i, p in enumerate(Vsrc):
+        kd.insert(Vector(p), i)
+    kd.balance()
+    W = np.zeros((len(Vdst), Wsrc.shape[1]))
+    for i, p in enumerate(Vdst):
+        hits = kd.find_n(Vector(p), k)
+        ws = np.array([1.0 / max(d, 1e-5) for _, _, d in hits])
+        ids = [j for _, j, _ in hits]
+        W[i] = (Wsrc[ids] * ws[:, None]).sum(0) / ws.sum()
+    W /= np.maximum(W.sum(1, keepdims=True), 1e-9)
+    return W
+
+
+def joint_folds(sk, V, base, waist_z, amp=1.0):
+    """Cloth folds where fabric bunches: spiralling rings round elbows, knees and the armpits, vertical
+    gathers at the waist, and bunching above the ankle. Displaced along the garment's surface normal."""
+    if amp <= 0:
+        return V
+    j = sk.j
+    N = sdf.gradient(base, V, 0.002)
+    off = np.zeros(len(V))
+    U = sk.s['height'] / 1.7
+
+    def ring(J, A, sigma, lam, a, reach, seed):
+        A = A / np.linalg.norm(A)
+        ref = np.cross(A, [0, 0, 1.0]) if abs(A[2]) < 0.9 else np.cross(A, [1.0, 0, 0])
+        ref /= np.linalg.norm(ref)
+        ref2 = np.cross(A, ref)
+        d = V - J
+        s = d @ A
+        r = d - s[:, None] * A
+        rl = np.linalg.norm(r, axis=1)
+        th = np.arctan2(r @ ref2, r @ ref)
+        w = np.exp(-(s / sigma) ** 2) * np.clip(1 - rl / reach, 0, 1) ** 0.5
+        f = np.sin(2 * np.pi * s / lam + 1.4 * np.sin(th * 2 + seed)) * (0.6 + 0.4 * np.cos(th * 3 + seed * 1.7))
+        return a * w * f
+
+    for side, sx in (('L', 1), ('R', -1)):
+        sh, el, wr = (np.array(j[f'{k}.{side}']) for k in ('shoulder', 'elbow', 'wrist'))
+        hp, kn, an = (np.array(j[f'{k}.{side}']) for k in ('hip', 'knee', 'ankle'))
+        off += ring(el, wr - sh, 0.06 * U, 0.055 * U, 0.0042 * U, 0.09 * U, 1.0 + sx)
+        off += ring(sh + (el - sh) * 0.25, el - sh, 0.05 * U, 0.06 * U, 0.0028 * U, 0.08 * U, 2.0 + sx)
+        off += ring(kn, an - hp, 0.07 * U, 0.06 * U, 0.0045 * U, 0.11 * U, 3.0 + sx)
+        off += ring(an + np.array([0, 0, 0.13 * U]), np.array([0, 0, 1.0]), 0.06 * U, 0.045 * U, 0.0035 * U, 0.1 * U, 4.0 + sx)
+        off += ring(hp, kn - hp, 0.05 * U, 0.06 * U, 0.002 * U, 0.12 * U, 5.0 + sx)
+    # waist gathers: vertical folds above and below a belt line
+    th = np.arctan2(V[:, 1], V[:, 0])
+    gz = np.exp(-((V[:, 2] - waist_z) / (0.05 * U)) ** 2)
+    off += 0.0025 * U * gz * np.sin(th * 15 + np.sin(th * 3) * 1.5) * (0.5 + 0.5 * np.cos(th * 4))
+    return V + N * (off * amp)[:, None]
+
+
 def build(spec, out_glb, art, renders=True):
     t0 = time.time()
     LOG.clear()
@@ -207,8 +296,21 @@ def build(spec, out_glb, art, renders=True):
             if g.region:
                 inside &= g.region(C)
             covered |= inside
-        pieces.append((g.name, Vg, Fg, g.color, g.cls, g.weights, g.paint, g.thickness, W_body[src] if g.weights == 'body' else None))
-        log(f'  garment {g.name}: {len(Fg)} quads extracted')
+        Wg = W_body[src] if g.weights == 'body' else None
+        n0 = len(Fg)
+        if g.refine:
+            # clean hems, one more subdivision level, weights carried over, folds where cloth bunches
+            Vg = smooth_hem(Vg, Fg, g.base)
+            Vr, Fr = pc.subdivide(Vg, Fg, 1, f'{g.name}_ref')
+            Vr = pm.project(g.base, Vr, 3)
+            Vr = smooth_hem(Vr, Fr, g.base, iters=3)
+            if Wg is not None:
+                Wg = transfer_weights(Vg, Wg, Vr)
+            if g.folds and g.cls not in ('hair', 'metal'):
+                Vr = joint_folds(sk, Vr, g.base, sk.j['spine'][2] - 0.04 * H / 1.7, g.folds)
+            Vg, Fg = Vr, Fr
+        pieces.append((g.name, Vg, Fg, g.color, g.cls, g.weights, g.paint, g.thickness, Wg))
+        log(f'  garment {g.name}: {n0} quads extracted, {len(Fg)} after refinement')
     # skin minus covered faces (keep a rim so there are no gaps)
     keep = np.nonzero(~covered)[0]
     Fk = [Fs[i] for i in keep]
@@ -293,6 +395,14 @@ def build(spec, out_glb, art, renders=True):
             for w in np.unique(np.round(W[idx, bi], 3)):
                 sel = idx[np.round(W[idx, bi], 3) == w]
                 vg.add(sel.tolist(), float(w), 'REPLACE')
+        # refined garments are dense: collapse-decimate them back toward the original budget (vertex groups,
+        # colours and UVs survive the collapse; the skin keeps its custom face normals untouched)
+        if name != 'skin' and len(Fp) > 400 and any(g.name == name and g.refine for g in spec.garments):
+            dec = ob.modifiers.new('dec', 'DECIMATE')
+            dec.ratio = 0.42
+            dec.use_collapse_triangulate = False
+            bpy.context.view_layer.objects.active = ob
+            bpy.ops.object.modifier_apply(modifier='dec')
         objs.append(ob)
     log('stage 6 materials (albedo, class, AO, face UVs) + stage 7 weights')
     bpy.ops.object.select_all(action='DESELECT')

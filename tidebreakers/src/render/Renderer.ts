@@ -182,8 +182,15 @@ export class Renderer {
       mat.alphaMode = Constants.ALPHA_DISABLE;
       mat.setVector4('sway', new Vector4(sway, swayHeight, 0, 0));
     }
-    for (const rtt of this.shadowRT) rtt.setMaterialForRendering(mesh, mat);
+    // instances render through their source mesh: put the depth override there (once), never on the
+    // instance itself (that corrupts the source's shared draw wrappers for the main pass)
+    const target = (mesh as AbstractMesh & { sourceMesh?: AbstractMesh }).sourceMesh ?? mesh;
+    if (this.overridden.has(target)) return;
+    this.overridden.add(target);
+    for (const rtt of this.shadowRT) rtt.setMaterialForRendering(target, mat);
   }
+
+  private overridden = new WeakSet<AbstractMesh>();
 
   removeCaster(mesh: AbstractMesh): void {
     const i = this.casters.indexOf(mesh);

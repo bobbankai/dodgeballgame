@@ -17,6 +17,7 @@ import { spawn, brains, type Kind } from '../game/Spawn';
 import { CrewBrain, type CrewKind } from '../ai/Crew';
 import { BossBrain, type BossKind } from '../ai/Bosses';
 import { equip } from '../game/Props';
+import { bolt } from '../render/Vfx';
 
 export type Mood = Parameters<Audio['play']>[0];
 
@@ -272,9 +273,13 @@ export abstract class Level {
     for (const f of this.fires) {
       const L = this.r.globals.lights[f.light];
       if (L) L.intensity = 1.8 + Math.sin(g.time * 13 + f.pos.x) * 0.35 + Math.sin(g.time * 7.3) * 0.25;
-      if (Math.random() < dt * 30 * f.size) {
-        vfx.spawn({ x: f.pos.x + (Math.random() - 0.5) * f.size, y: f.pos.y + 0.1, z: f.pos.z + (Math.random() - 0.5) * f.size, vx: g.wind.x * 0.6, vy: 2 + Math.random() * 1.5, vz: g.wind.z * 0.6,
-          size: 0.7 * f.size, grow: -0.5 * f.size, life: 0.7 + Math.random() * 0.3, r: 3.2, g: 1.3, b: 0.35, a: 0.9, rot: Math.random() * 6, spin: 2 }, 'glow');
+      if (Math.random() < dt * 14 * f.size) {
+        vfx.spawn({ x: f.pos.x + (Math.random() - 0.5) * f.size * 0.9, y: f.pos.y + 0.35 * f.size, z: f.pos.z + (Math.random() - 0.5) * f.size * 0.9, vx: g.wind.x * 0.3, vy: 0.8 + Math.random() * 0.6, vz: g.wind.z * 0.3,
+          size: (0.9 + Math.random() * 0.5) * f.size, grow: -0.2 * f.size, life: 0.6 + Math.random() * 0.35, r: 1, g: 1, b: 1, a: 0.95, rot: Math.random() * 100 }, 'flame');
+      }
+      if (Math.random() < dt * 5 * f.size) {
+        vfx.spawn({ x: f.pos.x + (Math.random() - 0.5) * f.size, y: f.pos.y + 0.6 * f.size, z: f.pos.z + (Math.random() - 0.5) * f.size, vx: g.wind.x + (Math.random() - 0.5) * 1.5, vy: 2.5 + Math.random() * 2.5, vz: g.wind.z + (Math.random() - 0.5) * 1.5,
+          size: 0.06, life: 1.4 + Math.random(), r: 1, g: 1, b: 1, a: 1, drag: 0.4 }, 'ember');
       }
       if (Math.random() < dt * 8 * f.size) {
         vfx.spawn({ x: f.pos.x, y: f.pos.y + 1.4 * f.size, z: f.pos.z, vx: g.wind.x * 1.5, vy: 1.6, vz: g.wind.z * 1.5, size: 0.9 * f.size, grow: 1.4, life: 3, r: 0.22, g: 0.2, b: 0.2, a: 0.5, drag: 0.2, rot: Math.random() * 6 }, 'smoke');
@@ -294,6 +299,13 @@ export abstract class Level {
       if (this.lightningT <= 0) {
         this.flash = 1;
         this.lightningT = 4 + Math.random() * 7;
+        // a forked bolt somewhere in front of the camera
+        const cam = g.cam.cam;
+        const fwd = cam.getDirection(new Vector3(0, 0, 1));
+        const side = new Vector3(fwd.z, 0, -fwd.x).scale((Math.random() - 0.5) * 120);
+        const top = cam.position.add(fwd.scale(90 + Math.random() * 60)).add(side).add(new Vector3(0, 70, 0));
+        const bottom = top.add(new Vector3((Math.random() - 0.5) * 30, -70 - cam.position.y, (Math.random() - 0.5) * 30));
+        bolt(vfx, top, bottom, 0.35, 1.6, 6, 4);
         setTimeout(() => g.sfx('thunder', undefined, 0.8), 300 + Math.random() * 900);
       }
     }

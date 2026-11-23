@@ -27,9 +27,11 @@ fn skyGradient(dir: vec3f, k: SkyLook) -> vec3f {
 }
 
 fn sunDisc(dir: vec3f, size: f32) -> f32 {
+  // size 0 = no disc (night, storms); smoothstep with equal edges is undefined in WGSL
+  if (size <= 1e-6) { return 0.0; }
   let mu = dot(dir, globals.sunDir.xyz);
   let r = 1.0 - mu;
-  return smoothstep(size * 1.2, size * 0.7, r);
+  return 1.0 - smoothstep(size * 0.7, size * 1.2, r);
 }
 
 // Toon clouds: a sheet of domain-warped noise above the horizon, thresholded into soft-edged shapes,

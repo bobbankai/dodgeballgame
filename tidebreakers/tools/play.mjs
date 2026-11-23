@@ -38,5 +38,5 @@ for (const step of JSON.parse(script)) {
     await page.screenshot({ path: `${outDir}/${step.shot}.png`, timeout: 600000 });
   }
 }
-console.log(logs.slice(0, 80).join('\n'));
+console.log(logs.slice(0, 400).join('\n'));
 await browser.close();

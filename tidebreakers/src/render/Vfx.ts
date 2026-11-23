@@ -4,7 +4,7 @@ import { MeshBuilder, ShaderMaterial, ShaderLanguage, Constants, Vector3, Matrix
 import type { Mesh } from '@babylonjs/core';
 import type { Renderer } from './Renderer';
 
-export const SHAPE = { glow: 0, star: 1, ring: 2, smoke: 3, streak: 4, wind: 5, drop: 6, shard: 7, ink: 8, warn: 9, glyph: 10 } as const;
+export const SHAPE = { glow: 0, star: 1, ring: 2, smoke: 3, streak: 4, wind: 5, drop: 6, shard: 7, ink: 8, warn: 9, glyph: 10, flame: 11, ember: 12, bolt: 13, rain: 14, foam: 15, leaf: 16 } as const;
 type ShapeName = keyof typeof SHAPE;
 
 interface P {
@@ -180,3 +180,37 @@ export class Vfx {
 }
 
 export function v3(x: number, y: number, z: number): Vector3 { return new Vector3(x, y, z); }
+
+/** Forked lightning from `from` to `to`: midpoint displacement into segments drawn as velocity-aligned
+ * bolt particles, with branches that wander off and fade. */
+export function bolt(vfx: Vfx, from: Vector3, to: Vector3, life = 0.35, width = 0.5, depth = 5, branches = 3): void {
+  const pts: Vector3[] = [from.clone(), to.clone()];
+  let disp = Vector3.Distance(from, to) * 0.22;
+  for (let d = 0; d < depth; d++) {
+    for (let i = pts.length - 1; i > 0; i--) {
+      const a = pts[i - 1], b = pts[i];
+      const m = Vector3.Lerp(a, b, 0.5);
+      m.addInPlaceFromFloats((vfx.rand() - 0.5) * disp, (vfx.rand() - 0.5) * disp * 0.4, (vfx.rand() - 0.5) * disp);
+      pts.splice(i, 0, m);
+    }
+    disp *= 0.55;
+  }
+  const seg = (a: Vector3, b: Vector3, w: number, l: number) => {
+    const c = Vector3.Lerp(a, b, 0.5);
+    const d = b.subtract(a);
+    const len = d.length();
+    // a tiny velocity only orients the quad; stretch = length / width
+    vfx.spawn({ x: c.x, y: c.y, z: c.z, vx: d.x / len * 0.01, vy: d.y / len * 0.01, vz: d.z / len * 0.01, size: w, stretch: (len / w - 1) * 2000, life: l, r: 0.8, g: 0.75, b: 1.6, a: 1, mode: 2 }, 'bolt');
+  };
+  for (let i = 1; i < pts.length; i++) seg(pts[i - 1], pts[i], width, life);
+  for (let k = 0; k < branches; k++) {
+    const i = 2 + Math.floor(vfx.rand() * (pts.length - 4));
+    let a = pts[i];
+    const dir = pts[i + 1].subtract(pts[i - 1]).normalize();
+    for (let j = 0; j < 5; j++) {
+      const b = a.add(dir.scale(1.6 + vfx.rand() * 2)).addInPlaceFromFloats((vfx.rand() - 0.5) * 2.5, -1.2 - vfx.rand() * 1.5, (vfx.rand() - 0.5) * 2.5);
+      seg(a, b, width * (0.6 - j * 0.1), life * 0.8);
+      a = b;
+    }
+  }
+}

@@ -8,13 +8,13 @@ import { hold } from '../game/Props';
 import { GULLS_HEIGHT } from './GullsRest';
 
 const LOOK: LookDef = {
-  sun: [0.3, 0.45, 0.6], sunIntensity: 0.22, sunColor: [0.55, 0.65, 0.95],
-  sky: { zenith: '#05070f', horizon: '#26304a', glow: '#3a4a70', cloudLit: '#56607a', cloudShade: '#0b0e18', cover: 0.95, cloudHeight: 0.8, sunSize: 0.0, stars: 0, moon: false },
-  skyColor: [0.18, 0.22, 0.34], groundColor: [0.08, 0.08, 0.1], shadowTint: [0.25, 0.28, 0.5, 0.5], rim: [0.6, 0.7, 1.0, 0.8],
-  fog: [0.12, 0.15, 0.24, 0.03], fogParams: [0.05, 0, 8, 0.1],
-  sea: { color: [0.01, 0.04, 0.08, 0.45], shallow: [0.05, 0.16, 0.2, 0.7], level: 0, amp: 0.85, chop: 1.4, storm: 0.6 },
-  grade: [0.95, 0.98, 1.05, 0], wind: [2.5, 0, 1.2],
-  fx: { bloom: 0.5, vignette: 0.5, grain: 0.25, memory: 0.6, gain: [0.95, 1.0, 1.1], lift: [0.0, 0.01, 0.03] },
+  sun: [0.35, 0.5, 0.55], sunIntensity: 0.38, sunColor: [0.55, 0.68, 1.0],
+  sky: { zenith: '#03050c', horizon: '#141c30', glow: '#22304a', cloudLit: '#3a4660', cloudShade: '#06080f', cover: 0.85, cloudHeight: 0.8, sunSize: 0.0, stars: 0, moon: false },
+  skyColor: [0.08, 0.11, 0.2], groundColor: [0.03, 0.03, 0.05], shadowTint: [0.2, 0.25, 0.5, 0.55], rim: [0.55, 0.7, 1.0, 1.0],
+  fog: [0.035, 0.05, 0.09, 0.011], fogParams: [0.05, 0, 12, 0.15],
+  sea: { color: [0.005, 0.02, 0.05, 0.45], shallow: [0.03, 0.1, 0.13, 0.7], level: 0, amp: 0.85, chop: 1.4, storm: 0.6 },
+  grade: [1.05, 0.9, 1.18, -0.3], wind: [2.5, 0, 1.2],
+  fx: { bloom: 0.55, vignette: 0.55, grain: 0.22, memory: 0.28, bloomThreshold: 1.0, gain: [0.95, 1.0, 1.12], lift: [0.0, 0.006, 0.02] },
 };
 
 export class Prologue extends Level {
@@ -58,9 +58,9 @@ export class Prologue extends Level {
       await d.wait(4.5);
       ui.showSubtitle(null);
       // Seren's rowboat
-      const row = new Boat(this.kit, ROWBOAT, this.sea, g.collision, V(12, 0, -118), 2.6);
-      const life = new Boat(this.kit, ROWBOAT, this.sea, g.collision, V(16, 0, -124), -0.6);
-      row.bob = 1.4; life.bob = 1.4;
+      const row = new Boat(this.kit, ROWBOAT, this.sea, g.collision, V(12, 0.4, -118), 2.6);
+      const life = new Boat(this.kit, ROWBOAT, this.sea, g.collision, V(16, 0.4, -124), -0.6);
+      row.bob = 1.0; life.bob = 1.0;
       this.boats.push(row, life);
       row.update(g.time, 0, null);
       const seren = await this.npc('seren', 'seren', row.deck(0, 0.6), row.yaw);
@@ -91,7 +91,7 @@ export class Prologue extends Level {
       d.close(seren, -1, 0, { dist: 1.2 });
       await d.say('seren', 'They\'re coming. Everyone\'s coming. Don\'t let the light go out, okay? Not for anything.', 'cry');
       // she gives the lantern to the lifeboat and pushes it toward the shore
-      const lantern = this.kit.instance('lantern')!;
+      const lantern = this.ctx.flow.props.instance('lantern')!;
       lantern.position.copyFrom(lanternAt);
       this.meshes.push(lantern);
       const lightIdx = this.r.globals.lights.length;
@@ -132,7 +132,7 @@ export class Prologue extends Level {
     if (!this.boats.length) this.boats.push(life);
     life.pos.copyFrom(V(-1.5, 0, -66));
     life.yaw = 0.3;
-    const lantern = this.kit.instance('lantern')!;
+    const lantern = this.ctx.flow.props.instance('lantern')!;
     this.meshes.push(lantern);
     // little Kai
     kai.model.root.setEnabled(true);
