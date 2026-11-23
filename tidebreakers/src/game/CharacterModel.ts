@@ -114,6 +114,11 @@ export class CharacterModel {
     return c;
   }
 
+  /** Storm aura (rgb, intensity); 0 turns it off. */
+  setAura(r: number, g: number, b: number, i: number): void {
+    this.mat.setVector4('aura', v4(r, g, b, i));
+  }
+
   setFx(dissolve: number, flash: number): void {
     this.mat.setVector4('fx', v4(dissolve, 0, 0, this.id));
     this.outlineMat.setVector4('fx', v4(dissolve, (this.outlineMat as any)._outlineW ?? 2.4, 0, this.id));

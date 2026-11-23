@@ -30,6 +30,8 @@ export interface PostFx {
   rain: number;
 }
 
+export interface Shock { u: number; v: number; age: number; life: number; strength: number }
+
 export class Renderer {
   engine!: WebGPUEngine;
   scene!: Scene;
@@ -83,7 +85,7 @@ export class Renderer {
     this.fxr = new EffectRenderer(this.engine);
     const common = { engine: this.engine, useShaderStore: true, shaderLanguage: ShaderLanguage.WGSL, uniformBuffers: ['globals'] };
     this.finalFx = new EffectWrapper({ ...common, name: 'final', fragmentShader: 'tbFinal', samplerNames: ['colorTex', 'bloomTex', 'gbufTex', 'aoTex', 'dofTex', 'shaftTex'],
-      uniformNames: ['fxA', 'fxB', 'fxC', 'liftC', 'gammaC', 'gainC', 'inkC', 'postC', 'aoTint'] });
+      uniformNames: ['fxA', 'fxB', 'fxC', 'liftC', 'gammaC', 'gainC', 'inkC', 'postC', 'aoTint', 'shockA', 'shockB', 'shockC', 'shockD'] });
     this.aoFx = new EffectWrapper({ ...common, name: 'ao', fragmentShader: 'tbAO', samplerNames: ['gbufTex'], uniformNames: ['proj', 'texel'] });
     this.blurFx = new EffectWrapper({ ...common, name: 'bilateral', fragmentShader: 'tbBilateral', samplerNames: ['src'], uniformNames: ['dir'], uniformBuffers: [] });
     this.dofFx = new EffectWrapper({ ...common, name: 'dof', fragmentShader: 'tbDof', samplerNames: ['colorTex', 'gbufTex'], uniformNames: ['dof', 'texel'] });
@@ -192,6 +194,20 @@ export class Renderer {
 
   private overridden = new WeakSet<AbstractMesh>();
 
+  /** screen-space shockwaves (impact rings), oldest first; at most four are drawn */
+  shocks: Shock[] = [];
+
+  /** A shockwave ring at a world position (projected to the screen now; rings stay where they started). */
+  shockwave(at: Vector3, strength = 1, life = 0.55): void {
+    const cam = this.scene.activeCamera;
+    if (!cam) return;
+    const w = this.engine.getRenderWidth(), h = this.engine.getRenderHeight();
+    const p = Vector3.Project(at, Matrix.Identity(), this.scene.getTransformMatrix(), cam.viewport.toGlobal(w, h));
+    if (p.z < 0 || p.z > 1) return;
+    this.shocks.push({ u: p.x / w, v: 1 - p.y / h, age: 0, life, strength });
+    if (this.shocks.length > 4) this.shocks.shift();
+  }
+
   removeCaster(mesh: AbstractMesh): void {
     const i = this.casters.indexOf(mesh);
     if (i >= 0) this.casters.splice(i, 1);
@@ -257,6 +273,8 @@ export class Renderer {
     const w = this.engine.getRenderWidth(), h = this.engine.getRenderHeight();
     g.set('viewport', w, h, 1 / w, 1 / h);
     this.updateShadowCams();
+    for (const k of this.shocks) k.age += dt;
+    this.shocks = this.shocks.filter((k) => k.age < k.life);
     g.upload();
     this.engine.beginFrame();
     this.scene.render();
@@ -330,6 +348,13 @@ export class Renderer {
       e.setTexture('dofTex', this.dofT!.tex as any);
       e.setTexture('shaftTex', this.shaftT!.tex as any);
       e.setFloat4('postC', P.aoOn ? fx.ao : 0, P.dofOn ? 1 : 0, P.shaftsOn ? 1 : 0, fx.rain);
+      const names = ['shockA', 'shockB', 'shockC', 'shockD'];
+      for (let i = 0; i < 4; i++) {
+        const k = this.shocks[i];
+        if (!k) { e.setFloat4(names[i], 0, 0, 0, 0); continue; }
+        const u = k.age / k.life;
+        e.setFloat4(names[i], k.u, k.v, 0.02 + u * 0.32, k.strength * (1 - u) * (1 - u));
+      }
       const st = this.globals.get('shadowTint');
       e.setFloat4('aoTint', st[0] * 0.55, st[1] * 0.55, st[2] * 0.7, 0);
       e.setTexture('colorTex', this.mrtTex0);

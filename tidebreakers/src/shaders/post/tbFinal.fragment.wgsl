@@ -24,6 +24,21 @@ uniform gainC: vec4f;  // rgb gain, w = sepia (flashbacks)
 uniform inkC: vec4f;   // x scenery ink strength, y line width (px)
 uniform postC: vec4f;  // x ambient occlusion strength, y depth of field on, z sun shafts on, w rain on the lens
 uniform aoTint: vec4f; // rgb colour of occlusion (cool, from the chapter's shadow tint)
+uniform shockA: vec4f; // shockwaves: xy centre (uv), z radius (screen heights), w strength
+uniform shockB: vec4f;
+uniform shockC: vec4f;
+uniform shockD: vec4f;
+
+// A shockwave ring bends the image outward where it passes, like heat over a blast.
+fn shockOffset(uv: vec2f, s: vec4f) -> vec2f {
+  if (s.w <= 0.0001) { return vec2f(0.0); }
+  let aspect = globals.viewport.x / globals.viewport.y;
+  let d = (uv - s.xy) * vec2f(aspect, 1.0);
+  let r = length(d);
+  let w = 0.035 + s.z * 0.12;
+  let ring = exp(-sq((r - s.z) / w));
+  return normalize(d + vec2f(1e-5)) / vec2f(aspect, 1.0) * ring * s.w * 0.03;
+}
 
 // Rain on the lens: slanted streaks falling at different speeds in layers, and a few beads that refract the
 // image behind them.
@@ -90,6 +105,7 @@ fn main(input: FragmentInputs) -> FragmentOutputs {
   var uv = input.vUV;
   let px = globals.viewport.zw;
   if (uniforms.postC.w > 0.001) { uv = clamp(uv + lensBeads(uv, globals.time.x, uniforms.postC.w), vec2f(0.0), vec2f(1.0)); }
+  uv = clamp(uv - shockOffset(uv, uniforms.shockA) - shockOffset(uv, uniforms.shockB) - shockOffset(uv, uniforms.shockC) - shockOffset(uv, uniforms.shockD), vec2f(0.0), vec2f(1.0));
   // radial blur (dash / big impacts)
   var col = vec3f(0.0);
   let rb = uniforms.fxB.w;

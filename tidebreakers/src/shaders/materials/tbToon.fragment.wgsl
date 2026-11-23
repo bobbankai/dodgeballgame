@@ -26,6 +26,7 @@ uniform faceMisc: vec4f;
 uniform tint: vec4f;      // rgb multiplier, w = hit flash (white)
 uniform fx: vec4f;        // x dissolve 0..1, y outline width, z rim boost, w object id
 uniform glowColor: vec4f; // rgb, w intensity for CLS_GLOW parts (Stormheart charge)
+uniform aura: vec4f;      // rgb, w intensity: the storm wrapping Kai when he uses his specials
 
 @fragment
 fn main(input: FragmentInputs) -> FragmentOutputs {
@@ -69,6 +70,14 @@ fn main(input: FragmentInputs) -> FragmentOutputs {
   let litEye = albedo * (globals.sunColor.rgb * globals.sunDir.w * 0.75 + hemiAmbient(n) * 0.35);
   col = mix(col, litEye, face.unlit);
   col = col + vec3f(1.0, 0.55, 0.2) * edgeGlow * 4.0;
+  // storm aura: a flickering wind-blue shell on the silhouette, streaking upward
+  if (uniforms.aura.w > 0.001) {
+    let fr = pow(1.0 - saturate(dot(n, v)), 2.2);
+    let sp = input.position.xy * 0.012 + vec2f(0.0, globals.time.x * 1.6);
+    let streak = smoothstep(0.25, 0.75, gnoise2(sp * vec2f(3.0, 0.6)) * 0.5 + 0.5);
+    let flick = 0.55 + 0.45 * sin(globals.time.x * 23.0 + pos.y * 9.0);
+    col = col + uniforms.aura.rgb * uniforms.aura.w * fr * (0.35 + 0.65 * streak) * flick * 2.6;
+  }
   col = mix(col, vec3f(1.6, 1.5, 1.4), uniforms.tint.w);
   col = applyFog(col, pos);
   fragmentOutputs.fragData0 = vec4f(col, 1.0);

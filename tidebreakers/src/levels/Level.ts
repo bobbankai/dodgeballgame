@@ -117,6 +117,8 @@ export abstract class Level {
   setLook(L: LookDef): void {
     const g = this.r.globals;
     g.setSunDir(new Vector3(...L.sun), L.sunIntensity);
+    const cnt = g.get('counts');
+    g.set('counts', cnt[0], cnt[1], cnt[2], 0);   // dry at the start of a level
     g.set('sunColor', ...L.sunColor, g.get('sunColor')[3]);
     g.set('skyColor', ...L.skyColor, 1);
     g.set('groundColor', ...L.groundColor, 1);
@@ -294,6 +296,10 @@ export abstract class Level {
       }
     }
     this.r.fx.rain = this.rain * 0.75;
+    // surfaces get wet over a few seconds of rain and dry more slowly
+    const cnt = this.r.globals.get('counts');
+    const wet = cnt[3] + (Math.min(1, this.rain) - cnt[3]) * Math.min(1, dt * (this.rain > cnt[3] ? 0.5 : 0.15));
+    this.r.globals.set('counts', cnt[0], cnt[1], cnt[2], wet);
     if (this.rain > 0) {
       const c = g.cam.cam.position;
       const n = Math.floor(this.rain * 90 * dt * 60 / 60 * 2.2);

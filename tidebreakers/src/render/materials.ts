@@ -14,7 +14,7 @@ let nextId = 1;
 export function newObjectId(): number { return ((nextId++ % 120) + 1) / 255; }
 export const ENV_ID = 0.75;
 
-const TOON_UNIFORMS = ['world', 'viewProjection', 'view', 'faceA', 'faceB', 'faceC', 'faceD', 'irisA', 'irisB', 'faceInk', 'faceMisc', 'tint', 'fx', 'glowColor'];
+const TOON_UNIFORMS = ['world', 'viewProjection', 'view', 'faceA', 'faceB', 'faceC', 'faceD', 'irisA', 'irisB', 'faceInk', 'faceMisc', 'tint', 'fx', 'glowColor', 'aura'];
 
 function bindShadow(m: ShaderMaterial, r: Renderer): void {
   const [s0, s1] = r.shadowTextures;
@@ -43,6 +43,7 @@ export function toonMaterial(name: string, r: Renderer): ShaderMaterial {
   m.setVector4('tint', v4(1, 1, 1, 0));
   m.setVector4('fx', v4(0, 0, 0, newObjectId()));
   m.setVector4('glowColor', v4(0.4, 0.9, 1.0, 0));
+  m.setVector4('aura', v4(0.6, 1.2, 2.2, 0));
   return m;
 }
 

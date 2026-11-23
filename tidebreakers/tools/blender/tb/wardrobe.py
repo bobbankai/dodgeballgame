@@ -442,6 +442,24 @@ def fringe(c, color, n=6, length=0.11, spread=40, droop=0.35, curl=0.3, sweep=0.
     return out
 
 
+def crown_layer(c, n=12, length=0.18, width=0.05, phi=(68, 44), skip_front=55, droop=0.8, curl=0.55, seed=0):
+    """Locks that radiate from the crown and flow down over the scalp in two staggered rings, so the hair
+    reads as layered clumps instead of a cap. The front is left to the fringe."""
+    out = []
+    for ring, ph in enumerate(phi):
+        for i in range(n):
+            th = 360.0 * (i + 0.5 * ring) / n + 7 + seed * 13
+            a = ((th + 180) % 360) - 180
+            if abs(a) < skip_front:
+                continue
+            r = math.radians(th)
+            k = ((i * 37 + ring * 11 + seed * 5) % 7) / 7
+            d = v(math.sin(r) * 0.75, -math.cos(r) * 0.75, -0.65)
+            out.append((th, ph + (k - 0.5) * 6, length * (0.85 + 0.3 * k) * (1.0 - 0.15 * ring), width * (0.85 + 0.3 * (1 - k)), d,
+                        dict(curl=curl, droop=droop, lift=0.008 + 0.004 * ring, steps=7, thick=0.42, twist=(k - 0.5) * 0.6)))
+    return out
+
+
 def long_back(c, length=0.35, n=9, spread=70, droop=0.9, width=0.04):
     out = []
     for i in range(n):

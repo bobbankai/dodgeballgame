@@ -10,6 +10,6 @@ stage 5 relaxed: non-manifold 0, surface deviation mean 0.00 mm max 0.1 mm
   garment haircap: 690 quads extracted, 2760 after refinement
   skin after culling hidden faces: 2430 of 6816 quads
 stage 6 materials (albedo, class, AO, face UVs) + stage 7 weights
-rig: 51 deform bones; mesh 26080 verts, 51676 tris
-stage 10 LOD1: 23253 tris (LOD0 51676)
-exported /home/user/dodgeballgame/tidebreakers/tools/blender/../../public/assets/chars/seren.glb (2974 KB) in 35s
+rig: 51 deform bones; mesh 26828 verts, 53104 tris
+stage 10 LOD1: 23895 tris (LOD0 53104)
+exported /home/user/dodgeballgame/tidebreakers/tools/blender/../../public/assets/chars/seren.glb (3059 KB) in 43s

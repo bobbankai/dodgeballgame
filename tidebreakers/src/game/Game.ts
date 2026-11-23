@@ -51,6 +51,8 @@ export class Game {
   attackTokens = 2;   // how many enemies may attack the player at once
   hazards: Hazard[] = [];
   rings: Ring[] = [];
+  /** storm aura on the player (decays), pulses gently when the storm meter is full */
+  aura = 0;
 
   constructor(readonly r: Renderer, readonly input: Input, readonly lib: AnimLibrary) {
     this.cam = new CameraRig(r.scene, this.collision);
@@ -99,6 +101,7 @@ export class Game {
   onAttackStart(f: Fighter, def: AttackDef): void {
     this.sfx('whoosh', f.pos, 0.6);
     if (f.team === 'player') {
+      if (def.cost) this.aura = Math.max(this.aura, def.id === 'hurricane' ? 1.6 : 1.1);
       if (def.id === 'tempest_dash') { this.speedLines(0.5); this.vfx.gale(f.center, f.forward, 1.2); }
       if (def.id === 'hurricane') { this.speedLines(1.6); this.slow(0.45, 0.5); this.sfx('super_start', f.pos); }
       if (def.id === 'gale_burst') this.sfx('charge', f.pos, 0.8);
@@ -156,6 +159,7 @@ export class Game {
       this.shake(def.shake);
       this.sfx(def.sfx ?? 'punch', contact);
       if (def.impact && att.team === 'player') this.impactFrame(0.06);
+      if (def.impact || def.damage >= 18) this.r.shockwave(contact, Math.min(1.5, 0.5 + def.damage / 25));
       this.hooks.damage?.(contact, Math.round(def.damage), att.team === 'player' ? 'deal' : 'take');
       if (att.team === 'player') {
         this.combo++;
@@ -219,7 +223,12 @@ export class Game {
     this.vfx.update(dt * (this.hitstop > 0 ? 0.25 : this.slowmo));
     this.cam.update(dt, this.input.takeLook());
     const p = this.player;
-    if (p) this.r.shadowCenter.copyFrom(p.pos);
+    if (p) {
+      this.r.shadowCenter.copyFrom(p.pos);
+      this.aura = Math.max(0, this.aura - dt * 1.4);
+      const full = this.storm >= this.stormMax ? 0.22 + 0.12 * Math.sin(this.time * 5) : 0;
+      p.model.setAura(0.55, 1.15, 2.3, Math.max(this.aura, full));
+    }
     this.hooks.hud?.();
   }
 
@@ -253,6 +262,7 @@ export class Game {
       }
       const col: [number, number, number] = h.kind === 'fire' ? [3, 1.2, 0.3] : h.kind === 'spike' ? [1.2, 2.2, 2.8] : [2.5, 1.6, 0.8];
       this.vfx.shock(h.pos, h.radius, col);
+      this.r.shockwave(h.pos.add(new Vector3(0, 0.5, 0)), 0.9);
       this.vfx.burst(h.pos.add(new Vector3(0, 0.3, 0)), col, 18, 7, h.kind === 'spike' ? 'shard' : 'smoke', 0.4, 0.6, h.kind === 'spike' ? 0 : -2);
       this.shake(0.25);
       this.sfx(h.kind === 'fire' ? 'wind_blast' : 'slam', h.pos, 0.7);

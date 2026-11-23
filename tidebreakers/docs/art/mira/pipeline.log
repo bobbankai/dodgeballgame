@@ -13,6 +13,6 @@ stage 5 relaxed: non-manifold 0, surface deviation mean 0.00 mm max 0.1 mm
   skin after culling hidden faces: 3292 of 6816 quads
   !! piece braid: max distance from body 0.135 after solidify
 stage 6 materials (albedo, class, AO, face UVs) + stage 7 weights
-rig: 60 deform bones; mesh 23199 verts, 45959 tris
-stage 10 LOD1: 20681 tris (LOD0 45959)
-exported /home/user/dodgeballgame/tidebreakers/tools/blender/../../public/assets/chars/mira.glb (2651 KB) in 32s
+rig: 60 deform bones; mesh 23991 verts, 47471 tris
+stage 10 LOD1: 21361 tris (LOD0 47471)
+exported /home/user/dodgeballgame/tidebreakers/tools/blender/../../public/assets/chars/mira.glb (2742 KB) in 35s

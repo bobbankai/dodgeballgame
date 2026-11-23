@@ -10,6 +10,6 @@ stage 5 relaxed: non-manifold 0, surface deviation mean 0.00 mm max 0.8 mm
   skin after culling hidden faces: 3893 of 6816 quads
   !! piece skirt: max distance from body 0.200 after solidify
 stage 6 materials (albedo, class, AO, face UVs) + stage 7 weights
-rig: 51 deform bones; mesh 15291 verts, 30068 tris
-stage 10 LOD1: 13530 tris (LOD0 30068)
-exported /home/user/dodgeballgame/tidebreakers/tools/blender/../../public/assets/chars/hana.glb (1753 KB) in 25s
+rig: 51 deform bones; mesh 16039 verts, 31496 tris
+stage 10 LOD1: 14172 tris (LOD0 31496)
+exported /home/user/dodgeballgame/tidebreakers/tools/blender/../../public/assets/chars/hana.glb (1839 KB) in 31s

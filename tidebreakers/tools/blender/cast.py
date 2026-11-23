@@ -194,6 +194,7 @@ def mira():
     parts = W.scarf(c, '#6fb84a', tails=True)
     cl = W.fringe(c, '#c9d2dc', n=6, length=0.12, spread=42, droop=0.45, curl=0.3, sweep=0.25)
     cl += W.sides_hang(c, length=0.2)
+    cl += W.crown_layer(c, n=12, length=0.16, width=0.05, skip_front=52)
     parts += [W.hair_cap(c, '#c9d2dc', front=0.2, sides=0.13, back=0.07, dark='#9aa4b4', light='#eef2f6'),
               W.clumps(c, cl, '#c9d2dc', '#9aa4b4', '#eef2f6'), W.braid(c, '#c9d2dc', length=0.6, dark='#9aa4b4', light='#eef2f6')]
     ref = dict(title='Mira Sorrel', summary='18, harpoon fighter of Ashport. Sharp-tongued, sabotages the Baron\'s mines alone for three years since her brother Teo was sealed in a flooded tunnel. '
@@ -232,6 +233,7 @@ def nell():
     parts = [W.skirt_loft(c, '#f2c230', c.waist - 0.02, c.knee_z + 0.02, offset=0.03, flare=0.07, front_open=0.2, name='raincoatskirt')]
     parts += W.goggles(c)
     cl = W.fringe(c, '#b8562c', n=6, length=0.08, spread=40, droop=0.35, curl=0.4)
+    cl += W.crown_layer(c, n=11, length=0.11, width=0.05, skip_front=50, droop=0.5, curl=0.7, seed=2)
     for th in (150, 180, 210):
         cl.append((th, 30, 0.1, 0.035, v(math.sin(math.radians(th)) * 0.4, 0.5, -0.6), dict(curl=0.2, droop=0.4, lift=0.012)))
     for sx in (1, -1):
@@ -251,7 +253,7 @@ def hana():
     parts = [W.skirt_loft(c, '#5a4a6a', c.waist + 0.02, c.ankle_z + 0.06, offset=0.02, flare=0.14, name='skirt')]
     parts += W.scarf(c, '#d8b46a', tails=False)
     parts += [W.hair_cap(c, '#2a1c18', front=0.2, sides=0.12, back=0.03, dark='#170f0c', light='#4a362e'),
-              W.clumps(c, W.long_back(c, length=0.3) + W.sides_hang(c, 0.2), '#2a1c18', '#170f0c', '#4a362e')]
+              W.clumps(c, W.long_back(c, length=0.3) + W.sides_hang(c, 0.2) + W.crown_layer(c, n=12, length=0.2, width=0.05, seed=3), '#2a1c18', '#170f0c', '#4a362e')]
     ref = dict(title='Hana', summary='26, refugee in the Drowned Market. Bram fed her for years without knowing she was the girl who caught his lifebuoy.',
                palette={'blouse': '#8a6a9a', 'skirt': '#5a4a6a'}, shapes=['Soft vertical'], motion=['Gentle'])
     return spec('hana', sk, bd, '#e8b894', g, parts, ref)
@@ -266,7 +268,7 @@ def seren():
          W.trousers(c, '#3a3428', cuff=c.ankle_z + 0.1), W.boots(c, '#2a1e1a', top=c.knee_z - 0.05)]
     parts = [W.skirt_loft(c, '#3a5a7a', c.waist - 0.02, c.knee_z + 0.05, offset=0.03, flare=0.08, front_open=0.2, name='oilskinskirt')]
     parts += [W.hair_cap(c, '#1e2632', front=0.21, sides=0.12, back=0.04, dark='#121820', light='#34425a'),
-              W.clumps(c, W.long_back(c, length=0.42, n=11) + W.sides_hang(c, 0.3) + W.fringe(c, '#1e2632', n=5, length=0.1, spread=30, sweep=-0.3),
+              W.clumps(c, W.long_back(c, length=0.42, n=11) + W.sides_hang(c, 0.3) + W.fringe(c, '#1e2632', n=5, length=0.1, spread=30, sweep=-0.3) + W.crown_layer(c, n=12, length=0.24, width=0.05, seed=4),
                        '#1e2632', '#121820', '#34425a')]
     ref = dict(title='Seren Marlowe', summary="Kai's mother, keeper of the Gull's Rest light. Seen only in memory: rowing into the Great Squall with her storm lantern.",
                palette={'oilskin': '#3a5a7a', 'hair': '#1e2632'}, shapes=['Long dark hair, the same dark-blue as Kai'], motion=['Calm, certain'])
@@ -281,7 +283,7 @@ def teo():
          W.trousers(c, '#4a4036', cuff=c.knee_z - 0.05, loose=0.014), W.shoes(c, '#3a2e24')]
     parts = W.hat_cap(c, '#5a5046', band='#3a342e', badge='#5a5046')
     parts += [W.hair_cap(c, '#c9d2dc', front=0.2, sides=0.12, back=0.06, dark='#9aa4b4', light='#eef2f6'),
-              W.clumps(c, W.fringe(c, '#c9d2dc', n=5, length=0.07, spread=34), '#c9d2dc', '#9aa4b4', '#eef2f6')]
+              W.clumps(c, W.fringe(c, '#c9d2dc', n=5, length=0.07, spread=34) + W.crown_layer(c, n=10, length=0.09, width=0.045, droop=0.4, curl=0.8, seed=5), '#c9d2dc', '#9aa4b4', '#eef2f6')]
     ref = dict(title='Teo Sorrel', summary="Mira's little brother. Eleven when the Baron sealed the flooded tunnel. Appears as a memory.",
                palette={'shirt': '#9a8a72', 'cap': '#5a5046', 'hair': '#c9d2dc (like Mira)'}, shapes=['Small, cap too big'], motion=['Bouncy'])
     return spec('teo', sk, bd, '#eec6a6', g, parts, ref)

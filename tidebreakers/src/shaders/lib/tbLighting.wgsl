@@ -81,10 +81,17 @@ fn pointLights(pos: vec3f, n: vec3f, albedo: vec3f) -> vec3f {
   return acc;
 }
 
-fn toonShade(s: ToonInput) -> vec3f {
+fn toonShade(sIn: ToonInput) -> vec3f {
+  var s = sIn;
   let l = globals.sunDir.xyz;
   let ndl = dot(s.n, l);
   let soft = globals.sunColor.w;
+  // rain: porous surfaces darken when wet (metal and glow barely change)
+  let wet = globals.counts.w;
+  if (wet > 0.0) {
+    let porous = select(select(1.0, 0.35, s.cls == CLS_METAL), 0.55, s.cls == CLS_SKIN);
+    s.albedo = s.albedo * mix(1.0, 0.62, wet * porous);
+  }
   var lit = toonBand(ndl, soft) * s.shadow;
   // skin and hair keep their shadows a touch softer
   if (s.cls == CLS_SKIN) { lit = toonBand(ndl + 0.05, soft + 0.18) * mix(0.35, 1.0, s.shadow); }
@@ -119,6 +126,12 @@ fn toonShade(s: ToonInput) -> vec3f {
   let rim = fresnel(s.n, v, 3.0) * smoothstep(0.0, 0.5, dot(s.n, l) + 0.35) * s.rimMask;
   col = col + globals.rimColor.rgb * globals.rimColor.w * smoothstep(0.45, 0.65, rim) * mix(0.35, 1.0, lit);
   col = col + pointLights(s.pos, s.n, s.albedo);
+  // rain: a sharp wet sheen and the sky mirrored in up-facing surfaces
+  if (wet > 0.0) {
+    col = col + globals.sunColor.rgb * hardSpec(s.n, v, l, 90.0, 0.6) * wet * 0.7 * (0.3 + 0.7 * lit) * sunI;
+    let fr = fresnel(s.n, v, 4.0) * smoothstep(0.55, 1.0, s.n.y);
+    col = mix(col, globals.skyColor.rgb * 0.8 + globals.fogColor.rgb * 0.4, fr * wet * 0.45);
+  }
   col = col + s.emissive;
   return col;
 }
