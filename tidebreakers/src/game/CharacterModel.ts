@@ -124,6 +124,9 @@ export class CharacterModel {
     for (const p of this.props) p.dispose();
     this.props = [];
     this.r.removeCaster(this.mesh);
-    this.anchor.dispose(false, true);
+    // never dispose textures here: the materials sample the shared shadow maps
+    this.anchor.dispose(false, false);
+    this.mat.dispose(true, false);
+    this.outlineMat.dispose(true, false);
   }
 }

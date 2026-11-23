@@ -213,6 +213,19 @@ export class Director {
   }
 
   // ------------------------------------------------------------------------------------------ camera
+  /** Pulls a camera position in toward its target if scenery or the ground is in the way. Returns [pos, free fraction]. */
+  private unblock(target: Vector3, pos: Vector3): [Vector3, number] {
+    const d = pos.subtract(target);
+    const len = d.length();
+    if (len < 1e-3) return [pos, 1];
+    const dir = d.scale(1 / len);
+    const free = Math.min(len, this.game.collision.raycast(target, dir, len, 0.2));
+    const p = free < len - 0.05 ? target.add(dir.scale(Math.max(0.7, free - 0.25))) : pos;
+    const g = this.game.collision.groundAt(p.x, p.z, p.y + 0.5);
+    if (p.y < g + 0.35) p.y = g + 0.35;
+    return [p, free / len];
+  }
+
   shot(pos: Vector3, target: Vector3, dur = 0, fov?: number): void {
     this.push = null;
     this.game.cam.shotTo({ pos, target, dur, fov });
@@ -233,12 +246,17 @@ export class Director {
     const ab = B.pos.subtract(A.pos);
     ab.y = 0;
     const sep = Math.max(1.2, ab.length());
-    const n = new Vector3(-ab.z, 0, ab.x).normalize().scale(side);
-    const dist = opts.dist ?? 1.6 + sep * 1.05;
+    const dist = opts.dist ?? 1.8 + sep * 1.05;
     const h = opts.height ?? 1.45;
-    const pos = mid.add(n.scale(dist)).add(new Vector3(0, h, 0));
     const target = mid.add(new Vector3(0, Math.max(A.height, B.height) * 0.78, 0));
-    this.shot(pos, target, dur, opts.fov ?? 0.62);
+    let best: [Vector3, number] | null = null;
+    for (const sd of [side, -side]) {
+      const n = new Vector3(-ab.z, 0, ab.x).normalize().scale(sd);
+      const r = this.unblock(target, mid.add(n.scale(dist)).add(new Vector3(0, h, 0)));
+      if (!best || r[1] > best[1] + 0.15) best = r;
+      if (r[1] > 0.95) break;
+    }
+    this.shot(best![0], target, dur, opts.fov ?? 0.62);
   }
 
   /** Close-up of one actor's face from in front, slightly off-axis. */
@@ -248,7 +266,8 @@ export class Director {
     const ang = (opts.angle ?? 0.45) * side;
     const dir = new Vector3(fwd.x * Math.cos(ang) - fwd.z * Math.sin(ang), 0, fwd.x * Math.sin(ang) + fwd.z * Math.cos(ang));
     const head = this.headOf(A).add(new Vector3(0, -0.06, 0));
-    const pos = head.add(dir.scale(opts.dist ?? 1.25)).add(new Vector3(0, opts.height ?? 0.05, 0));
+    const dist = opts.dist ?? 1.15 + A.height * 0.22 + A.radius * 0.6;
+    const [pos] = this.unblock(head, head.add(dir.scale(dist)).add(new Vector3(0, opts.height ?? 0.05, 0)));
     this.shot(pos, head.add(new Vector3(0, -0.04, 0)), dur, opts.fov ?? 0.5);
   }
 
@@ -260,13 +279,14 @@ export class Director {
     d.y = 0;
     const n = d.normalizeToNew();
     const right = new Vector3(n.z, 0, -n.x).scale(side);
-    const pos = this.headOf(A).add(n.scale(-0.9)).add(right.scale(0.55)).add(new Vector3(0, 0.12, 0));
-    this.shot(pos, this.headOf(B).add(new Vector3(0, -0.05, 0)), dur, fov);
+    const tgt = this.headOf(B).add(new Vector3(0, -0.05, 0));
+    const [pos] = this.unblock(tgt, this.headOf(A).add(n.scale(-0.9 - A.radius)).add(right.scale(0.55 + A.radius * 0.5)).add(new Vector3(0, 0.12, 0)));
+    this.shot(pos, tgt, dur, fov);
   }
 
   /** Wide establishing shot orbiting `center` from yaw `ang` at distance and height. */
   wide(center: Vector3, ang: number, dist: number, height: number, dur = 0, fov = 0.75): void {
-    const pos = center.add(new Vector3(Math.sin(ang) * dist, height, Math.cos(ang) * dist));
+    const [pos] = this.unblock(center, center.add(new Vector3(Math.sin(ang) * dist, height, Math.cos(ang) * dist)));
     this.shot(pos, center, dur, fov);
   }
 

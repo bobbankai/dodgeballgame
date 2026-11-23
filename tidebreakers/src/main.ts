@@ -71,8 +71,23 @@ async function story(r: Renderer, input: Input, ui: UI, audio: Audio): Promise<S
   const lvl = params.get('level');
   if (lvl) await flow.start(lvl as LevelId, params.get('at') ?? '');
   else flow.title();
+  // test bot: walks to objectives, ends fights, so whole chapters can be played through headless
+  const bot = (w: any) => {
+    const L = flow.level;
+    if (!w.__autoplay || !L) return;
+    if (L.marker && !L.dir.cineActive) kai.place(L.marker, kai.yaw);
+    if (game.combatActive && !L.dir.cineActive) {
+      for (const e of game.enemies()) {
+        if (e.floorHp > 0 && e.onFloor) { e.hp = e.floorHp; const cb = e.onFloor; e.onFloor = undefined; cb(); continue; }
+        if (e.floorHp > 0) continue;
+        e.hp = 0; e.die(new Vector3(0, 0, 0), 2);
+      }
+    }
+    if (!kai.alive) kai.hp = kai.maxHp;
+  };
   return (dt) => {
     input.update(dt);
+    if (TEST) bot(window as any);
     if (!flow.paused) {
       pc.update(dt);
       updateBrains(dt);
@@ -122,7 +137,11 @@ async function boot(): Promise<void> {
   if (TEST) w.BABYLON = BABYLON;
   w.__shaderStats = shaderStats;
   if (TEST) {
-    w.__advance = async (t: number) => { const n = Math.round(t * 60); for (let i = 0; i < n; i++) step(1 / 60); };
+    // let story-script continuations (promise microtasks) run between frames, as they do in real play
+    w.__advance = async (t: number) => {
+      const n = Math.round(t * 60);
+      for (let i = 0; i < n; i++) { step(1 / 60); for (let k = 0; k < 6; k++) await Promise.resolve(); }
+    };
     w.__frame = async () => { r.render(time, 1 / 60); await presentHeadless(); };
     for (let i = 0; i < 40; i++) { r.render(time, 1 / 60); await new Promise((res) => setTimeout(res, 30)); }
     w.__ready = true;
