@@ -746,6 +746,8 @@ def vertex_ao(ob, rays=10, dist=2.5):
 
 
 if __name__ == '__main__':
+    import envkit_chapters
+    KITS.update(envkit_chapters.KITS)
     args = sys.argv[sys.argv.index('--') + 1:] if '--' in sys.argv else ['all']
     names = list(KITS) if args[0] == 'all' else [args[0]]
     for n in names:
