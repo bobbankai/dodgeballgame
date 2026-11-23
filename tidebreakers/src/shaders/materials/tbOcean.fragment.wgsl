@@ -20,7 +20,7 @@ var heightTex: texture_2d<f32>;
 fn bedHeight(p: vec2f) -> f32 {
   let uv = (p - uniforms.seabed.xy) / uniforms.seabed.z;
   if (any(uv < vec2f(0.0)) || any(uv > vec2f(1.0))) { return -40.0; }
-  return textureSampleLevel(heightTex, heightTexSampler, uv, 0.0).r * uniforms.seabed.w;
+  return (textureSampleLevel(heightTex, heightTexSampler, uv, 0.0).r - 0.5) * uniforms.seabed.w;
 }
 
 @fragment
@@ -55,7 +55,7 @@ fn main(input: FragmentInputs) -> FragmentOutputs {
   let sp = pow(saturate(dot(n, h)), 380.0);
   col = col + globals.sunColor.rgb * smoothstep(0.25, 0.3, sp) * 3.0 * globals.sunDir.w;
   // foam: crests, and moving lines toward the shore
-  let crestF = smoothstep(0.25, 0.55, input.vCrest + gnoise2(p.xz * 1.5 + t * 0.2) * 0.12) * (0.5 + globals.sea.w * 0.8);
+  let crestF = smoothstep(0.42, 0.7, input.vCrest + gnoise2(p.xz * 1.5 + t * 0.2) * 0.12) * (0.35 + globals.sea.w * 0.9);
   let lines = sin(depth * 2.6 - t * 1.6 + gnoise2(p.xz * 0.6) * 2.0) * 0.5 + 0.5;
   let shoreF = smoothstep(1.4, 0.2, depth) * smoothstep(0.55, 0.8, lines) * uniforms.seaFx.x + smoothstep(0.35, 0.0, depth);
   let foam = saturate(crestF + shoreF) * smoothstep(-0.2, 0.4, gnoise2(p.xz * 3.5 + vec2f(t * 0.4, 0.0)) + 0.3);

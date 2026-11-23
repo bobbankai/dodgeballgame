@@ -798,13 +798,27 @@ def main():
         for ob in list(bpy.data.objects):
             bpy.data.objects.remove(ob)
         arm = build_armature(SK, 'Armature')
+        # captured clips (CMU mocap, retargeted) replace keyed clips of the same name
+        import mocap_anims
+        from tb import mocap as M
+        mc = mocap_anims.build(M.Rig(arm), arm=arm, skel=SK)
+        mocap_anims.write_meta(mc)
         for c in all_clips():
+            if c.name in mc:
+                continue
             act = A.bake_clip(arm, B, c)
             tr = arm.animation_data.nla_tracks.new()
             tr.name = c.name
             st = tr.strips.new(c.name, 1, act)
             tr.mute = True
             print('[anim] baked', c.name, int(round(c.length * A.FPS)), 'frames')
+        for name, c in mc.items():
+            act = M.write_action(arm, c, name)
+            tr = arm.animation_data.nla_tracks.new()
+            tr.name = name
+            st = tr.strips.new(name, 1, act)
+            tr.mute = True
+            print('[anim] mocap', name, len(c.frames), 'frames')
         arm.animation_data.action = None
         path = os.path.join(ROOT, 'public', 'assets', 'anims', 'humanoid.glb')
         os.makedirs(os.path.dirname(path), exist_ok=True)

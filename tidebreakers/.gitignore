@@ -1,2 +1,4 @@
 __pycache__/
 *.pyc
+mocap_cache/
+tools/blender/mocap_cache/

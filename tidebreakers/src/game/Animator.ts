@@ -24,9 +24,17 @@ export class AnimLibrary {
   restRot = new Map<string, Quaternion>();
   restPos = new Map<string, Vector3>();
   legLength = 0.865;
+  /** natural travel speed (m/s) of captured locomotion clips, from mocap.json */
+  speeds = new Map<string, number>();
+
+  speed(name: string, fallback: number): number { return this.speeds.get(name) || fallback; }
 
   static async load(scene: Scene, url = 'assets/anims/humanoid.glb'): Promise<AnimLibrary> {
     const lib = new AnimLibrary();
+    try {
+      const meta = await (await fetch(url.replace(/humanoid\.glb$/, 'mocap.json'))).json() as Record<string, { speed: number }>;
+      for (const [k, v] of Object.entries(meta)) if (v.speed > 0) lib.speeds.set(k, v.speed);
+    } catch { /* keyed clips only */ }
     const cont = await loadContainer(url, scene);
     for (const n of cont.transformNodes) {
       if (n.rotationQuaternion) lib.restRot.set(n.name, n.rotationQuaternion.clone());

@@ -1,0 +1,80 @@
+{
+ "idle": {
+  "speed": 0.0,
+  "loop": true,
+  "frames": 105,
+  "source": "CMU 77_02"
+ },
+ "wait": {
+  "speed": 0.0,
+  "loop": true,
+  "frames": 92,
+  "source": "CMU 40_10"
+ },
+ "walk": {
+  "speed": 1.392,
+  "loop": true,
+  "frames": 32,
+  "source": "CMU 07_01"
+ },
+ "jog": {
+  "speed": 3.455,
+  "loop": true,
+  "frames": 22,
+  "source": "CMU 09_01"
+ },
+ "run": {
+  "speed": 6.701,
+  "loop": true,
+  "frames": 21,
+  "source": "CMU 143_01"
+ },
+ "sad_walk": {
+  "speed": 0.821,
+  "loop": true,
+  "frames": 37,
+  "source": "CMU 82_10"
+ },
+ "talk": {
+  "speed": 0.0,
+  "loop": true,
+  "frames": 144,
+  "source": "CMU 18_08"
+ },
+ "cry": {
+  "speed": 0.0,
+  "loop": true,
+  "frames": 199,
+  "source": "CMU 79_72"
+ },
+ "sad": {
+  "speed": 0.0,
+  "loop": true,
+  "frames": 239,
+  "source": "CMU 79_71"
+ },
+ "laugh": {
+  "speed": 0.0,
+  "loop": false,
+  "frames": 191,
+  "source": "CMU 79_70"
+ },
+ "wave": {
+  "speed": 0.0,
+  "loop": false,
+  "frames": 75,
+  "source": "CMU 141_16"
+ },
+ "getup": {
+  "speed": 0.0,
+  "loop": false,
+  "frames": 214,
+  "source": "CMU 139_18"
+ },
+ "sit_stool": {
+  "speed": 0.0,
+  "loop": true,
+  "frames": 90,
+  "source": "CMU 13_04"
+ }
+}

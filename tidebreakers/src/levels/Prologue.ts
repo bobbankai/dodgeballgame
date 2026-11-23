@@ -25,7 +25,7 @@ export class Prologue extends Level {
   async build(): Promise<void> {
     this.setLook(LOOK);
     this.makeTerrain(GULLS_HEIGHT, -130, -130, 260, 160, {
-      grassLight: '#4f6a4a', grassDark: '#2a3a30', sand: '#8a8070', rock: '#4a4a50', dirt: '#5a4a3a', sandHeight: 2.35, beach: 0.9, rockSlope: 0.62, path: 0.4,
+      grassLight: '#4f6a4a', grassDark: '#2a3a30', sand: '#8a8070', rock: '#4a4a50', dirt: '#5a4a3a', sandHeight: 1.75, beach: 0.45, rockSlope: 0.62, path: 0.4,
     });
     this.makeSea();
     this.game.collision.minY = -40;

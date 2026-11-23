@@ -421,8 +421,11 @@ export class Fighter {
   locomotionAnim(speed: number, fade = 0.2): void {
     const a = this.animator;
     if (speed < 0.25) { a.play(this.game.combatActive || this.team === 'enemy' ? this.anims.idle : this.anims.relaxed, { loop: true, fade }); return; }
-    if (speed < this.walkSpeed * 1.4) { a.play(this.anims.walk, { loop: true, fade, speed: Math.max(0.5, speed / 1.7) }); return; }
-    a.play(this.anims.run, { loop: true, fade, speed: Math.max(0.7, speed / 5.6) });
+    const lib = a.lib;
+    if (speed < this.walkSpeed * 1.4) { a.play(this.anims.walk, { loop: true, fade, speed: Math.max(0.5, speed / lib.speed(this.anims.walk, 1.7)) }); return; }
+    // captured jog for ordinary runners, the sprint for the quick ones
+    const run = speed < 5.0 && this.anims.run === 'run' && a.has('jog') ? 'jog' : this.anims.run;
+    a.play(run, { loop: true, fade, speed: Math.max(0.6, speed / lib.speed(run, 5.6)) });
   }
 
   sync(): void {

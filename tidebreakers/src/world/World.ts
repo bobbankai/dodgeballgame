@@ -48,7 +48,7 @@ export class Terrain {
         const a = j * n + i, b = a + 1, c = a + n, d = c + 1;
         // skip quads fully under deep water (saves triangles)
         if (pos[a * 3 + 1] < -6 && pos[b * 3 + 1] < -6 && pos[c * 3 + 1] < -6 && pos[d * 3 + 1] < -6) continue;
-        idx.push(a, c, b, b, c, d);
+        idx.push(a, b, c, b, d, c);
       }
     }
     const vd = new VertexData();
@@ -76,9 +76,13 @@ export class Terrain {
     r.addCaster(this.mesh);
     // heightmap for the ocean (256^2 covering the terrain square)
     const hr = 256;
-    const hd = new Float32Array(hr * hr);
-    for (let j = 0; j < hr; j++) for (let i = 0; i < hr; i++) hd[j * hr + i] = height(x0 + (i / (hr - 1)) * size, z0 + (j / (hr - 1)) * size) / 40;
-    this.heightTex = RawTexture.CreateRTexture(hd, hr, hr, r.scene, false, false, Constants.TEXTURE_BILINEAR_SAMPLINGMODE, Constants.TEXTURETYPE_FLOAT);
+    // 8-bit, offset by half: (h / 40 + 0.5). Float32 textures aren't filterable on every WebGPU adapter.
+    const hd = new Uint8Array(hr * hr);
+    for (let j = 0; j < hr; j++) for (let i = 0; i < hr; i++) {
+      const h = height(x0 + (i / (hr - 1)) * size, z0 + (j / (hr - 1)) * size);
+      hd[j * hr + i] = Math.max(0, Math.min(255, Math.round((h / 40 + 0.5) * 255)));
+    }
+    this.heightTex = RawTexture.CreateRTexture(hd, hr, hr, r.scene, false, false, Constants.TEXTURE_BILINEAR_SAMPLINGMODE, Constants.TEXTURETYPE_UNSIGNED_BYTE);
     this.heightTex.wrapU = this.heightTex.wrapV = Constants.TEXTURE_CLAMP_ADDRESSMODE;
   }
 
@@ -105,11 +109,11 @@ export class Sea {
       m.setTexture('heightTex', terrain.heightTex);
       m.setVector4('seabed', v4(terrain.x0, terrain.z0, terrain.size, 40));
     } else {
-      const t = RawTexture.CreateRTexture(new Float32Array([-1]), 1, 1, r.scene, false, false, Constants.TEXTURE_NEAREST_SAMPLINGMODE, Constants.TEXTURETYPE_FLOAT);
+      const t = RawTexture.CreateRTexture(new Uint8Array([0]), 1, 1, r.scene, false, false, Constants.TEXTURE_NEAREST_SAMPLINGMODE, Constants.TEXTURETYPE_UNSIGNED_BYTE);
       m.setTexture('heightTex', t);
       m.setVector4('seabed', v4(-1e5, -1e5, 2e5, 40));
     }
-    m.setVector4('seaFx', v4(1, 1, 1, 0.9));
+    m.setVector4('seaFx', v4(1, 1, 0.5, 0.9));
     this.mat = m;
     this.mesh.material = m;
   }

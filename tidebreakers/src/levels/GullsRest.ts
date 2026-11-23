@@ -50,7 +50,7 @@ export const GULLS_LOOK: LookDef = {
   sun: [-0.55, 0.55, -0.62], sunIntensity: 1.2, sunColor: [1.0, 0.9, 0.72],
   sky: { zenith: '#4a8fd6', horizon: '#ffd9a8', glow: '#ffb46a', cloudLit: '#fff4e2', cloudShade: '#b4a9c8', cover: 0.42, cloudHeight: 1, sunSize: 0.002, stars: 0, moon: false },
   skyColor: [0.62, 0.72, 0.92], groundColor: [0.42, 0.38, 0.26], shadowTint: [0.5, 0.48, 0.82, 0.32], rim: [1.0, 0.85, 0.6, 0.7],
-  fog: [0.95, 0.82, 0.68, 0.006], fogParams: [0.04, 0, 30, 0.7],
+  fog: [0.95, 0.84, 0.72, 0.0022], fogParams: [0.04, 0, 45, 0.7],
   sea: { color: [0.03, 0.22, 0.38, 0.6], shallow: [0.1, 0.66, 0.62, 1.3], level: 0, amp: 0.9, chop: 1, storm: 0 },
   grade: [1.02, 1.0, 0.96, 0], wind: [0.5, 0, 0.25],
   fx: { bloom: 0.34, vignette: 0.26, gain: [1.03, 1.0, 0.95], lift: [0.01, 0.0, 0.02] },
@@ -64,7 +64,7 @@ export class GullsRest extends Level {
   async build(): Promise<void> {
     this.setLook(GULLS_LOOK);
     this.makeTerrain(height, -130, -130, 260, 210, {
-      grassLight: '#9fd062', grassDark: '#4f9a3a', sand: '#efdcaa', rock: '#948f86', dirt: '#c49a62', sandHeight: 2.35, beach: 0.9, rockSlope: 0.62, path: 1.0,
+      grassLight: '#9fd062', grassDark: '#4f9a3a', sand: '#e3cb96', rock: '#948f86', dirt: '#b98d58', sandHeight: 1.75, beach: 0.45, rockSlope: 0.62, path: 1.0,
     }, mask);
     this.makeSea();
     const col = this.game.collision;
