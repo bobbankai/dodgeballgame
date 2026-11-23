@@ -436,6 +436,36 @@ async function underpass(d: Director): Promise<void> {
     ['itsuki', 'And not a single curse on the cameras.', 'determined'],
     ['sayo', 'Because it isn\'t a curse taking them.', 'fear'],
   ]);
+  // --- the last train goes through without stopping, and what lives under the platform climbs out ---------
+  d.audio.sfx('bell');
+  await talk(d, [
+    ['itsuki', 'Wait. There. Under the edge of the platform.', 'fear', 'c'],
+    ['sayo', 'Mudhands. Commuter grief: every missed train, every "I\'ll be home soon". They breed down here.', 'cold'],
+  ]);
+  const mud = (i: number, w: number): FighterSpec => grunt(`u${w}_${i}`, 'mudhand', 'mudhand', Math.cos(i * 2.2) * 6, Math.sin(i * 2.2) * 5, 200);
+  await d.battle({
+    player: 'itsuki', intro: 'THE LAST TRAIN', introSub: '終電',
+    fighters: [player('itsuki', 'itsuki', -1, -2, { energy: 50, domain: 20 }), { id: 'sayo', model: 'sayo', kit: 'sayo', team: 0, pos: [1, -2], ai: 'ally' }, mud(0, 0), mud(1, 0), mud(2, 0)],
+    waves: [[mud(0, 1), mud(1, 1), mud(2, 1), mud(3, 1)]],
+  });
+  if (d.quit) return;
+  d.place('itsuki', -1, -2, 0.3);
+  d.place('sayo', 1, -2.5, -0.2);
+  it.anim.play('look_down', 0.3);
+  sy.anim.play('stand', 0.3);
+  d.closeUp('itsuki', -0.4, 1.3, 0.5);
+  d.music('sad');
+  await talk(d, [
+    ['itsuki', 'Someone dropped their phone. The screen\'s still on.', 'sad'],
+    ['itsuki', '"Sorry, Aiko. Missed the train again. Papa will be home before you wake up. Promise."', 'sad', 'h'],
+    ['itsuki', 'Sent at 12:41. The night he went missing.', 'sad'],
+    ['sayo', 'Late again. Everybody in this city is late for somebody.', 'gentle'],
+    ['itsuki', 'Then we get him home before she wakes up.', 'determined', 'c'],
+  ]);
+  it.anim.play('stand', 0.3);
+  d.music('tense');
+  d.place('itsuki', -2, -4, 0.4);
+  d.place('sayo', 0, -5, 0.1);
   const ry = await d.actor('ryoga');
   d.place('ryoga', 3, 6, Math.PI);
   ry.anim.play('stand', 0);
@@ -1033,7 +1063,55 @@ async function gravebrand(d: Director): Promise<void> {
     ['itsuki', 'He killed Mikami-sensei, Ryōga.', 'angry', 'c'],
     ['ryoga', 'I know. I was there. I watched your teacher smile when he died. I\'ve never seen anyone do that.', 'sad'],
     ['ryoga', 'Sensei saved me when I was seven. A curse had my whole family, and he walked out of the fire carrying me.', 'gentle'],
-    ['ryoga', 'Whatever he is, I owe him everything. So you don\'t go up that tower.', 'determined'],
+  ]);
+  // --- Ryōga's memory: the night Sōjin carried him out of the fire, seen from a seven-year-old's height ---
+  await d.white(0.8);
+  await d.setStage('apartment');
+  d.flashback(true, 0.3, 'manga');
+  d.music('memory');
+  d.hide('itsuki');
+  d.hide('sayo');
+  d.hide('ryoga');
+  const sjm = await d.actor('sojin');
+  d.place('sojin', 0, 2.4, Math.PI);
+  sjm.anim.play('stand', 0);
+  sjm.face.set('sad');
+  d.shot([0.35, 0.8, -1.4], [0, 1.25, 2.4], 0.8);
+  await talk(d, [
+    ['ryoga', 'Our apartment was on the sixth floor. The curse came up the stairs like water.', 'fear', 'h'],
+    ['ryoga', 'Mum pushed me into the cupboard and told me to count to a hundred. Slowly. And not to come out.', 'sad', 'h'],
+    ['ryoga', 'I got to forty. After forty, the counting was the only sound left.', 'grief', 'h'],
+  ]);
+  // the cupboard door opens: he looks down, and holds out his hand
+  d.audio.sfx('toll');
+  void d.rail({ pos: new Vector3(0.35, 0.8, -1.4), target: new Vector3(0, 1.25, 2.4), fov: 0.8 }, { pos: new Vector3(0.2, 0.85, -0.2), target: new Vector3(0, 1.6, 2.4), fov: 0.62 }, 6);
+  sjm.anim.play('look_down', 0.5);
+  sjm.face.set('gentle');
+  await d.wait(1.2);
+  sjm.anim.play('reach', 0.6);
+  await talk(d, [
+    ['sojin', 'There you are. You counted very well.', 'gentle', 'w'],
+    ['sojin', 'Your grief is safe with me now. Come. You won\'t ever be alone again.', 'gentle', 'w'],
+  ]);
+  await talk(d, [
+    ['ryoga', 'He carried me down six floors of fire, and he never once let it touch me.', 'gentle', 'h'],
+    ['ryoga', 'I thought that was what a father was. Someone who walks into the fire for you.', 'sad', 'h'],
+  ]);
+  await d.white(0.8);
+  d.flashback(false);
+  d.hide('sojin');
+  await d.setStage('crossing');
+  d.music('finale');
+  await d.actor('itsuki');
+  await d.actor('sayo');
+  await d.actor('ryoga');
+  d.place('ryoga', 0, 7, Math.PI);
+  d.place('itsuki', -1, -1, 0);
+  d.place('sayo', 1.2, -1.5, 0);
+  d.look('ryoga', 'itsuki');
+  d.closeUp('ryoga', 0.4);
+  await talk(d, [
+    ['ryoga', 'Whatever he is, I owe him everything. So you don\'t go up that tower.', 'determined', 'c'],
   ]);
   await d.battle({
     player: 'itsuki', intro: 'GRAVEBRAND', introSub: '墓標', canLose: true,
@@ -1229,7 +1307,7 @@ async function spring(d: Director): Promise<void> {
     ['itsuki', 'Habit.', 'smile'],
     ['ryoga', 'The council wants to "evaluate" me. Ten years of probation, maybe.', 'smile'],
     ['itsuki', 'Better than being a vessel.', 'smile'],
-    ['ryoga', 'Better than being alone. Sensei\'s lanterns are on the river tonight. Will you come?', 'gentle'],
+    ['ryoga', 'Better than being alone. Amagiri is lighting its lanterns tonight. The first time in twenty years. Will you come?', 'gentle'],
     ['sayo', 'All three of us. Kōta likes crowds, now.', 'gentle'],
     ['itsuki', 'Yeah. Give me a minute.', 'gentle', 'c'],
   ]);
@@ -1243,10 +1321,49 @@ async function spring(d: Director): Promise<void> {
     ['itsuki', 'I won\'t be late.', 'smile'],
   ]);
   d.audio.sfx('bell');
-  await d.rail({ pos: d.at('itsuki').add(new Vector3(0, 0.2, -2)), target: d.at('itsuki'), fov: 0.6 }, { pos: new Vector3(0, 14, -26), target: new Vector3(0, 2, 6), fov: 0.8 }, 7);
+  await d.rail({ pos: d.at('itsuki').add(new Vector3(0, 0.2, -2)), target: d.at('itsuki'), fov: 0.6 }, { pos: new Vector3(0, 14, -26), target: new Vector3(0, 2, 6), fov: 0.8 }, 5);
+
+  // --- that night: Amagiri lights its lanterns again, for Hina, for everyone who waited ---------------------
+  await d.setStage('village');
+  d.music('festival');
+  await d.actor('itsuki');
+  await d.actor('sayo');
+  await d.actor('ryoga');
+  d.place('itsuki', 0, -2, 0);
+  d.place('sayo', -1.3, -2.3, 0.15);
+  d.place('ryoga', 1.3, -2.3, -0.15);
+  it.anim.play('stand', 0);
+  sy.anim.play('stand', 0);
+  ry.anim.play('stand', 0);
+  d.look('itsuki', [0, 20]);
+  d.look('sayo', [0, 20]);
+  d.look('ryoga', [0, 20]);
+  void d.rail({ pos: new Vector3(-9, 2, -12), target: new Vector3(0, 6, 10), fov: 0.85 }, { pos: new Vector3(-3, 1.4, -6.5), target: new Vector3(0, 4, 6), fov: 0.75 }, 9);
+  await talk(d, [
+    ['narrator', 'That night the village of Amagiri lit its lanterns for the first time in twenty years. Nobody bound them. Nobody kept them.', undefined, 'n'],
+  ]);
+  await d.wait(1.5);
+  d.twoShot('ryoga', 'itsuki', 3.2, 1.4, -1);
+  await talk(d, [
+    ['ryoga', 'He used to tell me his daughter thought the lanterns were the prettiest thing in the world.', 'gentle'],
+    ['ryoga', 'I never understood why he only ever kept them. They\'re meant to be let go.', 'sad'],
+    ['itsuki', 'Maybe he was waiting for someone to tell him it was all right to.', 'gentle', 'c'],
+  ]);
+  d.closeUp('sayo', 0.35, 1.2, 0.5);
+  await talk(d, [
+    ['sayo', 'Kōta. Look. They\'re flying, like your cranes.', 'smile', 'h'],
+  ]);
+  d.closeUp('itsuki', -0.35, 1.2, 0.5);
+  await talk(d, [
+    ['itsuki', 'Mio. Sensei. Hina. Everyone who waited for someone who was late.', 'gentle', 'h'],
+    ['itsuki', 'Go on ahead. We\'ll catch up. Not too soon.', 'smile', 'h'],
+  ]);
+  d.audio.sfx('bell');
+  await talk(d, [
+    ['narrator', 'Somewhere among the lanterns, a little bell rang. It sounded a lot like someone saying welcome home.', undefined, 'n'],
+  ]);
+  await d.rail({ pos: new Vector3(0, 1.6, -5), target: new Vector3(0, 2.5, 4), fov: 0.7 }, { pos: new Vector3(0, 3, -9), target: new Vector3(0, 18, 30), fov: 0.9 }, 8);
   await d.fade(true, 3);
-  void sy;
-  void ry;
   d.clearCast();
 }
 

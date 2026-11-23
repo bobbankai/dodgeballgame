@@ -352,7 +352,10 @@ export class Director {
 
   shot(pos: [number, number, number], target: [number, number, number] | string, fov = 0.75): void {
     const t = typeof target === 'string' ? this.at(target) : new Vector3(...target);
-    this.cam.cut({ pos: new Vector3(...pos), target: t, fov });
+    const p = new Vector3(...pos);
+    this.cam.cut({ pos: p, target: t, fov });
+    // focus on what the shot frames (a close-up's shallow focus used to carry over and blur it)
+    this.dof(Vector3.Distance(p, t), 0.35);
   }
 
   /** A close-up on an actor's face, from the side `side` (radians from their facing). */
@@ -518,7 +521,9 @@ export class Director {
       this.hud.show(false);
       this.endDomain();
       this.cineLight.restore(1.0);
-      const keep = new Set<string>(spec.fighters.map((x) => x.id).filter((id) => this.cast.has(id) && !id.startsWith('grunt')));
+      // the story's actors stay; the grunts the fight spawned go (their bodies used to lie on into the
+      // next scene, and the next fight)
+      const keep = new Set<string>(spec.fighters.filter((x) => x.ai !== 'grunt' && this.cast.has(x.id)).map((x) => x.id));
       f.dispose(keep);
       this.fight = null;
       // fighters return to their idle selves

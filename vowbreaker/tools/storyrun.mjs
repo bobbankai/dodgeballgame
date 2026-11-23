@@ -1,4 +1,6 @@
 // node vowbreaker/tools/storyrun.mjs <url> <outDir> [maxGameSeconds] [fromChapter]
+// (SHOT_EVERY=<seconds> env: screenshot interval in game time, default 20; ONLY_CHAPTER=1 stops when
+// the starting chapter ends)
 // Plays the whole story headless (url should carry ?test&auto, no chapter): advances game time in
 // chunks, screenshots every chunk group, prints chapter progress, fight times and every error.
 // The software GPU the tests run on crashes now and then; when the browser goes down the run starts
@@ -10,6 +12,8 @@ import { spawn } from 'child_process';
 const require = createRequire(import.meta.url);
 const { chromium } = require('playwright');
 const [url, outDir, maxT = '6000', from = '0'] = process.argv.slice(2);
+const shotEvery = +(process.env.SHOT_EVERY ?? 20);
+const onlyChapter = !!process.env.ONLY_CHAPTER;
 fs.mkdirSync(outDir, { recursive: true });
 
 const lengths = {};     // chapter -> game seconds
@@ -48,7 +52,8 @@ async function session(startChapter) {
       t += 2;
       total += 2;
       chapter = await page.evaluate(() => window.__chapter ?? 0);
-      if (t % 20 === 0) {
+      if (onlyChapter && lengths[+from] !== undefined) return true;
+      if (t % shotEvery === 0) {
         await page.evaluate(async () => { await window.__advance(0.02, true); });
         await page.screenshot({ path: `${outDir}/s${String(shot++).padStart(3, '0')}_c${chapter}.png`, timeout: 600000 });
       }
