@@ -136,6 +136,7 @@ export class Director {
     if (on) {
       this.player.intent.move.setAll(0);
     } else {
+      this.game.r.fx.dof = [5, 4, 0];
       this.game.cam.release();
       this.push = null;
       this.speaking = null;
@@ -226,8 +227,15 @@ export class Director {
     return [p, free / len];
   }
 
+  /** Depth of field for the next shot: focus distance (m), in-focus range, amount (0 = off). */
+  focus(dist: number, range = 1.2, amount = 1): void {
+    this.game.r.fx.dof = [dist, range, amount];
+  }
+
   shot(pos: Vector3, target: Vector3, dur = 0, fov?: number): void {
     this.push = null;
+    // default: focus on what the shot looks at, gently
+    if (this.cineActive) this.focus(Vector3.Distance(pos, target), 3.5, 0.55);
     this.game.cam.shotTo({ pos, target, dur, fov });
   }
 
@@ -269,6 +277,7 @@ export class Director {
     const dist = opts.dist ?? 1.15 + A.height * 0.22 + A.radius * 0.6;
     const [pos] = this.unblock(head, head.add(dir.scale(dist)).add(new Vector3(0, opts.height ?? 0.05, 0)));
     this.shot(pos, head.add(new Vector3(0, -0.04, 0)), dur, opts.fov ?? 0.5);
+    this.focus(Vector3.Distance(pos, head), 0.9, 1);
   }
 
   /** Over the shoulder of `from`, looking at `to`'s face. */
@@ -282,12 +291,14 @@ export class Director {
     const tgt = this.headOf(B).add(new Vector3(0, -0.05, 0));
     const [pos] = this.unblock(tgt, this.headOf(A).add(n.scale(-0.9 - A.radius)).add(right.scale(0.55 + A.radius * 0.5)).add(new Vector3(0, 0.12, 0)));
     this.shot(pos, tgt, dur, fov);
+    this.focus(Vector3.Distance(pos, tgt), 1.0, 1);
   }
 
   /** Wide establishing shot orbiting `center` from yaw `ang` at distance and height. */
   wide(center: Vector3, ang: number, dist: number, height: number, dur = 0, fov = 0.75): void {
     const [pos] = this.unblock(center, center.add(new Vector3(Math.sin(ang) * dist, height, Math.cos(ang) * dist)));
     this.shot(pos, center, dur, fov);
+    this.focus(dist, dist, 0.35);
   }
 
   async fade(to: number, dur = 0.6, color = '#000'): Promise<void> {

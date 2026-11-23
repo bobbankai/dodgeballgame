@@ -133,7 +133,8 @@ export abstract class Level {
     this.r.setSky(sky);
     Object.assign(this.r.fx, {
       vignette: 0.28, aberration: 0, grain: 0.15, letterbox: 0, fade: 0, impact: 0, speedLines: 0, radialBlur: 0, bloom: 0.3, memory: 0, sepia: 0,
-      lift: [0, 0, 0], gamma: [1, 1, 1], gain: [1, 1, 1], bloomThreshold: 1.35, ink: 0.85, inkWidth: 1.0,
+      lift: [0, 0, 0], gamma: [1, 1, 1], gain: [1, 1, 1], bloomThreshold: 1.35, ink: 0.85, inkWidth: 1.0, ao: 0.85, aoRadius: 0.9,
+      dof: [5, 4, 0], shafts: 0.35, rain: 0,
     } satisfies Partial<PostFx>, L.fx ?? {});
   }
 
@@ -279,6 +280,7 @@ export abstract class Level {
         vfx.spawn({ x: f.pos.x, y: f.pos.y + 1.4 * f.size, z: f.pos.z, vx: g.wind.x * 1.5, vy: 1.6, vz: g.wind.z * 1.5, size: 0.9 * f.size, grow: 1.4, life: 3, r: 0.22, g: 0.2, b: 0.2, a: 0.5, drag: 0.2, rot: Math.random() * 6 }, 'smoke');
       }
     }
+    this.r.fx.rain = this.rain * 0.75;
     if (this.rain > 0) {
       const c = g.cam.cam.position;
       const n = Math.floor(this.rain * 90 * dt * 60 / 60 * 2.2);

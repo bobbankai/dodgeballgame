@@ -9,6 +9,12 @@ var bloomTexSampler: sampler;
 var bloomTex: texture_2d<f32>;
 var gbufTexSampler: sampler;
 var gbufTex: texture_2d<f32>;
+var aoTexSampler: sampler;
+var aoTex: texture_2d<f32>;
+var dofTexSampler: sampler;
+var dofTex: texture_2d<f32>;
+var shaftTexSampler: sampler;
+var shaftTex: texture_2d<f32>;
 uniform fxA: vec4f;   // x vignette, y chromatic aberration, z grain, w letterbox (0..1)
 uniform fxB: vec4f;   // x fade to black, y impact frame (0/1 + mode), z speed lines, w radial blur
 uniform fxC: vec4f;   // xy radial centre (uv), z bloom strength, w desaturate (memories)
@@ -16,6 +22,43 @@ uniform liftC: vec4f;  // rgb lift, w split-tone balance
 uniform gammaC: vec4f; // rgb gamma
 uniform gainC: vec4f;  // rgb gain, w = sepia (flashbacks)
 uniform inkC: vec4f;   // x scenery ink strength, y line width (px)
+uniform postC: vec4f;  // x ambient occlusion strength, y depth of field on, z sun shafts on, w rain on the lens
+uniform aoTint: vec4f; // rgb colour of occlusion (cool, from the chapter's shadow tint)
+
+// Rain on the lens: slanted streaks falling at different speeds in layers, and a few beads that refract the
+// image behind them.
+fn rainStreaks(uv: vec2f, t: f32, amount: f32) -> f32 {
+  var s = 0.0;
+  for (var layer = 0; layer < 3; layer++) {
+    let fl = f32(layer);
+    let scale = 90.0 + fl * 70.0;
+    let slant = 0.18 + fl * 0.05;
+    let p = vec2f((uv.x + uv.y * slant) * scale, uv.y);
+    let col = floor(p.x);
+    let rnd = hash11(col * 1.37 + fl * 17.0);
+    let speed = 1.6 + rnd * 1.8 + fl * 0.6;
+    let y = fract(p.y * (2.0 + rnd) - t * speed + rnd * 13.0);
+    let len = 0.06 + rnd * 0.08;
+    let streak = smoothstep(0.0, len, y) * (1.0 - smoothstep(len, len * 1.4, y)) * step(0.55 - amount * 0.25, hash11(col * 3.1 + fl));
+    let thin = 1.0 - abs(fract(p.x) - 0.5) * 2.0;
+    s = s + streak * smoothstep(0.55, 1.0, thin) * (0.6 - fl * 0.15);
+  }
+  return s * amount;
+}
+
+fn lensBeads(uv: vec2f, t: f32, amount: f32) -> vec2f {
+  let aspect = globals.viewport.x / globals.viewport.y;
+  let g = uv * vec2f(aspect, 1.0) * 9.0;
+  let cell = floor(g);
+  let f = fract(g) - 0.5;
+  let rnd = hash22(cell);
+  let life = fract(t * 0.15 + rnd.x);
+  let c = (rnd - 0.5) * 0.6;
+  let d = f - c;
+  let r = 0.12 * rnd.y * step(0.6, rnd.x) * smoothstep(1.0, 0.7, life);
+  let inside = smoothstep(r, r * 0.7, length(d));
+  return -d * inside * 0.06 * amount;
+}
 
 // Tone curve: linear through the mids (keeps flat anime colours true), soft shoulder for highlights,
 // with highlights desaturating toward white like film.
@@ -45,6 +88,7 @@ fn grade(cIn: vec3f) -> vec3f {
 fn main(input: FragmentInputs) -> FragmentOutputs {
   var uv = input.vUV;
   let px = globals.viewport.zw;
+  if (uniforms.postC.w > 0.001) { uv = clamp(uv + lensBeads(uv, globals.time.x, uniforms.postC.w), vec2f(0.0), vec2f(1.0)); }
   // radial blur (dash / big impacts)
   var col = vec3f(0.0);
   let rb = uniforms.fxB.w;
@@ -63,6 +107,18 @@ fn main(input: FragmentInputs) -> FragmentOutputs {
     col = acc / 8.0;
   } else {
     col = textureSampleLevel(colorTex, colorTexSampler, uv, 0.0).rgb;
+  }
+  // depth of field: blend toward the half-res bokeh by circle of confusion
+  if (uniforms.postC.y > 0.5) {
+    let d = textureSampleLevel(dofTex, dofTexSampler, uv, 0.0);
+    col = mix(col, d.rgb, smoothstep(0.06, 0.4, d.a));
+  }
+  // ambient occlusion as a cool wash rather than black (painted shadows), contact creases a bit deeper
+  if (uniforms.postC.x > 0.0) {
+    let a = textureSampleLevel(aoTex, aoTexSampler, uv, 0.0);
+    let occ = saturate(a.x * mix(1.0, a.y, 0.8));
+    let shade = mix(uniforms.aoTint.rgb, vec3f(1.0), occ);
+    col = col * mix(vec3f(1.0), shade, uniforms.postC.x);
   }
   // screen-space ink lines for scenery (characters have their own hull outlines): depth and normal
   // discontinuities in the G-buffer, thinner and lighter with distance
@@ -90,6 +146,8 @@ fn main(input: FragmentInputs) -> FragmentOutputs {
     col = mix(col, ink, saturate(e));
   }
   col = col + textureSampleLevel(bloomTex, bloomTexSampler, uv, 0.0).rgb * uniforms.fxC.z;
+  if (uniforms.postC.z > 0.5) { col = col + textureSampleLevel(shaftTex, shaftTexSampler, uv, 0.0).rgb; }
+  if (uniforms.postC.w > 0.001) { col = col + vec3f(0.55, 0.62, 0.75) * rainStreaks(input.vUV, globals.time.x, uniforms.postC.w) * 0.35; }
   // debug views (globals.counts.y): 1 normals, 2 depth, 3 object ids, 4 raw HDR colour
   let dbg = i32(globals.counts.y);
   if (dbg > 0) {
@@ -98,6 +156,9 @@ fn main(input: FragmentInputs) -> FragmentOutputs {
     if (dbg == 1) { o = vec3f(gb.xy, 0.5); }
     if (dbg == 2) { o = vec3f(fract(gb.z * 0.25), saturate(gb.z / 40.0), 0.0); }
     if (dbg == 3) { o = hsv2rgb(vec3f(fract(gb.w * 7.31), 0.7, step(0.001, gb.w))); }
+    if (dbg == 5) { let a = textureSampleLevel(aoTex, aoTexSampler, uv, 0.0); o = vec3f(a.x * a.y); }
+    if (dbg == 6) { o = textureSampleLevel(shaftTex, shaftTexSampler, uv, 0.0).rgb * 4.0; }
+    if (dbg == 7) { o = vec3f(textureSampleLevel(dofTex, dofTexSampler, uv, 0.0).a); }
     fragmentOutputs.color = vec4f(linearToSrgb(o), 1.0);
     return fragmentOutputs;
   }

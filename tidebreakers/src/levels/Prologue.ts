@@ -12,7 +12,7 @@ const LOOK: LookDef = {
   sky: { zenith: '#05070f', horizon: '#26304a', glow: '#3a4a70', cloudLit: '#56607a', cloudShade: '#0b0e18', cover: 0.95, cloudHeight: 0.8, sunSize: 0.0, stars: 0, moon: false },
   skyColor: [0.18, 0.22, 0.34], groundColor: [0.08, 0.08, 0.1], shadowTint: [0.25, 0.28, 0.5, 0.5], rim: [0.6, 0.7, 1.0, 0.8],
   fog: [0.12, 0.15, 0.24, 0.03], fogParams: [0.05, 0, 8, 0.1],
-  sea: { color: [0.01, 0.04, 0.08, 0.6], shallow: [0.05, 0.16, 0.2, 0.8], level: 0, amp: 2.2, chop: 1.6, storm: 1 },
+  sea: { color: [0.01, 0.04, 0.08, 0.45], shallow: [0.05, 0.16, 0.2, 0.7], level: 0, amp: 0.85, chop: 1.4, storm: 0.6 },
   grade: [0.95, 0.98, 1.05, 0], wind: [2.5, 0, 1.2],
   fx: { bloom: 0.5, vignette: 0.5, grain: 0.25, memory: 0.6, gain: [0.95, 1.0, 1.1], lift: [0.0, 0.01, 0.03] },
 };
@@ -112,7 +112,7 @@ export class Prologue extends Level {
       // the wave
       g.sfx('roar', undefined, 0.6);
       d.wide(row.pos, 1.3, 9, 1.2, 0, 0.75);
-      this.r.globals.set('sea', 0, 3.2, 2.2, 1);
+      this.r.globals.set('sea', 0, 1.3, 1.8, 0.9);
       g.ring(row.pos.add(V(-14, 0, -14)), 9, 30, 0);
       await d.wait(1.1);
       g.shake(1);
@@ -124,7 +124,7 @@ export class Prologue extends Level {
       row.inst.setEnabled(false);
       row.plat.top = -100;
       await d.fade(1, 1.4);
-      this.r.globals.set('sea', 0, 2.2, 1.6, 1);
+      this.r.globals.set('sea', 0, 0.85, 1.4, 0.6);
     }
     // ---------------------------------------------------------------- the shore
     const shore = V(-2, GULLS_HEIGHT(-2, -58), -58);

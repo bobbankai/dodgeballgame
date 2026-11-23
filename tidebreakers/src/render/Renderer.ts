@@ -20,6 +20,14 @@ export interface PostFx {
   lift: [number, number, number]; gamma: [number, number, number]; gain: [number, number, number];
   bloomThreshold: number;
   ink: number; inkWidth: number;
+  /** ambient occlusion strength (0 off) and world radius */
+  ao: number; aoRadius: number;
+  /** depth of field: focus distance, focus range, amount (0 off) */
+  dof: [number, number, number];
+  /** sun shafts strength */
+  shafts: number;
+  /** rain on the lens (0..1) */
+  rain: number;
 }
 
 export class Renderer {
@@ -31,7 +39,7 @@ export class Renderer {
   fx: PostFx = {
     vignette: 0.28, aberration: 0, grain: 0.15, letterbox: 0, fade: 0, impact: 0, speedLines: 0, radialBlur: 0,
     radialCenter: [0.5, 0.5], bloom: 0.3, memory: 0, sepia: 0, lift: [0, 0, 0], gamma: [1, 1, 1], gain: [1, 1, 1],
-    bloomThreshold: 1.35, ink: 0.85, inkWidth: 1.0,
+    bloomThreshold: 1.35, ink: 0.85, inkWidth: 1.0, ao: 0.85, aoRadius: 0.9, dof: [5, 4, 0], shafts: 0.35, rain: 0,
   };
   readonly casters: AbstractMesh[] = [];
   shadowCenter = new Vector3();
@@ -45,6 +53,14 @@ export class Renderer {
   private bloomUp!: EffectWrapper;
   private bloomChain: Target[] = [];
   private bloomUpChain: Target[] = [];
+  private aoFx!: EffectWrapper;
+  private blurFx!: EffectWrapper;
+  private dofFx!: EffectWrapper;
+  private shaftFx!: EffectWrapper;
+  private aoA: Target | null = null;
+  private aoB: Target | null = null;
+  private dofT: Target | null = null;
+  private shaftT: Target | null = null;
   private mrtTex0!: BaseTexture;
   private frameNo = 0;
   private skyMesh: Mesh | null = null;
@@ -66,8 +82,12 @@ export class Renderer {
     this.createShadows();
     this.fxr = new EffectRenderer(this.engine);
     const common = { engine: this.engine, useShaderStore: true, shaderLanguage: ShaderLanguage.WGSL, uniformBuffers: ['globals'] };
-    this.finalFx = new EffectWrapper({ ...common, name: 'final', fragmentShader: 'tbFinal', samplerNames: ['colorTex', 'bloomTex', 'gbufTex'],
-      uniformNames: ['fxA', 'fxB', 'fxC', 'liftC', 'gammaC', 'gainC', 'inkC'] });
+    this.finalFx = new EffectWrapper({ ...common, name: 'final', fragmentShader: 'tbFinal', samplerNames: ['colorTex', 'bloomTex', 'gbufTex', 'aoTex', 'dofTex', 'shaftTex'],
+      uniformNames: ['fxA', 'fxB', 'fxC', 'liftC', 'gammaC', 'gainC', 'inkC', 'postC', 'aoTint'] });
+    this.aoFx = new EffectWrapper({ ...common, name: 'ao', fragmentShader: 'tbAO', samplerNames: ['gbufTex'], uniformNames: ['proj', 'texel'] });
+    this.blurFx = new EffectWrapper({ ...common, name: 'bilateral', fragmentShader: 'tbBilateral', samplerNames: ['src'], uniformNames: ['dir'], uniformBuffers: [] });
+    this.dofFx = new EffectWrapper({ ...common, name: 'dof', fragmentShader: 'tbDof', samplerNames: ['colorTex', 'gbufTex'], uniformNames: ['dof', 'texel'] });
+    this.shaftFx = new EffectWrapper({ ...common, name: 'shafts', fragmentShader: 'tbShafts', samplerNames: ['colorTex', 'gbufTex'], uniformNames: ['sun', 'shaftC'] });
     this.bloomDown = new EffectWrapper({ ...common, name: 'bloomDown', fragmentShader: 'tbBloomDown', samplerNames: ['src'], uniformNames: ['texel', 'knee'], uniformBuffers: [] });
     this.bloomUp = new EffectWrapper({ ...common, name: 'bloomUp', fragmentShader: 'tbBloomUp', samplerNames: ['low', 'cur'], uniformNames: ['texel'], uniformBuffers: [] });
     this.engine.onResizeObservable.add(() => this.createTargets());
@@ -98,6 +118,12 @@ export class Renderer {
       if (i < levels - 1) this.bloomUpChain.push(this.target(bw, bh));
       bw = Math.max(1, bw >> 1); bh = Math.max(1, bh >> 1);
     }
+    for (const t of [this.aoA, this.aoB, this.dofT, this.shaftT]) t?.rt.dispose();
+    const hw = Math.max(1, w >> 1), hh = Math.max(1, h >> 1);
+    this.aoA = this.target(hw, hh);
+    this.aoB = this.target(hw, hh);
+    this.dofT = this.target(hw, hh);
+    this.shaftT = this.target(Math.max(1, w >> 2), Math.max(1, h >> 2));
     this.globals?.set('viewport', w, h, 1 / w, 1 / h);
   }
 
@@ -235,8 +261,9 @@ export class Renderer {
 
   // per-pass inputs read by persistent onApply observers (Babylon's own observer sets the UV scale, so
   // observers must never be cleared)
-  private pass: { src: BaseTexture | ThinTexture | null; sw: number; sh: number; first: boolean; low: Target | null; cur: Target | null; bloomOn: boolean } =
-    { src: null, sw: 1, sh: 1, first: true, low: null, cur: null, bloomOn: false };
+  private pass: { src: BaseTexture | ThinTexture | null; sw: number; sh: number; first: boolean; low: Target | null; cur: Target | null; bloomOn: boolean;
+    blurSrc: Target | null; blurDir: [number, number]; aoOn: boolean; dofOn: boolean; shaftsOn: boolean; sun: [number, number, number] } =
+    { src: null, sw: 1, sh: 1, first: true, low: null, cur: null, bloomOn: false, blurSrc: null, blurDir: [1, 0], aoOn: false, dofOn: false, shaftsOn: false, sun: [0.5, 0.5, 0] };
   private observersReady = false;
 
   private setupObservers(): void {
@@ -255,9 +282,49 @@ export class Renderer {
       e.setTexture('cur', P.cur!.tex as any);
       e.setFloat4('texel', 1 / P.low!.w, 1 / P.low!.h, 1.0, 1.0);
     });
+    this.aoFx.onApplyObservable.add(() => {
+      const e = this.aoFx.effect;
+      const cam = this.scene.activeCamera!;
+      const th = Math.tan(cam.fov / 2);
+      const asp = this.engine.getRenderWidth() / Math.max(1, this.engine.getRenderHeight());
+      e.setTexture('gbufTex', this.mrt.textures[1]);
+      e.bindUniformBuffer(this.globals.ubo.getBuffer()!, 'globals');
+      e.setFloat4('proj', th * asp, th, this.fx.aoRadius, 1.0);
+      e.setFloat4('texel', 1 / this.engine.getRenderWidth(), 1 / this.engine.getRenderHeight(), this.frameNo % 64, 90);
+    });
+    this.blurFx.onApplyObservable.add(() => {
+      const e = this.blurFx.effect;
+      const t = P.blurSrc!;
+      e.setTexture('src', t.tex as any);
+      e.setFloat4('dir', P.blurDir[0] / t.w, P.blurDir[1] / t.h, 60, 0);
+    });
+    this.dofFx.onApplyObservable.add(() => {
+      const e = this.dofFx.effect;
+      const d = this.fx.dof;
+      e.setTexture('colorTex', this.mrtTex0);
+      e.setTexture('gbufTex', this.mrt.textures[1]);
+      e.bindUniformBuffer(this.globals.ubo.getBuffer()!, 'globals');
+      e.setFloat4('dof', d[0], Math.max(0.2, d[1]), 9 * d[2] * (this.engine.getRenderHeight() / 720), 0.6);
+      e.setFloat4('texel', 1 / this.dofT!.w, 1 / this.dofT!.h, 0, 0);
+    });
+    this.shaftFx.onApplyObservable.add(() => {
+      const e = this.shaftFx.effect;
+      e.setTexture('colorTex', this.mrtTex0);
+      e.setTexture('gbufTex', this.mrt.textures[1]);
+      e.bindUniformBuffer(this.globals.ubo.getBuffer()!, 'globals');
+      const sc = this.globals.get('sunColor');
+      e.setFloat4('sun', P.sun[0], P.sun[1], P.sun[2], this.fx.shafts * this.globals.get('sunDir')[3]);
+      e.setFloat4('shaftC', sc[0] * 1.2, sc[1] * 1.05, sc[2] * 0.85, 0.975);
+    });
     this.finalFx.onApplyObservable.add(() => {
       const e = this.finalFx.effect;
       const fx = this.fx;
+      e.setTexture('aoTex', this.aoA!.tex as any);
+      e.setTexture('dofTex', this.dofT!.tex as any);
+      e.setTexture('shaftTex', this.shaftT!.tex as any);
+      e.setFloat4('postC', P.aoOn ? fx.ao : 0, P.dofOn ? 1 : 0, P.shaftsOn ? 1 : 0, fx.rain);
+      const st = this.globals.get('shadowTint');
+      e.setFloat4('aoTint', st[0] * 0.55, st[1] * 0.55, st[2] * 0.7, 0);
       e.setTexture('colorTex', this.mrtTex0);
       e.setTexture('gbufTex', this.mrt.textures[1]);
       e.setTexture('bloomTex', (P.bloomOn ? this.bloomUpChain[0].tex : this.bloomChain[0].tex) as any);
@@ -292,6 +359,35 @@ export class Renderer {
         P.cur = this.bloomChain[i];
         this.fxr.render(this.bloomUp, this.bloomUpChain[i].rt);
         low = this.bloomUpChain[i];
+      }
+    }
+    // ambient occlusion: half res, then a separable depth-aware blur
+    P.aoOn = fx.ao > 0 && this.quality !== 'low' && this.ready(this.aoFx, this.blurFx);
+    if (P.aoOn) {
+      this.fxr.render(this.aoFx, this.aoA!.rt);
+      P.blurSrc = this.aoA; P.blurDir = [1, 0];
+      this.fxr.render(this.blurFx, this.aoB!.rt);
+      P.blurSrc = this.aoB; P.blurDir = [0, 1];
+      this.fxr.render(this.blurFx, this.aoA!.rt);
+    }
+    // depth of field (cutscenes)
+    P.dofOn = fx.dof[2] > 0.01 && this.ready(this.dofFx);
+    if (P.dofOn) this.fxr.render(this.dofFx, this.dofT!.rt);
+    // sun shafts when the sun is on screen
+    P.shaftsOn = false;
+    const cam = this.scene.activeCamera;
+    if (fx.shafts > 0 && cam && this.ready(this.shaftFx)) {
+      const sd = this.globals.get('sunDir');
+      const dir = new Vector3(sd[0], sd[1], sd[2]);
+      const fwd = cam.getDirection(Vector3.Forward());
+      const facing = Vector3.Dot(fwd, dir);
+      if (facing > 0.05) {
+        const w = this.engine.getRenderWidth(), h = this.engine.getRenderHeight();
+        const p = Vector3.Project(cam.globalPosition.add(dir.scale(1000)), Matrix.Identity(), this.scene.getTransformMatrix(), cam.viewport.toGlobal(w, h));
+        const u = p.x / w, v = 1 - p.y / h;   // post uv origin is bottom-left
+        const onScreen = 1 - Math.min(1, Math.max(0, Math.max(Math.abs(u - 0.5), Math.abs(v - 0.5)) - 0.5) / 0.5);
+        P.sun = [u, v, onScreen * Math.min(1, facing * 3)];
+        if (P.sun[2] > 0.01) { P.shaftsOn = true; this.fxr.render(this.shaftFx, this.shaftT!.rt); }
       }
     }
     if (!this.finalFx.isReady()) return;
