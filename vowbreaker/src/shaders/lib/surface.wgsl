@@ -14,7 +14,14 @@ fn bumpFromHeight(worldPos: vec3f, n: vec3f, height: f32, scale: f32) -> vec3f {
     let r1 = cross(dpy, n);
     let r2 = cross(n, dpx);
     let det = dot(dpx, r1);
-    let grad = sign(det) * (dhx * r1 + dhy * r2);
+    var grad = sign(det) * (dhx * r1 + dhy * r2);
+    // a joint's height can step inside a single pixel: limit the slope, or the normal flips and the
+    // pixel lights as a dark or bright speck
+    let lim = abs(det) * 0.7;
+    let gl = length(grad);
+    if (gl > lim) {
+        grad = grad * (lim / gl);
+    }
     return normalize(abs(det) * n - grad);
 }
 

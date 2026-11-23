@@ -40,6 +40,14 @@ fn envDapples(p: vec3f, n: vec3f, sunDir: vec3f, time: f32, amount: f32, wind: f
     return mix(1.0, 0.35 + 0.65 * light, amount * facing);
 }
 
+// the spots of sun that come through a canopy (0..1), on surfaces that face the sun
+fn envDappleSpots(p: vec3f, n: vec3f, sunDir: vec3f, time: f32, wind: f32) -> f32 {
+    let v = envDapples(p, n, sunDir, time, 1.0, wind);
+    let facing = smoothstep(0.0, 0.5, dot(n, sunDir));
+    // envDapples gives 0.35 between the spots and 1 in them (where it faces the sun)
+    return clamp((v - 0.35) / 0.65, 0.0, 1.0) * facing;
+}
+
 // a shoji grid's shadow thrown across the floor from a lit screen (plane given by point + normal)
 fn envShojiShadow(p: vec3f, screenPoint: vec3f, screenNormal: vec3f, lightDir: vec3f, cell: vec2f, amount: f32) -> f32 {
     if (amount <= 0.0) {

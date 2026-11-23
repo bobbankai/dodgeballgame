@@ -61,11 +61,14 @@
 .prompt kbd { font-family: var(--heavy); background: var(--ink); color: var(--paper); padding: 1px 7px; margin: 0 2px; border-radius: 2px; font-size: 13px; }
 
 /* --- dialogue ---------------------------------------------------------------------------------- */
-.dialogue { position: absolute; left: 50%; bottom: 7vh; transform: translateX(-50%); width: min(880px, 90vw); min-height: 110px; padding: 20px 30px 18px; background: linear-gradient(180deg, rgba(10, 8, 12, 0.92), rgba(10, 8, 12, 0.82)); border-top: 3px solid var(--paper); border-bottom: 3px solid var(--paper); clip-path: polygon(1.5% 0, 100% 0, 98.5% 100%, 0 100%); }
+.dialogue { position: absolute; left: 50%; bottom: 7vh; transform: translateX(-50%); width: min(880px, 90vw); min-height: 110px; padding: 20px 30px 18px; }
+/* the slanted box is drawn behind the text, so its clip doesn't cut off the name tag above it */
+.dialogue::before { content: ''; position: absolute; inset: 0; z-index: -1; background: linear-gradient(180deg, rgba(10, 8, 12, 0.92), rgba(10, 8, 12, 0.82)); border-top: 3px solid var(--paper); border-bottom: 3px solid var(--paper); clip-path: polygon(1.5% 0, 100% 0, 98.5% 100%, 0 100%); }
 .dialogue .who { position: absolute; top: -20px; left: 36px; padding: 3px 16px; font-family: var(--heavy); font-size: 16px; color: var(--paper); background: var(--red); border: 2px solid var(--ink); transform: skewX(-15deg); }
 .dialogue .text { font-family: var(--mincho); font-size: 21px; line-height: 1.55; letter-spacing: 0.02em; }
 .dialogue .next { position: absolute; right: 30px; bottom: 10px; font-size: 13px; animation: bob 0.8s infinite alternate; opacity: 0.8; }
-.dialogue.narration { background: none; border: none; clip-path: none; text-align: center; }
+.dialogue.narration { text-align: center; }
+.dialogue.narration::before { display: none; }
 .dialogue.narration .text { font-size: 23px; font-style: italic; text-shadow: 0 2px 8px #000; }
 .dialogue.thought .text { font-style: italic; color: #d9d2ea; }
 

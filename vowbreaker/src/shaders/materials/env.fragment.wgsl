@@ -88,6 +88,8 @@ fn main(input: FragmentInputs) -> FragmentOutputs {
                       uniforms.envParams5.w, wind);
 
     // --- pattern, the place's history, bump -------------------------------------------------------------
+    // how big a pixel is here, for the patterns to filter their joints and grain against
+    gPatPx = length(fwidth(P)) * 0.7;
     let wetHere = weatherWetness(w, N, ao, P, time);
     let pat = evalPattern(id, P, N, time, wetHere, fragmentInputs.vSeed, uniforms.glowColor);
     let det = detailFor(id, P, N, ao, fragmentInputs.vSeed, uniforms.envParams3.x, uniforms.envParams3.y, uniforms.envParams3.z, uniforms.envParams3.w);
@@ -178,7 +180,11 @@ fn main(input: FragmentInputs) -> FragmentOutputs {
         sh = stylizeShadowEdge(sh, P, 6.0, 0.35);
     }
     sh = sh * envCloudShadow(P, L, wind, time, uniforms.envParams5.x, 0.035);
-    sh = sh * envDapples(P, N, L, time, uniforms.envParams5.y, length(wind));
+    // komorebi: inside the shade, spots of sun come through the leaves (open ground stays open)
+    if (uniforms.envParams5.y > 0.0) {
+        let dapLight = envDappleSpots(P, N, L, time, length(wind)) * patClarity(0.25);
+        sh = max(sh, dapLight * uniforms.envParams5.y * 0.75 * (1.0 - sh));
+    }
     let hl = halfLambert(N, L);
     // (paper facets carry their own light, so they are lit more evenly)
     let lit = mix(celStep(hl, uniforms.envParams.w, 0.03, ao, 0.35) * sh, 0.85, flatLight);

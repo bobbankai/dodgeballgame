@@ -65,6 +65,12 @@ export class Game {
       this.audio.enabled = false;
       this.dialogue.auto = 0.6;
       this.director.autoTest = params.has('auto');
+      // ?auto=fair plays at a person's pace: fights at normal strength, lines held long enough to read
+      this.director.autoFair = params.get('auto') === 'fair';
+      if (this.director.autoFair) {
+        this.dialogue.auto = 1.0;
+        this.dialogue.autoPerChar = 1 / 16 - 1 / 45;
+      }
     }
     this.director.onLose = () => this.retryPrompt();
     window.addEventListener('pointerdown', () => this.audio.unlock(), { once: true });

@@ -162,8 +162,9 @@ export class DialogueBox {
   private shown = 0;
   private resolve: (() => void) | null = null;
   private hold = 0;
-  /** test mode: advance automatically after this many seconds per line */
+  /** test mode: advance automatically this many seconds after a line is out, plus `autoPerChar` a letter */
   auto = 0;
+  autoPerChar = 0;
   private autoT = 0;
   speed = 45;
 
@@ -211,7 +212,7 @@ export class DialogueBox {
     } else {
       this.next.classList.remove('hidden');
       this.autoT += dt;
-      if ((advance && this.hold > 0.2) || (this.auto > 0 && this.autoT > this.auto)) {
+      if ((advance && this.hold > 0.2) || (this.auto > 0 && this.autoT > this.auto + this.autoPerChar * this.full.length)) {
         const r = this.resolve;
         this.resolve = null;
         this.root.classList.add('hidden');

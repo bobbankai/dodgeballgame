@@ -122,12 +122,25 @@ export class Fluid {
   }
 
   /** A ring of splats bursting outward from a point (domains opening, the Vow). */
+  /**
+   * An ink splatter: a small dense core, streaks flung out round it at uneven lengths, and a few
+   * droplets thrown further (not one disc: overlapping splats of the full radius read as a blot).
+   */
   burst(x: number, y: number, color: [number, number, number], count = 8, speed = 1.4, radius = 0.035): void {
     const phase = Math.random() * Math.PI * 2;
+    this.splat({ x, y, dx: 0, dy: 0, color, amount: 0.8, radius: radius * 0.55 });
     for (let i = 0; i < count; i++) {
-      const a = phase + (i / count) * Math.PI * 2;
-      const sp = speed * (0.7 + Math.random() * 0.6);
-      this.splat({ x: x + Math.cos(a) * 0.03, y: y + Math.sin(a) * 0.03, dx: Math.cos(a) * sp, dy: Math.sin(a) * sp, color, amount: 0.7, radius });
+      const a = phase + ((i + (Math.random() - 0.5) * 0.6) / count) * Math.PI * 2;
+      const reach = radius * (0.8 + Math.random() * 1.1);
+      const sp = speed * (0.8 + Math.random() * 0.9);
+      const c = Math.cos(a);
+      const s = Math.sin(a);
+      this.splat({ x: x + c * reach, y: y + s * reach, dx: c * sp, dy: s * sp, color, amount: 0.65, radius: radius * (0.22 + Math.random() * 0.18) });
+    }
+    for (let i = 0; i < Math.ceil(count / 2); i++) {
+      const a = Math.random() * Math.PI * 2;
+      const reach = radius * (2.0 + Math.random() * 1.6);
+      this.splat({ x: x + Math.cos(a) * reach, y: y + Math.sin(a) * reach, dx: Math.cos(a) * speed * 0.5, dy: Math.sin(a) * speed * 0.5, color, amount: 0.6, radius: radius * (0.08 + Math.random() * 0.08) });
     }
   }
 

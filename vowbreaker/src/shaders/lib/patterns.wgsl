@@ -13,6 +13,33 @@ struct PatternOut {
     line: f32,        // 0..1 drawn joint lines (grout, mortar, plank seams) for the ink pass
 }
 
+// The size of a pixel on the surface, in metres. The fragment shader sets it (from the derivatives
+// of the world position, in uniform control flow) before it evaluates a pattern; 0 leaves every
+// pattern unfiltered. Joints, seams and fine grain thinner than a pixel otherwise break up into dots
+// and moire on far walls and floors.
+var<private> gPatPx: f32 = 0.0;
+
+// how clearly a detail of this size (m) still reads at this distance: 1 near, 0 once it is smaller
+// than a few pixels
+fn patClarity(feature: f32) -> f32 {
+    return 1.0 - smoothstep(feature * 0.08, feature * 0.35, gPatPx);
+}
+
+// an anti-aliased joint: `edge` is the distance from the joint's centre line (m), `halfW` its half
+// width, `period` the cell it repeats on. Its edges are softened over a pixel, and once it is too
+// thin to draw it fades to its average share of the cell, so a far wall reads as an even tone.
+fn patJoint(edge: f32, halfW: f32, period: f32) -> f32 {
+    let soft = max(gPatPx * 0.75, 0.0015);
+    let m = 1.0 - smoothstep(halfW - soft, halfW + soft, edge);
+    let avg = clamp(4.0 * halfW / max(period, 1e-4), 0.0, 1.0);
+    return mix(avg, m, patClarity(period));
+}
+
+// a fine detail faded to its mean once its features shrink below a few pixels
+fn patFine(v: f32, mean: f32, feature: f32) -> f32 {
+    return mix(mean, v, patClarity(feature));
+}
+
 fn patternDefault() -> PatternOut {
     var o: PatternOut;
     o.tint = vec3f(1.0);
@@ -34,14 +61,14 @@ fn patternBrick(p: vec2f, size: vec2f, mortar: f32) -> PatternOut {
     let cell = floor(q);
     let f = fract(q);
     let edge = min(min(f.x, 1.0 - f.x) * size.x, min(f.y, 1.0 - f.y) * size.y);
-    let m = 1.0 - smoothstep(mortar * 0.5, mortar * 0.5 + 0.004, edge);
+    let m = patJoint(edge, mortar * 0.5, min(size.x, size.y));
     let h = ihash22(vec2i(cell));
     let brickTint = vec3f(0.85 + h.x * 0.25, 0.85 + h.x * 0.18, 0.85 + h.y * 0.15);
     let grime = vfbm2(p * 1.4, 3);
-    let chip = smoothstep(0.72, 0.8, valueNoise2(p * 9.0 + h * 10.0));
+    let chip = patFine(smoothstep(0.72, 0.8, valueNoise2(p * 9.0 + h * 10.0)), 0.1, 0.11);
     o.tint = mix(brickTint * (0.85 + grime * 0.3) * (1.0 - chip * 0.15), vec3f(0.72, 0.7, 0.66), m);
     o.height = (1.0 - m) * (0.8 + grime * 0.2) - chip * 0.2;
-    o.line = m;
+    o.line = m * patClarity(min(size.x, size.y));
     return o;
 }
 
@@ -56,13 +83,13 @@ fn patternStoneBlocks(p: vec2f, rowH: f32, joint: f32) -> PatternOut {
     let fx = fract(x / w);
     let fy = fract(p.y / rowH);
     let edge = min(min(fx, 1.0 - fx) * w, min(fy, 1.0 - fy) * rowH);
-    let m = 1.0 - smoothstep(joint * 0.5, joint * 0.5 + 0.006, edge);
+    let m = patJoint(edge, joint * 0.5, rowH);
     let h = ihash21(vec2i(i32(col), i32(row)));
     let lichen = smoothstep(0.55, 0.75, vfbm2(p * 0.8, 4));
     let face = 0.82 + h * 0.22 + (valueNoise2(p * 5.0) - 0.5) * 0.08;
     o.tint = mix(vec3f(face) * mix(vec3f(1.0), vec3f(0.8, 0.95, 0.7), lichen * 0.5), vec3f(0.55), m);
-    o.height = (1.0 - m) * smoothstep(0.0, joint * 3.0, edge);
-    o.line = m;
+    o.height = (1.0 - m) * smoothstep(0.0, joint * 3.0 + gPatPx, edge);
+    o.line = m * patClarity(rowH);
     return o;
 }
 
@@ -70,12 +97,13 @@ fn patternStoneBlocks(p: vec2f, rowH: f32, joint: f32) -> PatternOut {
 fn patternCobbles(p: vec2f, scale: f32) -> PatternOut {
     var o = patternDefault();
     let c = worley2(p * scale, 0.85);
-    let stone = smoothstep(0.03, 0.12, c.edge);
+    let soft = gPatPx * scale;
+    let stone = patFine(smoothstep(0.03 - soft, 0.12 + soft, c.edge), 0.8, 1.0 / scale);
     let shade = 0.75 + c.id.x * 0.35;
     o.tint = mix(vec3f(0.45, 0.43, 0.4), vec3f(shade, shade * 0.98, shade * 0.95), stone);
     o.height = stone * (1.0 - c.f1 * 0.6);
     o.gloss = stone * 0.25;
-    o.line = 1.0 - smoothstep(0.02, 0.05, c.edge);
+    o.line = (1.0 - smoothstep(0.02, 0.05 + soft, c.edge)) * patClarity(1.0 / scale);
     return o;
 }
 
@@ -87,13 +115,13 @@ fn patternTile(p: vec2f, size: f32, grout: f32, glaze: f32) -> PatternOut {
     let cell = floor(q);
     let f = fract(q);
     let edge = min(min(f.x, 1.0 - f.x), min(f.y, 1.0 - f.y)) * size;
-    let g = 1.0 - smoothstep(grout * 0.5, grout * 0.5 + 0.002, edge);
+    let g = patJoint(edge, grout * 0.5, size);
     let h = ihash21(vec2i(cell));
-    let crack = crackle2(p * 3.0 + h * 10.0, 0.02) * step(0.93, h);
+    let crack = crackle2(p * 3.0 + h * 10.0, 0.02) * step(0.93, h) * patClarity(0.3);
     o.tint = mix(vec3f(0.94 + h * 0.08) * (1.0 - crack * 0.4), vec3f(0.6, 0.6, 0.62), g);
     o.height = 1.0 - g;
     o.gloss = (1.0 - g) * glaze;
-    o.line = g;
+    o.line = g * patClarity(size);
     return o;
 }
 
@@ -123,14 +151,14 @@ fn patternPlanks(p: vec2f, width: f32, length: f32) -> PatternOut {
     let col = floor((p.x + off) / length);
     let fy = fract(p.y / width);
     let fx = fract((p.x + off) / length);
-    let seam = max(1.0 - smoothstep(0.0, 0.012 / width, min(fy, 1.0 - fy)), 1.0 - smoothstep(0.0, 0.006 / length, min(fx, 1.0 - fx)));
+    let seam = max(patJoint(min(fy, 1.0 - fy) * width, 0.006, width), patJoint(min(fx, 1.0 - fx) * length, 0.003, width));
     let h = ihash21(vec2i(i32(col), i32(row)));
     let grain = woodGrain(vec2f(p.x * 0.4, fy * width), h * 10.0);
     let tone = 0.78 + h * 0.3;
     o.tint = mix(vec3f(tone) * (0.85 + grain * 0.25), vec3f(0.35, 0.3, 0.27), seam);
     o.height = (1.0 - seam) * (0.9 + grain * 0.1);
     o.gloss = 0.15 * (1.0 - seam);
-    o.line = seam;
+    o.line = seam * patClarity(width);
     return o;
 }
 
@@ -152,7 +180,7 @@ fn patternShoji(p: vec2f, cell: vec2f, glow: vec3f) -> PatternOut {
     let q = p / cell;
     let f = fract(q);
     let bar = 0.035 / cell;
-    let frame = max(1.0 - step(bar.x, min(f.x, 1.0 - f.x)), 1.0 - step(bar.y, min(f.y, 1.0 - f.y)));
+    let frame = max(patJoint(min(f.x, 1.0 - f.x) * cell.x, 0.035, cell.x), patJoint(min(f.y, 1.0 - f.y) * cell.y, 0.035, cell.y));
     let fibres = paperGrain(p * 6.0);
     o.tint = mix(vec3f(0.98, 0.95, 0.86) * (0.92 + fibres * 0.1), vec3f(0.42, 0.3, 0.22), frame);
     o.emissive = glow * (1.0 - frame) * (0.85 + fibres * 0.15);
@@ -167,8 +195,8 @@ fn patternTatami(p: vec2f) -> PatternOut {
     let mat = vec2f(1.82, 0.91);
     let q = p / mat;
     let f = fract(q);
-    let border = 1.0 - step(0.05 / 0.91, min(f.y, 1.0 - f.y));
-    let weave = 0.5 + 0.5 * sin(p.x * 220.0) * (0.6 + 0.4 * sin(p.y * 40.0));
+    let border = patJoint(min(f.y, 1.0 - f.y) * mat.y, 0.05, mat.y);
+    let weave = patFine(0.5 + 0.5 * sin(p.x * 220.0) * (0.6 + 0.4 * sin(p.y * 40.0)), 0.5, 0.03);
     let h = ihash21(vec2i(floor(q)));
     o.tint = mix(vec3f(0.86 + h * 0.06, 0.88, 0.62) * (0.92 + weave * 0.1), vec3f(0.18, 0.2, 0.16), border);
     o.height = 1.0 - border * 0.5;
@@ -183,8 +211,8 @@ fn patternRoofTiles(p: vec2f, pitch: f32) -> PatternOut {
     let f = fract(col);
     let round = sqrt(max(1.0 - sqr(f * 2.0 - 1.0), 0.0));
     let row = fract(p.y / 0.32);
-    let lip = smoothstep(0.85, 0.95, row);
-    let gap = 1.0 - smoothstep(0.0, 0.08, min(f, 1.0 - f));
+    let lip = patFine(smoothstep(0.85, 0.95, row), 0.12, 0.32);
+    let gap = patJoint(min(f, 1.0 - f) * pitch, 0.012, pitch);
     let h = ihash21(vec2i(i32(floor(col)), i32(floor(p.y / 0.32))));
     o.tint = vec3f(0.85 + h * 0.15) * (0.75 + round * 0.3) * (1.0 - lip * 0.35) * (1.0 - gap * 0.6);
     o.height = round * (1.0 - lip * 0.5);
@@ -198,7 +226,7 @@ fn patternRoofTiles(p: vec2f, pitch: f32) -> PatternOut {
 fn patternAsphalt(p: vec2f, wet: f32) -> PatternOut {
     var o = patternDefault();
     let n = vfbm2(p * 0.7, 4);
-    let speck = step(0.86, valueNoise2(p * 38.0)) * 0.35;
+    let speck = patFine(step(0.86, valueNoise2(p * 38.0)), 0.06, 0.026) * 0.35;
     let cracks = crackle2(p * 0.6, 0.015) * smoothstep(0.55, 0.7, vfbm2(p * 0.3 + 4.0, 3));
     let repair = smoothstep(0.6, 0.62, vfbm2(p * 0.12 + 9.0, 3)) * 0.12;
     o.tint = vec3f(0.85 + n * 0.25 + speck - repair) * (1.0 - cracks * 0.5);
@@ -220,10 +248,10 @@ fn patternConcrete(p: vec2f, panel: f32) -> PatternOut {
     var o = patternDefault();
     let q = p / panel;
     let f = fract(q);
-    let joint = 1.0 - smoothstep(0.0, 0.008 / panel, min(min(f.x, 1.0 - f.x), min(f.y, 1.0 - f.y)));
+    let joint = patJoint(min(min(f.x, 1.0 - f.x), min(f.y, 1.0 - f.y)) * panel, 0.006, panel);
     let stains = vfbm2(p * vec2f(0.6, 0.25), 4);
     let drips = smoothstep(0.6, 0.85, valueNoise2(vec2f(p.x * 6.0, p.y * 0.3))) * smoothstep(0.0, 0.6, f.y);
-    let ties = step(length(fract(q * 3.0) - 0.5), 0.05) * 0.4;
+    let ties = patFine(step(length(fract(q * 3.0) - 0.5), 0.05), 0.03, panel / 3.0) * 0.4;
     o.tint = vec3f(0.92 + stains * 0.15 - drips * 0.1 - ties) * (1.0 - joint * 0.35);
     o.height = 0.6 + stains * 0.2 - joint * 0.5 - ties;
     o.line = joint * 0.7;
@@ -243,10 +271,10 @@ fn patternPlaster(p: vec2f) -> PatternOut {
 // corrugated / riveted metal (shutters, a vending machine's flanks, the train)
 fn patternMetalPanel(p: vec2f, corrugated: f32) -> PatternOut {
     var o = patternDefault();
-    let corr = 0.5 + 0.5 * sin(p.y * 40.0);
+    let corr = patFine(0.5 + 0.5 * sin(p.y * 40.0), 0.5, 0.16);
     let panel = fract(p / vec2f(1.2, 0.8));
-    let seam = 1.0 - smoothstep(0.0, 0.01, min(min(panel.x, 1.0 - panel.x), min(panel.y, 1.0 - panel.y)));
-    let rivet = 1.0 - smoothstep(0.008, 0.012, length(fract(p * vec2f(10.0, 1.25)) - 0.5) * 0.08);
+    let seam = patJoint(min(min(panel.x * 1.2, (1.0 - panel.x) * 1.2), min(panel.y * 0.8, (1.0 - panel.y) * 0.8)), 0.006, 0.8);
+    let rivet = patFine(1.0 - smoothstep(0.008, 0.012, length(fract(p * vec2f(10.0, 1.25)) - 0.5) * 0.08), 0.02, 0.1);
     let rust = smoothstep(0.62, 0.8, vfbm2(p * 0.9, 4));
     o.tint = mix(vec3f(0.9 + corr * corrugated * 0.15), vec3f(0.7, 0.42, 0.28), rust) * (1.0 - seam * 0.4);
     o.height = mix(0.5, corr, corrugated) + rivet * 0.3 - seam * 0.3;
@@ -260,8 +288,8 @@ fn patternMetalPanel(p: vec2f, corrugated: f32) -> PatternOut {
 fn patternGrass(p: vec2f) -> PatternOut {
     var o = patternDefault();
     let clumps = vfbm2(p * 0.5, 4);
-    let blades = valueNoise2(vec2f(p.x * 30.0, p.y * 30.0));
-    let flowers = step(0.94, valueNoise2(p * 6.0)) * step(0.6, clumps);
+    let blades = patFine(valueNoise2(vec2f(p.x * 30.0, p.y * 30.0)), 0.5, 0.033);
+    let flowers = patFine(step(0.94, valueNoise2(p * 6.0)), 0.03, 0.17) * step(0.6, clumps);
     o.tint = vec3f(0.8 + clumps * 0.35 + blades * 0.08);
     o.tint = mix(o.tint, vec3f(2.2, 2.0, 2.3), flowers);
     o.height = clumps;
@@ -271,7 +299,7 @@ fn patternGrass(p: vec2f) -> PatternOut {
 fn patternDirt(p: vec2f) -> PatternOut {
     var o = patternDefault();
     let n = vfbm2(p * 0.8, 4);
-    let pebbles = smoothstep(0.08, 0.02, worley2(p * 7.0, 1.0).f1) * 0.3;
+    let pebbles = patFine(smoothstep(0.08, 0.02, worley2(p * 7.0, 1.0).f1), 0.02, 0.14) * 0.3;
     o.tint = vec3f(0.85 + n * 0.25 + pebbles);
     o.height = n + pebbles;
     return o;
@@ -280,7 +308,7 @@ fn patternDirt(p: vec2f) -> PatternOut {
 fn patternSand(p: vec2f) -> PatternOut {
     var o = patternDefault();
     let ripples = 0.5 + 0.5 * sin(p.x * 6.0 + fbm2(p * 0.4, 3, 2.0, 0.5) * 6.0);
-    let n = valueNoise2(p * 25.0);
+    let n = patFine(valueNoise2(p * 25.0), 0.5, 0.04);
     o.tint = vec3f(0.92 + ripples * 0.1 + n * 0.05);
     o.height = ripples;
     return o;
@@ -289,9 +317,10 @@ fn patternSand(p: vec2f) -> PatternOut {
 fn patternGravel(p: vec2f) -> PatternOut {
     var o = patternDefault();
     let c = worley2(p * 14.0, 1.0);
-    let stone = smoothstep(0.02, 0.08, c.edge);
-    o.tint = mix(vec3f(0.55), vec3f(0.8 + c.id.x * 0.35), stone);
-    o.height = stone * (1.0 - c.f1);
+    let k = patClarity(1.0 / 14.0);
+    let stone = mix(0.85, smoothstep(0.02, 0.08 + gPatPx * 14.0, c.edge), k);
+    o.tint = mix(vec3f(0.55), vec3f(0.8 + mix(0.5, c.id.x, k) * 0.35), stone);
+    o.height = stone * (1.0 - c.f1) * k + 0.4 * (1.0 - k);
     return o;
 }
 

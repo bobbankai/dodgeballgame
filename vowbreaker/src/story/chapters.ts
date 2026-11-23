@@ -119,8 +119,10 @@ async function prologue(d: Director): Promise<void> {
   it.anim.play('walk', 0);
   it.face.set('cold');
   await d.card('PROLOGUE', 'The Bell That Didn\'t Ring', 'Shiomi · three years later', 2.8);
-  void d.walk('itsuki', 0, -1, 1.2);
+  // they arrive before anyone speaks (the shots frame them where they stand)
+  const arrive = Promise.all([d.walk('itsuki', 0, -1, 1.2)]);
   await establish(d, [-5, 1.6, -9], [-3, 1.9, -4], [0, 1.4, -2], 4.5);
+  await arrive;
   d.audio.sfx('bell');
   await talk(d, [
     ['itsuki', 'There it is again. A bell, where there isn\'t one.', 'cold', 'h'],
@@ -219,9 +221,10 @@ async function hakuro(d: Director): Promise<void> {
   d.place('mikami', 1, -16, 0);
   d.place('sayo', 0, 3, Math.PI);
   sy.anim.play('cast_raise', 0);
-  void d.walk('itsuki', -1, -4, 1.3);
-  void d.walk('mikami', 1, -4, 1.3);
+  // they arrive before anyone speaks (the shots frame them where they stand)
+  const arrive = Promise.all([d.walk('itsuki', -1, -4, 1.3), d.walk('mikami', 1, -4, 1.3)]);
   await establish(d, [-14, 6, -22], [-8, 4, -14], [0, 2, 0], 6);
+  await arrive;
   sy.anim.play('arms_crossed', 0.4);
   d.look('sayo', 'mikami');
   await talk(d, [
@@ -313,10 +316,10 @@ async function bride(d: Director): Promise<void> {
   d.place('itsuki', -1, -12, 0);
   d.place('sayo', 1, -12, 0);
   d.place('mikami', 0, -15, 0);
-  void d.walk('itsuki', -1, -5, 1.1);
-  void d.walk('sayo', 1.2, -5, 1.1);
-  void d.walk('mikami', 0, -9, 1.0);
+  // they arrive before anyone speaks (the shots frame them where they stand)
+  const arrive = Promise.all([d.walk('itsuki', -1, -5, 1.1), d.walk('sayo', 1.2, -5, 1.1), d.walk('mikami', 0, -9, 1.0)]);
   await establish(d, [10, 7, -18], [6, 4, -12], [0, 2, 4], 6);
+  await arrive;
   d.audio.sfx('toll');
   await talk(d, [
     ['itsuki', 'The bell\'s so loud here I can barely think.', 'fear'],
@@ -518,9 +521,10 @@ async function hina(d: Director): Promise<void> {
   sj.anim.play('stand', 0);
   hn.anim.play('stand', 0);
   hn.face.set('smile');
-  void d.walk('sojin_young', 0, 2, 0.9);
-  void d.walk('hina', 0.9, 2.5, 0.9);
+  // they arrive before anyone speaks (the shots frame them where they stand)
+  const arrive = Promise.all([d.walk('sojin_young', 0, 2, 0.9), d.walk('hina', 0.9, 2.5, 0.9)]);
   await establish(d, [-10, 5, -14], [-6, 3, -6], [0, 2.5, 4], 6);
+  await arrive;
   d.look('sojin_young', 'hina');
   d.look('hina', 'sojin_young');
   hn.anim.play('point', 0.3);
@@ -995,9 +999,10 @@ async function gravebrand(d: Director): Promise<void> {
   await d.actor('sayo');
   d.place('itsuki', -1, -10, 0);
   d.place('sayo', 1, -10, 0);
-  void d.walk('itsuki', -1, -4, 1.5);
-  void d.walk('sayo', 1, -4, 1.5);
+  // they arrive before anyone speaks (the shots frame them where they stand)
+  const arrive = Promise.all([d.walk('itsuki', -1, -4, 1.5), d.walk('sayo', 1, -4, 1.5)]);
   await establish(d, [-16, 3, -20], [-10, 8, -14], [0, 6, 20], 6);
+  await arrive;
   await talk(d, [
     ['sayo', 'The whole sky is bleeding.', 'fear'],
     ['itsuki', 'He\'s pulling every grief in Tokyo into that tower. I can hear all of them ringing.', 'fear'],
@@ -1192,8 +1197,10 @@ async function spring(d: Director): Promise<void> {
   await open(d, 'graves', 'EPILOGUE', 'Spring', 'the hill above Shiomi', 'calm');
   const it = await d.actor('itsuki');
   d.place('itsuki', 0, -4, 0);
-  void d.walk('itsuki', 0, 0.8, 0.9, 'walk_sad');
+  // they arrive before anyone speaks (the shots frame them where they stand)
+  const arrive = Promise.all([d.walk('itsuki', 0, 0.8, 0.9, 'walk_sad')]);
   await establish(d, [-12, 4, -14], [-6, 2.5, -6], [0, 1.4, 3], 6);
+  await arrive;
   it.anim.play('stand', 0.3);
   d.look('itsuki', [3.5, 2.5]);
   await talk(d, [

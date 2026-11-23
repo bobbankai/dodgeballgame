@@ -130,7 +130,9 @@ export class Effects implements CombatFx {
   inkBurst(at: Vector3, color: RGB, strength = 1, count = 6): void {
     const sp = this.screenPos(at);
     if (sp.x < -0.2 || sp.x > 1.2 || sp.y < -0.2 || sp.y > 1.2) return;
-    this.fluid.burst(sp.x, sp.y, color, count, 0.5 * strength, 0.05 + 0.04 * strength);
+    // a burst far away is a smaller splash on the screen
+    const near = Math.min(1, Math.max(0.35, 5 / Math.max(0.5, Vector3.Distance(this.r.camera.position, at))));
+    this.fluid.burst(sp.x, sp.y, color, count, 0.5 * strength, (0.05 + 0.04 * strength) * near);
   }
 
   private pal(f: Fighter) {

@@ -65,6 +65,8 @@ export class Director {
   /** characters the director animates (those not in a fight) */
   private walking = new Map<string, number>();
   autoTest = false;
+  /** with autoTest: the stand-in player fights at normal strength (a skilled player's pace) */
+  autoFair = false;
   /** set by Game: retry policy when the player loses */
   onLose: (() => Promise<'retry' | 'quit'>) | null = null;
   quit = false;
@@ -537,9 +539,11 @@ export class Director {
   private autoFight(f: Fight): void {
     void import('../game/AI').then(({ AI, PROFILES }) => {
       const ai = new AI(f.player, PROFILES.master);
-      ai.difficulty = 1.5;
-      f.player.power = 3;
-      f.player.defense = 0.3;
+      ai.difficulty = this.autoFair ? 1.0 : 1.5;
+      if (!this.autoFair) {
+        f.player.power = 3;
+        f.player.defense = 0.3;
+      }
       f.autopilot = ai;
     });
   }

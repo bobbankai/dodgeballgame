@@ -136,7 +136,7 @@ fn detailStone(p: vec3f, n: vec3f, ao: f32, age: f32) -> Detail {
     let li = spots(p.xz * 2.0 + p.yy * 1.3, 3.0, 0.3) * age;
     d.tint = mix(d.tint, vec3f(0.8, 0.85, 0.72), li * 0.6);
     // weathered softening: a slight grain
-    d.height = d.height + (valueNoise3(p * 30.0) - 0.5) * 0.06;
+    d.height = d.height + (valueNoise3(p * 30.0) - 0.5) * 0.06 * patClarity(0.033);
     return d;
 }
 
@@ -218,7 +218,8 @@ fn detailLitter(p: vec3f, n: vec3f, ao: f32, season: f32, amount: f32) -> Detail
     let corner = 1.0 - smoothstep(0.35, 0.75, ao);
     let cell = worley2(p.xz * 9.0, 1.0);
     let drift = smoothstep(0.45, 0.7, vfbm2(p.xz * 0.35, 3));
-    let leaf = (1.0 - smoothstep(0.07, 0.11, cell.f1)) * step(0.93 - corner * 0.45 - drift * 0.25, cell.id.x) * amount;
+    // (fading out far off, where single leaves would only sparkle)
+    let leaf = (1.0 - smoothstep(0.07, 0.11, cell.f1)) * step(0.93 - corner * 0.45 - drift * 0.25, cell.id.x) * amount * patClarity(0.11);
     // season: 0 spring (pink petals), 0.5 summer (green), 1 autumn (amber)
     let spring = vec3f(0.98, 0.75, 0.82);
     let summer = vec3f(0.35, 0.55, 0.25);
