@@ -4,6 +4,8 @@ import { installHeadlessShim, presentHeadless } from './core/headlessShim';
 import { Renderer } from './render/Renderer';
 import { skyMaterial, toonMaterial } from './render/materials';
 import { CharacterModel } from './game/CharacterModel';
+import { AnimLibrary, Animator } from './game/Animator';
+import { Procedural } from './game/Procedural';
 import { shaderStats } from './render/shaderRegistry';
 
 const params = new URLSearchParams(location.search);
@@ -29,8 +31,13 @@ async function viewer(r: Renderer): Promise<(dt: number, t: number) => void> {
   const ch = await CharacterModel.load(r, name, { face: { eyeStyle: 0 } });
   ch.face.snap(params.get('expr') ?? 'neutral');
   r.shadowCenter.set(0, 1, 0);
-  (window as any).__char = ch;
-  return (dt, t) => { ch.face.update(dt, t); };
+  const lib = await AnimLibrary.load(scene);
+  const animator = new Animator(ch, lib);
+  const proc = new Procedural(ch);
+  const clip = params.get('anim') ?? 'guard';
+  animator.play(clip, { loop: true, fade: 0 });
+  Object.assign(window as any, { __char: ch, __anim: animator, __proc: proc, __lib: lib });
+  return (dt, t) => { animator.update(dt); proc.update(dt); ch.face.update(dt, t); };
 }
 
 async function boot(): Promise<void> {

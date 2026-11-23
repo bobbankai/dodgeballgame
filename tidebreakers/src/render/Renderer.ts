@@ -139,7 +139,7 @@ export class Renderer {
       this.shadowCams.push(cam);
     }
     this.scene.activeCameras = null;
-    this.globals.set('shadowParams', 1 / sizes[0], 0.0015, 0.04, 1);
+    this.globals.set('shadowParams', 1 / sizes[0], 0.0008, 0.012, 1);
   }
 
   get shadowTextures(): [BaseTexture, BaseTexture] { return [this.shadowRT[0], this.shadowRT[1]]; }

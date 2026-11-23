@@ -36,6 +36,8 @@ const DEFAULT_FACE: FaceStyle = {
 
 export class CharacterModel {
   root!: TransformNode;
+  /** game-controlled node: position/rotation of the character in the world */
+  anchor!: TransformNode;
   mesh!: Mesh;
   outline!: Mesh;
   skeleton!: Skeleton;
@@ -97,6 +99,12 @@ export class CharacterModel {
       lod1.material = multi;
       skinned.addLODLevel(look.lodDistance ?? 14, lod1);
     }
+    // ground the model: its lowest rest-pose point sits on y = 0 of the anchor node
+    skinned.refreshBoundingInfo({ applySkeleton: true });
+    const minY = skinned.getBoundingInfo().boundingBox.minimumWorld.y;
+    c.root.position.y -= minY;
+    c.anchor = new TransformNode(`${name}-anchor`, r.scene);
+    c.root.parent = c.anchor;
     r.addCaster(skinned);
     c.face = new Face([c.mat], { ...DEFAULT_FACE, ...look.face });
     return c;
@@ -110,6 +118,6 @@ export class CharacterModel {
 
   dispose(): void {
     this.r.removeCaster(this.mesh);
-    this.root.dispose(false, true);
+    this.anchor.dispose(false, true);
   }
 }
