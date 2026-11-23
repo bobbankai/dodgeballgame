@@ -3,15 +3,15 @@ stage 2 parametric blockout
 stage 3 cage: 1706 verts, 1704 quads, non-manifold edges 0
 stage 4 subdivided x1 + projected: 6818 verts
 stage 5 relaxed: non-manifold 0, surface deviation mean 0.00 mm max 0.3 mm
-  garment shirt: 2045 quads extracted
-  garment waistcoat: 1096 quads extracted
-  garment trousers: 1439 quads extracted
-  garment boots: 832 quads extracted
-  garment belt: 48 quads extracted
+  garment shirt: 2045 quads extracted, 8180 after refinement
+  garment waistcoat: 1096 quads extracted, 4384 after refinement
+  garment trousers: 1439 quads extracted, 5756 after refinement
+  garment boots: 832 quads extracted, 3328 after refinement
+  garment belt: 48 quads extracted, 192 after refinement
   skin after culling hidden faces: 2700 of 6816 quads
   !! piece beltbuckle: max distance from body 0.121 after solidify
   !! piece tophat: max distance from body 0.162 after solidify
 stage 6 materials (albedo, class, AO, face UVs) + stage 7 weights
-rig: 51 deform bones; mesh 14944 verts, 29640 tris
-stage 10 LOD1: 13338 tris (LOD0 29640)
-exported /home/user/dodgeballgame/tidebreakers/tools/blender/../../public/assets/chars/gorrick.glb (1713 KB) in 22s
+rig: 51 deform bones; mesh 22265 verts, 44282 tris
+stage 10 LOD1: 19926 tris (LOD0 44282)
+exported /home/user/dodgeballgame/tidebreakers/tools/blender/../../public/assets/chars/gorrick.glb (2542 KB) in 29s

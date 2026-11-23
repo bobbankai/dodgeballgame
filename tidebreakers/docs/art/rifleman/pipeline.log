@@ -3,14 +3,14 @@ stage 2 parametric blockout
 stage 3 cage: 1706 verts, 1704 quads, non-manifold edges 0
 stage 4 subdivided x1 + projected: 6818 verts
 stage 5 relaxed: non-manifold 0, surface deviation mean 0.01 mm max 9.8 mm
-  garment tunic: 1888 quads extracted
-  garment undershirt: 977 quads extracted
-  garment trousers: 1222 quads extracted
-  garment boots: 1120 quads extracted
-  garment belt: 48 quads extracted
+  garment tunic: 1888 quads extracted, 7552 after refinement
+  garment undershirt: 977 quads extracted, 3908 after refinement
+  garment trousers: 1222 quads extracted, 4888 after refinement
+  garment boots: 1120 quads extracted, 4480 after refinement
+  garment belt: 48 quads extracted, 192 after refinement
   skin after culling hidden faces: 2784 of 6816 quads
   !! piece shako: max distance from body 0.147 after solidify
 stage 6 materials (albedo, class, AO, face UVs) + stage 7 weights
-rig: 51 deform bones; mesh 14673 verts, 29164 tris
-stage 10 LOD1: 13120 tris (LOD0 29164)
-exported /home/user/dodgeballgame/tidebreakers/tools/blender/../../public/assets/chars/rifleman.glb (1682 KB) in 22s
+rig: 51 deform bones; mesh 21714 verts, 43246 tris
+stage 10 LOD1: 19460 tris (LOD0 43246)
+exported /home/user/dodgeballgame/tidebreakers/tools/blender/../../public/assets/chars/rifleman.glb (2480 KB) in 32s
