@@ -27,6 +27,7 @@ export interface CharacterLook {
   outline?: number;
   ink?: string;
   tint?: [number, number, number];
+  lodDistance?: number;
 }
 
 const DEFAULT_FACE: FaceStyle = {
@@ -56,7 +57,9 @@ export class CharacterModel {
     c.root.name = `${name}`;
     for (const g of inst.animationGroups) g.dispose();
     const meshes = c.root.getChildMeshes(false) as AbstractMesh[];
-    const skinned = meshes.find((m) => m.skeleton) as Mesh;
+    const skinnedAll = meshes.filter((m) => m.skeleton) as Mesh[];
+    const skinned = skinnedAll.find((m) => !m.name.endsWith('_LOD1')) ?? skinnedAll[0];
+    const lod1 = skinnedAll.find((m) => m.name.endsWith('_LOD1'));
     c.mesh = skinned;
     c.skeleton = skinned.skeleton!;
     fixSkinIndices(skinned);
@@ -84,6 +87,16 @@ export class CharacterModel {
     skinned.material = multi;
     skinned.alwaysSelectAsActiveMesh = true;
     c.outline = skinned;
+    if (lod1) {
+      fixSkinIndices(lod1);
+      lod1.hasVertexAlpha = false;
+      const lv = lod1.getTotalVertices(), li = lod1.getTotalIndices();
+      lod1.subMeshes = [];
+      new SubMesh(0, 0, lv, 0, li, lod1);
+      new SubMesh(1, 0, lv, 0, li, lod1);
+      lod1.material = multi;
+      skinned.addLODLevel(look.lodDistance ?? 14, lod1);
+    }
     r.addCaster(skinned);
     c.face = new Face([c.mat], { ...DEFAULT_FACE, ...look.face });
     return c;

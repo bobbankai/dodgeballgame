@@ -233,8 +233,12 @@ def kai():
     parts = []
     # hair clumps (polygon strips)
     clumps = []
-    for th, ph, L, w in ((-34, 50, 0.1, 0.026), (-17, 55, 0.115, 0.028), (0, 57, 0.12, 0.028), (17, 55, 0.115, 0.028), (34, 50, 0.1, 0.026)):
-        clumps.append((th, ph, L, w, v(math.sin(math.radians(th)) * 0.7, -0.75, -1.0), dict(curl=0.5, droop=0.2, lift=0.012)))
+    # fringe: two layers of uneven, fanned clumps sweeping across the headband (not a row of equal spikes)
+    for th, ph, L, w, sweep, tw in ((-40, 52, 0.105, 0.03, -0.55, 0.3), (-22, 58, 0.14, 0.034, -0.35, 0.2), (-6, 61, 0.125, 0.032, 0.25, -0.2),
+                                     (10, 60, 0.15, 0.036, 0.45, -0.3), (28, 56, 0.11, 0.03, 0.65, -0.2), (44, 50, 0.09, 0.026, 0.9, 0.0)):
+        clumps.append((th, ph, L, w, v(sweep, -0.55, -1.0), dict(curl=0.25, droop=0.35, lift=0.014, twist=tw, thick=0.4)))
+    for th, ph, L, w, sweep in ((-30, 66, 0.12, 0.034, -0.4), (2, 68, 0.13, 0.036, 0.15), (30, 64, 0.115, 0.032, 0.5)):
+        clumps.append((th, ph, L, w, v(sweep, -0.35, -0.75), dict(curl=0.3, droop=0.25, lift=0.018, thick=0.42)))
     for th, ph, L, w in ((-60, 68, 0.17, 0.036), (-25, 80, 0.2, 0.04), (12, 82, 0.21, 0.04), (45, 72, 0.18, 0.038), (-5, 62, 0.16, 0.036), (75, 60, 0.15, 0.034), (-85, 60, 0.15, 0.034)):
         clumps.append((th, ph, L, w, v(math.sin(math.radians(th)) * 0.7, 0.8, 0.95), dict(curl=0.12, lift=0.012)))
     for sx in (1, -1):

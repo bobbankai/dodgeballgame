@@ -47,15 +47,15 @@ fn fresnel(n: vec3f, v: vec3f, p: f32) -> f32 { return pow(1.0 - saturate(dot(n,
 
 // Stylised highlight shapes -------------------------------------------------------------------------
 fn hairRing(n: vec3f, v: vec3f, l: vec3f, pos: vec3f) -> f32 {
-  // A band around the head where the half vector meets the normal, broken into jagged strands.
-  let h = normalize(l + v);
-  let up = vec3f(0.0, 1.0, 0.0);
-  let t = normalize(cross(n, normalize(cross(up, n) + vec3f(1e-4, 0.0, 0.0))));
-  let th = dot(t, h);
-  let sinth = sqrt(max(1.0 - th * th, 0.0));
-  let strand = 0.65 + 0.35 * sin(pos.x * 160.0 + pos.z * 140.0 + pos.y * 30.0);
-  let spec = pow(sinth, 60.0) * strand;
-  return smoothstep(0.35, 0.55, spec);
+  // The anime "angel ring": a band where the hair surface tilts up toward the viewer, with jagged,
+  // strand-like edges. Depends on the normal's elevation, not on blobs of specular.
+  let up = n.y;
+  let facing = saturate(dot(n, v));
+  let jag = 0.07 * sin(pos.x * 95.0 + pos.z * 75.0) + 0.04 * sin(pos.x * 230.0 - pos.z * 170.0 + pos.y * 40.0);
+  let lo = 0.38 + jag;
+  let band = smoothstep(lo, lo + 0.06, up) * (1.0 - smoothstep(lo + 0.24, lo + 0.3, up));
+  let side = saturate(dot(normalize(vec3f(n.x, 0.0, n.z) + vec3f(1e-4)), normalize(vec3f(v.x, 0.0, v.z) + vec3f(1e-4))));
+  return band * smoothstep(0.15, 0.6, facing) * smoothstep(0.2, 0.7, side);
 }
 
 fn hardSpec(n: vec3f, v: vec3f, l: vec3f, power: f32, cut: f32) -> f32 {
@@ -104,7 +104,7 @@ fn toonShade(s: ToonInput) -> vec3f {
   // stylised highlights
   let v = s.v;
   if (s.cls == CLS_HAIR) {
-    col = col + mix(s.albedo, vec3f(0.6, 0.75, 0.95), 0.55) * hairRing(s.n, v, l, s.pos) * lit * 0.55;
+    col = col + mix(s.albedo * 2.5 + 0.08, globals.skyColor.rgb * 0.6, 0.35) * hairRing(s.n, v, l, s.pos) * mix(0.45, 1.0, lit);
   } else if (s.cls == CLS_METAL) {
     let r = reflect(-v, s.n);
     let env = mix(globals.groundColor.rgb * 0.6, globals.skyColor.rgb * 1.6, smoothstep(-0.15, 0.25, r.y));

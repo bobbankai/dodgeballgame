@@ -177,8 +177,11 @@ def build(spec, out_glb, art, renders=True):
         _render(art, '05_topology_face', face_tgt, 0.75 * fa['u'], views=[('front', 0, 3), ('q3', 38, 6)])
         _clear_objects()
 
+    # stage 7 (part 1): skin weights on the refined body; garments inherit them from their source vertices
+    bnames, W_body = skin.body_weights(sk, body.parts, Vs)
+    W_body = pc.smooth_weights(W_body, Fs, iters=2, amount=0.45)
     # garments by extract & inflate
-    pieces = []   # (name, V, F, color, cls, weights, paint)
+    pieces = []   # (name, V, F, color, cls, weights, paint, thickness, W)
     covered = np.zeros(len(Fs), bool)
     C = pc.face_centers(Vs, Fs)
     for g in spec.garments:
@@ -204,7 +207,7 @@ def build(spec, out_glb, art, renders=True):
             if g.region:
                 inside &= g.region(C)
             covered |= inside
-        pieces.append((g.name, Vg, Fg, g.color, g.cls, g.weights, g.paint, g.thickness))
+        pieces.append((g.name, Vg, Fg, g.color, g.cls, g.weights, g.paint, g.thickness, W_body[src] if g.weights == 'body' else None))
         log(f'  garment {g.name}: {len(Fg)} quads extracted')
     # skin minus covered faces (keep a rim so there are no gaps)
     keep = np.nonzero(~covered)[0]
@@ -214,18 +217,20 @@ def build(spec, out_glb, art, renders=True):
     Vk = Vs[used]
     Fk = [tuple(remap[v] for v in f) for f in Fk]
     log(f'  skin after culling hidden faces: {len(Fk)} of {len(Fs)} quads')
-    pieces.insert(0, ('skin', Vk, Fk, spec.skin_color, 'skin', 'body', spec.skin_paint, 0))
+    pieces.insert(0, ('skin', Vk, Fk, spec.skin_color, 'skin', 'body', spec.skin_paint, 0, W_body[used]))
     for p in spec.parts:
         Vp, Fp = p.V, p.F
-        pieces.append((p.name, Vp, Fp, p.color, p.cls, p.weights, p.paint, 0))
+        pieces.append((p.name, Vp, Fp, p.color, p.cls, p.weights, p.paint, 0, None))
 
     # 6 materials, 7 rigging
     ao_field = Union([full] + [Intersect([g.base, g.cut]) for g in spec.garments] + [p.field for p in spec.parts if p.field is not None])
     arm = build_armature(sk)
     objs = []
-    for name, Vp, Fp, color, cls, weights, paint, thick in pieces:
+    for name, Vp, Fp, color, cls, weights, paint, thick, Wsrc in pieces:
         if thick and thick > 0:
             Vp, Fp = pc.shell(Vp, Fp, thick)
+            if Wsrc is not None:
+                Wsrc = np.concatenate([Wsrc, Wsrc])
         ob = _make(f'{spec.name}_{name}', Vp, Fp)
         Vp2, F2 = pc.mesh_to_arrays(ob)
         fd = float(np.abs(full.eval(Vp2)).max())
@@ -248,10 +253,23 @@ def build(spec, out_glb, art, renders=True):
         else:
             mask = np.zeros(len(Vp2))
         bl.set_colors(me, np.concatenate([col, mask[:, None]], 1))
+        if name == 'skin':
+            # anime face shading: blend face normals toward an egg-shaped head normal so light reads as
+            # clean shapes (no nose/eye-socket shadow blotches)
+            hc = fa['cranium'] + np.array([0, 0.02, -0.03]) * u
+            hn = (Vp2 - hc) / (np.array([0.095, 0.11, 0.13]) * u) ** 2
+            hn /= np.maximum(np.linalg.norm(hn, axis=1), 1e-9)[:, None]
+            on_head = np.clip((Vp2[:, 2] - (fa['chin'] - 0.005)) / (0.03 * u), 0, 1)
+            wgt = (np.clip(mask * 1.6, 0, 1) * 0.85 + 0.25 * on_head * (mask < 0.05))[:, None] * on_head[:, None]
+            Ns = N * (1 - wgt) + hn * wgt
+            Ns /= np.maximum(np.linalg.norm(Ns, axis=1), 1e-9)[:, None]
+            me.normals_split_custom_set_from_vertices([tuple(x) for x in Ns])
         _set_uv(me, 'UVMap', np.stack([Vp2[:, 0] / u, (Vp2[:, 2] - fa['chin']) / u], 1))
         _set_uv(me, 'UV1', np.stack([ao, np.full(len(Vp2), CLS[cls] / 10.0)], 1))
         # weights
-        if weights == 'body':
+        if Wsrc is not None and len(Wsrc) == len(Vp2):
+            bn, W = bnames, Wsrc.copy()
+        elif weights == 'body':
             bn, W = skin.body_weights(sk, body.parts, Vp2)
             W = pc.smooth_weights(W, F2, iters=2, amount=0.45)
         elif weights[0] == 'rigid':
