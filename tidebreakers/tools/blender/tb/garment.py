@@ -81,6 +81,10 @@ def scalp_point(anchor, theta, phi, rad_scale=1.0, lift=0.0):
 
 
 def clump(anchor, theta, phi, length, width, direction, curl=0.0, thick=0.45, twist=0.0, steps=7, lift=0.004, droop=0.0):
+    return FlatTube(*clump_data(anchor, theta, phi, length, width, direction, curl, thick, twist, steps, lift, droop))
+
+
+def clump_data(anchor, theta, phi, length, width, direction, curl=0.0, thick=0.45, twist=0.0, steps=7, lift=0.004, droop=0.0):
     """One anime hair clump: rooted on the scalp, heading in `direction` (world vector, blended with the
     scalp normal), tapering to a point. curl bends it around the scalp normal; droop pulls it down."""
     u = anchor['u']
@@ -106,7 +110,7 @@ def clump(anchor, theta, phi, length, width, direction, curl=0.0, thick=0.45, tw
         # advance: curl toward the scalp normal's opposite (hugging the head) and droop under gravity
         cur = norm(cur - n * curl * 0.35 + v(0, 0, -1) * droop * 0.25)
         p = p + cur * seg
-    return FlatTube(np.array(pts), np.array(ws), np.array(ts), np.array(ns))
+    return np.array(pts), np.array(ws), np.array(ts), np.array(ns)
 
 
 def hair_cap(body, thickness=0.012, front=0.14, sides=0.10, back=0.03, k=0.006):
@@ -123,9 +127,9 @@ def hair_cap(body, thickness=0.012, front=0.14, sides=0.10, back=0.03, k=0.006):
         rel = p - a['cranium']
         ang = np.arctan2(rel[:, 0], -rel[:, 1])  # 0 front, +-pi back
         c = np.abs(ang) / math.pi
-        a = np.clip(c / 0.5, 0, 1)
-        b = np.clip((c - 0.5) / 0.5, 0, 1)
-        h = np.where(c < 0.5, front + (sides - front) * a ** 1.5, sides + (back - sides) * b ** 0.8)
+        ta = np.clip(c / 0.5, 0, 1)
+        tb = np.clip((c - 0.5) / 0.5, 0, 1)
+        h = np.where(c < 0.5, front + (sides - front) * ta ** 1.5, sides + (back - sides) * tb ** 0.8)
         return (chin + h * u) - p[:, 2]
     hl = Func(hairline)
     return Intersect([cap, hl], k * u)

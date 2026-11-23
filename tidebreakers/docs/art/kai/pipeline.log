@@ -1,0 +1,25 @@
+stage 1 reference analysis written
+stage 2 parametric blockout
+stage 3 cage: 1706 verts, 1704 quads, non-manifold edges 0
+stage 4 subdivided x1 + projected: 6818 verts
+stage 5 relaxed: non-manifold 0, surface deviation mean 0.00 mm max 0.1 mm
+  garment tank: 951 quads extracted
+  garment jacket: 830 quads extracted
+  garment collar: 6 quads extracted
+  garment pants: 1328 quads extracted
+  garment cuffs: 48 quads extracted
+  garment sash: 96 quads extracted
+  garment wrapL: 120 quads extracted
+  garment wrapR: 120 quads extracted
+  garment headband: 128 quads extracted
+  garment haircap: 662 quads extracted
+  garment soleL: 84 quads extracted
+  garment soleR: 84 quads extracted
+  skin after culling hidden faces: 3496 of 6816 quads
+  !! piece hair: max distance from body 0.169 after solidify
+  !! piece bandL: max distance from body 0.140 after solidify
+  !! piece bandR: max distance from body 0.138 after solidify
+stage 6 materials (albedo, class, AO, face UVs) + stage 7 weights
+rig: 62 deform bones; mesh 15091 verts, 29500 tris
+stage 10 LOD1: 13273 tris (LOD0 29500)
+exported /home/user/dodgeballgame/tidebreakers/tools/blender/../../public/assets/chars/kai.glb (1736 KB) in 22s
