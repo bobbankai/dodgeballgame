@@ -326,7 +326,7 @@ export abstract class Level {
     if (this.flash > 0) {
       this.flash = Math.max(0, this.flash - dt * 3.5);
       const f = this.flash > 0.7 || (this.flash > 0.3 && this.flash < 0.45) ? this.flash : this.flash * 0.3;
-      this.r.globals.set('flash', 0.8 * f, 0.85 * f, 1.0 * f, f);
+      this.r.globals.set('flash', 0.42 * f, 0.46 * f, 0.6 * f, f);
     }
   }
 
@@ -372,6 +372,7 @@ export abstract class Level {
 
   dispose(): void {
     this.dir.stop();
+    this.r.clearSky();
     this.terrain?.dispose();
     this.sea?.dispose();
     this.grass?.dispose();

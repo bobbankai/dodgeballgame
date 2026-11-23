@@ -39,11 +39,11 @@ function mask(x: number, z: number, h: number): [number, number, number, number]
 export const ASHPORT_LOOK: LookDef = {
   sun: [0.75, 0.22, -0.4], sunIntensity: 0.95, sunColor: [1.0, 0.62, 0.36],
   sky: { zenith: '#4a3a5a', horizon: '#f08a4a', glow: '#ff7a3a', cloudLit: '#ffb27a', cloudShade: '#8a5a62', cover: 0.55, cloudHeight: 0.9, sunSize: 0.004, stars: 0, moon: false },
-  skyColor: [0.6, 0.45, 0.45], groundColor: [0.35, 0.22, 0.16], shadowTint: [0.45, 0.32, 0.6, 0.38], rim: [1.0, 0.65, 0.4, 0.8],
-  fog: [0.72, 0.44, 0.3, 0.0065], fogParams: [0.035, 0, 26, 0.9],
+  skyColor: [0.5, 0.38, 0.42], groundColor: [0.3, 0.19, 0.14], shadowTint: [0.36, 0.26, 0.58, 0.5], rim: [1.0, 0.65, 0.4, 0.8],
+  fog: [0.62, 0.38, 0.28, 0.0042], fogParams: [0.04, 0, 30, 0.9],
   sea: { color: [0.06, 0.07, 0.1, 0.5], shallow: [0.22, 0.2, 0.18, 0.6], level: 0, amp: 0.5, chop: 0.8, storm: 0 },
-  grade: [1.0, 0.95, 1.06, 0.7], wind: [0.6, 0, 0.2],
-  fx: { bloom: 0.45, vignette: 0.38, grain: 0.2, gain: [1.06, 0.95, 0.86], lift: [0.02, 0.0, 0.02] },
+  grade: [0.98, 1.02, 1.16, 0.35], wind: [0.6, 0, 0.2],
+  fx: { bloom: 0.45, vignette: 0.4, grain: 0.2, gain: [1.04, 0.97, 0.9], lift: [0.0, 0.0, 0.015] },
 };
 
 export class Ashport extends Level {

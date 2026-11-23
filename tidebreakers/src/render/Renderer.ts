@@ -251,6 +251,11 @@ export class Renderer {
     try { localStorage.setItem('tidebreakers.quality', q); } catch { /* */ }
   }
 
+  /** Hides the sky dome (between levels, before its material is disposed). */
+  clearSky(): void {
+    if (this.skyMesh) this.skyMesh.setEnabled(false);
+  }
+
   setSky(mat: ShaderMaterial): Mesh {
     if (!this.skyMesh) {
       this.skyMesh = MeshBuilder.CreateSphere('sky', { diameter: 2, segments: 32, sideOrientation: Mesh.BACKSIDE }, this.scene);
@@ -259,6 +264,7 @@ export class Renderer {
       this.skyMesh.alwaysSelectAsActiveMesh = true;
     }
     this.skyMesh.material = mat;
+    this.skyMesh.setEnabled(true);
     return this.skyMesh;
   }
 
