@@ -72,6 +72,8 @@ export class Fighter {
   slowTimer = 0;
   armor = 0;
   target: Fighter | null = null;
+  /** seconds until this fighter next looks round for a nearer foe (Combat) */
+  retargetT = 0;
   team: number;
   alive = true;
   /** hurtbox */
@@ -421,7 +423,15 @@ export class Fighter {
     if (ph !== 'recovery' && m.lunge) {
       const f = this.facing();
       const close = t ? this.distanceTo(t) < (this.radius + t.radius + 0.25) : false;
-      const sp = close ? 0 : m.lunge * (ph === 'startup' ? 0.6 : 1);
+      let sp = close ? 0 : m.lunge * (ph === 'startup' ? 0.6 : 1);
+      // attack magnetism for the player's side: a strike started within a couple of steps of its
+      // target carries the fighter in to meet it (a jab's own lunge covers ~0.3 m, so anything thrown
+      // from further off whiffed)
+      if (!close && t && t.alive && this.team === 0 && m.kind === 'strike' && !m.air) {
+        const gap = this.distanceTo(t) - (this.radius + t.radius + 0.2);
+        const left = Math.max(0.06, m.startup + m.active * 0.5 - this.moveTime);
+        if (gap > 0 && gap < 2.4) sp = Math.max(sp, Math.min(14, gap / left));
+      }
       this.vel.x = f.x * sp;
       this.vel.z = f.z * sp;
     } else if (this.grounded) {

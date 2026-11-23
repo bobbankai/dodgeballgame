@@ -121,8 +121,8 @@ export class AI {
     }
     const range = p.range * (f.ch.root.scaling.y);
     if (!hasToken) {
-      // circle at a distance, waiting for a turn
-      const want = dist < 4.5 ? toT.scale(-0.5) : dist > 6 ? toT : Vector3.Zero();
+      // circle close by, waiting for a turn (near enough to be hit, not so near they crowd in)
+      const want = dist < 3 ? toT.scale(-0.5) : dist > 4.8 ? toT : Vector3.Zero();
       c.move.copyFrom(want.add(side.scale(this.strafeDir * 0.7)));
       if (c.move.length() > 1) c.move.normalize();
       return;

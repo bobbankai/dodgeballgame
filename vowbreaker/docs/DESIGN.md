@@ -114,3 +114,19 @@ freely in 3D relative to the opponent (lock-on).
   heads, polar-mesh eyes, skull-hugging hair locks, lofted clothing, hands, shoes, rig, weights),
   `vbcast.py` (the fourteen character specs), `vbanim.py` + `anims.py` (pose library keyed with a
   shape-preserving cubic), `stages.py`.
+
+## Testing headless
+
+The container has no GPU: tests run Chromium's WebGPU on SwiftShader (software Vulkan), about ten
+seconds a frame at 960x540. Chrome's GPU watchdog kills a GPU process that stalls that long, which
+showed up as random "Target crashed" errors; the tools pass `--disable-gpu-watchdog`.
+
+* `node tools/play.mjs '<url>?test&duel=itsuki,sayo&stage=academy' <outDir> '<steps json>'` steps the
+  game deterministically and takes screenshots (`{t, eval, render, shot}`; `eval` runs before the step).
+  Fights start after an intro whose length depends on real time: poll `!!__game.director.fight`.
+* `node tools/storyrun.mjs '<url>?test&auto' <outDir> [maxGameSeconds] [fromChapter]` plays the whole
+  story (a stand-in AI fights for the player), screenshots every 20 s of game time, logs each fight's
+  and chapter's length and every page error, and restarts at the current chapter if the browser dies.
+  Run it against a production build (`npx vite build --outDir <dir>`, served statically).
+  `?auto=fair` plays at a person's pace (normal-strength fights, lines held long enough to read):
+  that is the run that measures the story's length.

@@ -52,8 +52,11 @@ export class Fight {
   fighters: Fighter[] = [];
   player!: Fighter;
   private ais: AI[] = [];
-  private tokens = new Tokens(2);
+  /** grunts take turns: one attacks at a time against a lone fighter, two when the player has an ally */
+  private tokens = new Tokens(1);
   private waveIdx = 0;
+  /** a wave is still loading: its fighters aren't in the fight yet, so the field only looks clear */
+  private waveLoading = false;
   time = 0;
   result: FightResult | null = null;
   private endT = 0;
@@ -80,6 +83,7 @@ export class Fight {
   async setup(): Promise<void> {
     for (const s of this.spec.fighters) await this.spawn(s);
     this.player = this.fighters.find((f) => f.id === this.spec.player)!;
+    this.tokens.max = this.spec.fighters.filter((s) => s.team === 0).length > 1 ? 2 : 1;
     this.fx.player = this.player;
     this.cam.player = { pos: this.player.pos, height: this.player.height };
     this.hud.bindTechs(this.player);
@@ -232,10 +236,20 @@ export class Fight {
     }
     // waves
     const foes = this.fighters.filter((f) => f.team !== this.player.team);
-    if (foes.every((f) => !f.alive) && this.spec.waves && this.waveIdx < this.spec.waves.length) {
+    if (!this.waveLoading && foes.every((f) => !f.alive) && this.spec.waves && this.waveIdx < this.spec.waves.length) {
       const wave = this.spec.waves[this.waveIdx++];
-      void Promise.all(wave.map((s) => this.spawn(s)));
+      this.waveLoading = true;
+      void Promise.all(wave.map((s) => this.spawn(s))).finally(() => {
+        this.waveLoading = false;
+      });
       this.hud.banner(`WAVE ${this.waveIdx + 1}`, '', '', 1);
+      // a breath between waves: back a quarter of the health bar and some energy (one bar against
+      // every wave was a wall)
+      for (const f of this.fighters) {
+        if (f.team !== this.player.team || !f.alive) continue;
+        f.hp = Math.min(f.maxHp, f.hp + f.maxHp * 0.25);
+        f.energy = Math.min(100, f.energy + 25);
+      }
     }
     // end conditions
     const u = this.spec.until;
@@ -245,7 +259,7 @@ export class Fight {
     }
     if (this.spec.survive && this.time >= this.spec.survive) this.finish('scripted');
     if (!this.player.alive) this.finish(this.spec.canLose === false ? 'scripted' : 'lose');
-    const pending = this.spec.waves ? this.waveIdx < this.spec.waves.length : false;
+    const pending = this.waveLoading || (this.spec.waves ? this.waveIdx < this.spec.waves.length : false);
     if (!pending && foes.length && foes.every((f) => !f.alive) && !this.result) this.finish('win');
   }
 

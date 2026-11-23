@@ -1,5 +1,7 @@
 import { Vector3 } from '@babylonjs/core';
 import { Fighter, FighterHost } from './Fighter';
+
+const LIMBS = ['hand_L', 'hand_R', 'foot_L', 'foot_R'];
 import type { Move } from './Moves';
 
 export type HitResult = 'hit' | 'block' | 'perfect';
@@ -198,18 +200,27 @@ export class Combat implements FighterHost {
     }
     this.fields = this.fields.filter((f) => f.time > 0);
     for (const f of this.fighters) {
-      // targets: nearest living enemy
-      if (!f.target || !f.target.alive || Math.random() < 0.02) {
+      // targets: the most pressing living enemy (the nearest, and one that is attacking you counts as
+      // nearer still). A few times a second a fighter looks round, but it never turns away in the
+      // middle of its own attack and only switches for a clearly closer threat (re-picking at random
+      // jerked the lock-on, and the camera, off a foe mid-combo; sticking regardless left the player
+      // chasing a grunt that circled off while another hit them from behind)
+      f.retargetT -= sdt;
+      const cur = f.target && f.target.alive ? f.target : null;
+      if (!cur || (f.retargetT <= 0 && !f.move)) {
+        f.retargetT = 0.35 + Math.random() * 0.2;
+        const threat = (o: Fighter) => f.distanceTo(o) - (o.move && o.target === f ? 2.5 : 0);
         let best: Fighter | null = null;
-        let bd = 1e9;
+        let bs = 1e9;
         for (const o of this.enemiesOf(f)) {
-          const d = f.distanceTo(o);
-          if (d < bd) {
-            bd = d;
+          const s = threat(o);
+          if (s < bs) {
+            bs = s;
             best = o;
           }
         }
-        f.target = best;
+        if (!cur) f.target = best;
+        else if (best && best !== cur && bs < threat(cur) - 1.2) f.target = best;
       }
       f.update(sdt);
       if (f.armor > 0) f.armor -= sdt;
@@ -241,13 +252,21 @@ export class Combat implements FighterHost {
     for (const f of this.fighters) {
       const m = f.move;
       if (!m || (m.kind !== 'strike' && m.kind !== 'grab') || f.phase() !== 'active') continue;
-      let c: Vector3;
-      if (m.bone) c = f.ch.bonePos(m.bone);
-      else c = f.ch.bonePos('chest').add(f.facing().scale(m.reach ?? 0.8));
+      // the striking limb: every character's own clip throws a move with whatever suits its style
+      // (Mikami's first jab is a right palm-heel and his heavy a spinning heel kick; Itsuki's are a
+      // left jab and a right hook), so the named limb is tried first, then the other three
+      const points: Vector3[] = [];
+      if (m.bone && (m.bone.startsWith('hand_') || m.bone.startsWith('foot_'))) {
+        points.push(f.ch.bonePos(m.bone));
+        for (const b of LIMBS) if (b !== m.bone) points.push(f.ch.bonePos(b));
+      } else if (m.bone) points.push(f.ch.bonePos(m.bone));
+      else points.push(f.ch.bonePos('chest').add(f.facing().scale(m.reach ?? 0.8)));
+      const r = m.radius * f.ch.root.scaling.y;
       for (const t of this.enemiesOf(f)) {
         if (f.hitList.has(t.id) || !t.isVulnerable()) continue;
         if (m.kind === 'grab' && (!t.grounded || t.state === 'down')) continue;
-        if (!this.overlaps(c, m.radius * (f.ch.root.scaling.y), t)) continue;
+        const c = points.find((p) => this.overlaps(p, r, t));
+        if (!c) continue;
         f.hitList.add(t.id);
         this.applyHit(f, t, m, c);
       }

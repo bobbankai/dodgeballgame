@@ -57,8 +57,9 @@ async function open(d: Director, stage: string, num: string, title: string, sub:
   await d.fade(false, 1.2);
 }
 
+// (grunts fall in a couple of combos: a crowd is about keeping your feet, not whittling health bars)
 const grunt = (id: string, model: string, kit: string, x: number, z: number, hp?: number, tint = true): FighterSpec => ({
-  id, model, kit, team: 1, pos: [x, z], ai: 'grunt', health: hp, opts: tint && model === 'mudhand' ? { tint: CURSE_TINT.map((v) => v * 4) as [number, number, number] } : {},
+  id, model, kit, team: 1, pos: [x, z], ai: 'grunt', health: hp ? Math.round(hp * 0.7) : undefined, opts: tint && model === 'mudhand' ? { tint: CURSE_TINT.map((v) => v * 4) as [number, number, number] } : {},
 });
 
 const player = (id: string, model: string, x = 0, z = -4, extra: Partial<FighterSpec> = {}): FighterSpec => ({ id, model, kit: model === 'sojin_young' ? 'sojin' : model, team: 0, pos: [x, z], ...extra });
@@ -671,8 +672,9 @@ async function stillwater(d: Director): Promise<void> {
   const ac = (i: number, w: number): FighterSpec => grunt(`a${w}_${i}`, 'acolyte', 'acolyte', Math.cos(i * 2.4) * 7, Math.sin(i * 2.4) * 7, 260);
   await d.battle({
     player: 'mikami', intro: 'STILLWATER', introSub: '止水',
-    fighters: [player('mikami', 'mikami', 0, 0, { energy: 80, domain: 60 }), ac(0, 0), ac(1, 0), ac(2, 0)],
-    waves: [[ac(0, 1), ac(1, 1), ac(2, 1), ac(3, 1)], [{ id: 'umbrella2', model: 'umbrella', kit: 'umbrella', team: 1, pos: [0, 7], ai: 'boss', health: 900 }, ac(0, 2), ac(1, 2)]],
+    // Mikami at his strongest: three waves are his to carry
+    fighters: [player('mikami', 'mikami', 0, 0, { energy: 80, domain: 60, power: 1.3 }), ac(0, 0), ac(1, 0), ac(2, 0)],
+    waves: [[ac(0, 1), ac(1, 1), ac(2, 1), ac(3, 1)], [{ id: 'umbrella2', model: 'umbrella', kit: 'umbrella', team: 1, pos: [0, 7], ai: 'boss', health: 650 }, ac(0, 2)]],
     tutorial: [{ html: 'You are Mikami. <kbd>I</kbd> <b>Still Point</b> slows every enemy inside the ripple. <kbd>P</kbd> unveils his domain when the gauge is full.', time: 12 }],
   });
   if (d.quit) return;
