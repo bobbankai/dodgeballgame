@@ -69,21 +69,21 @@ Curses: **Mudhands** (crawling grunts), **Lantern Wisps**, **Red Umbrella**, **t
 * **Ryōga** was saved from a curse by Sōjin at seven and raised by him. He learns that Sōjin means him to
   be the vessel of the Grand Vow.
 
-## Chapters (about 50 minutes)
+## Chapters (46 minutes at a skilled player's pace, measured with `?auto=fair`; longer for most players)
 
 | # | Chapter | Play as | Fights | Place |
 |---|---|---|---|---|
 | P | The Bell That Didn't Ring | Itsuki | Mudhands (tutorial), Red Umbrella | Shiomi back alley, rain, night |
 | 1 | Hakuro | Itsuki | Sayo (sparring) | Academy courtyard, dawn |
 | 2 | The Weeping Bride | Itsuki | Wisps and Mudhands, the Weeping Bride | Seaside chapel ruins, moonlight |
-| 3 | Underpass | Itsuki | Ryōga | Subway platform, night |
+| 3 | Underpass | Itsuki | Mudhands with Sayo (the last train), Ryōga | Subway platform, night |
 | 4 | Hina *(twenty years ago)* | young Sōjin | the curse swarm (cannot be won) | Amagiri village, festival night |
 | 5 | Stillwater | Mikami | Red Umbrella, then Sōjin | Academy courtyard, rain at night |
 | 6 | Thousand Folds | Sayo | paper retainers, Shiragami | Tachibana estate |
 | 7 | Mio | Itsuki | the Little Bell | Burning apartment (memory) |
-| 8 | Gravebrand | Itsuki | festival curses, Ryōga | Shinjuku crossing, red sky |
+| 8 | Gravebrand | Itsuki | festival curses, Ryōga (and his memory of the fire) | Shinjuku crossing, red sky |
 | 9 | Vowbreaker | Itsuki | Sōjin (two phases, domain clash) | Ritual tower / Night Parade |
-| E | Spring | — | — | Hillside graves, cherry blossom |
+| E | Spring | — | — | Hillside graves, cherry blossom; that night, Amagiri lights its lanterns |
 
 ## Combat
 
