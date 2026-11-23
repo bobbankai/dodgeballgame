@@ -67,6 +67,14 @@ export class GullsRest extends Level {
       grassLight: '#9fd062', grassDark: '#4f9a3a', sand: '#e3cb96', rock: '#948f86', dirt: '#b98d58', sandHeight: 1.75, beach: 0.45, rockSlope: 0.62, path: 1.0,
     }, mask);
     this.makeSea();
+    // meadow grass: off the paths and the lane, above the sand, thinning on steep ground and near houses
+    this.makeGrass((x, z, h) => {
+      const m = mask(x, z, h);
+      const slope = Math.abs(height(x + 1, z) - height(x - 1, z)) + Math.abs(height(x, z + 1) - height(x, z - 1));
+      const houses = Math.abs(x) > 6 && Math.abs(x) < 14 && z > -12 && z < 24 ? 1 : 0;
+      const lighthouse = Math.hypot(x, z - 80) < 4 || Math.hypot(x + 11, z - 66) < 4.5 ? 1 : 0;
+      return (h > 2.5 ? 1 : 0) * (1 - m[0]) * (1 - smoothstep(0.9, 2.2, slope)) * (1 - houses) * (1 - lighthouse) * (0.55 + 0.45 * fbm(x * 0.06, z * 0.06, 2, 9));
+    }, { root: '#2f6a2a', tip: '#a9d65e', dry: '#c8b46a', height: 0.42, width: 0.09, threshold: 0.28, translucency: 0.7 });
     const col = this.game.collision;
     col.wallBelow = -0.9;
     col.minY = -12;

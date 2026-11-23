@@ -17,6 +17,7 @@ import { spawn, brains, type Kind } from '../game/Spawn';
 import { CrewBrain, type CrewKind } from '../ai/Crew';
 import { BossBrain, type BossKind } from '../ai/Bosses';
 import { equip } from '../game/Props';
+import { Grass, type GrassLook } from '../world/Grass';
 import { bolt } from '../render/Vfx';
 
 export type Mood = Parameters<Audio['play']>[0];
@@ -68,6 +69,7 @@ export abstract class Level {
   readonly dir: Director;
   terrain: Terrain | null = null;
   sea: Sea | null = null;
+  grass: Grass | null = null;
   kit: EnvKit;
   readonly meshes: AbstractMesh[] = [];
   readonly mats: ShaderMaterial[] = [];
@@ -143,6 +145,12 @@ export abstract class Level {
     this.terrain = new Terrain(this.r, h, x0, z0, size, res, pal, mask);
     this.game.collision.terrain = h;
     return this.terrain;
+  }
+
+  makeGrass(density: (x: number, z: number, h: number) => number, look: GrassLook): Grass | null {
+    if (!this.terrain || this.r.quality === 'low') return null;
+    this.grass = new Grass(this.r, this.terrain, density, look);
+    return this.grass;
   }
 
   makeSea(): Sea {
@@ -347,6 +355,11 @@ export abstract class Level {
       }
     }
     this.weather(dt);
+    if (this.grass) {
+      this.grass.setPusher(this.kai.pos.x, this.kai.pos.y, this.kai.pos.z, 1.1);
+      const c = g.cam.cam.position;
+      this.grass.update(c.x, c.z);
+    }
     this.tick(dt);
     this.dir.step(dt);
   }
@@ -355,6 +368,7 @@ export abstract class Level {
     this.dir.stop();
     this.terrain?.dispose();
     this.sea?.dispose();
+    this.grass?.dispose();
     this.kit.dispose();
     for (const m of this.meshes) m.dispose();
     for (const m of this.mats) m.dispose();
