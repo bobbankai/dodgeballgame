@@ -58,9 +58,9 @@ screen to the credits; saves at every beat (localStorage, Continue / Chapters on
 
 About 310 lines of dialogue, 15 arena fights, a tutorial spar and five bosses. Play time is
 measured by the play-bot (see Testing), which plays straight through with no exploring. Three full runs
-from the prologue to the end of the epilogue: 55–60 minutes (mean 57) including the fights it lost and
-replayed (10–15 deaths), and 47–48 minutes for a player who never dies; the credits add half a minute.
-Loading screens are not counted.
+from the prologue to the end of the epilogue: 57–59 minutes (mean 57.7) including the fights it lost and
+replayed (11 deaths each), and 47.5–48.5 minutes for a player who never dies; the credits add half a minute.
+Loading screens are not counted, and neither is any time the bot spends stuck on scenery (none in these runs).
 
 ## Layout
 

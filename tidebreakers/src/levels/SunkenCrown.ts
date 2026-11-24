@@ -191,6 +191,7 @@ export class SunkenCrown extends Level {
         waves: [
           [['elite', -4, -24], ['elite', 4, -24], ['marine', 0, -20], ['rifleman', -6, -18]],
           [['brute', 0, -22], ['elite', -5, -28], ['rifleman', 6, -20], ['marine', 4, -32]],
+          [['elite', -6, -24], ['elite', 6, -24], ['brute', 0, -20]],
         ],
       });
       void d.say('bram', 'East gate\'s holding! They\'ll have to go through my soup first!', 'laugh');

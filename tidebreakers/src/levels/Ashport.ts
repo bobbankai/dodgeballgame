@@ -292,6 +292,7 @@ export class Ashport extends Level {
         waves: [
           [['thug', -6, 30], ['thug', 8, 30], ['rifleman', 12, 18], ['thug', -8, 18]],
           [['brute', 0, 34], ['thug', 10, 26], ['rifleman', -12, 22]],
+          [['elite', -6, 32], ['thug', 9, 22], ['thug', -10, 26], ['rifleman', 12, 30]],
         ],
       });
     }

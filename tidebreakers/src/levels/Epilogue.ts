@@ -42,6 +42,30 @@ export class Epilogue extends Level {
     const bram = await this.npc('bram', 'bram', w.deck(1.1, -1.8), -0.2);
     const nell = await this.npc('nell', 'nell', w.deck(-0.6, 1.0), 0.8);
     d.cine(true);
+    // shots from just outside the rail (the mast and sail block anything taken from on deck)
+    const across = w.deck(1, 0).subtract(w.deck(0, 0)).normalize(), along = w.deck(0, 1).subtract(w.deck(0, 0)).normalize();
+    const up = V(0, 1, 0);
+    // a close-up from in front of whoever speaks (they face the person they're talking to)
+    // (tries straight on and 45 degrees to either side, and takes the first that keeps out of the mast and sail,
+    // which stand on the centre line from the mast aft to the boom)
+    const o = w.deck(0, 0);
+    const inRig = (p: Vector3) => {
+      const q = p.subtract(o);
+      const a = Vector3.Dot(q, across), b = Vector3.Dot(q, along);
+      return Math.abs(a) < 1.25 && b > -4.5 && b < 1.2;
+    };
+    const cu = (f: import('../game/Fighter').Fighter, side: number, dist = 2.1) => {
+      const eye = f.pos.add(up.scale(f.height * 0.8));
+      let best: Vector3 | null = null;
+      for (const turn of [0.35 * side, 0.8 * side, -0.8 * side, 0]) {
+        const yaw = f.yaw + turn;
+        const c = f.pos.add(V(Math.sin(yaw), 0, Math.cos(yaw)).scale(dist)).add(up.scale(f.height * 0.8 + 0.08));
+        if (!inRig(c)) { best = c; break; }
+      }
+      d.shot(best ?? f.pos.add(across.scale(side * 2.6)).add(up.scale(f.height * 0.8)), eye, 0, 0.5);
+    };
+    // the crew from the bow, looking aft: everyone in frame, the sail behind them
+    const fromBow = (side = 1) => d.shot(w.deck(0.9 * side, 5.7).add(up.scale(1.85)), w.deck(0, 0.6).add(up.scale(0.8)), 0, 0.6);
     d.act(bram, 'cross_arms', true);
     d.act(mira, 'idle', true);
     d.act(nell, 'idle', true);
@@ -52,14 +76,34 @@ export class Epilogue extends Level {
     ui.showSubtitle('Three weeks later.');
     await d.wait(3);
     ui.showSubtitle(null);
-    d.two(kai, mira, 1, 0);
+    d.face(kai, mira, true); d.face(mira, kai, true); d.face(nell, kai, true); d.face(bram, kai, true);
+    fromBow(1);
     await d.say('nell', 'Wind\'s backing west. If we hold this heading we\'ll raise Gull\'s Rest by noon.', 'smile', 'point');
     await d.say('mira', 'You sure you want to go back there, Kai?', 'worried');
-    d.close(kai, 1);
+    fromBow(1);
     await d.say('kai', 'Yeah. I\'ve got fifteen names to read out loud. And a little girl to tell about her dad.', 'tender');
-    d.two(bram, nell, -1, 0);
+    fromBow(-1);
     await d.say('bram', 'I\'ll make soup. Grandmothers like soup. Even... you know. Even ones who aren\'t around to eat it.', 'tender');
     await d.say('nell', 'That\'s the nicest thing anyone\'s ever said about soup.', 'laugh');
+    // what each of them carries home
+    cu(mira, -1);
+    await d.say('mira', 'Kai. Look at the deck by the mast. I drew something last night.', 'embarrassed');
+    fromBow(-1);
+    await d.say('kai', 'A sun! A really big one.', 'joy');
+    await d.say('kai', '...It\'s missing a moustache, though.', 'grin');
+    cu(mira, -1);
+    await d.say('mira', 'Next time. I\'ve got time now.', 'tender');
+    fromBow(1);
+    await d.say('nell', 'When we\'re done at Gull\'s Rest, I want to go back to the Shoals. Forty-one flags. I counted.', 'determined');
+    fromBow(1);
+    await d.say('bram', 'Forty-one flags, a lighthouse and a serpent who cries. We\'ll need a bigger boat.', 'laugh');
+    await d.say('bram', 'Hana wrote, by the way. Every boat in the market has a lifebuoy on the rail now. She painted KAI on one of them. Badly.', 'tender');
+    fromBow(1);
+    await d.say('kai', 'Grandma would have hated how much we\'re all smiling.', 'smile');
+    cu(mira, -1);
+    await d.say('mira', 'No, she wouldn\'t.', 'tender');
+    fromBow(1);
+    await d.say('kai', '...No. She wouldn\'t.', 'tender');
     // the lantern at the bow
     hold(this.ctx.flow.props, kai, 'lantern', 'R');
     d.release(kai);
@@ -72,7 +116,7 @@ export class Epilogue extends Level {
     const bow = w.deck(0, 4.9).add(V(0, 1.3, 0));
     lan.position.copyFrom(bow);
     this.r.globals.lights.push({ pos: bow, radius: 5, color: [1, 0.78, 0.45], intensity: 1.6 });
-    d.close(kai, -1, 0, { dist: 1.3 });
+    d.shot(w.deck(0.7, 7.4).add(up.scale(1.7)), w.deck(0, 4.6).add(up.scale(1.35)), 0, 0.55);
     await d.say('kai', 'There. Now everyone can find us.', 'smile');
     d.drift(w.deck(0, 6).add(V(3, 1.6, 2)), w.deck(0, 7).add(V(6, 4, 8)), bow, 10);
     audio.play('lullaby');
