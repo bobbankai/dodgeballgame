@@ -43,7 +43,7 @@ def spiky_short(c, color, dark, light):
         cl.append((95 * sx, 35, 0.08, 0.03, v(sx, 0.3, -0.4), dict(curl=0.2, droop=0.2, lift=0.012)))
     # spikes stand free of the head (not combed down over it)
     cl = [(*s[:5], {**(s[5] if len(s) > 5 else {}), 'comb': False}) for s in cl]
-    return [W.hair_cap(c, color, front=0.2, sides=0.12, back=0.06, dark=dark, light=light), W.clumps(c, cl, color, dark, light)]
+    return [W.hair_cap(c, color, front=0.2, sides=0.12, back=0.06, dark=dark, light=light, thick=0.012), W.clumps(c, cl, color, dark, light)]
 
 
 # ============================================================================================ Armada
@@ -63,7 +63,7 @@ def _armada_soldier(name, coat_color, trouser_color, hat, extra_parts=(), height
         parts += W.hat_cap(c, '#f4f2ec', band='#23305c')
     elif hat == 'shako':
         top = c.fa['cranium'] + v(0, 0, 0.05) * c.u
-        parts.append(P.Part('shako', *W.cylinder(top, 0.095 * c.u, 0.2 * c.u, n=16), hexc('#23305c'), weights=('rigid', 'head'),
+        parts.append(P.Part('shako', *W.cylinder(top, 0.108 * c.u, 0.2 * c.u, n=24), hexc('#23305c'), weights=('rigid', 'head'),
                             paint=band_paint('#d8a93c', top[2] + 0.19 * c.u, 0.01)))
     parts += spiky_short(c, '#4a3526', '#2e2019', '#6b4d36')[1:] if hat else spiky_short(c, '#4a3526', '#2e2019', '#6b4d36')
     parts += list(extra_parts)
@@ -111,14 +111,14 @@ def brute():
          W.trousers(c, '#23305c', cuff=c.knee_z - 0.05, loose=0.014, flare=0.005),
          W.boots(c, '#2a1e1a', top=c.knee_z)]
     # steel cuirass over the gambeson
-    g.append(P.Garment('cuirass', Offset(c.torso, 0.03), Intersect([G.above(c.waist - 0.05), G.below(c.neck_base - 0.02),
+    # a smooth plate: shaped on the trunk without the chest muscles (no moulded pecs)
+    # (it also clears the gambeson over the chest by a few cm, or the cloth pokes through the plate)
+    plate = Union([Offset(bd.region(['torso', 'spine', 'hips'], 0.05), 0.045), Offset(c.torso, 0.034)], 0.05)
+    g.append(P.Garment('cuirass', plate, Intersect([G.above(c.waist - 0.05), G.below(c.neck_base - 0.02),
                                                                   pc.complement(Union([Sphere(c.j[f'shoulder.{s}'] + v(sx * 0.04, 0, -0.04), 0.1) for s, sx in (('L', 1), ('R', -1))]))]),
                        hexc('#aab4c2'), cls='metal', thickness=0.012, covers=False,
                        paint=band_paint('#d8a93c', c.waist - 0.04, 0.012)))
-    parts = []
-    for s, sx in (('L', 1), ('R', -1)):
-        sh = c.j[f'shoulder.{s}']
-        parts.append(P.Part(f'pauldron{s}', *pc.quad_sphere(sh + v(sx * 0.03, 0, 0.04), (0.11, 0.1, 0.07), res=3), hexc('#aab4c2'), cls='metal', weights=('rigid', f'upperarm.{s}')))
+    parts = W.pauldrons(c, '#aab4c2')
     parts += W.helmet(c, '#8c96a6')
     W.beard  # noqa (brutes are clean-shaven under the helmet)
     ref = dict(title='Armada Bulwark', summary='Huge shield-bearers in steel cuirasses. Their shield bash and overhead smash cannot be blocked.',

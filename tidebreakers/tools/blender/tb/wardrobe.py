@@ -406,6 +406,62 @@ def epaulettes(c, color='#d8b24a', fringe=True, name='epaulette'):
     return out
 
 
+def pauldrons(c, color, size=1.0, lames=3, name='pauldron', rivets='#d8a93c'):
+    """Plate pauldrons: a curved steel shell over each shoulder (sized from the shoulder under it), cut into
+    overlapping lames that step outward down the arm, a rolled edge along the top, and rivets."""
+    out = []
+    skin = c.bd.field()
+    for s, sx in (('L', 1), ('R', -1)):
+        sh = np.asarray(c.j[f'shoulder.{s}'], float)
+        el = np.asarray(c.j[f'elbow.{s}'], float)
+        ua = norm(el - sh)
+        # how far the shoulder's surface reaches out and up from the joint
+        # (outward only: straight up from the joint runs into the trapezius and the neck)
+        reach = []
+        for d in (v(sx, 0, 0), norm(v(sx, 0, 0.7)), norm(v(sx, -0.6, 0.2)), norm(v(sx, 0.6, 0.2))):
+            ts = np.arange(0, 0.25, 0.002)
+            pts = sh[None] + d[None] * ts[:, None]
+            ins = np.nonzero(skin.eval(pts) < 0)[0]
+            reach.append(ts[ins[-1]] if len(ins) else 0.06)
+        r = (float(np.median(reach)) + 0.03) * size
+        print(f'[pauldron] {s} reach {np.round(reach, 3)} -> r {r:.3f}')
+        cen = sh + v(sx * 0.01, 0, 0.0)
+        R = np.stack([v(sx, 0, 0), v(0, 1, 0), v(0, 0, 1)], 1)
+        plates = []
+        for k in range(lames):
+            # each lame a band of a shell, a little bigger and lower than the one above it
+            rk = r * (1.0 + 0.07 * k)
+            c0 = cen + ua * (0.03 * k) * c.sc
+            outer = Ellipsoid(c0, v(rk, rk * 0.92, rk * 0.8))
+            inner = Ellipsoid(c0, v(rk - 0.009, rk * 0.92 - 0.009, rk * 0.8 - 0.009))
+            band = Subtract(outer, inner)
+            # (a Plane is negative on the side away from its normal: Plane(+z) keeps below, Plane(-z) keeps above)
+            z_hi = rk * 2.0 if k == 0 else rk * (0.75 - 0.32 * k)
+            z_lo = -rk * 0.55 if k == lames - 1 else rk * (0.2 - 0.32 * k)
+            keep = [band, Plane(v(0, 0, 1), c0 + v(0, 0, z_hi)), Plane(v(0, 0, -1), c0 + v(0, 0, z_lo)),
+                    Plane(v(-sx, 0, 0), c0 + v(-sx * rk * 0.35, 0, 0))]
+            plates.append(Intersect(keep))
+        vol = Union(plates)
+        # a rolled edge along the top of the first plate
+        roll = sdf.Loft([cen + v(-sx * r * 0.3, -r * 0.7, r * 0.55), cen + v(sx * 0.0, 0, r * 0.82), cen + v(-sx * r * 0.3, r * 0.7, r * 0.55)],
+                        [(0.009, 0.009, 0, 0, 2.0)] * 3, side=(1, 0, 0))
+        vol = Union([vol, roll], 0.004)
+        lo = cen - v(r * 1.5, r * 1.5, r * 1.6)
+        hi = cen + v(r * 1.5, r * 1.5, r * 1.3)
+        V, F = sdf.mesh_field(vol, res=0.004, lo=lo, hi=hi, verbose=False)
+        parts = [(V, [tuple(f) for f in F])]
+        for k in range(lames):
+            for t in (-0.45, 0.0, 0.45):
+                rk = r * (1.0 + 0.07 * k)
+                a = t + (0.0 if k % 2 else 0.2)
+                pnt = cen + ua * (0.03 * k) * c.sc + v(sx * math.cos(a) * rk * 0.97, math.sin(a) * rk * 0.9, rk * (0.45 - 0.32 * k))
+                parts.append(pc.quad_sphere(pnt, (0.008, 0.008, 0.008), res=2))
+        Vm, Fm = _merge(parts)
+        out.append(P.Part(f'{name}{s}', Vm, Fm, hexc(color), cls='metal', weights=('rigid', f'upperarm.{s}'), field=vol,
+                          paint=lambda Vp, N, col, cen=cen: col * (0.86 + 0.14 * np.clip(N[:, 2] * 0.5 + 0.5, 0, 1))[:, None]))
+    return out
+
+
 def buttons(c, color, z_from, z_to, n=4, y=-0.1, x=0.0, name='buttons'):
     parts = []
     for i in range(n):

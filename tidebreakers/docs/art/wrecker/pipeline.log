@@ -11,6 +11,6 @@ stage 5 relaxed: non-manifold 0, surface deviation mean 0.00 mm max 1.0 mm
   garment haircap: 682 quads extracted, 2728 after refinement
   skin after culling hidden faces: 2225 of 6816 quads
 stage 6 materials (albedo, class, AO, face UVs) + stage 7 weights
-rig: 54 deform bones; mesh 20300 verts, 40205 tris
-stage 10 LOD1: 18091 tris (LOD0 40205)
-exported /home/user/dodgeballgame/tidebreakers/tools/blender/../../public/assets/chars/wrecker.glb (2322 KB) in 39s
+rig: 54 deform bones; mesh 20294 verts, 40204 tris
+stage 10 LOD1: 18091 tris (LOD0 40204)
+exported /home/user/dodgeballgame/tidebreakers/tools/blender/../../public/assets/chars/wrecker.glb (2321 KB) in 38s
