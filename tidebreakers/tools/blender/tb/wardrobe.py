@@ -317,8 +317,9 @@ def hat_cap(c, color, band='#23305c', badge='#d8a93c', name='cap'):
 
 
 def hat_tricorn(c, color, trim='#c9a24a', name='tricorn'):
-    top = c.fa['cranium'] + v(0, 0.01, 0.06) * c.u
-    crown = pc.quad_sphere(top, (0.1 * c.u, 0.11 * c.u, 0.07 * c.u))
+    top = c.fa['cranium'] + v(0, 0.01, 0.065) * c.u
+    # the crown sits over the hair (wider and taller than the head under it)
+    crown = pc.quad_sphere(top + v(0, 0, 0.005) * c.u, (0.112 * c.u, 0.124 * c.u, 0.085 * c.u))
     V, F = [], []
     n = 30
     for k in range(n):

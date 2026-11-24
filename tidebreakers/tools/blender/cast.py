@@ -171,7 +171,7 @@ def ines():
     parts += W.scarf(c, '#8e2c2c', tails=True)
     parts += W.hat_tricorn(c, '#1c1f2a')
     # grey hair: bun at the back under the hat
-    cap = W.hair_cap(c, '#b8b4b0', front=0.18, sides=0.11, back=0.06, dark='#8f8b88', light='#e4e0dc')
+    cap = W.hair_cap(c, '#b8b4b0', front=0.18, sides=0.11, back=0.06, dark='#8f8b88', light='#e4e0dc', thick=0.012, strands=0)
     bun = P.Part('bun', *pc.quad_sphere(c.fa['cranium'] + v(0, 0.12, -0.03) * c.u, (0.045 * c.u, 0.04 * c.u, 0.045 * c.u), res=3), hexc('#c8c4c0'), cls='hair',
                  weights=('rigid', 'head'))
     parts += [cap, bun]

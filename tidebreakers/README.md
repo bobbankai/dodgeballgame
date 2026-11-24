@@ -44,7 +44,7 @@ model viewer, `?quality=high|medium|low`.
 ## The story
 
 Prologue (the night of the Great Squall), five chapters and an epilogue, played in order from the title
-screen to the credits; saves at every beat (localStorage, Continue / Chapters on the title screen).
+screen (a live scene: the Wren under sail at golden hour) to the credits; saves at every beat (localStorage, Continue / Chapters on the title screen).
 
 | Level | | Boss |
 |---|---|---|
@@ -57,16 +57,17 @@ screen to the credits; saves at every beat (localStorage, Continue / Chapters on
 | Epilogue: The Wake | Dawn at sea | |
 
 About 310 lines of dialogue, 15 arena fights, a tutorial spar and five bosses. Play time is
-measured by the play-bot (see Testing), which plays straight through with no exploring. Three full runs
-from the prologue to the end of the epilogue: 57–59 minutes (mean 57.7) including the fights it lost and
-replayed (11 deaths each), and 47.5–48.5 minutes for a player who never dies; the credits add half a minute.
+measured by the play-bot (see Testing), which plays straight through with no exploring. The latest full runs
+from the prologue to the end of the epilogue: 61–62 minutes including the fights it lost and replayed
+(12–16 deaths), and 48–51 minutes for a player who never dies; the credits add half a minute.
 Loading screens are not counted, and neither is any time the bot spends stuck on scenery (none in these runs).
 
 ## Layout
 
 ```
 src/render      Renderer (MRT G-buffer, cascaded sun shadows with drifting cloud shadows, AO, screen-space
-                reflections on the sea, DOF, sun shafts, bloom, anime lens flare, final grade),
+                reflections on the sea, DOF, sun shafts, bloom, anime lens flare, final grade), Trails
+                (strike arcs behind blades, fists and feet),
                 Globals (shared uniform block), materials, Vfx (GPU particle quads, lightning)
 src/shaders     WGSL: lib/ (lighting, toon, face, shadows, noise, sky, waves, surfaces), materials/
                 (toon characters, outlines, terrain, scenery, ocean, grass, sky), post/ (AO, bilateral
@@ -135,7 +136,7 @@ headless measurement matches real play. `__r.globals.set('counts', n, k, 2, 0)` 
 ## Status and honest notes
 
 - The whole story plays from the title screen to the credits under the test bot.
-- Shader code: about 2,630 lines of WGSL across 35 files, every line in use. It has not been padded toward
+- Shader code: about 2,700 lines of WGSL across 37 files, every line in use. It has not been padded toward
   the requested 20,000. Effects were added where they visibly improve the game and are reported at their
   real size.
 - Characters are stylized and fully rigged with deformation tests, with proper shoulder anatomy, anime
