@@ -281,7 +281,9 @@ export class Fighter {
         break;
       }
       case 'attack': {
-        const a = this.attack!;
+        const a = this.attack;
+        // no move yet: the player is holding heavy to charge (the controller starts the attack on release)
+        if (!a) { this.attackT += dts; break; }
         const spd = a.speed ?? 1;
         this.attackT += dts * spd;
         if (a.lunge && a.lungeTime) {

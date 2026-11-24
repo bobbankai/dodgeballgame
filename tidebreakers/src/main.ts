@@ -14,6 +14,7 @@ import { Game } from './game/Game';
 import { PlayerController } from './game/Player';
 import { spawn, updateBrains, brains } from './game/Spawn';
 import { Flow, type LevelId } from './Flow';
+import { PlayBot } from './test/PlayBot';
 
 const params = new URLSearchParams(location.search);
 const TEST = params.has('test');
@@ -69,7 +70,8 @@ async function story(r: Renderer, input: Input, ui: UI, audio: Audio): Promise<S
   };
   Object.assign(window as any, { __game: game, __kai: kai, __pc: pc, __flow: flow, __audio: audio });
   const lvl = params.get('level');
-  if (lvl) await flow.start(lvl as LevelId, params.get('at') ?? '');
+  // not awaited: the level's fades run on the frame clock, which only ticks once the loop is running
+  if (lvl) void flow.start(lvl as LevelId, params.get('at') ?? '');
   else flow.title();
   // test bot: walks to objectives, ends fights, so whole chapters can be played through headless
   const bot = (w: any) => {
@@ -85,7 +87,15 @@ async function story(r: Renderer, input: Input, ui: UI, audio: Audio): Promise<S
     }
     if (!kai.alive) kai.hp = kai.maxHp;
   };
+  // play-bot: plays with the controls at a person's pace, to measure play time (window.__playbot = true)
+  let player: PlayBot | null = null;
+  const playbot = (w: any, dt: number) => {
+    if (!w.__playbot) return;
+    if (!player) { player = new PlayBot(flow, game, kai, pc, input, ui); w.__bot = player; ui.autoAdvance = 0; }
+    player.update(dt);
+  };
   return (dt) => {
+    if (TEST) playbot(window as any, dt);
     input.update(dt);
     if (TEST) bot(window as any);
     if (!flow.paused) {
@@ -143,7 +153,14 @@ async function boot(): Promise<void> {
       for (let i = 0; i < n; i++) { step(1 / 60); for (let k = 0; k < 6; k++) await Promise.resolve(); }
     };
     w.__frame = async () => { r.render(time, 1 / 60); await presentHeadless(); };
-    for (let i = 0; i < 40; i++) { r.render(time, 1 / 60); await new Promise((res) => setTimeout(res, 30)); }
+    // warm up (shader compiles) and let a level named in the url finish loading; only the UI clock runs
+    // meanwhile, so the level's script starts on the first stepped frame as before
+    const flow = w.__flow as Flow | undefined;
+    for (let i = 0; i < 40 || (flow && (flow.isLoading || (params.has('level') && !flow.level))); i++) {
+      r.render(time, 1 / 60);
+      ui.update(1 / 60);
+      await new Promise((res) => setTimeout(res, 30));
+    }
     w.__ready = true;
   } else {
     let last = performance.now();

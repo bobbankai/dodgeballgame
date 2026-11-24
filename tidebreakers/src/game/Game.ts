@@ -51,6 +51,8 @@ export class Game {
   attackTokens = 2;   // how many enemies may attack the player at once
   hazards: Hazard[] = [];
   rings: Ring[] = [];
+  /** delayed calls on game time (they pause with the game and are dropped by reset) */
+  private timers: { t: number; fn: () => void }[] = [];
   /** storm aura on the player (decays), pulses gently when the storm meter is full */
   aura = 0;
 
@@ -73,11 +75,15 @@ export class Game {
     this.hitstop = 0;
     this.combo = 0;
     this.onUpdate = [];
+    this.timers = [];
     this.hooks.bossBar?.(null);
     this.r.globals.lights = [];
   }
 
   sfx(name: string, pos?: Vector3, vol = 1): void { this.hooks.sfx?.(name, pos, vol); }
+
+  /** Calls `fn` after `sec` seconds of game time. */
+  after(sec: number, fn: () => void): void { this.timers.push({ t: this.time + sec, fn }); }
   shake(a: number): void { this.cam.shake(a); }
 
   addFighter(f: Fighter): Fighter {
@@ -220,6 +226,10 @@ export class Game {
       this.updateHazards(gdt);
     }
     for (const u of this.onUpdate) u(dt);
+    if (this.timers.length) {
+      const due = this.timers.filter((x) => x.t <= this.time);
+      if (due.length) { this.timers = this.timers.filter((x) => x.t > this.time); for (const x of due) x.fn(); }
+    }
     this.vfx.update(dt * (this.hitstop > 0 ? 0.25 : this.slowmo));
     this.cam.update(dt, this.input.takeLook());
     const p = this.player;

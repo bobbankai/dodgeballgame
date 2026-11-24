@@ -226,7 +226,7 @@ export class WeepingShoals extends Level {
           if (!harry) break;
           const k = this.kai.pos.add(this.kai.vel.scale(0.6));
           g.hazard(k, 2.4, 1.1, 16, 'blast');
-          setTimeout(() => { g.vfx.splash(k, 30); g.sfx('splash', k); }, 1100);
+          g.after(1.1, () => { g.vfx.splash(k, 30); g.sfx('splash', k); });
         }
       };
       void harryLoop();

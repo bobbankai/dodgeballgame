@@ -15,6 +15,8 @@ var dofTexSampler: sampler;
 var dofTex: texture_2d<f32>;
 var shaftTexSampler: sampler;
 var shaftTex: texture_2d<f32>;
+var ssrTexSampler: sampler;
+var ssrTex: texture_2d<f32>;
 uniform fxA: vec4f;   // x vignette, y chromatic aberration, z grain, w letterbox (0..1)
 uniform fxB: vec4f;   // x fade to black, y impact frame (0/1 + mode), z speed lines, w radial blur
 uniform fxC: vec4f;   // xy radial centre (uv), z bloom strength, w desaturate (memories)
@@ -28,6 +30,63 @@ uniform shockA: vec4f; // shockwaves: xy centre (uv), z radius (screen heights),
 uniform shockB: vec4f;
 uniform shockC: vec4f;
 uniform shockD: vec4f;
+uniform postD: vec4f;  // x sea reflections on, y water object id, z lens flare strength, w reflection tint toward the sea colour
+uniform flareC: vec4f; // xy sun position (uv), z how far on screen (0..1), w sun angular size factor
+
+fn hexDist(p: vec2f) -> f32 {
+  let q = abs(p);
+  return max(q.x * 0.8660254 + q.y * 0.5, q.y);
+}
+
+// How much of the sun is unblocked: a small disc of taps around it in the G-buffer (sky has no depth).
+fn sunVisibility(sun: vec2f) -> f32 {
+  let aspect = globals.viewport.x / globals.viewport.y;
+  var vis = 0.0;
+  for (var i = 0; i < 12; i++) {
+    let a = f32(i) * 2.3999632;
+    let r = sqrt((f32(i) + 0.5) / 12.0) * 0.018;
+    let o = vec2f(cos(a), sin(a)) * r / vec2f(aspect, 1.0);
+    let z = textureSampleLevel(gbufTex, gbufTexSampler, clamp(sun + o, vec2f(0.0), vec2f(1.0)), 0.0).z;
+    vis = vis + select(0.0, 1.0, z <= 0.0);
+  }
+  return vis / 12.0;
+}
+
+// Anime lens flare: a string of soft hexagonal ghosts with bright rims from the sun through the centre of
+// the frame, a faint rainbow halo, a horizontal anamorphic streak and a starburst on the sun itself.
+fn lensFlare(uv: vec2f, sun: vec2f, amount: f32) -> vec3f {
+  let aspect = globals.viewport.x / globals.viewport.y;
+  let a = vec2f(aspect, 1.0);
+  let axis = vec2f(0.5) - sun;
+  var c = vec3f(0.0);
+  var ks = array<f32, 7>(0.42, 0.7, 0.86, 1.18, 1.42, 1.66, 2.1);
+  var sizes = array<f32, 7>(0.035, 0.06, 0.022, 0.09, 0.045, 0.13, 0.07);
+  var gains = array<f32, 7>(0.6, 0.35, 0.8, 0.25, 0.45, 0.16, 0.3);
+  for (var i = 0; i < 7; i++) {
+    let fi = f32(i);
+    let pos = sun + axis * ks[i];
+    let d = hexDist(rot2(0.3) * ((uv - pos) * a)) / sizes[i];
+    if (d > 1.2) { continue; }
+    let body = smoothstep(1.0, 0.9, d);
+    let rim = exp(-sq((d - 0.94) / 0.05));
+    let hue = fract(0.52 + fi * 0.137);
+    c = c + hsv2rgb(vec3f(hue, 0.55 + 0.15 * fract(fi * 0.71), 1.0)) * (body * 0.35 + rim * 1.0) * gains[i];
+  }
+  let ds = length((uv - sun) * a);
+  // halo around the sun with a prismatic edge
+  let ring = exp(-sq((ds - 0.36) / 0.022));
+  c = c + hsv2rgb(vec3f(fract(0.95 - (ds - 0.36) * 9.0), 0.7, 1.0)) * ring * 0.14;
+  // anamorphic streak
+  let dy = abs(uv.y - sun.y);
+  let dx = abs(uv.x - sun.x) * aspect;
+  c = c + vec3f(0.55, 0.75, 1.0) * exp(-dy * 320.0) * exp(-dx * 2.4) * 0.45;
+  // starburst rays on the sun
+  let ang = atan2(uv.y - sun.y, (uv.x - sun.x) * aspect);
+  let rays = pow(abs(cos(ang * 3.0)), 90.0) + 0.6 * pow(abs(cos(ang * 3.0 + 0.5236)), 160.0) + 0.35 * hash11(floor(ang * 40.0)) * pow(abs(cos(ang * 20.0)), 8.0);
+  c = c + globals.sunColor.rgb * rays * exp(-ds * 6.5) * 0.7;
+  c = c + globals.sunColor.rgb * exp(-ds * 28.0) * 0.6;
+  return c * amount;
+}
 
 // A shockwave ring bends the image outward where it passes, like heat over a blast.
 fn shockOffset(uv: vec2f, s: vec4f) -> vec2f {
@@ -130,6 +189,25 @@ fn main(input: FragmentInputs) -> FragmentOutputs {
     let d = textureSampleLevel(dofTex, dofTexSampler, uv, 0.0);
     col = mix(col, d.rgb, smoothstep(0.06, 0.4, d.a));
   }
+  // sea reflections (half-res SSR): the ships, cliffs and people on the water, tinted by the sea
+  if (uniforms.postD.x > 0.5) {
+    let gw = textureSampleLevel(gbufTex, gbufTexSampler, uv, 0.0).w;
+    if (abs(gw - uniforms.postD.y) < 0.01) {
+      // smeared vertically, the way reflections on moving water stretch toward the viewer
+      var s = vec4f(0.0);
+      var wsum = 0.0;
+      for (var i = -3; i <= 3; i++) {
+        let fi = f32(i);
+        let wt = exp(-fi * fi * 0.18);
+        let t = textureSampleLevel(ssrTex, ssrTexSampler, uv + vec2f(0.0, fi * px.y * 2.5), 0.0);
+        s = s + vec4f(t.rgb * t.a, t.a) * wt;
+        wsum = wsum + wt;
+      }
+      s = vec4f(s.rgb / max(s.a, 1e-4), s.a / wsum);
+      let tint = mix(vec3f(1.0), globals.seaShallow.rgb * 1.6, uniforms.postD.w);
+      col = mix(col, s.rgb * tint, saturate(s.a));
+    }
+  }
   // ambient occlusion as a cool wash rather than black (painted shadows), contact creases a bit deeper
   if (uniforms.postC.x > 0.0) {
     let a = textureSampleLevel(aoTex, aoTexSampler, uv, 0.0);
@@ -164,6 +242,10 @@ fn main(input: FragmentInputs) -> FragmentOutputs {
   }
   col = col + textureSampleLevel(bloomTex, bloomTexSampler, uv, 0.0).rgb * uniforms.fxC.z;
   if (uniforms.postC.z > 0.5) { col = col + textureSampleLevel(shaftTex, shaftTexSampler, uv, 0.0).rgb; }
+  if (uniforms.postD.z > 0.001 && uniforms.flareC.z > 0.001) {
+    let vis = sunVisibility(uniforms.flareC.xy);
+    if (vis > 0.001) { col = col + lensFlare(input.vUV, uniforms.flareC.xy, uniforms.postD.z * vis * uniforms.flareC.z * globals.sunDir.w); }
+  }
   if (uniforms.postC.w > 0.001) { col = col + vec3f(0.55, 0.62, 0.75) * rainStreaks(input.vUV, globals.time.x, uniforms.postC.w) * 0.35; }
   // debug views (globals.counts.y): 1 normals, 2 depth, 3 object ids, 4 raw HDR colour
   let dbg = i32(globals.counts.y);
@@ -176,6 +258,7 @@ fn main(input: FragmentInputs) -> FragmentOutputs {
     if (dbg == 5) { let a = textureSampleLevel(aoTex, aoTexSampler, uv, 0.0); o = vec3f(a.x * a.y); }
     if (dbg == 6) { o = textureSampleLevel(shaftTex, shaftTexSampler, uv, 0.0).rgb * 4.0; }
     if (dbg == 7) { o = vec3f(textureSampleLevel(dofTex, dofTexSampler, uv, 0.0).a); }
+    if (dbg == 8) { let s = textureSampleLevel(ssrTex, ssrTexSampler, uv, 0.0); o = s.rgb * s.a; }
     fragmentOutputs.color = vec4f(linearToSrgb(o), 1.0);
     return fragmentOutputs;
   }

@@ -320,7 +320,7 @@ export abstract class Level {
         const top = cam.position.add(fwd.scale(90 + Math.random() * 60)).add(side).add(new Vector3(0, 70, 0));
         const bottom = top.add(new Vector3((Math.random() - 0.5) * 30, -70 - cam.position.y, (Math.random() - 0.5) * 30));
         bolt(vfx, top, bottom, 0.35, 1.6, 6, 4);
-        setTimeout(() => g.sfx('thunder', undefined, 0.8), 300 + Math.random() * 900);
+        g.after(0.3 + Math.random() * 0.9, () => g.sfx('thunder', undefined, 0.8));
       }
     }
     if (this.flash > 0) {

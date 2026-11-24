@@ -6,7 +6,7 @@ import {
   Quaternion,
 } from '@babylonjs/core';
 import type { AbstractMesh, InstancedMesh } from '@babylonjs/core';
-import type { Renderer } from '../render/Renderer';
+import { SEA_ID, type Renderer } from '../render/Renderer';
 import { hex, c4, v4, ENV_ID } from '../render/materials';
 import { loadContainer } from '../game/CharacterModel';
 import type { Collision } from '../game/Collision';
@@ -113,7 +113,7 @@ export class Sea {
       m.setTexture('heightTex', t);
       m.setVector4('seabed', v4(-1e5, -1e5, 2e5, 40));
     }
-    m.setVector4('seaFx', v4(1, 1, 0.5, 0.9));
+    m.setVector4('seaFx', v4(1, 1, 0.5, SEA_ID));
     this.mat = m;
     this.mesh.material = m;
   }

@@ -1,6 +1,7 @@
 // tbOcean — stylised sea: depth-tinted colour (island heightmap gives the seabed), banded toon
 // shading, sky reflection with Fresnel, sharp sun glints, crest foam, animated shore foam lines and
-// a soft caustic shimmer in the shallows.
+// a soft caustic shimmer in the shallows. Low sun behind a wave lights its crest from inside (translucent
+// green-cyan, thinnest at the top), the way painted anime seas glow at sunset.
 #include<tbGlobals>
 #include<tbCommon>
 #include<tbNoise>
@@ -50,6 +51,12 @@ fn main(input: FragmentInputs) -> FragmentOutputs {
   let sky = skyGradient(normalize(vec3f(r.x, abs(r.y), r.z)), k);
   let fres = 0.04 + 0.96 * pow(1.0 - saturate(dot(n, v)), 5.0);
   var col = mix(water, sky, fres * uniforms.seaFx.z);
+  // light through the crests: strongest looking toward the sun, where the wave is high and thin
+  let lh = normalize(globals.sunDir.xyz + n * 0.45);
+  let through = pow(saturate(dot(v, -lh)), 3.0);
+  let thin = smoothstep(0.35, 0.95, input.vCrest);
+  let glow = mix(globals.seaShallow.rgb, vec3f(0.35, 0.95, 0.8), 0.45) * globals.sunColor.rgb;
+  col = col + glow * through * thin * (0.55 + 0.45 * shallow) * 1.3 * globals.sunDir.w * (1.0 - fres * 0.6);
   // sun glint: hard-edged anime sparkles
   let h = normalize(globals.sunDir.xyz + v);
   let sp = pow(saturate(dot(n, h)), 380.0);

@@ -34,6 +34,11 @@ export class UI {
   private advanceResolve: (() => void) | null = null;
   autoAdvance = 0;   // seconds; test mode moves dialogue on by itself
   private autoT = 0;
+  /** UI waits (fades, cards, hints) run on the frame clock, so headless stepping times them like real play */
+  private timers: { t: number; fn: () => void }[] = [];
+  private clock = 0;
+  /** seconds of the current line so far (typing and reading), for the play-bot */
+  lineT = 0;
   textSpeed = 42;    // characters per second
   onAdvance?: () => void;
   onBlip?: (speaker: string) => void;
@@ -109,7 +114,7 @@ export class UI {
   showHint(text: string | null, dur = 0): void {
     this.hint.innerHTML = text ?? '';
     this.hint.classList.toggle('show', !!text);
-    if (text && dur > 0) setTimeout(() => { if (this.hint.innerHTML === text) this.showHint(null); }, dur * 1000);
+    if (text && dur > 0) this.after(dur, () => { if (this.hint.innerHTML === text) this.showHint(null); });
   }
 
   // ------------------------------------------------------------------------------------------ dialogue
@@ -126,6 +131,7 @@ export class UI {
     this.dlgNext.classList.remove('show');
     this.typing = { full: text, shown: 0, done: false };
     this.autoT = 0;
+    this.lineT = 0;
     return new Promise((res) => { this.advanceResolve = res; });
   }
 
@@ -149,7 +155,23 @@ export class UI {
     this.onAdvance?.();
   }
 
+  /** Calls `fn` after `sec` seconds of frames. */
+  after(sec: number, fn: () => void): void { this.timers.push({ t: this.clock + sec, fn }); }
+
+  private wait(sec: number): Promise<void> { return new Promise((res) => this.after(sec, res)); }
+
+  /** The line on screen (null when none) and whether it has finished typing. */
+  get line(): { text: string; done: boolean; auto: boolean } | null {
+    return this.typing ? { text: this.typing.full, done: this.typing.done, auto: this.lineAuto > 0 } : null;
+  }
+
   update(dt: number): void {
+    this.clock += dt;
+    if (this.timers.length) {
+      const due = this.timers.filter((x) => x.t <= this.clock);
+      if (due.length) { this.timers = this.timers.filter((x) => x.t > this.clock); for (const x of due) x.fn(); }
+    }
+    this.lineT += dt;
     const t = this.typing;
     if (t && !t.done) {
       const before = Math.floor(t.shown);
@@ -186,7 +208,7 @@ export class UI {
   chapterCard(num: string, title: string, sub: string, dur = 4): Promise<void> {
     this.card.innerHTML = `<div class="num">${num}</div><div class="title">${title}</div><div class="sub">${sub}</div>`;
     this.card.classList.add('show');
-    return new Promise((res) => setTimeout(() => { this.card.classList.remove('show'); setTimeout(res, 800); }, dur * 1000));
+    return this.wait(dur).then(() => { this.card.classList.remove('show'); return this.wait(0.8); });
   }
 
   showSubtitle(text: string | null): void {
@@ -198,7 +220,7 @@ export class UI {
     this.fadeEl.style.background = color;
     this.fadeEl.style.transition = `opacity ${dur}s ease`;
     this.fadeEl.style.opacity = String(to);
-    return new Promise((res) => setTimeout(res, dur * 1000));
+    return this.wait(dur);
   }
 
   // ------------------------------------------------------------------------------------------ menus
@@ -226,6 +248,6 @@ export class UI {
   credits(lines: string[]): Promise<void> {
     this.card.innerHTML = `<div class="roll">${lines.map((l) => l.startsWith('#') ? `<h2>${l.slice(1)}</h2>` : `<p>${l}</p>`).join('')}</div>`;
     this.card.classList.add('show', 'credits');
-    return new Promise((res) => setTimeout(() => { this.card.classList.remove('show', 'credits'); res(); }, 34000));
+    return this.wait(34).then(() => { this.card.classList.remove('show', 'credits'); });
   }
 }

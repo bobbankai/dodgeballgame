@@ -9,7 +9,8 @@ export type Archetype = 'marine' | 'thug' | 'rifleman' | 'brute' | 'elite' | 'wr
 
 export interface Brain { update(dt: number): void; f: Fighter }
 
-const tokens = new Set<Fighter>();
+// who may attack the player right now -> the game time their token runs out
+const tokens = new Map<Fighter, number>();
 
 function angleTo(f: Fighter, p: Vector3): number { return Math.atan2(p.x - f.pos.x, p.z - f.pos.z); }
 
@@ -52,14 +53,14 @@ export class MeleeBrain implements Brain {
     const range = this.opts.range;
     const wantAttack = this.cd <= 0 && dist < range + 0.6;
     if (wantAttack) {
+      for (const [o, until] of tokens) if (until < g.time || !o.alive) tokens.delete(o);
       const free = tokens.size < g.attackTokens || tokens.has(f);
       if (free) {
-        tokens.add(f);
+        tokens.set(f, g.time + 1.4);
         const m = this.moves[Math.floor(Math.random() * this.moves.length)];
         f.telegraph(m);
         this.cd = (1.4 + Math.random() * 1.6) / this.opts.aggression;
         this.retreat = 0.5 + Math.random() * 0.4;
-        setTimeout(() => tokens.delete(f), 1400);
         return;
       }
     }

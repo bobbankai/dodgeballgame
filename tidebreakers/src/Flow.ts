@@ -49,10 +49,16 @@ export class Flow implements FlowApi {
   private loading = false;
   paused = false;
   test = false;
+  inCredits = false;
+  finished = false;
 
   constructor(readonly r: Renderer, readonly game: Game, readonly ui: UI, readonly audio: Audio, readonly input: Input, readonly pc: PlayerController) {
     this.props = new EnvKit(r);
   }
+
+  get isLoading(): boolean { return this.loading; }
+  /** the checkpoint (beat) the current level was last saved at */
+  get at(): string { return this.lastAt; }
 
   async init(): Promise<void> {
     await this.props.load('assets/env/props.glb');
@@ -157,7 +163,10 @@ export class Flow implements FlowApi {
     this.ui.showHud(false);
     this.audio.play('lullaby');
     try { const s = this.read(); if (s) localStorage.setItem(KEY, JSON.stringify({ ...s, level: 'epilogue', at: '', reached: ORDER.length - 1 })); } catch { /* */ }
+    this.inCredits = true;
     await this.ui.credits(CREDITS);
+    this.inCredits = false;
+    this.finished = true;
     this.title();
   }
 

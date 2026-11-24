@@ -9,6 +9,9 @@ import { Globals } from './Globals';
 import { registerShaders } from './shaderRegistry';
 import './babylonFixes';
 
+/** G-buffer object id of the sea (reflections are traced only on these pixels) */
+export const SEA_ID = 0.9;
+
 export type Quality = 'low' | 'medium' | 'high';
 
 interface Target { rt: RenderTargetWrapper; tex: ThinTexture; w: number; h: number }
@@ -28,6 +31,10 @@ export interface PostFx {
   shafts: number;
   /** rain on the lens (0..1) */
   rain: number;
+  /** screen-space reflections on the sea (0 off) */
+  ssr: number;
+  /** anime lens flare from the sun (0 off) */
+  flare: number;
 }
 
 export interface Shock { u: number; v: number; age: number; life: number; strength: number }
@@ -42,6 +49,7 @@ export class Renderer {
     vignette: 0.28, aberration: 0, grain: 0.15, letterbox: 0, fade: 0, impact: 0, speedLines: 0, radialBlur: 0,
     radialCenter: [0.5, 0.5], bloom: 0.3, memory: 0, sepia: 0, lift: [0, 0, 0], gamma: [1, 1, 1], gain: [1, 1, 1],
     bloomThreshold: 1.35, ink: 0.85, inkWidth: 1.0, ao: 0.85, aoRadius: 0.9, dof: [5, 4, 0], shafts: 0.35, rain: 0,
+    ssr: 0.85, flare: 0.6,
   };
   readonly casters: AbstractMesh[] = [];
   shadowCenter = new Vector3();
@@ -59,6 +67,8 @@ export class Renderer {
   private blurFx!: EffectWrapper;
   private dofFx!: EffectWrapper;
   private shaftFx!: EffectWrapper;
+  private ssrFx!: EffectWrapper;
+  private ssrT: Target | null = null;
   private aoA: Target | null = null;
   private aoB: Target | null = null;
   private dofT: Target | null = null;
@@ -84,8 +94,9 @@ export class Renderer {
     this.createShadows();
     this.fxr = new EffectRenderer(this.engine);
     const common = { engine: this.engine, useShaderStore: true, shaderLanguage: ShaderLanguage.WGSL, uniformBuffers: ['globals'] };
-    this.finalFx = new EffectWrapper({ ...common, name: 'final', fragmentShader: 'tbFinal', samplerNames: ['colorTex', 'bloomTex', 'gbufTex', 'aoTex', 'dofTex', 'shaftTex'],
-      uniformNames: ['fxA', 'fxB', 'fxC', 'liftC', 'gammaC', 'gainC', 'inkC', 'postC', 'aoTint', 'shockA', 'shockB', 'shockC', 'shockD'] });
+    this.finalFx = new EffectWrapper({ ...common, name: 'final', fragmentShader: 'tbFinal', samplerNames: ['colorTex', 'bloomTex', 'gbufTex', 'aoTex', 'dofTex', 'shaftTex', 'ssrTex'],
+      uniformNames: ['fxA', 'fxB', 'fxC', 'liftC', 'gammaC', 'gainC', 'inkC', 'postC', 'aoTint', 'shockA', 'shockB', 'shockC', 'shockD', 'postD', 'flareC'] });
+    this.ssrFx = new EffectWrapper({ ...common, name: 'ssr', fragmentShader: 'tbSSR', samplerNames: ['colorTex', 'gbufTex'], uniformNames: ['proj', 'ssrC', 'upV'] });
     this.aoFx = new EffectWrapper({ ...common, name: 'ao', fragmentShader: 'tbAO', samplerNames: ['gbufTex'], uniformNames: ['proj', 'texel'] });
     this.blurFx = new EffectWrapper({ ...common, name: 'bilateral', fragmentShader: 'tbBilateral', samplerNames: ['src'], uniformNames: ['dir'], uniformBuffers: [] });
     this.dofFx = new EffectWrapper({ ...common, name: 'dof', fragmentShader: 'tbDof', samplerNames: ['colorTex', 'gbufTex'], uniformNames: ['dof', 'texel'] });
@@ -120,12 +131,13 @@ export class Renderer {
       if (i < levels - 1) this.bloomUpChain.push(this.target(bw, bh));
       bw = Math.max(1, bw >> 1); bh = Math.max(1, bh >> 1);
     }
-    for (const t of [this.aoA, this.aoB, this.dofT, this.shaftT]) t?.rt.dispose();
+    for (const t of [this.aoA, this.aoB, this.dofT, this.shaftT, this.ssrT]) t?.rt.dispose();
     const hw = Math.max(1, w >> 1), hh = Math.max(1, h >> 1);
     this.aoA = this.target(hw, hh);
     this.aoB = this.target(hw, hh);
     this.dofT = this.target(hw, hh);
     this.shaftT = this.target(Math.max(1, w >> 2), Math.max(1, h >> 2));
+    this.ssrT = this.target(hw, hh);
     this.globals?.set('viewport', w, h, 1 / w, 1 / h);
   }
 
@@ -293,8 +305,8 @@ export class Renderer {
   // per-pass inputs read by persistent onApply observers (Babylon's own observer sets the UV scale, so
   // observers must never be cleared)
   private pass: { src: BaseTexture | ThinTexture | null; sw: number; sh: number; first: boolean; low: Target | null; cur: Target | null; bloomOn: boolean;
-    blurSrc: Target | null; blurDir: [number, number]; aoOn: boolean; dofOn: boolean; shaftsOn: boolean; sun: [number, number, number] } =
-    { src: null, sw: 1, sh: 1, first: true, low: null, cur: null, bloomOn: false, blurSrc: null, blurDir: [1, 0], aoOn: false, dofOn: false, shaftsOn: false, sun: [0.5, 0.5, 0] };
+    blurSrc: Target | null; blurDir: [number, number]; aoOn: boolean; dofOn: boolean; shaftsOn: boolean; sun: [number, number, number]; ssrOn: boolean } =
+    { src: null, sw: 1, sh: 1, first: true, low: null, cur: null, bloomOn: false, blurSrc: null, blurDir: [1, 0], aoOn: false, dofOn: false, shaftsOn: false, sun: [0.5, 0.5, 0], ssrOn: false };
   private observersReady = false;
 
   private setupObservers(): void {
@@ -347,9 +359,25 @@ export class Renderer {
       e.setFloat4('sun', P.sun[0], P.sun[1], P.sun[2], this.fx.shafts * this.globals.get('sunDir')[3]);
       e.setFloat4('shaftC', sc[0] * 1.2, sc[1] * 1.05, sc[2] * 0.85, 0.975);
     });
+    this.ssrFx.onApplyObservable.add(() => {
+      const e = this.ssrFx.effect;
+      const cam = this.scene.activeCamera!;
+      const th = Math.tan(cam.fov / 2);
+      const asp = this.engine.getRenderWidth() / Math.max(1, this.engine.getRenderHeight());
+      e.setTexture('colorTex', this.mrtTex0);
+      e.setTexture('gbufTex', this.mrt.textures[1]);
+      e.bindUniformBuffer(this.globals.ubo.getBuffer()!, 'globals');
+      e.setFloat4('proj', th * asp, th, SEA_ID, this.frameNo % 64);
+      e.setFloat4('ssrC', 180, this.fx.ssr, 0.35, 0.14);
+      const up = Vector3.TransformNormal(Vector3.Up(), cam.getViewMatrix()).normalize();
+      e.setFloat4('upV', up.x, up.y, up.z, 0.45);
+    });
     this.finalFx.onApplyObservable.add(() => {
       const e = this.finalFx.effect;
       const fx = this.fx;
+      e.setTexture('ssrTex', this.ssrT!.tex as any);
+      e.setFloat4('postD', P.ssrOn ? 1 : 0, SEA_ID, fx.flare, 0.25);
+      e.setFloat4('flareC', P.sun[0], P.sun[1], P.sun[2], 1);
       e.setTexture('aoTex', this.aoA!.tex as any);
       e.setTexture('dofTex', this.dofT!.tex as any);
       e.setTexture('shaftTex', this.shaftT!.tex as any);
@@ -408,13 +436,17 @@ export class Renderer {
       P.blurSrc = this.aoB; P.blurDir = [0, 1];
       this.fxr.render(this.blurFx, this.aoA!.rt);
     }
+    // reflections on the sea
+    P.ssrOn = fx.ssr > 0 && this.quality !== 'low' && this.ready(this.ssrFx);
+    if (P.ssrOn) this.fxr.render(this.ssrFx, this.ssrT!.rt);
     // depth of field (cutscenes)
     P.dofOn = fx.dof[2] > 0.01 && this.ready(this.dofFx);
     if (P.dofOn) this.fxr.render(this.dofFx, this.dofT!.rt);
     // sun shafts when the sun is on screen
     P.shaftsOn = false;
+    P.sun = [0.5, 0.5, 0];
     const cam = this.scene.activeCamera;
-    if (fx.shafts > 0 && cam && this.ready(this.shaftFx)) {
+    if ((fx.shafts > 0 || fx.flare > 0) && cam && this.ready(this.shaftFx)) {
       const sd = this.globals.get('sunDir');
       const dir = new Vector3(sd[0], sd[1], sd[2]);
       const fwd = cam.getDirection(Vector3.Forward());
@@ -425,7 +457,7 @@ export class Renderer {
         const u = p.x / w, v = 1 - p.y / h;   // post uv origin is bottom-left
         const onScreen = 1 - Math.min(1, Math.max(0, Math.max(Math.abs(u - 0.5), Math.abs(v - 0.5)) - 0.5) / 0.5);
         P.sun = [u, v, onScreen * Math.min(1, facing * 3)];
-        if (P.sun[2] > 0.01) { P.shaftsOn = true; this.fxr.render(this.shaftFx, this.shaftT!.rt); }
+        if (P.sun[2] > 0.01 && fx.shafts > 0) { P.shaftsOn = true; this.fxr.render(this.shaftFx, this.shaftT!.rt); }
       }
     }
     if (!this.finalFx.isReady()) return;

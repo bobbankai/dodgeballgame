@@ -22,6 +22,8 @@ export class Input {
   sensitivity = 0.0026;
   private padPrev = new Set<number>();
   usedGamepad = false;
+  /** a virtual stick (x right, y forward) that replaces the keys and pads when set: the play-bot's hands */
+  stick: { x: number; y: number } | null = null;
 
   constructor(readonly canvas: HTMLCanvasElement) {
     window.addEventListener('keydown', (e) => {
@@ -74,6 +76,9 @@ export class Input {
 
   isHeld(a: Action): boolean { return this.held.has(a); }
 
+  /** Lets go of a held action (what keyup does for a key). */
+  release(a: Action): void { this.held.delete(a); }
+
   clearBuffer(): void { this.pressedAt.clear(); }
 
   /** Call once per fixed step before reading. */
@@ -105,6 +110,7 @@ export class Input {
       if (now.has(10) && now.has(11) && !(this.padPrev.has(10) && this.padPrev.has(11))) this.press('super');
       this.padPrev = now;
     }
+    if (this.stick) { x = this.stick.x; y = this.stick.y; }
     const len = Math.hypot(x, y);
     if (len > 1) { x /= len; y /= len; }
     this.move.x = this.enabled ? x : 0;

@@ -127,7 +127,7 @@ export class BossBrain implements Brain {
     const g = this.game, p = g.player!, f = this.f;
     f.setState('cine');
     f.play('overhead', false, 0.1);
-    setTimeout(() => { if (f.state === 'cine' && f.alive) { f.setState('idle'); f.locomotionAnim(0); } }, 900);
+    g.after(0.9, () => { if (f.state === 'cine' && f.alive) { f.setState('idle'); f.locomotionAnim(0); } });
     const lead = p.vel.scale(0.5);
     for (let i = 0; i < 6; i++) {
       const a = (i / 6) * Math.PI * 2;
