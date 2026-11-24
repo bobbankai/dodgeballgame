@@ -271,7 +271,10 @@ export class Director {
     const len = d.length();
     if (len < 1e-3) return [pos, 1];
     const dir = d.scale(1 / len);
-    const free = Math.min(len, this.game.collision.raycast(target, dir, len, 0.2));
+    let free = Math.min(len, this.game.collision.raycast(target, dir, len, 0.2));
+    // visible scenery without collision (pillars, rigging, awnings) counts too, as the camera rig sees it
+    const occ = this.game.cam.occlude?.(target.add(dir.scale(0.25)), pos);
+    if (occ !== null && occ !== undefined) free = Math.min(free, occ + 0.25);
     const p = free < len - 0.05 ? target.add(dir.scale(Math.max(0.7, free - 0.25))) : pos;
     const g = this.game.collision.groundAt(p.x, p.z, p.y + 0.5);
     if (p.y < g + 0.35) p.y = g + 0.35;
@@ -305,15 +308,23 @@ export class Director {
     const ab = B.pos.subtract(A.pos);
     ab.y = 0;
     const sep = Math.max(1.2, ab.length());
-    const dist = opts.dist ?? 1.8 + sep * 1.05;
+    // never closer than keeps both of them in frame with some air at the sides
+    const fit = sep * 0.75 / Math.tan((opts.fov ?? 0.62) * 0.5 * 1.7) + 1.4;
+    const dist = Math.max(opts.dist ?? 1.8 + sep * 1.05, fit);
     const h = opts.height ?? 1.45;
-    const target = mid.add(new Vector3(0, Math.max(A.height, B.height) * 0.78, 0));
+    // aim between the two heads, a little low, so the faces sit in the upper third (clear of the dialogue panel);
+    // a kneeling or sitting actor brings the aim down with them
+    const ha = this.headOf(A), hb = this.headOf(B);
+    const target = Vector3.Lerp(ha, hb, bias).add(new Vector3(0, -0.32, 0));
+    // both sides, then craning up over whatever stands in the way (pushing in would crop the pair)
     let best: [Vector3, number] | null = null;
-    for (const sd of [side, -side]) {
-      const n = new Vector3(-ab.z, 0, ab.x).normalize().scale(sd);
-      const r = this.unblock(target, mid.add(n.scale(dist)).add(new Vector3(0, h, 0)));
-      if (!best || r[1] > best[1] + 0.15) best = r;
-      if (r[1] > 0.95) break;
+    search: for (const lift of [0, 1.4, 2.8]) {
+      for (const sd of [side, -side]) {
+        const n = new Vector3(-ab.z, 0, ab.x).normalize().scale(sd);
+        const r = this.unblock(target, mid.add(n.scale(dist + lift * 0.3)).add(new Vector3(0, h + lift, 0)));
+        if (!best || r[1] > best[1] + 0.15) best = r;
+        if (r[1] > 0.95) break search;
+      }
     }
     this.shot(best![0], target, dur, opts.fov ?? 0.62, () => Vector3.Lerp(this.headOf(A), this.headOf(B), bias));
   }
