@@ -61,6 +61,9 @@ export class WeepingShoals extends Level {
     col.minY = -12;
     await this.loadKits('common', 'shoals', 'ships');
     const H = (x: number, z: number) => height(x, z);
+    // Elias Finch's survey flags along the sandbar: blue and white, one on every bar he walked
+    for (const [x, z, r] of [[-4.0, 46.5, 0.3], [-7.6, 40.2, -0.5], [-11.4, 34.6, 0.2]] as const) this.put('flagpole', x, z, r, [0.32, 0.36, 0.32], 'circle');
+    this.put('bottle', -11.0, 34.3, 0.8, 1, 'none');
     this.put('nelllight', 0, 64, 0, 1, 'circle', -0.2);
     this.put('barrel', 3.2, 59, 0, 1, 'circle');
     for (let k = 0; k < 7; k++) this.put('bottle', -4 + k * 0.4, 56.5 + (k % 2) * 0.3, k, 1, 'none');
@@ -177,6 +180,48 @@ export class WeepingShoals extends Level {
           [['wrecker', 7, 58], ['wrecker', -4, 49], ['rifleman', 4, 47], ['brute', 0, 49]],
         ],
       });
+      // Elias's flags, on the way down to the sandbar
+      const flag = async (at: Vector3, lines: [string, string, string][]) => {
+        await this.reach(at, 2.4, 'Follow Elias\'s flags down the sandbar');
+        d.cine(true);
+        const n = nell!;
+        d.place(n, at.add(V(1.0, 0, 0.6)), 0);
+        d.face(n, at, true);
+        d.face(kai, at, true);
+        d.listen('kai', 'mira', 'bram', 'nell');
+        d.two(n, kai, 1, 0, { dist: 4.2 });
+        let k = 0, last = '';
+        for (const [who, text, e] of lines) {
+          // first line on the two-shot, then a close-up whenever the speaker changes
+          if (k > 0 && who !== last) d.close(who, who === 'kai' ? 1 : -1, 0, { dist: 2.3 });
+          await d.say(who, text, e);
+          last = who;
+          k++;
+        }
+        d.cine(false);
+        d.release(n);
+        void d.walk(n, at.add(V(-2, 0, -4)), true);
+      };
+      await flag(P(-4.0, 46.5), [
+        ['nell', 'That\'s Papa\'s flag! Blue and white. It means the channel\'s safe to here.', 'joy'],
+        ['nell', 'He put one on every sandbar he walked, so the fishing boats could find their way home in the dark.', 'tender'],
+        ['kai', 'He sounds like a good dad.', 'smile'],
+        ['nell', 'He was a terrible cook. But he was a good dad.', 'laugh'],
+      ]);
+      await flag(P(-7.6, 40.2), [
+        ['nell', 'This one\'s crooked. He\'d hate that.', 'smile'],
+        ['nell', 'He used to make me count the flags out loud from the lamp room. Forty-one. I could do it with my eyes shut.', 'tender'],
+        ['bram', 'How many are still standing, lass?', 'worried'],
+        ['nell', '...Twelve. The storms take one or two every month, and I can\'t reach the far ones on my own.', 'sad'],
+        ['kai', 'Then when this is over we put them all back. Forty-one. And you count.', 'determined'],
+      ]);
+      await flag(P(-11.4, 34.6), [
+        ['nell', 'There\'s a bottle tied to this one. That\'s... that\'s his knot.', 'shock'],
+        ['nell', '"Day four hundred and two. The Maw circled the shelf again. It isn\'t hunting. It\'s guarding something. Back soon, lighthouse girl. E."', 'tender'],
+        ['nell', 'Four hundred and two. He was still out here a whole year after everyone told me to stop lighting the lamp.', 'cry'],
+        ['mira', 'Then he left you more than one bottle. We\'ll find the rest.', 'determined'],
+        ['nell', '...Okay. Okay. Wreckers first.', 'determined'],
+      ]);
       await this.reach(P(-12, 30), 5, 'The wreckers came from the sandbars');
       await this.fight({
         center: P(-12, 30), radius: 8, objective: 'Clear the sandbar', music: 'battle', after: 'storm',

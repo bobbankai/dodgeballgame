@@ -109,6 +109,10 @@ export class Ashport extends Level {
     for (const [x, z, r] of segs) this.putAt('rails', x, H(x, z), z, r, 1, 'none');
     // walls of the canyon keep you in the tunnel
     this.put('minecart', -0.5, 66, 0.1, 1, 'box');
+    // Teo's chalk trail through the tunnels
+    this.chalk('boat', V(1.7, H(1.7, 70.5), 70.5), 0, 0.75);
+    this.chalk('sun', V(1.2, H(1.2, 77.2), 77.2), -0.2, 0.8);
+    this.chalk('nine', V(-3.5, H(-3.5, 100.5), 100.5), -0.9, 0.9);
     // the pit: the furnace, vents, carts, the sealed tunnel with Teo's drawings
     this.put('furnace', 0, 128, Math.PI, 1, 'circle');
     for (let k = 0; k < 6; k++) {
@@ -144,6 +148,38 @@ export class Ashport extends Level {
   }
 
   // ------------------------------------------------------------------------------------------ story
+  /** Mira kneels at one of Teo's drawings with Kai beside her. Shots stay inside the tunnel: a high shot from
+   *  beyond the drawing (it in the foreground, their faces behind it), then front close-ups on whoever speaks. */
+  private async drawing(mira: Fighter | null, at: Vector3, yaw: number, lines: [string, string, string][]): Promise<void> {
+    const d = this.dir, kai = this.kai;
+    const f = V(Math.sin(yaw), 0, Math.cos(yaw)), r = V(Math.cos(yaw), 0, -Math.sin(yaw)), up = V(0, 1, 0);
+    const mp = at.subtract(f.scale(0.9)).subtract(r.scale(0.85));
+    const kp = at.subtract(f.scale(1.25)).add(r.scale(0.9));
+    d.cine(true);
+    if (mira) {
+      d.place(mira, mp, yaw + 0.35);
+      d.act(mira, 'kneel_hold', true);
+      d.listen('kai', 'mira');
+    }
+    d.place(kai, kp, yaw - 0.3);
+    d.face(kai, at, true);
+    const wide = () => d.shot(at.add(f.scale(1.7)).add(up.scale(2.7)), at.subtract(f.scale(0.55)).add(up.scale(0.15)), 0, 0.72);
+    wide();
+    d.focus(2.8, 1.6, 0.5);
+    await d.wait(1.4);
+    let k = 0;
+    for (const [who, text, e] of lines) {
+      if (k > 0 && k % 3 === 0) wide();
+      else if (who === 'mira' && mira) d.shot(mp.add(f.scale(2.0)).add(r.scale(0.45)).add(up.scale(0.85)), mp.add(up.scale(0.62)), 0, 0.55);
+      else if (who === 'kai') d.shot(kp.add(f.scale(1.8)).subtract(r.scale(0.35)).add(up.scale(1.5)), kp.add(up.scale(1.42)), 0, 0.5);
+      await d.say(who, text, e);
+      k++;
+    }
+    d.focus(0, 1, 0);
+    if (mira) { d.release(mira); d.act(mira, 'idle', true); }
+    d.cine(false);
+  }
+
   async script(): Promise<void> {
     const d = this.dir, ui = this.ctx.ui, audio = this.ctx.audio, g = this.game, kai = this.kai, pc = this.ctx.pc, flags = this.ctx.flow.flags;
     const H = (x: number, z: number) => height(x, z);
@@ -228,6 +264,7 @@ export class Ashport extends Level {
         waves: [
           [['thug', -6, -4], ['thug', 6, -12], ['thug', -10, -8], ['thug', 10, -6]],
           [['thug', -4, 2], ['thug', 4, 2], ['marine', 0, 4]],
+          [['brute', 0, 4], ['thug', -8, -2], ['rifleman', 8, -12], ['thug', 7, 0]],
         ],
       });
     }
@@ -278,11 +315,38 @@ export class Ashport extends Level {
       if (this.starting('tunnels')) kai.place(P(0, 56), 0);
       audio.ambience('cave');
       void d.say('mira', 'Number Nine is past the old pit. Keep your head down, the ceiling\'s older than I am.', 'calm');
+      // Teo's chalk trail: the drawings he left so he could find his way back
+      await this.reach(P(1.6, 69), 2.4, 'Follow the chalk marks');
+      await this.drawing(mira, P(1.7, 70.5), 0, [
+        ['kai', 'Mira, look. Somebody drew on the floor.', 'shock'],
+        ['mira', 'Chalk. He always had chalk. He stole it off the foreman\'s tally board, a stub at a time.', 'sad'],
+        ['kai', 'That\'s a boat. With two people in it.', 'tender'],
+        ['mira', 'Me and him. He was going to buy us a boat with the coal money. Twelve years old and he had it worked out to the penny.', 'tender'],
+        ['kai', 'And a really big sun.', 'smile'],
+        ['mira', 'Everything he drew had a big sun. You don\'t see it much, down here.', 'sad'],
+      ]);
+      await this.reach(P(1.2, 76), 2.4, 'Follow the chalk marks');
+      await this.drawing(mira, P(1.2, 77.2), -0.2, [
+        ['kai', 'Is that... a sun with a moustache?', 'worried'],
+        ['mira', 'Ha! That\'s Papa.', 'laugh'],
+        ['mira', 'He worked nights at the furnace. Teo thought if he drew him as the sun, he\'d finally get to see some daylight.', 'tender'],
+        ['kai', 'Did he? See it?', 'worried'],
+        ['mira', 'The furnace took him the winter before the Baron took Teo. After that I stopped drawing suns.', 'cry'],
+        ['kai', 'Then I\'ll draw them for you. Badly. Every day, if you want.', 'determined'],
+        ['mira', '...You would, too. Idiot.', 'embarrassed'],
+      ]);
       await this.reach(P(3, 84), 4, 'Down the tunnels');
       await this.fight({
         center: P(3, 84), radius: 6, objective: 'Clear the tunnel', music: 'battle', after: 'mine',
         waves: [[['thug', 3, 90], ['thug', 3, 78], ['thug', 4, 92]], [['elite', 2, 94], ['thug', 3, 76]]],
       });
+      await this.reach(P(-3.2, 99.2), 2.6, 'Follow the chalk marks');
+      await this.drawing(mira, P(-3.5, 100.5), -0.9, [
+        ['mira', 'An arrow. And nine marks, one for every tunnel.', 'shock'],
+        ['mira', 'He counted them so he could always find his way back up to me. He never got lost. Not once.', 'cry'],
+        ['kai', 'Then he\'s still showing us the way. Come on. We\'ll go together.', 'determined'],
+        ['mira', '...Together.', 'sad'],
+      ]);
       await this.reach(P(-14, 108), 6, 'Find Tunnel Nine');
     }
 
@@ -348,7 +412,7 @@ export class Ashport extends Level {
       if (!mira) mira = await this.addCrew('mira', P(-8, 112), 0);
       this.checkpoint('boss', P(-6, 110), 0.6);
       kai.place(P(-6, 110), 0.6);
-      const { f: gor, brain } = await this.addBoss('gorrick', P(0, 120), Math.PI, 520);
+      const { f: gor, brain } = await this.addBoss('gorrick', P(0, 120), Math.PI, 640);
       brain.active = false;
       d.cine(true);
       d.face(gor, kai, true);

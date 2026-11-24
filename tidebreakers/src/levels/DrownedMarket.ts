@@ -7,6 +7,7 @@ import { Vector3 } from '@babylonjs/core';
 import { Level, V, type LookDef } from './Level';
 import type { Fighter } from '../game/Fighter';
 import { Boat, WREN } from '../world/Boat';
+import { hold, drop } from '../game/Props';
 
 const DECK = 0.68;
 // lashed barges (14 x 7): centres
@@ -96,8 +97,40 @@ export class DrownedMarket extends Level {
     // ---------------------------------------------------------------- arrival
     if (this.from('arrival')) {
       this.checkpoint('arrival', P(0, -16), 0);
-      kai.place(P(0.8, -16), 0);
+      // the night before: on the Wren's deck, coming in to the market
       d.cine(true);
+      audio.play('sad');
+      const deck = V(0, 0.6, -26);
+      d.place(kai, deck.add(V(0.55, 0, -0.9)), 0.4);
+      d.place(mira, deck.add(V(-0.6, 0, 1.0)), Math.PI - 0.3);
+      hold(this.ctx.flow.props, kai, 'lantern', 'R');
+      const lamp = this.light(deck.add(V(0.9, 1.3, -0.6)), 7, [1.0, 0.72, 0.4], 1.6);
+      d.face(kai, deck.add(V(6, 0, -4)), true);
+      d.face(mira, kai, true);
+      d.drift(deck.add(V(6, 3.2, -5)), deck.add(V(4.2, 2.2, -2.5)), deck.add(V(0, 1.0, 0)), 9);
+      await d.wait(2.5);
+      d.listen('kai', 'mira');
+      await d.say('mira', 'You keep looking at that lantern. Every night. Like it\'s going to say something.', 'calm');
+      d.two(kai, mira, 1, 0, { dist: 3.4 });
+      await d.say('kai', 'It was my mum\'s. She kept the light at Gull\'s Rest. The night of the Great Squall she rowed out with it to a ship that was breaking up on the reef.', 'tender');
+      await d.say('mira', 'Did she come back?', 'worried');
+      d.face(kai, mira);
+      d.close(kai, 1, 0, { dist: 1.6 });
+      await d.say('kai', 'No. But I did. They found me on the beach in the morning holding this. I was four. I don\'t even know why I was in the water.', 'sad');
+      await d.say('kai', 'I don\'t remember her face. Only the light. Is that stupid?', 'sad');
+      d.close(mira, -1, 0, { dist: 1.6 });
+      await d.say('mira', 'It\'s not stupid. I can\'t remember Teo\'s voice any more. Only his drawings.', 'sad');
+      await d.say('mira', '...So you keep the light and I keep the drawings. That\'s what we\'ve got.', 'tender');
+      d.two(kai, mira, 1, 0, { dist: 3.2 });
+      await d.say('kai', 'And each other. That\'s what a crew is.', 'smile');
+      await d.say('mira', 'Don\'t make it weird, storm-boy.', 'embarrassed');
+      await d.fade(1, 0.8);
+      drop(kai, 'lantern');
+      this.unlight(lamp);
+      d.act(kai, 'idle', true);
+      d.place(mira, P(-1.5, -14), 0);
+      kai.place(P(0.8, -16), 0);
+      void d.fade(0, 0.8);
       audio.play('market');
       d.drift(V(-30, 14, -50), V(-22, 9, -36), V(0, 2, 10), 10);
       await d.card('CHAPTER THREE', 'The Drowned Market', 'Where the ships that had nowhere to go went.');
@@ -225,8 +258,43 @@ export class DrownedMarket extends Level {
         waves: [
           [['marine', -9, 13], ['marine', 9, 13], ['brute', 0, 21], ['rifleman', -10, 20]],
           [['elite', 0, 22], ['marine', -10, 18], ['marine', 10, 18], ['rifleman', 10, 11]],
+          [['brute', -8, 20], ['marine', 8, 12], ['rifleman', 0, 23], ['marine', -9, 12]],
         ],
       });
+      // the shelling has put people in the water: Bram's lifebuoys, the rest of them
+      d.cine(true);
+      d.two(bram, kai, -1, 0, { dist: 4 });
+      await d.say('bram', 'The shelling\'s knocked people off the east boats! They\'re in the water!', 'shock');
+      await d.say('kai', 'Then we throw them every lifebuoy in this market. Mira, Bram, take the stalls!', 'determined');
+      d.cine(false);
+      const buoys: [Vector3, Vector3, string, string][] = [
+        [P(-15.8, 15.5), V(-20.5, 0, 15.5), 'villager', 'I\'ve got it! I\'ve got it! Pull, pull!'],
+        [P(15.8, 15.5), V(20.5, 0, 15.5), 'villager', 'My boy! Take my boy first, please!'],
+        [P(-11.5, 21.2), V(-12.5, 0, 26), 'villager', '...Thank you. Thank you. I can\'t swim. I never could.'],
+      ];
+      for (let i = 0; i < buoys.length; i++) {
+        const [spot, water, who, line] = buoys[i];
+        await this.reach(spot, 2.2, `Throw lifebuoys to the people in the water (${i}/3)`);
+        d.cine(true);
+        d.face(kai, water, true);
+        d.shot(spot.add(V(0, 2.4, 0)).add(spot.subtract(water).normalize().scale(3)), water.add(V(0, 0.5, 0)), 0, 0.6);
+        d.act(kai, 'throw');
+        await d.wait(0.45);
+        g.vfx.splash(water, 26);
+        g.sfx('splash', water);
+        await d.wait(0.6);
+        await d.say(who, line, i === 2 ? 'cry' : 'shock');
+        d.act(kai, 'idle', true);
+        d.cine(false);
+      }
+      d.cine(true);
+      d.place(bram, P(-9.5, 20.2), 0.6);
+      d.face(bram, V(-12.5, 0, 26), true);
+      d.two(kai, bram, 1, 0, { dist: 3.6 });
+      await d.say('bram', '...That\'s three more than I threw.', 'cry');
+      await d.say('kai', 'Then that\'s three more people who get to be hungry tomorrow. Come on. Your soup\'s still on.', 'tender');
+      d.cine(false);
+      await this.reach(P(0, 21.5), 2.5, 'To the gangway');
       await this.reach(P(0, 33), 3, 'To the gangway');
     }
 
@@ -238,7 +306,7 @@ export class DrownedMarket extends Level {
       this.addFire(P(-6, 38), 1.2);
       this.addFire(P(6, 45), 1.2);
       this.addFire(P(-5.5, 45.5), 0.9);
-      const { f: hal, brain } = await this.addBoss('halvard', P(0, 43), Math.PI, 560);
+      const { f: hal, brain } = await this.addBoss('halvard', P(0, 43), Math.PI, 900);
       brain.active = false;
       brain.onSummon = () => {
         void this.enemy('marine', hal.pos.x - 4, hal.pos.z + 1);

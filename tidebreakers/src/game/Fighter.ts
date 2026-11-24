@@ -76,6 +76,10 @@ export class Fighter {
   /** hp never drops below this (allies, scripted boss phases); onFloor fires once when it is reached */
   floorHp = 0;
   onFloor?: () => void;
+  /** the story needs this one alive (bosses): a fall puts them back on solid ground instead of killing them */
+  fallSafe = false;
+  /** last place this fighter stood on solid ground */
+  readonly lastSafe = new Vector3();
   onHit?: (dmg: number, from: Fighter | null) => void;
   speedScale = 1;
   lastHitBy: Fighter | null = null;
@@ -234,6 +238,12 @@ export class Fighter {
     return 'hit';
   }
 
+  /** Takes damage that can't kill (falls): stops at the story's health floor, or at 1. */
+  hurt(amount: number): void {
+    this.hp = Math.max(this.floorHp > 0 ? this.floorHp : 1, this.hp - amount);
+    this.checkFloor();
+  }
+
   private checkFloor(): boolean {
     if (this.floorHp <= 0 || this.hp > this.floorHp) return false;
     this.hp = this.floorHp;
@@ -387,6 +397,7 @@ export class Fighter {
     }
     col.resolve(next, this.radius, this.height);
     this.pos.copyFrom(next);
+    if (this.onGround && this.pos.y > col.minY + 0.5) this.lastSafe.copyFrom(this.pos);
     if (this.pos.y < col.minY) this.game.onFall(this);
     // facing
     if (this.state === 'idle' || this.state === 'guard' || this.state === 'air') {

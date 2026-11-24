@@ -197,6 +197,32 @@ export class SunkenCrown extends Level {
       });
       void d.say('vale', 'The Great Squall took my wife, Amara. It took my daughter. She was six. She was afraid of the dark.', 'sad');
       await this.reach(P(0, 8), 4, 'To the stairs');
+      // alone at the foot of the stairs: the Albatross's log, read aloud so the names don't get lonely
+      d.cine(true);
+      audio.play('sad');
+      d.place(kai, P(0, 8.5), Math.PI);
+      hold(this.ctx.flow.props, kai, 'logbook', 'L');
+      d.act(kai, 'kneel_hold', true);
+      const foot = P(0, 8.5);
+      d.drift(foot.add(V(4.5, 2.6, -5)), foot.add(V(2.6, 1.6, -3)), foot.add(V(0, 0.9, 0)), 12);
+      await d.wait(1.5);
+      await d.say('kai', 'Grandma said to read them out loud now and then. So they don\'t get lonely.', 'tender');
+      d.close(kai, 1, 0, { dist: 1.6, height: -0.35 });
+      await d.say('kai', 'Captain Ada Reyes. Tomas Reyes, her brother. Old Fenwick. Little Pim, the cabin boy.', 'sad');
+      await d.say('kai', 'Hollis. Marguerite. The Danvers brothers, both of them. Sully, who couldn\'t swim and sailed anyway.', 'sad');
+      d.close(kai, -1, 0, { dist: 1.9, height: -0.3 });
+      await d.say('kai', 'Rosa Kell. Bartholomew. Jonah Wick. And Cook, who never told anybody his real name.', 'sad');
+      await d.say('kai', 'Forty pages of fair winds, and then the pages just stop. None of you got to finish the voyage, did you.', 'cry');
+      d.shot(foot.add(V(-1.2, 1.1, -1.6)), foot.add(V(0, 0.75, 0)), 0, 0.5);
+      await d.say('kai', 'Ines Corra. Navigator.', 'cry');
+      await d.say('kai', 'That\'s fourteen now, Grandma. You\'re in the book. You\'re not lonely either.', 'cry');
+      await d.wait(1.2);
+      drop(kai, 'logbook');
+      d.act(kai, 'idle', true);
+      d.close(kai, 1, 0, { dist: 1.5 });
+      await d.say('kai', '...Okay. One more voyage.', 'determined');
+      audio.play('citadel');
+      d.cine(false);
       void d.say('nell', 'Main gate\'s mine now, Kai. The stairs are clear. Go!', 'determined');
       await this.reach(P(0, 23), 4, 'Climb to the Crown');
     }

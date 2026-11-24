@@ -19,6 +19,7 @@ import { BossBrain, type BossKind } from '../ai/Bosses';
 import { equip } from '../game/Props';
 import { Grass, type GrassLook } from '../world/Grass';
 import { bolt } from '../render/Vfx';
+import { chalkDrawing } from '../world/Chalk';
 
 export type Mood = Parameters<Audio['play']>[0];
 
@@ -45,6 +46,8 @@ export interface LookDef {
   grade?: [number, number, number, number];
   fx?: Partial<PostFx>;
   wind?: [number, number, number];
+  /** strength of drifting cloud shadows (default from the sky's cloud cover on sunny looks) */
+  clouds?: number;
 }
 
 export type Wave = [string, number, number, number?][];
@@ -133,13 +136,16 @@ export abstract class Level {
       g.set('sea', L.sea.level ?? 0, L.sea.amp ?? 1, L.sea.chop ?? 1, L.sea.storm ?? 0);
     }
     if (L.wind) this.game.wind.set(...L.wind);
+    const clouds = L.clouds ?? (L.sunIntensity >= 0.9 ? Math.min(0.42, (L.sky.cover ?? 0.4) * 0.7) : 0);
+    const ss = g.get('shadowSplit');
+    g.set('shadowSplit', ss[0], ss[1], clouds, 1 / 34);
     const sky = skyMaterial(this.r, L.sky);
     this.mats.push(sky);
     this.r.setSky(sky);
     Object.assign(this.r.fx, {
       vignette: 0.28, aberration: 0, grain: 0.15, letterbox: 0, fade: 0, impact: 0, speedLines: 0, radialBlur: 0, bloom: 0.3, memory: 0, sepia: 0,
       lift: [0, 0, 0], gamma: [1, 1, 1], gain: [1, 1, 1], bloomThreshold: 1.35, ink: 0.85, inkWidth: 1.0, ao: 0.85, aoRadius: 0.9,
-      dof: [5, 4, 0], shafts: 0.35, rain: 0,
+      dof: [5, 4, 0], shafts: 0.35, rain: 0, ssr: 0.85, flare: 0.6,
     } satisfies Partial<PostFx>, L.fx ?? {});
   }
 
@@ -174,8 +180,17 @@ export abstract class Level {
     this.kit.place(name, x, y, z, rot, scale, this.game.collision, collide);
   }
 
-  light(pos: Vector3, radius: number, color: [number, number, number], intensity = 1): void {
-    this.r.globals.lights.push({ pos, radius, color, intensity });
+  /** Adds a point light; returns it so a scene can take it away again (unlight). */
+  light(pos: Vector3, radius: number, color: [number, number, number], intensity = 1): { pos: Vector3; radius: number; color: [number, number, number]; intensity: number } {
+    const l = { pos, radius, color, intensity };
+    this.r.globals.lights.push(l);
+    return l;
+  }
+
+  unlight(l: object): void {
+    const ls = this.r.globals.lights as object[];
+    const i = ls.indexOf(l);
+    if (i >= 0) ls.splice(i, 1);
   }
 
   // ------------------------------------------------------------------------------------------ cast
@@ -190,6 +205,7 @@ export abstract class Level {
   async addCrew(kind: CrewKind, pos: Vector3, yaw = 0): Promise<Fighter> {
     const f = await spawn(this.game, kind, pos, yaw);
     brains.delete(f);
+    f.fallSafe = true;
     const brain = new CrewBrain(f, this.game, kind);
     brains.set(f, brain);
     equip(this.ctx.flow.props, f, kind);
@@ -201,6 +217,7 @@ export abstract class Level {
   async addBoss(kind: BossKind, pos: Vector3, yaw = 0, hp?: number): Promise<{ f: Fighter; brain: BossBrain }> {
     const f = await spawn(this.game, kind, pos, yaw);
     brains.delete(f);
+    f.fallSafe = true;
     if (hp) f.hp = f.maxHp = hp;
     const brain = new BossBrain(f, this.game, kind);
     brain.center = pos.clone();
@@ -251,6 +268,13 @@ export abstract class Level {
     g.combatActive = false;
     if (s.objective) ui.setObjective(null);
     this.ctx.audio.play(s.after ?? 'island');
+  }
+
+  /** A child's chalk drawing on the ground (world/Chalk.ts). */
+  chalk(name: string, at: Vector3, yaw = 0, scale = 1): void {
+    const m = chalkDrawing(this.r, this.game.collision, name, at, yaw, scale);
+    this.meshes.push(m);
+    if (m.material) this.mats.push(m.material as ShaderMaterial);
   }
 
   /** Waits until Kai is within `r` of `p` (exploration goals). Shows an objective while waiting. */

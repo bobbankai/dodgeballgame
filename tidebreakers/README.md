@@ -49,24 +49,25 @@ screen to the credits; saves at every beat (localStorage, Continue / Chapters on
 | Level | | Boss |
 |---|---|---|
 | Prologue: The Lantern | Seren rows out to a sinking ferry; her son wades into the sea after her | |
-| 1 Gull's Rest | Sparring with Grandma Ines, the Armada lands, the cliff path, Ines's death | Commodore Halvard |
-| 2 Ashport | Mira, the mines, her brother Teo's chalk drawings | Baron Gorrick Vane (two phases, furnace vents) |
-| 3 The Drowned Market | Bram's soup kitchen, his confession, Hana and the lifebuoy | Halvard again (two phases) |
-| 4 The Weeping Shoals | Nell's lighthouse, the wreckers, her father's last letter | The Weeping Maw (serpent) |
-| 5 The Sunken Crown | The crew holds the gates; Ys-Marrow rises; the lantern and Lissa's name | Grand Admiral Vale (three phases) |
+| 1 Gull's Rest | Sparring with Grandma Ines, a last ordinary morning with the village, the Armada lands, the cliff path, Ines's death | Commodore Halvard |
+| 2 Ashport | Mira, the mines, following her brother Teo's chalk drawings down to Tunnel Nine | Baron Gorrick Vane (two phases, furnace vents) |
+| 3 The Drowned Market | A night on the Wren (Kai's mother, Teo), Bram's soup kitchen, his confession, throwing the lifebuoys, Hana | Halvard again (two phases) |
+| 4 The Weeping Shoals | Nell's lighthouse, her father's survey flags and his bottle, the wreckers, his last letter | The Weeping Maw (serpent) |
+| 5 The Sunken Crown | The crew holds the gates; Kai reads the Albatross's names aloud, and adds Ines's; Ys-Marrow rises; the lantern and Lissa's name | Grand Admiral Vale (three phases) |
 | Epilogue: The Wake | Dawn at sea | |
 
-Roughly 240 lines of dialogue, 15 arena fights, a tutorial spar and five bosses. A first playthrough is
-estimated at 60–75 minutes (estimated from the content; headless runs can't measure real play time).
+About 310 lines of dialogue, 15 arena fights, a tutorial spar and five bosses. Play time is
+measured by the play-bot (see Testing), which plays straight through with no exploring: PLAYTIME_SUMMARY
 
 ## Layout
 
 ```
-src/render      Renderer (MRT G-buffer, cascaded sun shadows, AO, DOF, sun shafts, bloom, final grade),
+src/render      Renderer (MRT G-buffer, cascaded sun shadows with drifting cloud shadows, AO, screen-space
+                reflections on the sea, DOF, sun shafts, bloom, anime lens flare, final grade),
                 Globals (shared uniform block), materials, Vfx (GPU particle quads, lightning)
 src/shaders     WGSL: lib/ (lighting, toon, face, shadows, noise, sky, waves, surfaces), materials/
                 (toon characters, outlines, terrain, scenery, ocean, grass, sky), post/ (AO, bilateral
-                blur, DOF, shafts, bloom, final), vfx/ (particles)
+                blur, SSR, DOF, shafts, bloom, final), vfx/ (particles)
 src/game        Game (combat resolution, hazards, projectiles), Fighter, Player, Animator (retargeting,
                 blending, layers), Procedural (look-at, spring chains), Face, CameraRig, Collision, Props
 src/ai          enemy archetypes, crew allies, bosses
@@ -107,13 +108,22 @@ deterministically in headless Chromium with software WebGPU and saves screenshot
 `__game`, `__kai`, `__flow`, `__r` (renderer), `__ui`; `window.__autoplay = true` lets a bot walk to
 objectives and end fights so whole chapters play through; `__ui.autoAdvance = 0.3` advances dialogue.
 Long runs should use a static build (`vite build --outDir <dir>` served on its own port), because the dev
-server reloads the page when sources change. `__r.globals.set('counts', n, k, 2, 0)` with k = 1 normals,
+server reloads the page when sources change.
+
+Play time is measured with a play-bot (`src/test/PlayBot.ts`, `window.__playbot = true`) that only uses the
+controls: it runs to each objective marker, fights with combos, launchers, specials it has unlocked and crew
+assists, steps out of warning circles, jumps tide rings, dodges or parries some telegraphed swings (more as it
+dies and learns a fight), and reads each line of dialogue at about 200 words a minute before pressing on. It
+dies and restarts from checkpoints like a player. `node tools/playtime.mjs "<static url>/?test&level=prologue"
+<outDir>` plays the whole story that way and writes `playtime.json` (minutes per level and checkpoint, deaths,
+time lost to them, times it had to be moved past scenery). Gameplay and UI timers run on game time, so the
+headless measurement matches real play. `__r.globals.set('counts', n, k, 2, 0)` with k = 1 normals,
 2 depth, 3 ids, 4 raw HDR, 5 AO, 6 shafts, 7 depth-of-field mask shows the debug views.
 
 ## Status and honest notes
 
 - The whole story plays from the title screen to the credits under the test bot.
-- Shader code: about 2,400 lines of WGSL across 34 files, every line in use. It has not been padded toward
+- Shader code: about 2,630 lines of WGSL across 35 files, every line in use. It has not been padded toward
   the requested 20,000. Effects were added where they visibly improve the game and are reported at their
   real size.
 - Characters are stylized and fully rigged with deformation tests, but they are not at the level of a

@@ -200,6 +200,12 @@ export class Game {
       f.hp = Math.max(1, f.hp - 10);
       f.place(this.checkpoint.pos, this.checkpoint.yaw);
       this.sfx('splash', f.pos);
+    } else if (f.fallSafe || f.floorHp > 0) {
+      // bosses and anyone the story is waiting on climb back out (a fall must never skip their scene)
+      this.sfx('splash', f.pos);
+      f.vel.setAll(0);
+      f.place(f.lastSafe.lengthSquared() > 0 ? f.lastSafe : this.checkpoint.pos, f.yaw);
+      f.hurt(Math.round(f.maxHp * 0.06));
     } else {
       f.hp = 0;
       f.die(new Vector3(), 0);

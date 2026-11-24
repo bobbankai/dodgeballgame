@@ -15,7 +15,7 @@ struct TBGlobals {
   shadowMat: mat4x4f,   // world -> shadow clip space (cascade 0)
   shadowMat1: mat4x4f,  // world -> shadow clip space (cascade 1, wide)
   shadowParams: vec4f,  // x texel size, y depth bias, z normal bias, w strength (0 disables)
-  shadowSplit: vec4f,   // x cascade-0 radius, y cascade-0 centre fade, z,w unused
+  shadowSplit: vec4f,   // x cascade-0 radius, y cascade-0 centre fade, z cloud shadow strength, w cloud scale (1/m)
   wind: vec4f,          // xy direction, z strength, w gust phase
   grade: vec4f,         // x exposure, y saturation, z contrast, w warmth
   flash: vec4f,         // rgb global flash colour, w amount (lightning, impacts)

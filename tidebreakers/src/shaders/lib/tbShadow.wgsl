@@ -40,8 +40,27 @@ fn pcfTex1(uv: vec2f, z: f32, radius: f32, rot: f32) -> f32 {
   return lit / 8.0;
 }
 
+// Shadows of clouds passing over: soft, domain-warped blotches on a layer high above, projected along the
+// sun so they slide over hills and walls the right way, drifting with the wind. Needs tbNoise.
+fn cloudShadow(wp: vec3f) -> f32 {
+  let amt = globals.shadowSplit.z;
+  if (amt <= 0.0) { return 1.0; }
+  let l = globals.sunDir.xyz;
+  let layer = 160.0 - wp.y;
+  let p = wp.xz + l.xz / max(l.y, 0.25) * layer;
+  let drift = normalize(globals.wind.xy + vec2f(1e-3, 0.0)) * globals.time.x * (2.5 + globals.wind.z * 2.0);
+  let q = (p - drift) * globals.shadowSplit.w;
+  let w = vec2f(fbm2(q * 0.7 + vec2f(3.1, 1.7), 2), fbm2(q * 0.7 + vec2f(8.3, 2.8), 2));
+  let c = fbm2(q + w * 1.2, 4);
+  return 1.0 - amt * smoothstep(0.02, 0.22, c);
+}
+
 // Returns 1 lit .. 0 in shadow. `n` is the world normal (normal-offset biasing), `fragXY` screen position.
 fn sunShadow(wp: vec3f, n: vec3f, fragXY: vec2f) -> f32 {
+  return sunShadowMap(wp, n, fragXY) * cloudShadow(wp);
+}
+
+fn sunShadowMap(wp: vec3f, n: vec3f, fragXY: vec2f) -> f32 {
   if (globals.shadowParams.w <= 0.0) { return 1.0; }
   let ndl = dot(n, globals.sunDir.xyz);
   let off = wp + n * globals.shadowParams.z * (1.0 - saturate(ndl) * 0.6);

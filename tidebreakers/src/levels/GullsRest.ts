@@ -163,6 +163,7 @@ export class GullsRest extends Level {
     const ines = await this.npc('ines', 'ines', P(4, 63), Math.PI);
     hold(this.ctx.flow.props, ines, 'cane');
     let wim: Fighter | null = null, joss: Fighter | null = null;
+    const greeters: Fighter[] = [];
 
     // ---------------------------------------------------------------- intro: sparring on the green
     if (this.from('intro')) {
@@ -247,6 +248,50 @@ export class GullsRest extends Level {
       await d.say('kai', 'I still light her lantern, you know. Every night.', 'smile');
       await d.say('ines', 'I know, love. I can see it from my window.', 'tender');
       drop(kai, 'lantern');
+      // an ordinary morning on the green, the last one: the village came out to watch the spar
+      await d.say('ines', 'Go on, then. Half the village came up to watch you lose. Go and tell them you didn\'t.', 'smirk');
+      const abe = await this.npc('villager', 'abe', P(-6.5, 56.5), 0.9, { look: { tint: [0.8, 0.78, 0.72] as [number, number, number] } });
+      const tilly = await this.npc('teo', 'tilly', P(7.5, 54.5), -0.6, { look: { face: { eyeStyle: 1 }, tint: [1.0, 0.85, 0.95] as [number, number, number] } });
+      const pell = await this.npc('villager', 'pell', P(-4.5, 68.5), 2.6, { look: { face: { eyeStyle: 1 }, tint: [0.85, 0.9, 1.0] as [number, number, number] } });
+      d.act(abe, 'cross_arms', true);
+      d.cine(false);
+      const chat = async (who: Fighter, key: string, lines: [string, string, string][]) => {
+        await this.reach(who.pos, 2.4, 'Say good morning to the village');
+        d.cine(true);
+        d.face(kai, who);
+        d.face(who, kai);
+        d.listen('kai', key);
+        d.two(kai, who, 1, 0, { dist: 3.4 });
+        let last = '';
+        for (const [sp, text, e] of lines) {
+          if (last && sp !== last) d.close(sp === 'kai' ? kai : who, sp === 'kai' ? -1 : 1, 0, { dist: 2.0 });
+          await d.say(sp, text, e);
+          last = sp;
+        }
+        d.cine(false);
+      };
+      await chat(abe, 'abe', [
+        ['abe', 'Your mum used to spar on this green, you know. She\'d knock me flat, then help me up and apologise for an hour.', 'laugh'],
+        ['kai', 'Did she ever lose?', 'grin'],
+        ['abe', 'Once. To your grandmother. She never stopped talking about it.', 'smile'],
+      ]);
+      await chat(pell, 'pell', [
+        ['pell', 'Don\'t let Ines fool you, lad. She walks out to that cliff every evening at dusk and looks south. Thirty years.', 'calm'],
+        ['kai', 'Looking for what?', 'worried'],
+        ['pell', 'Sails. She never says whose.', 'sad'],
+      ]);
+      await chat(tilly, 'tilly', [
+        ['tilly', 'Kai! Kai! Are you really going to be a pirate?', 'joy'],
+        ['kai', 'The best one. With a crew and a ship and a flag with a gull on it.', 'grin'],
+        ['tilly', 'Can I be on your crew?', 'joy'],
+        ['kai', 'When you\'re tall enough to see over the wheel.', 'smile'],
+        ['tilly', 'I\'m tall enough NOW!', 'angry'],
+      ]);
+      await this.reach(P(1, 61), 2.5, 'Back to Grandma Ines. She promised pie');
+      d.cine(true);
+      d.place(kai, P(1, 61), 0.4);
+      d.place(ines, P(3, 64), Math.PI);
+      for (const f of [abe, tilly, pell]) { d.release(f); greeters.push(f); }
     }
 
     // ---------------------------------------------------------------- ships in the bay
@@ -278,6 +323,8 @@ export class GullsRest extends Level {
 
     // ---------------------------------------------------------------- the market lane
     if (this.from('village')) {
+      for (const f of greeters) g.removeFighter(f);
+      greeters.length = 0;
       this.checkpoint('village', P(-2, 20), Math.PI);
       if (this.starting('village')) kai.place(P(-2, 20), Math.PI);
       d.place(ines, P(-11, 64), 0);
@@ -378,7 +425,7 @@ export class GullsRest extends Level {
       audio.play('tension');
       d.place(ines, P(-6, 72), 0.5);
       const guards = [await this.npc('marine', 'g1', P(-8.5, 72.5), 1.2), await this.npc('marine', 'g2', P(-5, 75), 2.2)];
-      const { f: halvard, brain } = await this.addBoss('halvard', P(-2, 68), -1.2, 420);
+      const { f: halvard, brain } = await this.addBoss('halvard', P(-2, 68), -1.2, 500);
       brain.active = false;
       d.cine(true);
       d.face(halvard, ines, true);
