@@ -12,6 +12,9 @@ import { hold, drop } from '../game/Props';
 
 const SUMMIT = { x: 0, z: 36, r: 15 };
 
+/** The grand stairs: from the avenue (y0 at z0) up to the summit (y1 at z1), in 32 steps of 0.25 m. */
+const STAIRS = { z0: 12, z1: 21.5, y0: 6.5, y1: 14.5, steps: 32, halfW: 5.5 };
+
 function height(x: number, z: number): number {
   const n = fbm(x * 0.03, z * 0.03, 4, 41);
   let h = -12 + n * 2;
@@ -21,7 +24,8 @@ function height(x: number, z: number): number {
   h = Math.max(h, lerp(1.6, 6.5, smoothstep(-68, -46, z)) * (1 - smoothstep(10, 18, Math.abs(x))) * (z < -30 ? 1 : 0));
   // the summit and the grand stairs up to it
   h = Math.max(h, plateau(x, z, SUMMIT.x, SUMMIT.z, SUMMIT.r, SUMMIT.r + 1.5, 14.5));
-  if (Math.abs(x) < 5.5 && z > 12 && z < 21.5) h = Math.max(h, lerp(6.5, 14.5, smoothstep(12, 21.5, z)));
+  // under the grand stairs: a straight slope kept just below the steps (the steps themselves are platforms)
+  if (Math.abs(x) < 5.5 && z > 12 && z < STAIRS.z1) h = Math.max(h, STAIRS.y0 - 0.35 + (z - STAIRS.z0) / (STAIRS.z1 - STAIRS.z0) * (STAIRS.y1 - STAIRS.y0));
   return h;
 }
 
@@ -79,7 +83,15 @@ export class SunkenCrown extends Level {
     for (let z = -30; z <= 10; z += 6) for (const x of [-3, 3]) this.put('slab', x, z, 0, 1, 'none', 0.01);
     for (const [x, z] of [[-4.5, -32], [4.5, -32], [-4.5, 10], [4.5, 10]] as const) { this.put('brazier', x, z, 0, 1, 'circle'); this.addFire(V(x, H(x, z) + 1.45, z), 0.45); }
     // the grand stairs and the summit
-    this.putAt('grandstairs', 0, 6.5, 12.5, 0, [1.1, 1.25, 1.2], 'none');
+    // four flights of the stairs piece (8 steps each) turned to climb toward the summit, and a platform per
+    // step so feet land on the steps you see
+    {
+      const S = STAIRS, flights = 4, run = (S.z1 - S.z0) / flights, rise = (S.y1 - S.y0) / flights;
+      for (let k = 0; k < flights; k++) this.putAt('grandstairs', 0, S.y0 + rise * k, S.z0 + run * k, Math.PI, [1.1, rise / 2, run / 4], 'none');
+      const stepRun = (S.z1 - S.z0) / S.steps, stepRise = (S.y1 - S.y0) / S.steps;
+      for (let i = 0; i < S.steps; i++) col.addPlatform(0, S.z0 + (i + 0.5) * stepRun, S.halfW, stepRun / 2 + 0.01, S.y0 + (i + 1) * stepRise);
+      for (const sx of [-1, 1]) col.addBox(sx * (S.halfW + 0.35), (S.z0 + S.z1) / 2, 0.35, (S.z1 - S.z0) / 2, 0, S.y0 - 1, S.y1 + 1.2);
+    }
     this.put('altar', SUMMIT.x, SUMMIT.z + 4, 0, 1, 'circle');
     for (let k = 0; k < 10; k++) {
       const a = (k / 10) * Math.PI * 2;
@@ -197,29 +209,33 @@ export class SunkenCrown extends Level {
       });
       void d.say('vale', 'The Great Squall took my wife, Amara. It took my daughter. She was six. She was afraid of the dark.', 'sad');
       await this.reach(P(0, 8), 4, 'To the stairs');
-      // alone at the foot of the stairs: the Albatross's log, read aloud so the names don't get lonely
+      // alone at the foot of the stairs: the Albatross's log, read aloud so the names don't get lonely.
+      // Kai kneels facing back down the avenue; every camera stays on that open side (the stairs are solid).
       d.cine(true);
       audio.play('sad');
-      d.place(kai, P(0, 8.5), Math.PI);
+      const foot = P(0, 8.2);
+      d.place(kai, foot, Math.PI);
+      d.face(kai, P(0, -4), true);
       hold(this.ctx.flow.props, kai, 'logbook', 'L');
       d.act(kai, 'kneel_hold', true);
-      const foot = P(0, 8.5);
-      d.drift(foot.add(V(4.5, 2.6, -5)), foot.add(V(2.6, 1.6, -3)), foot.add(V(0, 0.9, 0)), 12);
+      const head = foot.add(V(0, 1.12, 0));
+      d.drift(foot.add(V(3.2, 3.4, -8)), foot.add(V(1.9, 1.9, -4.2)), head, 12);
       await d.wait(1.5);
       await d.say('kai', 'Grandma said to read them out loud now and then. So they don\'t get lonely.', 'tender');
-      d.close(kai, 1, 0, { dist: 1.6, height: -0.35 });
+      d.shot(foot.add(V(0.8, 0.55, -1.7)), foot.add(V(0, 1.02, 0)), 0, 0.5);
       await d.say('kai', 'Captain Ada Reyes. Tomas Reyes, her brother. Old Fenwick. Little Pim, the cabin boy.', 'sad');
       await d.say('kai', 'Hollis. Marguerite. The Danvers brothers, both of them. Sully, who couldn\'t swim and sailed anyway.', 'sad');
-      d.close(kai, -1, 0, { dist: 1.9, height: -0.3 });
+      d.shot(foot.add(V(-0.85, 0.5, -1.6)), foot.add(V(0, 1.02, 0)), 0, 0.5);
       await d.say('kai', 'Rosa Kell. Bartholomew. Jonah Wick. And Cook, who never told anybody his real name.', 'sad');
       await d.say('kai', 'Forty pages of fair winds, and then the pages just stop. None of you got to finish the voyage, did you.', 'cry');
-      d.shot(foot.add(V(-1.2, 1.1, -1.6)), foot.add(V(0, 0.75, 0)), 0, 0.5);
+      d.shot(foot.add(V(0.3, 0.8, -1.25)), foot.add(V(0, 1.05, 0)), 0, 0.45);
       await d.say('kai', 'Ines Corra. Navigator.', 'cry');
       await d.say('kai', 'That\'s fourteen now, Grandma. You\'re in the book. You\'re not lonely either.', 'cry');
       await d.wait(1.2);
       drop(kai, 'logbook');
       d.act(kai, 'idle', true);
-      d.close(kai, 1, 0, { dist: 1.5 });
+      d.face(kai, P(0, 23));
+      d.shot(foot.add(V(1.6, 1.5, -3.2)), foot.add(V(0, 1.4, 2)), 0, 0.6);
       await d.say('kai', '...Okay. One more voyage.', 'determined');
       audio.play('citadel');
       d.cine(false);

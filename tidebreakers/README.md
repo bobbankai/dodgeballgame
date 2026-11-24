@@ -57,7 +57,10 @@ screen to the credits; saves at every beat (localStorage, Continue / Chapters on
 | Epilogue: The Wake | Dawn at sea | |
 
 About 310 lines of dialogue, 15 arena fights, a tutorial spar and five bosses. Play time is
-measured by the play-bot (see Testing), which plays straight through with no exploring: PLAYTIME_SUMMARY
+measured by the play-bot (see Testing), which plays straight through with no exploring. Three full runs
+from the prologue to the end of the epilogue: 55–60 minutes (mean 57) including the fights it lost and
+replayed (10–15 deaths), and 47–48 minutes for a player who never dies; the credits add half a minute.
+Loading screens are not counted.
 
 ## Layout
 

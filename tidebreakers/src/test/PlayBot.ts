@@ -48,6 +48,7 @@ export class PlayBot {
   private sinceProgress = 0;   // time since the objective last got closer (counted as stuck if a rescue follows)
   private steerSide = 1;
   private steerHold = 0;
+  private lastTarget = new Vector3(1e9, 0, 0);
 
   constructor(readonly flow: Flow, readonly game: Game, readonly kai: Fighter, readonly pc: PlayerController,
     readonly input: Input, readonly ui: UI) {}
@@ -136,6 +137,11 @@ export class PlayBot {
 
   private travel(dt: number, target: Vector3): void {
     const k = this.kai;
+    // a new objective: progress is measured against it from scratch
+    if (Math.hypot(target.x - this.lastTarget.x, target.z - this.lastTarget.z) > 0.5) {
+      this.lastTarget.copyFrom(target);
+      this.bestDist = 1e9; this.bestT = 0; this.detours = 0; this.detourT = 0; this.sinceProgress = 0;
+    }
     const to = target.subtract(k.pos);
     to.y = 0;
     const dist = to.length();
