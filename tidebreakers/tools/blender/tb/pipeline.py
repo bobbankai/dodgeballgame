@@ -199,7 +199,34 @@ def trim_paint(col, ring):
 TRIM_SKIP = ('belt', 'sash', 'strap', 'band', 'wrap', 'glove', 'buckle', 'skin', 'haircap')
 
 
-def cel_normals(V, F, N, iters=6, amount=0.5):
+def neck_shadow(body, V, N):
+    """Anime neck shadow: how deep each skin point lies in the shadow the jaw casts down the neck under a light
+    from above and in front, as 0..1 with the shadow's edge on the 0.5 contour (so it stays crisp when the
+    renderer interpolates it). Measured by marching toward the light and taking the head's nearest approach:
+    negative when the ray passes through the head."""
+    fa = body.face_anchor
+    u = fa['u']
+    head = body.head_field
+    out = np.zeros(len(V))
+    nz = body.sk.j['neck'][2]
+    # the neck only: not the head itself (its own lighting shades the jaw), not the chest below
+    sel = np.nonzero((head.eval(V) > 0.004 * u) & (V[:, 2] > nz - 0.05 * u) & (V[:, 2] < fa['chin'] + 0.12 * u))[0]
+    if not len(sel):
+        return out
+    d = np.array([0.0, -0.32, 1.0])
+    d /= np.linalg.norm(d)
+    P0 = V[sel] + N[sel] * 0.003
+    m = np.full(len(sel), np.inf)
+    for t in np.linspace(0.006, 0.18 * u, 44):
+        m = np.minimum(m, head.eval(P0 + d * t))
+    s = np.clip(0.5 - m / (0.012 * u), 0, 1)
+    # fades out down the neck rather than stopping at a line
+    s *= np.clip((V[sel, 2] - (nz - 0.05 * u)) / (0.03 * u), 0, 1)
+    out[sel] = s
+    return out
+
+
+def cel_normals(V, F, N, iters=12, amount=0.6):
     """Shading normals for cel-shaded cloth: the mesh normals averaged over the surface, so the hard light/shadow
     edge follows the garment's big forms instead of every small bump (which reads as shiny plastic)."""
     nb = pm.adjacency(F, len(V))
@@ -420,6 +447,10 @@ def build(spec, out_glb, art, renders=True):
             col = trim_paint(col, trim)
         ao = sdf_ao(ao_field, Vp2 + N * 0.0015, N)
         u = fa['u']
+        clsv = np.full(len(Vp2), CLS[cls] / 10.0)
+        if name == 'skin':
+            # the painted shadow under the jaw rides in the class channel's fraction (tbToon decodes it)
+            clsv = clsv + 0.04 * neck_shadow(body, Vp2, N)
         if name == 'skin':
             fwd = np.clip((-N[:, 1] - 0.15) / 0.5, 0, 1)
             inface = ((Vp2[:, 2] > fa['chin'] - 0.01) & (Vp2[:, 2] < fa['chin'] + 0.2 * u) & (Vp2[:, 1] < fa['cranium'][1] - 0.04 * u)).astype(float)
@@ -451,7 +482,7 @@ def build(spec, out_glb, art, renders=True):
             Nh /= np.maximum(np.linalg.norm(Nh, axis=1, keepdims=True), 1e-9)
             me.normals_split_custom_set_from_vertices([tuple(x) for x in Nh])
         _set_uv(me, 'UVMap', np.stack([Vp2[:, 0] / u, (Vp2[:, 2] - fa['chin']) / u], 1))
-        _set_uv(me, 'UV1', np.stack([ao, np.full(len(Vp2), CLS[cls] / 10.0)], 1))
+        _set_uv(me, 'UV1', np.stack([ao, clsv], 1))
         # weights
         if Wsrc is not None and len(Wsrc) == len(Vp2):
             bn, W = bnames, Wsrc.copy()

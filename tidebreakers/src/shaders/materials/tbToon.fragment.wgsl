@@ -44,7 +44,11 @@ fn main(input: FragmentInputs) -> FragmentOutputs {
     if (nz < dis) { discard; }
     edgeGlow = smoothstep(dis + 0.06, dis, nz);
   }
-  let cls = i32(round((1.0 - input.vAoCls.y) * 10.0));  // glTF flips V on every UV set
+  // glTF flips V on every UV set. The class is the integer part; skin carries its painted neck shadow in
+  // the fraction (0.4 x a 0..1 value whose 0.5 contour is the shadow's edge)
+  let clsF = (1.0 - input.vAoCls.y) * 10.0;
+  let cls = i32(round(clsF));
+  let paintedSh = select(0.0, smoothstep(0.4, 0.6, saturate((clsF - f32(cls)) / 0.4)), cls == CLS_SKIN);
   var albedo = input.vColor.rgb * uniforms.tint.rgb;
   let ao = input.vAoCls.x;
   var fp: FaceParams;
@@ -62,6 +66,7 @@ fn main(input: FragmentInputs) -> FragmentOutputs {
   t.shadow = sunShadow(pos, n, input.position.xy);
   t.rimMask = 1.0 + uniforms.fx.z;
   t.emissive = vec3f(0.0);
+  t.painted = paintedSh;
   if (cls == CLS_GLOW) {
     t.emissive = albedo * (1.5 + uniforms.glowColor.w * 4.0) + uniforms.glowColor.rgb * uniforms.glowColor.w * 3.0;
   }

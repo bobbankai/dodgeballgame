@@ -61,6 +61,8 @@ export class Director {
   private letterTarget = 0;
   private speaking: Fighter | null = null;
   private listeners: Fighter[] = [];
+  /** who spoke recently, newest first (a close-up is framed toward the person the actor is talking to) */
+  private spoke: Fighter[] = [];
   private push: { from: Vector3; to: Vector3; target: Vector3; t: number; dur: number } | null = null;
   cineActive = false;
   stopped = false;
@@ -173,6 +175,7 @@ export class Director {
     const sp = SPEAKERS[who] ?? { name: who, color: '#555', voice: '' };
     const f = this.get(who) ?? null;
     this.speaking = f;
+    if (f) this.spoke = [f, ...this.spoke.filter((o) => o !== f)].slice(0, 4);
     if (f) {
       f.model.face.set(expr ?? inferEmotion(text), 9);
       if (anim) this.act(f, anim, anim === 'talk' || anim === 'cry' || anim === 'kneel_hold' || anim === 'kneel_grief' || anim === 'cross_arms' || anim === 'sit');
@@ -198,7 +201,7 @@ export class Director {
     const dist = toCam.length();
     if (dist > 3.4 || Vector3.Distance(tgt, head) > 0.9) return;
     toCam.y = 0;
-    const away = Vector3.Dot(toCam.normalize(), f.forward) < -0.15;
+    const away = Vector3.Dot(toCam.normalize(), f.facing) < -0.15;
     let blocked = false;
     const seg = head.subtract(c);
     const len = seg.length();
@@ -262,6 +265,8 @@ export class Director {
     if (!a) return;
     a.place(p, yaw ?? a.yaw);
     a.vel.setAll(0);
+    // placed facing a given way: an earlier 'face him' no longer applies
+    if (yaw !== undefined) a.intent.face = undefined;
   }
 
   // ------------------------------------------------------------------------------------------ camera
@@ -273,12 +278,28 @@ export class Director {
     const dir = d.scale(1 / len);
     let free = Math.min(len, this.game.collision.raycast(target, dir, len, 0.2));
     // visible scenery without collision (pillars, rigging, awnings) counts too, as the camera rig sees it
-    const occ = this.game.cam.occlude?.(target.add(dir.scale(0.25)), pos);
-    if (occ !== null && occ !== undefined) free = Math.min(free, occ + 0.25);
+    // (from just off the target: the actors themselves never count, and a wall a hand's width from a head
+    // standing against it must)
+    const occ = this.game.cam.occlude?.(target.add(dir.scale(0.04)), pos);
+    if (occ !== null && occ !== undefined) free = Math.min(free, occ + 0.04);
     const p = free < len - 0.05 ? target.add(dir.scale(Math.max(0.7, free - 0.25))) : pos;
     const g = this.game.collision.groundAt(p.x, p.z, p.y + 0.5);
     if (p.y < g + 0.35) p.y = g + 0.35;
     return [p, free / len];
+  }
+
+  /** A shot on `target` from the first of `from` (positions, in order of preference) with a clear view of it;
+   *  if none is clear, the one that sees most of the way, pulled in past what blocks it. */
+  clearShot(target: Vector3, from: Vector3[], fov = 0.5, follow?: () => Vector3): void {
+    let best: [Vector3, number] | null = null;
+    for (const p of from) {
+      const r = this.unblock(target, p);
+      if (!best || r[1] > best[1] + 0.05) best = r;
+      if (r[1] > 0.97) break;
+    }
+    if (!best) return;
+    this.shot(best[0], target, 0, fov, follow);
+    this.focus(Vector3.Distance(best[0], target), 0.9, 1);
   }
 
   /** Depth of field for the next shot: focus distance (m), in-focus range, amount (0 = off). */
@@ -332,8 +353,16 @@ export class Director {
   /** Close-up of one actor's face from in front, slightly off-axis. */
   close(f: Fighter | string, side = 1, dur = 0, opts: { dist?: number; fov?: number; height?: number; angle?: number } = {}): void {
     const A = typeof f === 'string' ? this.get(f)! : f;
-    const fwd = A.forward;
-    const ang = (opts.angle ?? 0.45) * side;
+    const fwd = A.facing;
+    let ang = (opts.angle ?? 0.45) * side;
+    // in a conversation the actor looks at the person they are talking to: put the lens on that side of them,
+    // near the eyeline, or a partner standing off to one side turns the face into a profile
+    const partner = opts.angle === undefined ? this.partnerOf(A) : null;
+    if (partner) {
+      const to = partner.pos.subtract(A.pos);
+      const rel = Math.atan2(fwd.x * to.z - fwd.z * to.x, fwd.x * to.x + fwd.z * to.z);
+      if (Math.abs(rel) > 0.3) ang = Math.max(-1.1, Math.min(1.1, rel * 0.75));
+    }
     const dir = new Vector3(fwd.x * Math.cos(ang) - fwd.z * Math.sin(ang), 0, fwd.x * Math.sin(ang) + fwd.z * Math.cos(ang));
     const head = this.headOf(A).add(new Vector3(0, -0.06, 0));
     const dist = opts.dist ?? 1.15 + A.height * 0.22 + A.radius * 0.6;
@@ -353,6 +382,19 @@ export class Director {
     const p0 = pos.add(new Vector3(0, -0.42 * crouchOf(), 0));
     this.shot(p0, head.add(new Vector3(0, -0.04, 0)), dur, opts.fov ?? 0.5, () => this.headOf(A), crouchCam);
     this.focus(Vector3.Distance(pos, head), 0.9, 1);
+  }
+
+  /** The one `A` is talking with: whoever spoke last before them, else the nearest listener (within 6 m). */
+  private partnerOf(A: Fighter): Fighter | null {
+    const near = (o: Fighter) => o !== A && o.alive && Vector3.Distance(o.pos, A.pos) < 6;
+    const p = this.spoke.find(near);
+    if (p) return p;
+    let best: Fighter | null = null, bd = Infinity;
+    for (const o of this.listeners) {
+      const dd = Vector3.Distance(o.pos, A.pos);
+      if (near(o) && dd < bd) { bd = dd; best = o; }
+    }
+    return best;
   }
 
   /** Over the shoulder of `from`, looking at `to`'s face. */

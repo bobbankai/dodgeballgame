@@ -1,6 +1,6 @@
 // A loaded character: skinned mesh with the toon material, an inverted-hull outline sharing its
 // skeleton, a bone lookup by name, and a Face driving the procedural face shader.
-import { LoadAssetContainerAsync, TransformNode, Mesh, MultiMaterial, SubMesh } from '@babylonjs/core';
+import { LoadAssetContainerAsync, TransformNode, Mesh, MultiMaterial, SubMesh, Vector3 } from '@babylonjs/core';
 import type { AssetContainer, Skeleton, AbstractMesh, ShaderMaterial, Scene } from '@babylonjs/core';
 import '@babylonjs/loaders/glTF';
 import type { Renderer } from '../render/Renderer';
@@ -51,8 +51,28 @@ export class CharacterModel {
   restRot = new Map<string, import('@babylonjs/core').Quaternion>();
   restPos = new Map<string, import('@babylonjs/core').Vector3>();
   readonly id = newObjectId();
+  /** the lighter mesh drawn beyond lodDistance from the camera */
+  lod1: Mesh | null = null;
+  lodDistance = 14;
+  private far = false;
+  /** every character model in the scene (LODs are chosen for all of them once a frame) */
+  static live = new Set<CharacterModel>();
 
   private constructor(readonly name: string, readonly r: Renderer) {}
+
+  /** Picks the mesh to draw from the character's real position. (Babylon's own LOD measured from the skinned
+   *  mesh's bounding box, which stays where the character was loaded: far from there the low-detail mesh was
+   *  chosen and then frustum-culled, and the character vanished from close-ups.) */
+  updateLod(cam: Vector3): void {
+    if (!this.lod1) return;
+    const far = Vector3.DistanceSquared(this.anchor.position, cam) > this.lodDistance * this.lodDistance;
+    if (far === this.far) return;
+    this.far = far;
+    this.mesh.isVisible = !far;
+    this.lod1.isVisible = far;
+  }
+
+  static lodAll(cam: Vector3): void { for (const c of CharacterModel.live) c.updateLod(cam); }
 
   static async load(r: Renderer, name: string, look: CharacterLook = {}): Promise<CharacterModel> {
     const c = new CharacterModel(name, r);
@@ -101,7 +121,10 @@ export class CharacterModel {
       new SubMesh(0, 0, lv, 0, li, lod1);
       new SubMesh(1, 0, lv, 0, li, lod1);
       lod1.material = multi;
-      skinned.addLODLevel(look.lodDistance ?? 14, lod1);
+      lod1.alwaysSelectAsActiveMesh = true;
+      lod1.isVisible = false;
+      c.lod1 = lod1;
+      c.lodDistance = look.lodDistance ?? 14;
     }
     // ground the model: its lowest rest-pose point sits on y = 0 of the anchor node
     skinned.refreshBoundingInfo({ applySkeleton: true });
@@ -110,7 +133,9 @@ export class CharacterModel {
     c.anchor = new TransformNode(`${name}-anchor`, r.scene);
     c.root.parent = c.anchor;
     r.addCaster(skinned);
+    if (lod1) r.addCaster(lod1);
     c.face = new Face([c.mat], { ...DEFAULT_FACE, ...look.face });
+    CharacterModel.live.add(c);
     return c;
   }
 
@@ -129,6 +154,8 @@ export class CharacterModel {
     for (const p of this.props) p.dispose();
     this.props = [];
     this.r.removeCaster(this.mesh);
+    if (this.lod1) this.r.removeCaster(this.lod1);
+    CharacterModel.live.delete(this);
     // never dispose textures here: the materials sample the shared shadow maps
     this.anchor.dispose(false, false);
     this.mat.dispose(true, false);

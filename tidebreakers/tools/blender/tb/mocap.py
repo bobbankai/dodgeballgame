@@ -36,6 +36,15 @@ def euler(ax, ay, az, order='XYZ'):
     return R
 
 
+def axis_angle(ax, a):
+    """Rotation matrix of angle `a` (radians) about the unit axis `ax` (right-handed)."""
+    x, y, z = ax
+    c, s, C = math.cos(a), math.sin(a), 1 - math.cos(a)
+    return np.array([[c + x * x * C, x * y * C - z * s, x * z * C + y * s],
+                     [y * x * C + z * s, c + y * y * C, y * z * C - x * s],
+                     [z * x * C - y * s, z * y * C + x * s, c + z * z * C]])
+
+
 def arc(u, v):
     """Minimal rotation taking unit vector u onto v."""
     u = u / np.linalg.norm(u)
@@ -234,8 +243,13 @@ def load(asf_path, amc_path, start=0, end=None, step=4):
     return asf, [fk(asf, f) for f in amc]
 
 
-def retarget(rig, asf, poses, name, inplace=False, loop=False, recenter=True, face=None, fingers=None, smooth=1, head_up=0.0):
-    """poses: list of (R, P) in CMU space. Returns Clip with per-frame basis quaternions."""
+def retarget(rig, asf, poses, name, inplace=False, loop=False, recenter=True, face=None, fingers=None, smooth=1, head_up=0.0,
+             gaze=None):
+    """poses: list of (R, P) in CMU space. Returns Clip with per-frame basis quaternions.
+    gaze=(pitch, keep[, yaw_keep]): re-aims the head so its pitch averages `pitch` degrees (+ up) over the clip,
+    keeping `keep` of the performer's own nods around that average (applied after head_up); yaw_keep likewise
+    keeps that share of the head's turning left and right of the chest (an idle performer looks about a lot,
+    which in a close-up reads as an actor turning away from the lens)."""
     # rest pose of the CMU skeleton (all dofs zero) for directions and leg length
     R0, P0 = fk(asf, {})
     floor0 = min(P0['ltoes'][1], P0['rtoes'][1], P0['lfoot'][1], P0['rfoot'][1])
@@ -283,6 +297,31 @@ def retarget(rig, asf, poses, name, inplace=False, loop=False, recenter=True, fa
                     Rw[b] = euler(-head_up * k, 0, 0) @ Rw[b]
         world.append(Rw)
         root_pos.append(T @ H @ P['root'] * k)
+    if gaze and 'head' in rig.R:
+        # the head's facing (rest facing is -Y) and its pitch in every frame
+        fwd = [Rw['head'] @ rig.R['head'].T @ np.array([0, -1.0, 0]) for Rw in world]
+        pitch = np.degrees(np.arcsin(np.clip([f[2] for f in fwd], -1, 1)))
+        target = gaze[0] + (pitch - pitch.mean()) * gaze[1]
+        for Rw, f, p0, p1 in zip(world, fwd, pitch, target):
+            ax = np.cross(f, np.array([0, 0, 1.0]))
+            if np.linalg.norm(ax) < 1e-6:
+                continue
+            ax /= np.linalg.norm(ax)
+            for b, share in (('neck', 0.4), ('head', 1.0)):
+                if b in Rw:
+                    Rw[b] = axis_angle(ax, math.radians((p1 - p0) * share)) @ Rw[b]
+        if len(gaze) > 2 and 'chest' in rig.R:
+            def yaw_of(Rw, b):
+                f = Rw[b] @ rig.R[b].T @ np.array([0, -1.0, 0])
+                return math.atan2(f[0], -f[1])
+            rel = np.array([math.atan2(math.sin(yaw_of(Rw, 'head') - yaw_of(Rw, 'chest')), math.cos(yaw_of(Rw, 'head') - yaw_of(Rw, 'chest')))
+                            for Rw in world])
+            want = (rel - rel.mean()) * gaze[2]   # (centred: on average the head faces where the chest does)
+            up = np.array([0, 0, 1.0])
+            for Rw, r0, r1 in zip(world, rel, want):
+                for b, share in (('neck', 0.4), ('head', 1.0)):
+                    if b in Rw:
+                        Rw[b] = axis_angle(up, (r1 - r0) * share) @ Rw[b]
     root_pos = np.array(root_pos)
     # the clip's floor: where the feet actually are (low percentile of the lowest foot joint)
     feet = np.array([min(P['ltoes'][1], P['rtoes'][1], P['lfoot'][1], P['rfoot'][1]) for _, P in poses])

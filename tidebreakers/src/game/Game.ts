@@ -1,5 +1,6 @@
 // The world: fighters, combat resolution, projectiles, camera, effects, time (hitstop / slow motion),
 // encounters and the player's storm meter. Levels and the story director drive it.
+import { CharacterModel } from './CharacterModel';
 import { Vector3, Ray } from '@babylonjs/core';
 import type { Mesh } from '@babylonjs/core';
 import type { Renderer } from '../render/Renderer';
@@ -262,6 +263,7 @@ export class Game {
     this.vfx.update(dt * (this.hitstop > 0 ? 0.25 : this.slowmo));
     this.trails.update(gdt, this.fighters, this.cam.cam.position);
     this.cam.update(dt, this.input.takeLook());
+    CharacterModel.lodAll(this.cam.cam.position);
     const p = this.player;
     if (p) {
       this.r.shadowCenter.copyFrom(p.pos);

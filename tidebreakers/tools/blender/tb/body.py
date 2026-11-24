@@ -151,17 +151,25 @@ class Body:
         cl, jw = chn, jaw
         # The head is one loft from chin to crown: front-view width, side-view depth and centre per height.
         # (z, half width, half depth, centre y, squareness)
+        # A heavy jaw widens the lower face most at the jaw angle and less at the cheekbones, so even a square
+        # jaw still tapers from the cheeks to the chin (scaling both equally gave wide 'jowly' faces).
+        jw_lo = jw if jw <= 1 else 1 + 0.75 * (jw - 1)
+        jw_hi = jw if jw <= 1 else 1 + 0.4 * (jw - 1)
+        # The chin is a small flat-bottomed wedge (wider on heavier jaws), not a point: a narrow last section
+        # pinched into a nub under the jaw.
         keys = [
-            (0.006 - 0.010 * (cl - 1), 0.013 * (0.8 + 0.2 * jw), 0.02, -0.045 - 0.005 * (cl - 1), 2.0),
-            (0.022 - 0.006 * (cl - 1), 0.03 * (0.85 + 0.15 * jw), 0.036, -0.041 - 0.004 * (cl - 1), 2.0),
-            (0.044, 0.052 * jw, 0.054, -0.033, 2.1 + 0.2 * (jw - 1)),
-            (0.068, 0.072 * jw * F['cheek'] ** 0.35, 0.073, -0.020, 2.25 + 0.2 * (jw - 1)),
+            (-0.004 - 0.010 * (cl - 1), (0.017 + 0.008 * (jw_lo - 1)), 0.022, -0.046 - 0.005 * (cl - 1), 2.2),
+            (0.022 - 0.006 * (cl - 1), 0.033 * (0.85 + 0.15 * jw_lo), 0.037, -0.041 - 0.004 * (cl - 1), 2.1),
+            (0.044, 0.052 * jw_lo, 0.054, -0.033, 2.05 + 0.15 * (jw - 1)),
+            (0.068, 0.072 * jw_hi * F['cheek'] ** 0.35, 0.073, -0.020, 2.1 + 0.1 * (jw - 1)),
             (0.098, 0.084 * cw, 0.090, -0.004, 2.1),
             (0.128, 0.093 * cw, 0.104 * cd, 0.008, 2.0),
             (0.160, 0.098 * cw, 0.112 * cd, 0.012, 2.0),
             (0.190 * chh, 0.095 * cw, 0.109 * cd, 0.015, 2.0),
         ]
-        head = sdf.Loft([P(0, 0, z) for z, *_ in keys], [(rx * u, ry * u, 0, oy * u, n) for z, rx, ry, oy, n in keys], side=(1, 0, 0))
+        # (a shallow end cap: a full round cap hung a ball under the chin)
+        head = sdf.Loft([P(0, 0, z) for z, *_ in keys], [(rx * u, ry * u, 0, oy * u, n) for z, rx, ry, oy, n in keys], side=(1, 0, 0),
+                        cap=(0.4, 1.0))
         # the crown: an ellipsoid dome over the top of the loft
         dome = Ellipsoid(P(0, 0.014, 0.162 * chh), v(0.097 * cw, 0.111 * cd, 0.085 * chh) * u)
         head = Union([head, dome], 0.02 * u)
@@ -173,7 +181,7 @@ class Body:
         head = sdf.Intersect([head, flat], 0.035 * u)
         # brow ridge: one soft wide mass, only on older / heavier faces
         # brow: a broad soft mass (never thinner than it is tall, or it reads as a blade); only heavier faces
-        if F['brow'] > 0.45:
+        if F['brow'] > 0.95:
             br = F['brow']
             head = Union([head, Ellipsoid(P(0, -0.084, 0.15), v(0.06, 0.012 + 0.004 * br, 0.016 + 0.004 * br) * u)], 0.03 * u)
         # nose: a small wedge, anime style

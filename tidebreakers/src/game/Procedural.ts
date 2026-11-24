@@ -154,13 +154,19 @@ export class Procedural {
         const flatF = new Vector3(fwd.x, 0, fwd.z).normalize();
         const flatT = new Vector3(toT.x, 0, toT.z).normalize();
         if (Vector3.Dot(flatF, flatT) < 0.3) continue;
-        const delta = fromTo(fwd, toT);
-        const part = Quaternion.Slerp(Quaternion.Identity(), delta, share * this.lookAmt);
-        const world = n.absoluteRotationQuaternion.clone();
+        // the turn is found as directions in world space and applied in the parent's space through its full
+        // matrix (the glTF root mirrors Z, so composing decomposed world rotations turned heads the wrong way)
+        const part = Quaternion.Slerp(Quaternion.Identity(), fromTo(fwd, toT), share * this.lookAmt);
+        const want = fwd.applyRotationQuaternion(part);
         const parent = n.parent as TransformNode | null;
         if (parent) {
           parent.computeWorldMatrix(true);
-          n.rotationQuaternion = Quaternion.Inverse(parent.absoluteRotationQuaternion).multiply(part.multiply(world));
+          const pinv = parent.getWorldMatrix().clone().invert();
+          const cl = Vector3.TransformNormal(fwd, pinv).normalize();
+          const sl = Vector3.TransformNormal(want, pinv).normalize();
+          const local = n.rotationQuaternion ?? Quaternion.FromEulerVector(n.rotation);
+          n.rotationQuaternion = fromTo(cl, sl).multiply(local);
+          n.computeWorldMatrix(true);
         }
       }
     }

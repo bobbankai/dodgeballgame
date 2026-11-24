@@ -25,6 +25,7 @@ struct ToonInput {
   shadow: f32,       // 1 lit .. 0 shadowed (sun shadow map)
   rimMask: f32,      // 0 disables rim (inner faces)
   emissive: vec3f,
+  painted: f32,      // painted (anime) shadow: 1 keeps the surface in shadow whatever the light (under the chin)
 };
 
 fn toonBand(x: f32, soft: f32) -> f32 {
@@ -95,6 +96,7 @@ fn toonShade(sIn: ToonInput) -> vec3f {
   var lit = toonBand(ndl, soft) * s.shadow;
   // skin and hair keep their shadows a touch softer
   if (s.cls == CLS_SKIN) { lit = toonBand(ndl + 0.05, soft + 0.18) * mix(0.35, 1.0, s.shadow); }
+  lit = lit * (1.0 - s.painted);
   let sunI = globals.sunDir.w;
   let tint = globals.shadowTint.rgb;
   var shadowC = shadeColor(s.albedo, tint, globals.shadowTint.w);

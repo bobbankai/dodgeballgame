@@ -3,12 +3,12 @@ stage 2 parametric blockout
 stage 3 cage: 1706 verts, 1704 quads, non-manifold edges 0
 stage 4 subdivided x1 + projected: 6818 verts
 stage 5 relaxed: non-manifold 0, surface deviation mean 0.01 mm max 16.4 mm
-  garment gambeson: 1785 quads extracted, 7140 after refinement
+  garment gambeson: 1795 quads extracted, 7180 after refinement
   garment trousers: 1150 quads extracted, 4600 after refinement
   garment boots: 1216 quads extracted, 4864 after refinement
   garment cuirass: 728 quads extracted, 2912 after refinement
-  skin after culling hidden faces: 2894 of 6816 quads
+  skin after culling hidden faces: 2886 of 6816 quads
 stage 6 materials (albedo, class, AO, face UVs) + stage 7 weights
-rig: 51 deform bones; mesh 65415 verts, 130672 tris
-stage 10 LOD1: 58802 tris (LOD0 130672)
-exported /home/user/dodgeballgame/tidebreakers/tools/blender/../../public/assets/chars/brute.glb (7441 KB) in 48s
+rig: 51 deform bones; mesh 65438 verts, 130722 tris
+stage 10 LOD1: 58824 tris (LOD0 130722)
+exported /home/user/dodgeballgame/tidebreakers/tools/blender/../../public/assets/chars/brute.glb (7444 KB) in 59s

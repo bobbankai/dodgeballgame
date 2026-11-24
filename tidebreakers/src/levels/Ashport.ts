@@ -217,15 +217,35 @@ export class Ashport extends Level {
     }
     d.place(kai, kp, yaw - 0.3);
     d.face(kai, at, true);
-    const wide = () => d.shot(at.add(f.scale(1.7)).add(up.scale(2.7)), at.subtract(f.scale(0.55)).add(up.scale(0.15)), 0, 0.72);
+    // the drawing seen over their shoulders from behind and above (pulled in past any tunnel timbers)
+    const wide = () => d.wide(at.add(up.scale(0.1)), yaw + Math.PI + 0.35, 2.7, 2.2, 0, 0.7);
+    const overChalk = (a: Fighter, s: number, dist: number) => {
+      const to = at.subtract(a.pos);
+      to.y = 0;
+      to.normalize();
+      const side = new Vector3(to.z, 0, -to.x).scale(s);
+      const h = () => d.headOf(a);
+      const t = h().add(up.scale(-0.04));
+      // (the tunnel timbers stand near some drawings: the other side, or higher, when one is in the way)
+      d.clearShot(t, [
+        t.add(to.scale(dist)).add(side.scale(0.45)).add(up.scale(-0.28)),
+        t.add(to.scale(dist)).add(side.scale(-0.45)).add(up.scale(-0.28)),
+        t.add(to.scale(dist * 0.9)).add(side.scale(0.9)).add(up.scale(0.1)),
+        t.add(to.scale(dist * 0.9)).add(side.scale(-0.9)).add(up.scale(0.1)),
+      ], 0.5, h);
+      // the listener keeps looking at the chalk, not at the lens
+      a.proc.lookTarget = at.add(up.scale(0.05));
+      a.proc.lookWeight = 0.6;
+    };
     wide();
     d.focus(2.8, 1.6, 0.5);
     await d.wait(1.4);
     let k = 0;
     for (const [who, text, e] of lines) {
       if (k > 0 && k % 3 === 0) wide();
-      else if (who === 'mira' && mira) d.shot(mp.add(f.scale(2.0)).add(r.scale(0.45)).add(up.scale(0.85)), mp.add(up.scale(0.62)), 0, 0.55);
-      else if (who === 'kai') d.shot(kp.add(f.scale(1.8)).subtract(r.scale(0.35)).add(up.scale(1.5)), kp.add(up.scale(1.42)), 0, 0.5);
+      // close shots from the drawing's side, below the eyeline: both of them are looking down at it
+      else if (who === 'mira' && mira) overChalk(mira, -1, 1.3);
+      else if (who === 'kai') overChalk(kai, 1, 1.5);
       await d.say(who, text, e);
       k++;
     }

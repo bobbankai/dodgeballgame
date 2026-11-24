@@ -97,6 +97,9 @@ export class Fighter {
   get alive(): boolean { return this.state !== 'dead'; }
   get busy(): boolean { return this.state === 'attack' || this.state === 'dodge' || this.state === 'hit' || this.state === 'knock' || this.state === 'down' || this.state === 'getup' || this.state === 'dead' || this.state === 'cine'; }
   get forward(): Vector3 { return new Vector3(Math.sin(this.yaw), 0, Math.cos(this.yaw)); }
+  /** Where the fighter is turning to face (a pending faceTowards), else where it faces now: shots framed on a
+   *  face use this, or an actor still turning toward someone is filmed from behind once the turn ends. */
+  get facing(): Vector3 { const y = this.intent.face ?? this.yaw; return new Vector3(Math.sin(y), 0, Math.cos(y)); }
   get center(): Vector3 { return this.pos.add(new Vector3(0, this.height * 0.55, 0)); }
 
   setState(s: FState): void { this.state = s; this.stateT = 0; }
@@ -117,7 +120,7 @@ export class Fighter {
     const d = p.subtract(this.pos);
     if (d.x * d.x + d.z * d.z < 1e-6) return;
     const y = Math.atan2(d.x, d.z);
-    if (instant) this.yaw = y; else this.intent.face = y;
+    if (instant) { this.yaw = y; this.intent.face = undefined; } else this.intent.face = y;
   }
 
   // ------------------------------------------------------------------------------------------ actions
@@ -400,7 +403,8 @@ export class Fighter {
     if (this.onGround && this.pos.y > col.minY + 0.5) this.lastSafe.copyFrom(this.pos);
     if (this.pos.y < col.minY) this.game.onFall(this);
     // facing
-    if (this.state === 'idle' || this.state === 'guard' || this.state === 'air') {
+    // (actors held in a cutscene pose still turn when told to face someone)
+    if (this.state === 'idle' || this.state === 'guard' || this.state === 'air' || (this.state === 'cine' && it.face !== undefined)) {
       let want = it.face;
       if (want === undefined && it.move.lengthSquared() > 0.01) want = Math.atan2(it.move.x, it.move.z);
       if (want !== undefined) {

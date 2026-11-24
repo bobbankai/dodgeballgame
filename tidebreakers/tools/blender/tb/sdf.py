@@ -612,7 +612,8 @@ class Loft(Field):
     def __init__(self, spine, sections, side=(1, 0, 0), cap=1.0):
         self.sp = np.asarray(spine, float)
         self.sec = np.asarray(sections, float)
-        self.cap = cap
+        # cap: roundness of the end caps (1 = a full round cap), one value or (start, end)
+        self.cap = tuple(cap) if isinstance(cap, (tuple, list)) else (cap, cap)
         K = len(self.sp)
         self.K = K
         seg = self.sp[1:] - self.sp[:-1]
@@ -668,6 +669,6 @@ class Loft(Field):
         over = np.maximum(bs - (self.K - 1), 0) + np.maximum(-bs, 0)
         seglen = np.sqrt(np.where(bs < 0, self.seglen2[0], self.seglen2[-1]))
         ax_d = over * seglen
-        rmin = np.minimum(rx, ry) * self.cap
+        rmin = np.minimum(rx, ry) * np.where(bs < 0, self.cap[0], self.cap[1])
         capd = np.sqrt(np.maximum(dr + rmin, 0) ** 2 + ax_d ** 2) - rmin
         return np.where(over > 0, np.maximum(capd, dr), dr) + 0 * T[:, 0]

@@ -12,7 +12,7 @@
   "source": "CMU 40_10"
  },
  "walk": {
-  "speed": 1.374,
+  "speed": 1.392,
   "loop": true,
   "frames": 32,
   "source": "CMU 07_01"
