@@ -23,6 +23,16 @@ export class CameraRig {
   private holdShot: Shot | null = null;
   private collided = 4.6;
   freeze = false;
+  /** distance from `from` toward `to` to the first visible surface in between (null: clear). Scripted shots use
+   *  it to step in front of walls and roofs the camera would otherwise be behind or inside. */
+  occlude: ((from: Vector3, to: Vector3) => number | null) | null = null;
+  /** size (height) of the locked-on target: big ones (the serpent) pull the camera back and up */
+  lockSize: (() => number) | null = null;
+  private occFrac = 1;
+  private occWant = 1;
+  private occT = 0;
+  private playOccT = 0;
+  private playFree = 1e9;
 
   constructor(scene: Scene, readonly col: Collision) {
     this.cam = new TargetCamera('main', new Vector3(0, 3, -6), scene);
@@ -39,6 +49,27 @@ export class CameraRig {
     const from: Shot = { pos: this.cam.position.clone(), target: this.cam.getTarget().clone(), fov: this.cam.fov };
     this.shot = { from, to: s, t: 0, dur: s.dur ?? 0, ease: s.ease ?? 'smooth' };
     if (!s.dur) { this.holdShot = s; this.shot = null; }
+    // a new shot: check what's in front of the lens straight away, and cut (don't glide) to the result
+    this.occT = 0;
+    this.occFrac = -1;
+  }
+
+  /** Pulls a scripted camera position toward its target until nothing visible stands in between. */
+  private unblock(pos: Vector3, target: Vector3, dt: number): Vector3 {
+    if (!this.occlude) return pos;
+    const len = Vector3.Distance(pos, target);
+    if (len < 0.4) return pos;
+    this.occT -= dt;
+    if (this.occT <= 0) {
+      this.occT = 0.1;
+      // start a little off the subject so a target point sitting just inside a surface doesn't count
+      const dir = pos.subtract(target).scale(1 / len);
+      const start = target.add(dir.scale(0.25));
+      const d = this.occlude(start, pos);
+      this.occWant = d === null ? 1 : Math.max(0.12, (d + 0.25 - 0.3) / len);
+    }
+    this.occFrac = this.occFrac < 0 ? this.occWant : this.occFrac + (this.occWant - this.occFrac) * Math.min(1, dt * 6);
+    return this.occFrac >= 0.999 ? pos : Vector3.Lerp(target, pos, this.occFrac);
   }
 
   release(): void {
@@ -61,15 +92,16 @@ export class CameraRig {
       s.t += dt;
       let u = Math.min(1, s.t / Math.max(s.dur, 1e-3));
       u = s.ease === 'linear' ? u : s.ease === 'out' ? 1 - (1 - u) ** 3 : u * u * (3 - 2 * u);
-      this.cam.position.copyFrom(Vector3.Lerp(s.from.pos, s.to.pos, u));
-      this.cam.setTarget(Vector3.Lerp(s.from.target, s.to.target, u));
+      const tg = Vector3.Lerp(s.from.target, s.to.target, u);
+      this.cam.position.copyFrom(this.unblock(Vector3.Lerp(s.from.pos, s.to.pos, u), tg, dt));
+      this.cam.setTarget(tg);
       this.cam.fov = (s.from.fov ?? this.fovBase) + ((s.to.fov ?? this.fovBase) - (s.from.fov ?? this.fovBase)) * u;
       if (s.t >= s.dur) { this.holdShot = s.to; this.shot = null; }
       this.applyShake(dt);
       return;
     }
     if (this.holdShot) {
-      this.cam.position.copyFrom(this.holdShot.pos);
+      this.cam.position.copyFrom(this.unblock(this.holdShot.pos, this.holdShot.target, dt));
       this.cam.setTarget(this.holdShot.target);
       this.cam.fov = this.holdShot.fov ?? this.fovBase;
       this.applyShake(dt);
@@ -88,17 +120,35 @@ export class CameraRig {
       const want = Math.atan2(d.x, d.z);
       const diff = Math.atan2(Math.sin(want - this.yaw), Math.cos(want - this.yaw));
       this.yaw += diff * Math.min(1, dt * 3.5);
+      // a big target (the serpent) is framed from further back and higher, so it never fills the screen
+      const big = Math.max(0, (this.lockSize?.() ?? 0) - 2.0);
       const mid = Vector3.Lerp(this.focus, lt, 0.32);
-      center = new Vector3(mid.x, this.focus.y + this.heightOffset, mid.z);
-      this.distTarget = Math.min(7.5, 4.6 + d.length() * 0.18);
+      center = new Vector3(mid.x, this.focus.y + this.heightOffset + big * 0.5, mid.z);
+      this.distTarget = Math.min(7.5 + big * 3, 4.6 + d.length() * 0.18 + big * 2.6);
     } else {
       this.distTarget = 4.6;
     }
     this.dist += (this.distTarget - this.dist) * Math.min(1, dt * 3);
     const dir = new Vector3(-Math.sin(this.yaw) * Math.cos(this.pitch), Math.sin(this.pitch), -Math.cos(this.yaw) * Math.cos(this.pitch));
-    const free = this.col.raycast(center, dir, this.dist);
+    let free = this.col.raycast(center, dir, this.dist);
+    // visible scenery without collision (awnings, roofs, rigging) also keeps the camera in front of it
+    if (this.occlude) {
+      this.playOccT -= dt;
+      if (this.playOccT <= 0) {
+        this.playOccT = 0.1;
+        const d = this.occlude(center.add(dir.scale(0.3)), center.add(dir.scale(this.dist)));
+        this.playFree = d === null ? 1e9 : Math.max(0.6, d + 0.3 - 0.35);
+      }
+      free = Math.min(free, this.playFree);
+    }
     this.collided += (free - this.collided) * Math.min(1, dt * (free < this.collided ? 20 : 4));
     const pos = center.add(dir.scale(this.collided));
+    // pushed in close by a wall or a slope: rise over the player's head instead of sinking into their body
+    if (this.collided < 2.4) {
+      const lift = (2.4 - this.collided) * 0.5;
+      pos.y += lift;
+      center.y += lift * 0.25;
+    }
     this.cam.position.copyFrom(pos);
     this.cam.setTarget(center);
     this.cam.fov += (this.fovBase - this.cam.fov) * Math.min(1, dt * 4);

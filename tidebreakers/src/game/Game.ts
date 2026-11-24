@@ -1,6 +1,7 @@
 // The world: fighters, combat resolution, projectiles, camera, effects, time (hitstop / slow motion),
 // encounters and the player's storm meter. Levels and the story director drive it.
-import { Vector3 } from '@babylonjs/core';
+import { Vector3, Ray } from '@babylonjs/core';
+import type { Mesh } from '@babylonjs/core';
 import type { Renderer } from '../render/Renderer';
 import { Vfx } from '../render/Vfx';
 import { Collision } from './Collision';
@@ -58,6 +59,16 @@ export class Game {
 
   constructor(readonly r: Renderer, readonly input: Input, readonly lib: AnimLibrary) {
     this.cam = new CameraRig(r.scene, this.collision);
+    // cutscene cameras step in front of any visible scenery between them and their subject (characters,
+    // particles, sea, sky and grass don't count)
+    this.cam.occlude = (from, to) => {
+      const dir = to.subtract(from);
+      const len = dir.length();
+      if (len < 1e-3) return null;
+      const ray = new Ray(from, dir.scale(1 / len), len);
+      const hit = r.scene.pickWithRay(ray, (m) => m.isPickable && m.isEnabled() && m.isVisible && !(m as Mesh).skeleton && m.getTotalVertices() > 0, false);
+      return hit && hit.hit ? hit.distance : null;
+    };
     this.vfx = new Vfx(r);
   }
 

@@ -16,6 +16,7 @@ export class PlayerController {
   constructor(readonly f: Fighter, readonly game: Game, readonly input: Input) {
     game.cam.follow = () => f.pos;
     game.cam.lock = () => (this.locked && this.locked.alive ? this.locked.center : null);
+    game.cam.lockSize = () => (this.locked && this.locked.alive ? this.locked.height : 0);
   }
 
   private moveDir(): Vector3 {

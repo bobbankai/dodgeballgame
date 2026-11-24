@@ -277,7 +277,10 @@ export class DrownedMarket extends Level {
         await this.reach(spot, 2.2, `Throw lifebuoys to the people in the water (${i}/3)`);
         d.cine(true);
         d.face(kai, water, true);
-        d.shot(spot.add(V(0, 2.4, 0)).add(spot.subtract(water).normalize().scale(3)), water.add(V(0, 0.5, 0)), 0, 0.6);
+        // over Kai's shoulder: him in the foreground, the swimmer beyond
+        const back = spot.subtract(water); back.y = 0; back.normalize();
+        const side = new Vector3(back.z, 0, -back.x);
+        d.shot(spot.add(back.scale(2.6)).add(side.scale(1.0)).add(V(0, 2.0, 0)), Vector3.Lerp(spot, water, 0.55).add(V(0, 0.9, 0)), 0, 0.62);
         d.act(kai, 'throw');
         await d.wait(0.45);
         g.vfx.splash(water, 26);

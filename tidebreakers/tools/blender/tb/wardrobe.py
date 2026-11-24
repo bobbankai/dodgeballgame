@@ -413,15 +413,16 @@ def buttons(c, color, z_from, z_to, n=4, y=-0.1, x=0.0, name='buttons'):
 
 def goggles(c, lens='#7fd8ff', frame='#7a5230', name='goggles'):
     out = []
-    zf = c.chin + 0.2 * c.u
+    # pushed up onto the hair above the fringe, so they never read as covering the eyes
+    zf = c.chin + 0.245 * c.u
     for sx in (1, -1):
-        cen = v(sx * 0.038 * c.u, -0.095 * c.u, zf)
+        cen = v(sx * 0.04 * c.u, -0.083 * c.u, zf)
         ring = pc.tube([cen + v(0, -0.004, 0), cen + v(0, -0.022, 0)], [0.026 * c.u, 0.024 * c.u], n=12, cap_tip=False, cap_root=False)
         lensM = pc.quad_sphere(cen + v(0, -0.02, 0), (0.022 * c.u, 0.006, 0.022 * c.u), res=2)
         out.append(P.Part(f'{name}rim{sx}', *ring, hexc(frame), cls='leather', weights=('rigid', 'head')))
         out.append(P.Part(f'{name}lens{sx}', *lensM, hexc(lens), cls='glow', weights=('rigid', 'head')))
     hn = norm(v(0, 0.2, 1))
-    cc = float(v(0, -0.1, zf) @ hn)
+    cc = float(v(0, -0.088 * c.u, zf) @ hn)
     out.append(P.Garment(name + 'strap', Offset(c.bd.head_field, 0.008 * c.u), G.slab(hn, cc - 0.01 * c.u, cc + 0.01 * c.u), hexc(frame), cls='leather',
                          thickness=0.003, covers=False, region=lambda p: p[:, 2] > c.chin + 0.1 * c.u, weights=('rigid', 'head')))
     return out
