@@ -208,7 +208,14 @@ export class Ashport extends Level {
     const d = this.dir, kai = this.kai;
     const f = V(Math.sin(yaw), 0, Math.cos(yaw)), r = V(Math.cos(yaw), 0, -Math.sin(yaw)), up = V(0, 1, 0);
     const mp = at.subtract(f.scale(0.9)).subtract(r.scale(0.85));
-    const kp = at.subtract(f.scale(1.25)).add(r.scale(0.9));
+    // beside her, wherever the tunnel leaves him room to stand (some drawings are close under the roof's edge)
+    const spots = [[1.25, 0.9], [1.3, 0.6], [1.4, 0.3], [1.6, 0.0], [1.1, 1.2], [1.8, 0.6]].map(([b, s]) => at.subtract(f.scale(b)).add(r.scale(s)));
+    let kp = spots[0];
+    for (const s of spots) {
+      const g = s.clone();
+      g.y = this.game.collision.groundAt(s.x, s.z, s.y + 1);
+      if (this.headroom(g)) { kp = s; break; }
+    }
     d.cine(true);
     if (mira) {
       d.place(mira, mp, yaw + 0.35);
@@ -219,7 +226,7 @@ export class Ashport extends Level {
     d.face(kai, at, true);
     // the drawing seen over their shoulders from behind and above (pulled in past any tunnel timbers)
     const wide = () => d.wide(at.add(up.scale(0.1)), yaw + Math.PI + 0.35, 2.7, 2.2, 0, 0.7);
-    const overChalk = (a: Fighter, s: number, dist: number) => {
+    const overChalk = (a: Fighter, s: number, dist: number, low = 0.28) => {
       const to = at.subtract(a.pos);
       to.y = 0;
       to.normalize();
@@ -228,8 +235,8 @@ export class Ashport extends Level {
       const t = h().add(up.scale(-0.04));
       // (the tunnel timbers stand near some drawings: the other side, or higher, when one is in the way)
       d.clearShot(t, [
-        t.add(to.scale(dist)).add(side.scale(0.45)).add(up.scale(-0.28)),
-        t.add(to.scale(dist)).add(side.scale(-0.45)).add(up.scale(-0.28)),
+        t.add(to.scale(dist)).add(side.scale(0.45)).add(up.scale(-low)),
+        t.add(to.scale(dist)).add(side.scale(-0.45)).add(up.scale(-low)),
         t.add(to.scale(dist * 0.9)).add(side.scale(0.9)).add(up.scale(0.1)),
         t.add(to.scale(dist * 0.9)).add(side.scale(-0.9)).add(up.scale(0.1)),
       ], 0.5, h);
@@ -244,7 +251,7 @@ export class Ashport extends Level {
     for (const [who, text, e] of lines) {
       if (k > 0 && k % 3 === 0) wide();
       // close shots from the drawing's side, below the eyeline: both of them are looking down at it
-      else if (who === 'mira' && mira) overChalk(mira, -1, 1.3);
+      else if (who === 'mira' && mira) overChalk(mira, -1, 1.25, 0.46);  // (kneeling, head bowed: from below her fringe)
       else if (who === 'kai') overChalk(kai, 1, 1.5);
       await d.say(who, text, e);
       k++;

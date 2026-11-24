@@ -74,7 +74,7 @@ export class GullsRest extends Level {
       const houses = Math.abs(x) > 6 && Math.abs(x) < 14 && z > -12 && z < 24 ? 1 : 0;
       const lighthouse = Math.hypot(x, z - 80) < 4 || Math.hypot(x + 11, z - 66) < 4.5 ? 1 : 0;
       // the trodden patch in front of Ines's door, where the last scene of the chapter is played on the ground
-      const trodden = 1 - smoothstep(1.9, 3.0, Math.hypot(x, z - 64.5));
+      const trodden = 1 - smoothstep(2.6, 3.8, Math.hypot(x, z - 64.9));
       return (h > 2.5 ? 1 : 0) * (1 - m[0]) * (1 - smoothstep(0.9, 2.2, slope)) * (1 - houses) * (1 - lighthouse) * (1 - trodden) * (0.55 + 0.45 * fbm(x * 0.06, z * 0.06, 2, 9));
     }, { root: '#2f6a2a', tip: '#a9d65e', dry: '#c8b46a', height: 0.42, width: 0.09, threshold: 0.28, translucency: 0.7 });
     const col = this.game.collision;
@@ -538,10 +538,11 @@ export class GullsRest extends Level {
       audio.ambience('rain');
       const c = P(0, 64);
       d.place(kai, c, 0);
-      d.place(ines, c.add(V(0, 0, 0.75)), Math.PI);
+      // she lies on her back with her head in his arms (the clip lays the head ~1 m behind her feet' root)
+      d.place(ines, c.add(V(0, 0, 1.45)), 0);
       d.act(kai, 'kneel_hold', true);
-      d.act(ines, 'death');
-      ines.animator.update(5);
+      d.act(ines, 'lie_back', true);
+      ines.animator.update(0.5);
       ines.model.face.snap('tired');
       ines.model.face.autoBlink = false;
       kai.model.face.set('cry');
@@ -549,14 +550,18 @@ export class GullsRest extends Level {
       // Kai kneels over her with his head bowed: his close-ups are from low in front, under his eyeline (her
       // shoulder in the foreground); hers look down on her face from his side
       const kh = () => d.headOf(kai), ih = () => d.headOf(ines);
-      const onKai = (s: number) => d.shot(kh().add(V(0.55 * s, -0.34, 1.1)), kh().add(V(0, -0.05, 0)), 0, 0.5, kh);
-      const onInes = (s: number) => d.shot(ih().add(V(0.75 * s, 0.62, -0.3)), ih(), 0, 0.5, ih);
-      const both = (s: number) => { const m = Vector3.Lerp(kh(), ih(), 0.5); d.shot(m.add(V(2.3 * s, 0.5, 0.5)), m, 0, 0.55); };
+      // Kai from low in front, under his bowed face (her shoulder in the foreground); Ines from beside and above
+      // her face, Kai bent over her at the edge of the frame
+      const onKai = (s: number) => d.shot(kh().add(V(0.42 * s, -0.55, 0.95)), kh().add(V(0, -0.06, 0)), 0, 0.5, kh);
+      const onInes = (s: number) => d.shot(ih().add(V(0.22 * s, 1.05, 0.42)), ih().add(V(0, 0.02, 0.04)), 0, 0.5, ih);
+      // the two of them from the side: him kneeling, her full length on the ground
+      // (from above, so her body on the ground sits clear of the dialogue panel at the bottom of the frame)
+      const both = (s: number) => d.shot(c.add(V(2.7 * s, 2.0, 0.85)), c.add(V(0, 0.3, 0.7)), 0, 0.62);
       await d.wait(2.5);
       await d.say('ines', 'Kai... don\'t make that face. You look like your mother the day she burned the bread.', 'tired');
       onKai(1);
       await d.say('kai', 'Don\'t talk. I\'ll get Doc Pell, I\'ll carry you, I\'ll...', 'cry');
-      onInes(-1);
+      both(-1);
       await d.say('ines', 'Listen. In my coat. The Albatross\'s log. Thirteen names... Read them out loud now and then. So they don\'t get lonely.', 'tender');
       hold(this.ctx.flow.props, kai, 'logbook', 'L');
       onKai(-1);
@@ -565,7 +570,7 @@ export class GullsRest extends Level {
       await d.say('ines', 'I stayed on this rock thirty years so someone would remember them. And it was so lonely, love.', 'cry');
       both(1);
       await d.say('ines', 'Until a little drowned boy came walking out of the sea with a light in his hand.', 'tender');
-      onInes(-1);
+      both(1);
       await d.say('ines', 'Find a crew, Kai. Don\'t sail alone like I did. Promise me.', 'tender');
       onKai(1);
       await d.say('kai', 'I promise. I promise!', 'sob');

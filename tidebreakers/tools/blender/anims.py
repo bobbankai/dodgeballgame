@@ -364,6 +364,19 @@ def lying(face_up=True):
     return p
 
 
+def lie_back(breath):
+    """Lying on the back, wounded: head turned a little to one side, a slow shallow breath."""
+    p = P()
+    B.hips(p, bend=-85, drop=0.84, fwd=-0.55)
+    B.spine(p, bend=-4 - 3 * breath)
+    B.head(p, pitch=-14 + 4 * breath, yaw=8)
+    for s, r in (('L', 22), ('R', 34)):
+        B.arm(p, s, raise_=r, fwd=-6, elbow=28)
+        B.leg(p, s, fwd=-8, out=8, knee=16 if s == 'L' else 8)
+    open_hands(p, 40, 20)
+    return p
+
+
 def knockdown():
     g = guard()
     fly = guard()
@@ -691,6 +704,8 @@ def clips():
     out.append(Clip('knockdown', 1.2, knockdown(), purpose='Knocked flat on the back', contacts='lands at 0.4 s, bounce 0.5 s', notes='lands at 0.4 s'))
     out.append(Clip('getup', 1.15, getup(), purpose='Get up from the back', contacts='hands push off, kneel, stand', notes='ends in guard'))
     out.append(Clip('death', 2.0, death(), purpose='Defeat: sag, kneel, fall', contacts='knee 0.7 s, ground 1.3 s', notes='slow'))
+    out.append(Clip('lie_back', 3.6, kf((0.0, lie_back(0), 'smooth'), (1.8, lie_back(1), 'smooth')), loop=True,
+                    purpose='Lying on the back, dying (story)', contacts='back and heels on the ground', notes='shallow breath, 3.6 s'))
     out.append(Clip('victory', 1.6, victory(), loop=False, purpose='Fist pump', contacts='feet planted', notes='overshoot into the pump'))
     crouch = guard()
     B.hips(crouch, drop=0.16, twist=-10)

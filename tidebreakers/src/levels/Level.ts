@@ -1,7 +1,7 @@
 // A level: its world (terrain, sea, scenery kit, lights, sky and grade), its cast, and its story script.
 // Scripts are split into named beats; every beat is a checkpoint, and `script(at)` starts from any of
 // them (death and Continue restart at the last one; `?at=` jumps there for testing).
-import { Vector3, ShaderMaterial } from '@babylonjs/core';
+import { Vector3, ShaderMaterial, Ray } from '@babylonjs/core';
 import type { AbstractMesh } from '@babylonjs/core';
 import type { Renderer, PostFx } from '../render/Renderer';
 import type { Game } from '../game/Game';
@@ -273,6 +273,24 @@ export abstract class Level {
     g.combatActive = false;
     if (s.objective) ui.setObjective(null);
     this.ctx.audio.play(s.after ?? 'island');
+  }
+
+  /** Whether someone standing at `p` (feet) is clear of the scenery: nothing through their body or their head
+   *  (a low tunnel roof, a wall at their shoulder). For staging actors where the ground has no collision walls. */
+  headroom(p: Vector3, height = 1.85, reach = 0.32): boolean {
+    const scene = this.r.scene;
+    const pred = (m: AbstractMesh) => m.isPickable && m.isEnabled() && m.isVisible && !m.skeleton && m.getTotalVertices() > 0;
+    const hit = (from: Vector3, to: Vector3) => {
+      const d = to.subtract(from);
+      const len = d.length();
+      return (scene.multiPickWithRay(new Ray(from, d.scale(1 / len), len), pred) ?? []).length > 0;
+    };
+    const head = p.add(new Vector3(0, height * 0.82, 0));
+    if (hit(p.add(new Vector3(0, 0.3, 0)), p.add(new Vector3(0, height, 0)))) return false;
+    for (const [x, z] of [[1, 0], [-1, 0], [0, 1], [0, -1], [0.7, 0.7], [-0.7, 0.7], [0.7, -0.7], [-0.7, -0.7]]) {
+      if (hit(head, head.add(new Vector3(x * reach, 0, z * reach)))) return false;
+    }
+    return true;
   }
 
   /** A child's chalk drawing on the ground (world/Chalk.ts). */

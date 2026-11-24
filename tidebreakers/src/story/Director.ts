@@ -200,6 +200,8 @@ export class Director {
     const toCam = c.subtract(head);
     const dist = toCam.length();
     if (dist > 3.4 || Vector3.Distance(tgt, head) > 0.9) return;
+    // someone lying on the ground: the script's own shots look down on them; a standing close-up cannot
+    if (head.y - f.pos.y < 0.6) return;
     toCam.y = 0;
     const away = Vector3.Dot(toCam.normalize(), f.facing) < -0.15;
     let blocked = false;
@@ -363,10 +365,17 @@ export class Director {
       const rel = Math.atan2(fwd.x * to.z - fwd.z * to.x, fwd.x * to.x + fwd.z * to.z);
       if (Math.abs(rel) > 0.3) ang = Math.max(-1.1, Math.min(1.1, rel * 0.75));
     }
-    const dir = new Vector3(fwd.x * Math.cos(ang) - fwd.z * Math.sin(ang), 0, fwd.x * Math.sin(ang) + fwd.z * Math.cos(ang));
     const head = this.headOf(A).add(new Vector3(0, -0.06, 0));
     const dist = opts.dist ?? 1.15 + A.height * 0.22 + A.radius * 0.6;
-    const [pos] = this.unblock(head, head.add(dir.scale(dist)).add(new Vector3(0, opts.height ?? 0.05, 0)));
+    // the wanted angle first; if a wall or a post is in the way (an actor standing against a tunnel wall),
+    // the mirrored angle, straight on, then wider, keeping whichever sees the face most clearly
+    let pos: Vector3 | null = null, bestFree = -1;
+    for (const a of [ang, -ang, 0, ang * 1.8, -ang * 1.8]) {
+      const dir = new Vector3(fwd.x * Math.cos(a) - fwd.z * Math.sin(a), 0, fwd.x * Math.sin(a) + fwd.z * Math.cos(a));
+      const [p, free] = this.unblock(head, head.add(dir.scale(dist)).add(new Vector3(0, opts.height ?? 0.05, 0)));
+      if (free > bestFree + 0.1) { pos = p; bestFree = free; }
+      if (free > 0.97) break;
+    }
     // tracks the head: an actor who kneels, sits or turns as the line starts stays in frame; when they crouch
     // (kneeling over something, head bowed) the camera drops below their eyeline to see the face
     // only a bowed head (looking down at something in their lap or on the ground) needs a low camera; someone
@@ -379,9 +388,9 @@ export class Director {
     };
     const crouchCam = () => this.headOf(A).add(new Vector3(0, -0.42 * crouchOf(), 0));
     // already crouched when the shot starts: start low
-    const p0 = pos.add(new Vector3(0, -0.42 * crouchOf(), 0));
+    const p0 = pos!.add(new Vector3(0, -0.42 * crouchOf(), 0));
     this.shot(p0, head.add(new Vector3(0, -0.04, 0)), dur, opts.fov ?? 0.5, () => this.headOf(A), crouchCam);
-    this.focus(Vector3.Distance(pos, head), 0.9, 1);
+    this.focus(Vector3.Distance(pos!, head), 0.9, 1);
   }
 
   /** The one `A` is talking with: whoever spoke last before them, else the nearest listener (within 6 m). */
