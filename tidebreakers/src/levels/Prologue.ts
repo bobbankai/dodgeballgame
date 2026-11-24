@@ -81,12 +81,24 @@ export class Prologue extends Level {
       d.place(seren, row.deck(0, 1.2), row.yaw + Math.PI);
       d.act(seren, 'kneel_hold', true);
       const lanternAt = life.deck(0, 0.6).add(V(0, 0.35, 0));
-      d.shot(lanternAt.add(V(-2.6, 1.6, 2.2)), lanternAt.add(V(0.6, 0, -0.3)), 0, 0.55);
+      // Lissa, alone in the lifeboat in her red ribbon, huddled on the thwart
+      const lissaAt = () => life.deck(0, 0.15);
+      const lissaYaw = () => Math.atan2(row.pos.x - life.pos.x, row.pos.z - life.pos.z);
+      const lissa = await this.npc('teo', 'lissa', lissaAt(), lissaYaw(), { look: { face: { eyeStyle: 1, eyeSize: 1.15 }, tint: [1.0, 0.82, 0.86] as [number, number, number] } });
+      lissa.model.anchor.scaling.setAll(0.9);
+      d.act(lissa, 'sit', true);
+      lissa.model.face.set('cry');
+      d.listen('seren', 'lissa');
+      d.two(seren, lissa, 1, 0, { dist: 3.2, height: 1.2 });
       void d.fade(0, 0.8);
       await d.wait(1);
       await d.say('seren', 'There you are, sweetheart. There you are. What\'s your name?', 'tender');
+      // (a little above her: she sits low in the boat, and a camera at her eyeline would be in the swell)
+      d.close(lissa, 1, 0, { dist: 1.5, height: 0.42 });
       await d.say('lissa', '...Lissa.', 'cry');
+      d.close(seren, 1, 0, { dist: 1.4 });
       await d.say('seren', 'Lissa. That\'s a brave name. Here. Take my light, and hold it up high so they can find you.', 'tender');
+      d.close(lissa, -1, 0, { dist: 1.5, height: 0.42 });
       await d.say('lissa', 'Where\'s my mama? Where\'s my papa?', 'cry');
       d.close(seren, -1, 0, { dist: 1.2 });
       await d.say('seren', 'They\'re coming. Everyone\'s coming. Don\'t let the light go out, okay? Not for anything.', 'cry');
@@ -102,6 +114,7 @@ export class Prologue extends Level {
       d.wide(life.pos, 2.2, 14, 4, 0, 0.6);
       for (let i = 0; i < 90; i++) {
         life.pos.addInPlace(V(-0.05, 0, 0.08));
+        lissa.place(lissaAt(), lissaYaw());
         lantern.position.copyFrom(life.deck(0, 0.6).add(V(0, 0.35, 0)));
         this.r.globals.lights[lightIdx].pos.copyFrom(lantern.position);
         await d.wait(1 / 60);
@@ -121,6 +134,7 @@ export class Prologue extends Level {
       g.impactFrame(0.08);
       await d.fade(1, 0.12, '#ffffff');
       g.removeFighter(seren);
+      g.removeFighter(lissa);
       row.inst.setEnabled(false);
       row.plat.top = -100;
       await d.fade(1, 1.4);

@@ -81,6 +81,7 @@ src/levels      one file per level (world + script), Level base (beats, checkpoi
 src/Flow.ts     title, chapter order, saves, death and retry, pause, credits
 tools/blender   asset pipelines (run with Blender 4.5 headless)
 tools/play.mjs  headless runner (software WebGPU) for screenshots and scripted play
+tools/cutscenes.mjs  one screenshot per line of dialogue, for reviewing every shot of a chapter
 ```
 
 ## Asset pipelines (Blender, headless)
@@ -95,7 +96,10 @@ tools/play.mjs  headless runner (software WebGPU) for screenshots and scripted p
   Anatomy (`tb/body.py`): the shoulder line falls from the neck along a trapezius into a deltoid that wraps
   the upper arm (the arm's rounded end sits inside the shoulder), so sleeves and coats drape instead of
   sitting on pads; broad shallow pecs; heads have a clean face plane, a small nose ridge, shallow eye
-  hollows (the eyes are drawn by the shader) and a soft V jaw. Hair (`tb/wardrobe.py`): a volume with
+  hollows (the eyes are drawn by the shader), a jaw that tapers from the cheekbones even when heavy, and a
+  small flat-bottomed chin. Skin carries a painted anime neck shadow: the shadow the jaw casts down the neck
+  under a light from above and in front, baked per vertex by marching toward that light through the head's
+  distance field, so the neck reads as a separate form from the face whatever the scene's lighting. Hair (`tb/wardrobe.py`): a volume with
   strand grooves sculpted from the crown whorl, covered by locks combed over the head (they follow the
   scalp at the hair's thickness, layer outward like shingles, leave the head below a release height and fall
   with gravity, tips curling in), each lock arched on top with blade-thin edges. Trousers keep their legs
@@ -106,7 +110,8 @@ tools/play.mjs  headless runner (software WebGPU) for screenshots and scripted p
   solving → overlap). Locomotion and acting come from motion capture (`mocap_anims.py`, `tb/mocap.py`):
   CMU Graphics Lab Motion Capture Database ASF/AMC files are downloaded on demand, retargeted in world
   space onto our rig (per-bone rest alignment, analytic local rotations, keyed finger poses, gaze
-  correction), trimmed to seamless cycles and made in-place with their travel speed recorded in
+  correction: the head's pitch is re-aimed about a chosen average and its turning calmed and centred on the
+  chest, because idle performers look at the floor and about the room), trimmed to seamless cycles and made in-place with their travel speed recorded in
   `mocap.json`. Contact sheets: `--sheets <clips>` → `docs/art/anims/`. Mocap data: mocap.cs.cmu.edu
   (free for use in products; the raw data may not be resold).
 - Scenery: `blender -b -P tools/blender/envkit.py -- <kit> [--preview]` (`common`, `gulls`, `ships`, `props`,
@@ -122,6 +127,13 @@ deterministically in headless Chromium with software WebGPU and saves screenshot
 objectives and end fights so whole chapters play through; `__ui.autoAdvance = 0.3` advances dialogue.
 Long runs should use a static build (`vite build --outDir <dir>` served on its own port), because the dev
 server reloads the page when sources change.
+
+Cutscenes are reviewed with `node tools/cutscenes.mjs "<url>?test&level=ashport[&at=beat]" <outDir>`: it plays
+the level under the test bot and screenshots each line of dialogue partway through (after its cut), writing
+`lines.json` beside the images, so every shot of a chapter can be checked on one contact sheet. Staging
+helpers: `Level.headroom(p)` checks that an actor placed at `p` is clear of the scenery (a low roof, a wall at
+the shoulder); `Director.close()` tries several angles and keeps the clearest; `Director.clearShot()` does
+the same for scripted positions.
 
 Play time is measured with a play-bot (`src/test/PlayBot.ts`, `window.__playbot = true`) that only uses the
 controls: it runs to each objective marker, fights with combos, launchers, specials it has unlocked and crew

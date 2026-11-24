@@ -605,9 +605,11 @@ export class GullsRest extends Level {
       const wim2 = await this.npc('villager', 'wim', mem.add(V(-2.2, 0, -1.8)), 0.5);
       d.act(kai, 'idle', true);
       d.listen('kai', 'fisher', 'wim');
-      d.wide(mem.add(V(0, 1.2, 4)), Math.PI + 0.6, 9, 2.4, 0, 0.6);
+      // the memorial at dawn, the three of them by the new stone
+      d.wide(mem.add(V(0, 0.9, 0)), Math.PI + 0.6, 7, 2.0, 0, 0.6);
       void d.fade(0, 2.5);
       await d.wait(3);
+      d.two(kai, fisher, 1, 0);
       await d.say('fisher', 'Where will you go?', 'sad');
       d.close(kai, 1, 0, { dist: 1.3 });
       await d.say('kai', 'Wherever the Armada\'s going.', 'determined');
@@ -631,7 +633,9 @@ export class GullsRest extends Level {
       d.drift(V(30, 8, -96), V(18, 5, -104), V(4, 2, -76), 9);
       void d.fade(0, 2);
       await d.wait(2.5);
+      d.close(kai, 1, 0, { dist: 1.5 });
       await d.say('kai', 'Okay, Mum. Grandma. Let\'s go.', 'determined');
+      d.drift(V(18, 5, -104), V(12, 9, -120), V(4, 2, -76), 6);
       await d.wait(4);
       await d.fade(1, 2);
       drop(kai);

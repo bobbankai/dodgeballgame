@@ -290,6 +290,23 @@ export class Director {
     return [p, free / len];
   }
 
+  /** Whether another actor stands between the lens and `target` (their head or chest near the line of sight). */
+  private actorBlocks(cam: Vector3, target: Vector3, except: Fighter[]): boolean {
+    const seg = target.subtract(cam);
+    const len = seg.length();
+    if (len < 0.4) return false;
+    const dir = seg.scale(1 / len);
+    for (const o of this.game.fighters) {
+      if (except.includes(o) || !o.alive || !o.model.root.isEnabled()) continue;
+      for (const p of [this.headOf(o), o.pos.add(new Vector3(0, o.height * 0.55, 0))]) {
+        const t = Vector3.Dot(p.subtract(cam), dir);
+        if (t < 0.1 || t > len - 0.3) continue;
+        if (Vector3.Distance(cam.add(dir.scale(t)), p) < 0.3) return true;
+      }
+    }
+    return false;
+  }
+
   /** A shot on `target` from the first of `from` (positions, in order of preference) with a clear view of it;
    *  if none is clear, the one that sees most of the way, pulled in past what blocks it. */
   clearShot(target: Vector3, from: Vector3[], fov = 0.5, follow?: () => Vector3): void {
@@ -345,6 +362,7 @@ export class Director {
       for (const sd of [side, -side]) {
         const n = new Vector3(-ab.z, 0, ab.x).normalize().scale(sd);
         const r = this.unblock(target, mid.add(n.scale(dist + lift * 0.3)).add(new Vector3(0, h + lift, 0)));
+        if (this.actorBlocks(r[0], ha, [A, B]) || this.actorBlocks(r[0], hb, [A, B])) r[1] *= 0.4;
         if (!best || r[1] > best[1] + 0.15) best = r;
         if (r[1] > 0.95) break search;
       }
@@ -372,7 +390,9 @@ export class Director {
     let pos: Vector3 | null = null, bestFree = -1;
     for (const a of [ang, -ang, 0, ang * 1.8, -ang * 1.8]) {
       const dir = new Vector3(fwd.x * Math.cos(a) - fwd.z * Math.sin(a), 0, fwd.x * Math.sin(a) + fwd.z * Math.cos(a));
-      const [p, free] = this.unblock(head, head.add(dir.scale(dist)).add(new Vector3(0, opts.height ?? 0.05, 0)));
+      const [p, free0] = this.unblock(head, head.add(dir.scale(dist)).add(new Vector3(0, opts.height ?? 0.05, 0)));
+      // someone standing in front of the lens is as bad as a wall
+      const free = this.actorBlocks(p, head, [A]) ? free0 * 0.4 : free0;
       if (free > bestFree + 0.1) { pos = p; bestFree = free; }
       if (free > 0.97) break;
     }

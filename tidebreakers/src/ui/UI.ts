@@ -125,6 +125,7 @@ export class UI {
     this.lineAuto = auto;
     this.dlg.classList.toggle('walk', auto > 0);
     this.dlg.classList.add('show');
+    this.root.classList.add('talking');
     this.dlgName.textContent = sp.name;
     // the speaker's colour drives the name bar and the accent line along the top of the panel
     this.dlg.style.setProperty('--sp', sp.color === 'transparent' ? '#9aa6c0' : sp.color);
@@ -139,7 +140,7 @@ export class UI {
 
   get talking(): boolean { return !!this.typing && !this.typing.done; }
 
-  hideDialogue(): void { this.dlg.classList.remove('show'); this.typing = null; }
+  hideDialogue(): void { this.dlg.classList.remove('show'); this.root.classList.remove('talking'); this.typing = null; }
 
   advance(): void {
     if (!this.typing) return;
@@ -198,6 +199,7 @@ export class UI {
     this.typing = null;
     this.advanceResolve = null;
     this.dlg.classList.remove('show');
+    this.root.classList.remove('talking');
     this.setObjective(null);
     this.showHint(null);
     this.setBoss(null);
