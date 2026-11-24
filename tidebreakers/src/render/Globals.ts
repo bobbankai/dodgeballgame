@@ -62,9 +62,17 @@ export class Globals {
 
   /** Writes lights, time and camera, then uploads. Call once per frame before rendering. */
   upload(): void {
-    const n = Math.min(this.lights.length, MAX_LIGHTS);
+    // more lights than slots: keep the ones that matter most where the camera is (closest relative to their
+    // reach, brighter first); the first slots stay stable so lights don't flicker in and out at the edge
+    let list = this.lights;
+    if (list.length > MAX_LIGHTS) {
+      const cx = this.data[OFF.camPos], cy = this.data[OFF.camPos + 1], cz = this.data[OFF.camPos + 2];
+      const score = (l: PointLight) => Math.hypot(l.pos.x - cx, l.pos.y - cy, l.pos.z - cz) / (l.radius * Math.sqrt(Math.max(l.intensity, 0.05)));
+      list = [...list].sort((a, b) => score(a) - score(b));
+    }
+    const n = Math.min(list.length, MAX_LIGHTS);
     for (let i = 0; i < n; i++) {
-      const l = this.lights[i];
+      const l = list[i];
       const p = OFF.lightPos + i * 4, c = OFF.lightCol + i * 4;
       this.data[p] = l.pos.x; this.data[p + 1] = l.pos.y; this.data[p + 2] = l.pos.z; this.data[p + 3] = l.radius;
       this.data[c] = l.color[0]; this.data[c + 1] = l.color[1]; this.data[c + 2] = l.color[2]; this.data[c + 3] = l.intensity;

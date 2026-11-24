@@ -12,6 +12,30 @@ import { Boat, WREN } from '../world/Boat';
 const PIT = { x: 0, z: 120, r: 26 };
 const CANYON: [number, number][] = [[0, 56], [0, 70], [4, 84], [2, 96]];
 
+/** The open-cut pit: a floor, and walls cut into benches (flat ledges and steep rock faces) up to the hill. */
+const BENCH = 6.2;
+const PIT_FLOOR = 1.6;
+function pitRaw(top: number, dp: number): number {
+  return lerp(PIT_FLOOR, top, Math.min(1, Math.max(0, (dp - (PIT.r - 2)) / 22)));
+}
+function pitWall(top: number, dp: number, n: number): number {
+  const raw = pitRaw(top, dp) - PIT_FLOOR;
+  const k = Math.floor(raw / BENCH);
+  const f = raw / BENCH - k;
+  // each bench: flat for most of its width, then a steep face up to the next
+  const stepped = PIT_FLOOR + BENCH * (k + smoothstep(0.66, 0.97, f));
+  // blend back into the hill at the rim
+  const rim = smoothstep(PIT.r + 17, PIT.r + 20, dp);
+  return lerp(stepped, top, rim) + n * 0.3 * (1 - smoothstep(PIT.r - 4, PIT.r, dp));
+}
+/** Distance from the pit centre to the middle of bench ledge `k` (k = 1 is the first ledge above the floor). */
+function benchRadius(k: number, top = 28): number {
+  let lo = PIT.r - 2, hi = PIT.r + 20;
+  const want = BENCH * (k + 0.33);
+  for (let i = 0; i < 30; i++) { const m = (lo + hi) / 2; if (pitRaw(top, m) - PIT_FLOOR < want) lo = m; else hi = m; }
+  return (lo + hi) / 2;
+}
+
 function height(x: number, z: number): number {
   const n = fbm(x * 0.04, z * 0.04, 3, 21);
   // town shelf
@@ -20,7 +44,7 @@ function height(x: number, z: number): number {
   const hill = plateau(x, z, 0, 112, 36, 62, 26, 1.25, 1.0) + fbm(x * 0.03, z * 0.03, 4, 8) * 3 * smoothstep(40, 70, z);
   h = Math.max(h, 2.2 + hill);
   const dp = Math.hypot(x - PIT.x, z - PIT.z);
-  if (dp < PIT.r + 6) h = lerp(1.6 + n * 0.3, h, smoothstep(PIT.r - 2, PIT.r + 5, dp));
+  if (dp < PIT.r + 20) h = pitWall(h, dp, n);
   // the canyon cut from the headframe into the pit
   const [dc] = pathDist(x, z, CANYON);
   if (dc < 8) h = lerp(2.0, h, smoothstep(3.0, 7.5, dc));
@@ -55,7 +79,7 @@ export class Ashport extends Level {
 
   async build(): Promise<void> {
     this.setLook(ASHPORT_LOOK);
-    this.makeTerrain(height, -110, -90, 230, 200, {
+    this.makeTerrain(height, -110, -90, 230, 300, {
       grassLight: '#7a6a4a', grassDark: '#4a3e30', sand: '#5a5048', rock: '#5e5650', dirt: '#6a5a48', sandHeight: 0.6, beach: 0.5, rockSlope: 0.45, path: 1.0,
     }, mask);
     this.makeSea();
@@ -115,6 +139,36 @@ export class Ashport extends Level {
     this.chalk('nine', V(-3.5, H(-3.5, 100.5), 100.5), -0.9, 0.9);
     // the pit: the furnace, vents, carts, the sealed tunnel with Teo's drawings
     this.put('furnace', 0, 128, Math.PI, 1, 'circle');
+    // a working open-cut mine: rails along the benches with ore carts, lamps on posts, timber chutes, spoil
+    // heaps and loose rock on the floor
+    const benchAt = (k: number, a: number) => { const r = benchRadius(k, H(PIT.x + Math.cos(a) * 50, PIT.z + Math.sin(a) * 50)); return V(PIT.x + Math.cos(a) * r, 0, PIT.z + Math.sin(a) * r); };
+    for (let k = 1; k <= 2; k++) {
+      for (let i = 0; i < 22; i++) {
+        const a = (i / 22) * Math.PI * 2 + k * 0.17;
+        if (Math.abs(Math.atan2(Math.sin(a + Math.PI / 2), Math.cos(a + Math.PI / 2))) < 0.5) continue;   // the canyon entrance (south)
+        const p = benchAt(k, a);
+        const y = H(p.x, p.z);
+        this.putAt('rails', p.x, y, p.z, -a, [1, 1.0, 1], 'none');
+        if ((i + k) % 5 === 0) this.putAt('minecart', p.x, y + 0.05, p.z, -a, 1, 'none');
+        if ((i + k) % 4 === 1) {
+          const q = benchAt(k, a + 0.09);
+          const out = V(Math.cos(a), 0, Math.sin(a)).scale(1.4);
+          this.putAt('lamppost', q.x + out.x, H(q.x + out.x, q.z + out.z), q.z + out.z, -a - Math.PI / 2, 1, 'none');
+          this.light(V(q.x + out.x * 0.7, H(q.x + out.x, q.z + out.z) + 2.6, q.z + out.z * 0.7), 7, [1, 0.62, 0.3], 1.1);
+        }
+        if ((i + k * 3) % 7 === 2) this.putAt('coal', p.x, H(p.x, p.z), p.z, a, 0.9 + 0.3 * ((i * 7) % 3), 'none');
+      }
+    }
+    // loose rock and spoil on the floor, kept out of the fighting circle's middle
+    const rocks: [number, number, string, number][] = [[-17, 111, 'rock2', 1.3], [16, 114, 'rock3', 0.8], [-12, 137, 'rock1', 1.6], [19, 128, 'rock2', 1.1],
+      [-20, 120, 'rock1', 1.2], [8, 141, 'rock3', 0.7], [-6, 101, 'rock1', 1.0], [21, 120, 'rock1', 1.4]];
+    for (const [x, z, r, s] of rocks) this.put(r, x, z, x * 0.3, s, 'circle');
+    for (const [x, z] of [[-9, 106], [12, 134], [-16, 128]] as const) this.put('coal', x, z, z, 1.4, 'circle');
+    // timber chutes down the faces
+    for (const a of [0.7, 2.3, 3.9]) {
+      const p = benchAt(1, a);
+      this.putAt('pipes', p.x, H(p.x, p.z), p.z, -a, [1, 1.3, 1], 'none');
+    }
     for (let k = 0; k < 6; k++) {
       const a = (k / 6) * Math.PI * 2 + 0.3;
       const p = V(Math.cos(a) * 12, 0, 120 + Math.sin(a) * 12);
