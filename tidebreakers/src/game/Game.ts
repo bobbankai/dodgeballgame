@@ -4,6 +4,7 @@ import { Vector3, Ray } from '@babylonjs/core';
 import type { Mesh } from '@babylonjs/core';
 import type { Renderer } from '../render/Renderer';
 import { Vfx } from '../render/Vfx';
+import { Trails } from '../render/Trails';
 import { Collision } from './Collision';
 import { CameraRig } from './CameraRig';
 import type { Input } from '../core/Input';
@@ -30,6 +31,7 @@ export class Game {
   readonly collision = new Collision();
   readonly cam: CameraRig;
   readonly vfx: Vfx;
+  readonly trails: Trails;
   fighters: Fighter[] = [];
   player: Fighter | null = null;
   projectiles: Projectile[] = [];
@@ -70,6 +72,7 @@ export class Game {
       return hit && hit.hit ? hit.distance : null;
     };
     this.vfx = new Vfx(r);
+    this.trails = new Trails(r);
   }
 
   /** Clears everything level-specific; the player survives level changes. */
@@ -87,6 +90,7 @@ export class Game {
     this.combo = 0;
     this.onUpdate = [];
     this.timers = [];
+    this.trails.clear();
     this.hooks.bossBar?.(null);
     this.r.globals.lights = [];
   }
@@ -248,6 +252,7 @@ export class Game {
       if (due.length) { this.timers = this.timers.filter((x) => x.t > this.time); for (const x of due) x.fn(); }
     }
     this.vfx.update(dt * (this.hitstop > 0 ? 0.25 : this.slowmo));
+    this.trails.update(gdt, this.fighters, this.cam.cam.position);
     this.cam.update(dt, this.input.takeLook());
     const p = this.player;
     if (p) {
