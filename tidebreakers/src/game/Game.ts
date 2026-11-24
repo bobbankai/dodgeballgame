@@ -67,9 +67,17 @@ export class Game {
       const dir = to.subtract(from);
       const len = dir.length();
       if (len < 1e-3) return null;
-      const ray = new Ray(from, dir.scale(1 / len), len);
-      const hit = r.scene.pickWithRay(ray, (m) => m.isPickable && m.isEnabled() && m.isVisible && !(m as Mesh).skeleton && m.getTotalVertices() > 0, false);
-      return hit && hit.hit ? hit.distance : null;
+      const nd = dir.scale(1 / len);
+      const ray = new Ray(from, nd, len);
+      const hits = r.scene.multiPickWithRay(ray, (m) => m.isPickable && m.isEnabled() && m.isVisible && !(m as Mesh).skeleton && m.getTotalVertices() > 0) ?? [];
+      hits.sort((a, b) => a.distance - b.distance);
+      // the first surface facing back toward the subject; one facing away is the inside of a shape the subject
+      // stands in (a tower the shot looks up into), not something in front of the lens
+      for (const h of hits) {
+        const n = h.getNormal(true, true);
+        if (!n || Vector3.Dot(n, nd) < 0) return h.distance;
+      }
+      return null;
     };
     this.vfx = new Vfx(r);
     this.trails = new Trails(r);

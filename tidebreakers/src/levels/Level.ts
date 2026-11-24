@@ -145,7 +145,9 @@ export abstract class Level {
     Object.assign(this.r.fx, {
       vignette: 0.28, aberration: 0, grain: 0.15, letterbox: 0, fade: 0, impact: 0, speedLines: 0, radialBlur: 0, bloom: 0.3, memory: 0, sepia: 0,
       lift: [0, 0, 0], gamma: [1, 1, 1], gain: [1, 1, 1], bloomThreshold: 1.35, ink: 0.85, inkWidth: 1.0, ao: 0.85, aoRadius: 0.9,
-      dof: [5, 4, 0], shafts: 0.35, rain: 0, ssr: 0.85, flare: 0.6,
+      dof: [5, 4, 0], shafts: 0.35, rain: 0, ssr: 0.85,
+      // a lens flare only where a sun disc is drawn and bright (not at night, in storms or under overcast)
+      flare: (L.sky.sunSize ?? 0) > 0 && L.sunIntensity >= 0.85 && (L.sea?.storm ?? 0) < 0.3 ? 0.6 : 0,
     } satisfies Partial<PostFx>, L.fx ?? {});
   }
 

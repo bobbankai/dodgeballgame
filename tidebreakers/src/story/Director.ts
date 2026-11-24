@@ -2,6 +2,7 @@
 // (two-shots, close-ups, over-the-shoulder, slow push-ins), letterboxing and fades. A level's script is an
 // async function that awaits these; when the level is torn down its director stops stepping, so abandoned
 // scripts simply never resume.
+import type { TransformNode, Node } from '@babylonjs/core';
 import { Vector3 } from '@babylonjs/core';
 import type { Game } from '../game/Game';
 import type { UI } from '../ui/UI';
@@ -98,7 +99,7 @@ export class Director {
     for (const f of this.cast.values()) f.model.face.talk = f === this.speaking && talking ? 1 : 0;
     if (this.speaking) {
       const head = this.headOf(this.speaking);
-      for (const l of this.listeners) { l.proc.lookTarget = head; l.proc.lookWeight = 0.85; }
+      for (const l of this.listeners) if (l !== this.speaking) { l.proc.lookTarget = head; l.proc.lookWeight = 0.85; }
     }
     // letterbox ease
     this.letterbox += (this.letterTarget - this.letterbox) * Math.min(1, dt * 3);
@@ -127,7 +128,20 @@ export class Director {
   add(key: string, f: Fighter): Fighter { this.cast.set(key, f); return f; }
   get(key: string): Fighter | undefined { return key === 'kai' ? this.player : this.cast.get(key); }
 
-  headOf(f: Fighter): Vector3 { return f.pos.add(new Vector3(0, f.height * 0.92, 0)); }
+  /** Where the actor's face is now: the head bone a little above its pivot (so kneeling, sitting and leaning
+   *  actors stay framed), or a fixed height for things without one. */
+  headOf(f: Fighter): Vector3 {
+    const h = f.model?.bones?.get('head');
+    if (h && f.model.root.isEnabled()) {
+      // world matrices refresh at render time: compute this one's whole parent chain now
+      const chain: TransformNode[] = [];
+      for (let n: Node | null = h; n; n = n.parent) chain.push(n as TransformNode);
+      for (let i = chain.length - 1; i >= 0; i--) chain[i].computeWorldMatrix?.(true);
+      const p = h.getAbsolutePosition();
+      if (Number.isFinite(p.y) && Math.abs(p.y - f.pos.y) < f.height * 1.3) return p.add(new Vector3(0, f.height * 0.055, 0));
+    }
+    return f.pos.add(new Vector3(0, f.height * 0.92, 0));
+  }
 
   /** Cinematic mode: letterbox, HUD off, player control off, all actors calm. */
   cine(on: boolean): void {
@@ -165,11 +179,45 @@ export class Director {
       f.proc.lookTarget = null;
       for (const l of this.listeners) if (l !== f && l.alive) { l.proc.lookTarget = this.headOf(f); l.proc.lookWeight = 0.85; }
     }
+    if (f && this.cineActive) this.keepFace(f);
     this.ui.onBlip = () => { if (sp.voice) this.audio.blip(sp.voice); };
     const auto = this.cineActive ? 0 : 1.4 + text.length / 22;
     await this.ui.say({ name: sp.name, color: sp.color }, text, auto);
     this.ui.hideDialogue();
     this.speaking = null;
+  }
+
+  /** A close shot on the speaker must show their face: if the camera is framing them from behind, or another
+   *  character's head stands between the lens and theirs, cut to a close-up from the front instead. */
+  private keepFace(f: Fighter): void {
+    const cam = this.game.cam;
+    if (!cam.scripted) return;
+    const c = cam.cam.position, tgt = cam.target;
+    const head = this.headOf(f);
+    const toCam = c.subtract(head);
+    const dist = toCam.length();
+    if (dist > 3.4 || Vector3.Distance(tgt, head) > 0.9) return;
+    toCam.y = 0;
+    const away = Vector3.Dot(toCam.normalize(), f.forward) < -0.15;
+    let blocked = false;
+    const seg = head.subtract(c);
+    const len = seg.length();
+    const dir = seg.scale(1 / Math.max(len, 1e-4));
+    for (const o of this.game.fighters) {
+      if (o === f || !o.model.root.isEnabled()) continue;
+      const oh = this.headOf(o);
+      const t = Vector3.Dot(oh.subtract(c), dir);
+      if (t < 0.2 || t > len - 0.2) continue;
+      if (Vector3.Distance(c.add(dir.scale(t)), oh) < 0.22) { blocked = true; break; }
+    }
+    if (away || blocked) this.close(f, 1);
+    // in a close shot the speaker cheats their face a little toward the lens (a bowed head lifts, a turned one
+    // comes round), as actors do for the camera
+    const c2 = cam.cam.position;
+    if (Vector3.Distance(c2, this.headOf(f)) < 3.4) {
+      f.proc.lookTarget = Vector3.Lerp(this.headOf(f), c2, 0.85);
+      f.proc.lookWeight = 0.55;
+    }
   }
 
   /** A run of lines: [who, text, expr?, anim?]. */
@@ -235,11 +283,11 @@ export class Director {
     this.game.r.fx.dof = [dist, range, amount];
   }
 
-  shot(pos: Vector3, target: Vector3, dur = 0, fov?: number): void {
+  shot(pos: Vector3, target: Vector3, dur = 0, fov?: number, follow?: () => Vector3, followCam?: () => Vector3): void {
     this.push = null;
     // default: focus on what the shot looks at, gently
     if (this.cineActive) this.focus(Vector3.Distance(pos, target), 3.5, 0.55);
-    this.game.cam.shotTo({ pos, target, dur, fov });
+    this.game.cam.shotTo({ pos, target, dur, fov, follow, followCam });
   }
 
   /** Slow push from one camera position to another, looking at `target`. */
@@ -267,7 +315,7 @@ export class Director {
       if (!best || r[1] > best[1] + 0.15) best = r;
       if (r[1] > 0.95) break;
     }
-    this.shot(best![0], target, dur, opts.fov ?? 0.62);
+    this.shot(best![0], target, dur, opts.fov ?? 0.62, () => Vector3.Lerp(this.headOf(A), this.headOf(B), bias));
   }
 
   /** Close-up of one actor's face from in front, slightly off-axis. */
@@ -279,7 +327,13 @@ export class Director {
     const head = this.headOf(A).add(new Vector3(0, -0.06, 0));
     const dist = opts.dist ?? 1.15 + A.height * 0.22 + A.radius * 0.6;
     const [pos] = this.unblock(head, head.add(dir.scale(dist)).add(new Vector3(0, opts.height ?? 0.05, 0)));
-    this.shot(pos, head.add(new Vector3(0, -0.04, 0)), dur, opts.fov ?? 0.5);
+    // tracks the head: an actor who kneels, sits or turns as the line starts stays in frame; when they crouch
+    // (kneeling over something, head bowed) the camera drops below their eyeline to see the face
+    const crouchOf = () => Math.max(0, Math.min(1, (A.pos.y + A.height * 0.92 - this.headOf(A).y) / (A.height * 0.3)));
+    const crouchCam = () => this.headOf(A).add(new Vector3(0, -0.42 * crouchOf(), 0));
+    // already crouched when the shot starts: start low
+    const p0 = pos.add(new Vector3(0, -0.42 * crouchOf(), 0));
+    this.shot(p0, head.add(new Vector3(0, -0.04, 0)), dur, opts.fov ?? 0.5, () => this.headOf(A), crouchCam);
     this.focus(Vector3.Distance(pos, head), 0.9, 1);
   }
 
@@ -293,7 +347,7 @@ export class Director {
     const right = new Vector3(n.z, 0, -n.x).scale(side);
     const tgt = this.headOf(B).add(new Vector3(0, -0.05, 0));
     const [pos] = this.unblock(tgt, this.headOf(A).add(n.scale(-0.9 - A.radius)).add(right.scale(0.55 + A.radius * 0.5)).add(new Vector3(0, 0.12, 0)));
-    this.shot(pos, tgt, dur, fov);
+    this.shot(pos, tgt, dur, fov, () => this.headOf(B));
     this.focus(Vector3.Distance(pos, tgt), 1.0, 1);
   }
 

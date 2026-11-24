@@ -84,6 +84,10 @@ export class Procedural {
       const lastN = c.nodes[c.nodes.length - 1];
       const tipDir = anim.length > 1 ? anim[anim.length - 1].subtract(anim[anim.length - 2]).normalize() : new Vector3(0, -1, 0);
       anim.push(lastN.getAbsolutePosition().add(tipDir.scale(c.len[c.len.length - 1])));
+      // teleported (a cutscene placed the actor somewhere else): start the chain from its animated shape
+      if (Vector3.DistanceSquared(c.pts[0], anim[0]) > 0.25) {
+        for (let i = 0; i < c.pts.length; i++) { c.pts[i].copyFrom(anim[i]); c.prev[i].copyFrom(anim[i]); }
+      }
       c.pts[0].copyFrom(anim[0]);
       c.prev[0].copyFrom(anim[0]);
       for (let i = 1; i < c.pts.length; i++) {

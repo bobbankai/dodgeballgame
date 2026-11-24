@@ -4,7 +4,11 @@ import { TargetCamera, Vector3 } from '@babylonjs/core';
 import type { Scene } from '@babylonjs/core';
 import type { Collision } from './Collision';
 
-export interface Shot { pos: Vector3; target: Vector3; fov?: number; dur?: number; ease?: 'smooth' | 'linear' | 'out' }
+export interface Shot { pos: Vector3; target: Vector3; fov?: number; dur?: number; ease?: 'smooth' | 'linear' | 'out';
+  /** keep framing a moving point (an actor's head): the shot keeps its offsets from it as it moves */
+  follow?: () => Vector3;
+  /** the camera's own follow point when it should move differently from the target (crouching actors) */
+  followCam?: () => Vector3 }
 
 export class CameraRig {
   cam: TargetCamera;
@@ -23,11 +27,17 @@ export class CameraRig {
   private holdShot: Shot | null = null;
   private collided = 4.6;
   freeze = false;
+  /** what the camera looks at (TargetCamera.getTarget() only updates at render time) */
+  readonly target = new Vector3(0, 1, 0);
   /** distance from `from` toward `to` to the first visible surface in between (null: clear). Scripted shots use
    *  it to step in front of walls and roofs the camera would otherwise be behind or inside. */
   occlude: ((from: Vector3, to: Vector3) => number | null) | null = null;
   /** size (height) of the locked-on target: big ones (the serpent) pull the camera back and up */
   lockSize: (() => number) | null = null;
+  private followAt: Vector3 | null = null;
+  private followRef: Vector3 | null = null;
+  private camAt: Vector3 | null = null;
+  private camRef: Vector3 | null = null;
   private occFrac = 1;
   private occWant = 1;
   private occT = 0;
@@ -46,7 +56,11 @@ export class CameraRig {
 
   /** Scripted shot (cutscenes). With dur, eases from the current view. */
   shotTo(s: Shot): void {
-    const from: Shot = { pos: this.cam.position.clone(), target: this.cam.getTarget().clone(), fov: this.cam.fov };
+    const from: Shot = { pos: this.cam.position.clone(), target: this.target.clone(), fov: this.cam.fov };
+    this.followRef = s.follow ? s.follow().clone() : null;
+    this.followAt = this.followRef ? this.followRef.clone() : null;
+    this.camRef = s.followCam ? s.followCam().clone() : null;
+    this.camAt = this.camRef ? this.camRef.clone() : null;
     this.shot = { from, to: s, t: 0, dur: s.dur ?? 0, ease: s.ease ?? 'smooth' };
     if (!s.dur) { this.holdShot = s; this.shot = null; }
     // a new shot: check what's in front of the lens straight away, and cut (don't glide) to the result
@@ -81,7 +95,25 @@ export class CameraRig {
     this.yaw = Math.atan2(-d.x, -d.z);
   }
 
+  private look(t: Vector3): void {
+    this.target.copyFrom(t);
+    this.cam.setTarget(t);
+  }
+
   get scripted(): boolean { return !!(this.shot || this.holdShot); }
+
+  /** How far the followed point has moved since the shot was set (smoothed), for tracking shots. */
+  private track(s: Shot, dt: number): Vector3 {
+    if (!s.follow || !this.followRef || !this.followAt) return Vector3.Zero();
+    this.followAt = Vector3.Lerp(this.followAt, s.follow(), Math.min(1, dt * 5));
+    return this.followAt.subtract(this.followRef);
+  }
+
+  private trackCam(s: Shot, dt: number, fallback: Vector3): Vector3 {
+    if (!s.followCam || !this.camRef || !this.camAt) return fallback;
+    this.camAt = Vector3.Lerp(this.camAt, s.followCam(), Math.min(1, dt * 5));
+    return this.camAt.subtract(this.camRef);
+  }
 
   shake(amount: number): void { this.trauma = Math.min(1, this.trauma + amount); }
 
@@ -92,17 +124,22 @@ export class CameraRig {
       s.t += dt;
       let u = Math.min(1, s.t / Math.max(s.dur, 1e-3));
       u = s.ease === 'linear' ? u : s.ease === 'out' ? 1 - (1 - u) ** 3 : u * u * (3 - 2 * u);
-      const tg = Vector3.Lerp(s.from.target, s.to.target, u);
-      this.cam.position.copyFrom(this.unblock(Vector3.Lerp(s.from.pos, s.to.pos, u), tg, dt));
-      this.cam.setTarget(tg);
+      const mv = this.track(s.to, dt).scale(u);
+      const mc = this.trackCam(s.to, dt, mv).scale(s.to.followCam ? u : 1);
+      const tg = Vector3.Lerp(s.from.target, s.to.target, u).add(mv);
+      this.cam.position.copyFrom(this.unblock(Vector3.Lerp(s.from.pos, s.to.pos, u).add(mc), tg, dt));
+      this.look(tg);
       this.cam.fov = (s.from.fov ?? this.fovBase) + ((s.to.fov ?? this.fovBase) - (s.from.fov ?? this.fovBase)) * u;
       if (s.t >= s.dur) { this.holdShot = s.to; this.shot = null; }
       this.applyShake(dt);
       return;
     }
     if (this.holdShot) {
-      this.cam.position.copyFrom(this.unblock(this.holdShot.pos, this.holdShot.target, dt));
-      this.cam.setTarget(this.holdShot.target);
+      const mv = this.track(this.holdShot, dt);
+      const mc = this.trackCam(this.holdShot, dt, mv);
+      const tg = this.holdShot.target.add(mv);
+      this.cam.position.copyFrom(this.unblock(this.holdShot.pos.add(mc), tg, dt));
+      this.look(tg);
       this.cam.fov = this.holdShot.fov ?? this.fovBase;
       this.applyShake(dt);
       return;
@@ -150,7 +187,7 @@ export class CameraRig {
       center.y += lift * 0.25;
     }
     this.cam.position.copyFrom(pos);
-    this.cam.setTarget(center);
+    this.look(center);
     this.cam.fov += (this.fovBase - this.cam.fov) * Math.min(1, dt * 4);
     this.applyShake(dt);
   }
@@ -161,8 +198,8 @@ export class CameraRig {
     const t = this.t * 38;
     const off = new Vector3(Math.sin(t * 1.1) * 0.12 * s, Math.sin(t * 1.7 + 1) * 0.1 * s, Math.sin(t * 1.3 + 2) * 0.08 * s);
     this.cam.position.addInPlace(off);
-    const tg = this.cam.getTarget().add(off.scale(0.5));
-    this.cam.setTarget(tg);
+    const tg = this.target.add(off.scale(0.5));
+    this.look(tg);
     this.trauma = Math.max(0, this.trauma - dt * 1.8);
   }
 }
