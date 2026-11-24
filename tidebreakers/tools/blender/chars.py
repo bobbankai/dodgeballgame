@@ -197,7 +197,11 @@ def kai():
                               region=lambda c: (np.abs(neckr.eval(c)) < 0.012) & (c[:, 2] > neck_base - 0.05) & (c[:, 2] < chin + 0.02), paint=mix_paint(pal['jacket trim'], near_z(neck_base + 0.048, 0.01))))
     # trousers, rolled at mid-calf
     cuff_z = 0.30
-    pants_base = G.folds(G.flare(legs, 0.012, 0.026, sk.s['leg'], cuff_z), 0.0025, 30, noise=0.8, seed=3)
+    leg = lambda s: bd.region([f'thigh.{s}', f'shin.{s}', 'hips'], 0.03)
+    z_crotch = sk.s['leg'] - 0.065 * (sk.s['height'] / 1.70)
+    pants_split = G.split_legs(G.flare(leg('L'), 0.012, 0.026, sk.s['leg'], cuff_z), G.flare(leg('R'), 0.012, 0.026, sk.s['leg'], cuff_z),
+                               G.flare(legs, 0.012, 0.026, sk.s['leg'], cuff_z), z_crotch - 0.12, blend=0.05)
+    pants_base = G.folds(pants_split, 0.0025, 30, noise=0.8, seed=3)
     garments.append(P.Garment('pants', pants_base, Intersect([G.below(waist + 0.01), G.above(cuff_z)]), hexc(pal['trousers']), thickness=0.004,
                               paint=shade_z(cuff_z, waist, 0.16)))
     shins = bd.region(['shin.L', 'shin.R'], 0.02)

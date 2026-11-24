@@ -2,13 +2,13 @@ stage 1 reference analysis written
 stage 2 parametric blockout
 stage 3 cage: 1706 verts, 1704 quads, non-manifold edges 0
 stage 4 subdivided x1 + projected: 6818 verts
-stage 5 relaxed: non-manifold 0, surface deviation mean 0.00 mm max 0.0 mm
-  garment shirt: 1328 quads extracted, 5312 after refinement
+stage 5 relaxed: non-manifold 0, surface deviation mean 0.00 mm max 0.6 mm
+  garment shirt: 1352 quads extracted, 5408 after refinement
   garment trousers: 1198 quads extracted, 4792 after refinement
   garment shoes: 688 quads extracted, 2752 after refinement
-  garment haircap: 692 quads extracted, 2768 after refinement
-  skin after culling hidden faces: 3146 of 6816 quads
+  garment haircap: 690 quads extracted, 2760 after refinement
+  skin after culling hidden faces: 3130 of 6816 quads
 stage 6 materials (albedo, class, AO, face UVs) + stage 7 weights
-rig: 51 deform bones; mesh 16646 verts, 32772 tris
-stage 10 LOD1: 14746 tris (LOD0 32772)
-exported /home/user/dodgeballgame/tidebreakers/tools/blender/../../public/assets/chars/teo.glb (1907 KB) in 37s
+rig: 51 deform bones; mesh 18110 verts, 35703 tris
+stage 10 LOD1: 16064 tris (LOD0 35703)
+exported /home/user/dodgeballgame/tidebreakers/tools/blender/../../public/assets/chars/teo.glb (2073 KB) in 21s

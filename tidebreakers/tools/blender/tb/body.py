@@ -109,8 +109,9 @@ class Body:
         # muscle detail, blended softly into the loft
         if not fem and b > 0.25:
             for sx in (1, -1):
-                self.add('chest', Ellipsoid(v(sx * 0.062, -0.078 * cs, z0 + (z1 - z0) * 0.72) * v(1, 1, 1) * v(sc, sc, 1),
-                                             v(0.072 * cs, 0.024 + 0.012 * b, 0.054) * sc, look_rot(v(sx * 0.15, -0.35, 1))), 'pec')
+                # broad and shallow, so the chest reads as a plane with a soft lower edge (no crease for shirts to catch)
+                self.add('chest', Ellipsoid(v(sx * 0.06, -0.07 * cs, z0 + (z1 - z0) * 0.74) * v(1, 1, 1) * v(sc, sc, 1),
+                                             v(0.082 * cs, (0.017 + 0.009 * b) * (1 - 0.6 * fat), 0.064) * sc, look_rot(v(sx * 0.12, -0.3, 1))), 'pec')
         if fem:
             bs = L.get('bust', 1.0)
             for sx in (1, -1):
@@ -151,10 +152,10 @@ class Body:
         # The head is one loft from chin to crown: front-view width, side-view depth and centre per height.
         # (z, half width, half depth, centre y, squareness)
         keys = [
-            (0.012 - 0.010 * (cl - 1), 0.022 * (0.8 + 0.2 * jw), 0.028, -0.043 - 0.005 * (cl - 1), 2.0),
-            (0.026 - 0.006 * (cl - 1), 0.036 * (0.85 + 0.15 * jw), 0.040, -0.040 - 0.004 * (cl - 1), 2.0),
-            (0.044, 0.054 * jw, 0.054, -0.033, 2.1 + 0.2 * (jw - 1)),
-            (0.068, 0.071 * jw * F['cheek'] ** 0.3, 0.072, -0.020, 2.2 + 0.2 * (jw - 1)),
+            (0.006 - 0.010 * (cl - 1), 0.013 * (0.8 + 0.2 * jw), 0.02, -0.045 - 0.005 * (cl - 1), 2.0),
+            (0.022 - 0.006 * (cl - 1), 0.03 * (0.85 + 0.15 * jw), 0.036, -0.041 - 0.004 * (cl - 1), 2.0),
+            (0.044, 0.052 * jw, 0.054, -0.033, 2.1 + 0.2 * (jw - 1)),
+            (0.068, 0.072 * jw * F['cheek'] ** 0.35, 0.073, -0.020, 2.25 + 0.2 * (jw - 1)),
             (0.098, 0.084 * cw, 0.090, -0.004, 2.1),
             (0.128, 0.093 * cw, 0.104 * cd, 0.008, 2.0),
             (0.160, 0.098 * cw, 0.112 * cd, 0.012, 2.0),
@@ -164,27 +165,27 @@ class Body:
         # the crown: an ellipsoid dome over the top of the loft
         dome = Ellipsoid(P(0, 0.014, 0.162 * chh), v(0.097 * cw, 0.111 * cd, 0.085 * chh) * u)
         head = Union([head, dome], 0.02 * u)
-        cheeks = []
-        for sx in (1, -1):
-            cheeks.append(Ellipsoid(P(sx * 0.044, -0.07, 0.082), v(0.028, 0.02, 0.024) * u * F['cheek']))
-        head = Union([head] + cheeks, 0.03 * u)
+        # cheeks: a soft fullness under the eyes, blended wide so it never reads as a separate lump
+        cheeks = [Ellipsoid(P(sx * 0.04, -0.066, 0.084), v(0.03, 0.016, 0.026) * u * (0.6 + 0.4 * F['cheek'])) for sx in (1, -1)]
+        head = Union([head] + cheeks, 0.045 * u)
         # flatten the front of the face a little (anime faces read as a plane under the eyes)
         flat = sdf.Plane(v(0, -1, 0.12), P(0, -0.104, 0.11))
         head = sdf.Intersect([head, flat], 0.035 * u)
         # brow ridge: one soft wide mass, only on older / heavier faces
-        if F['brow'] > 0.05:
+        # brow: a broad soft mass (never thinner than it is tall, or it reads as a blade); only heavier faces
+        if F['brow'] > 0.45:
             br = F['brow']
-            head = Union([head, Ellipsoid(P(0, -0.088, 0.152), v(0.066, 0.016 * br, 0.014 * br) * u)], 0.03 * u)
+            head = Union([head, Ellipsoid(P(0, -0.084, 0.15), v(0.06, 0.012 + 0.004 * br, 0.016 + 0.004 * br) * u)], 0.03 * u)
         # nose: a small wedge, anime style
         ns = F['nose'] * L['nose']
         nose = Union([
-            RoundCone(P(0, -0.1, 0.114), P(0, -0.1075 - 0.005 * (ns - 1), 0.095 - 0.005 * (ns - 1)), 0.0032 * u * ns, 0.0052 * u * ns),
-            Ellipsoid(P(0, -0.1045 - 0.005 * (ns - 1), 0.093 - 0.005 * (ns - 1)), v(0.0085, 0.0065, 0.0058) * u * ns),
-        ], 0.007 * u)
-        head = Union([head, nose], 0.012 * u)
+            RoundCone(P(0, -0.099, 0.118), P(0, -0.106 - 0.004 * (ns - 1), 0.097 - 0.004 * (ns - 1)), 0.004 * u * ns, 0.0055 * u * ns),
+            Ellipsoid(P(0, -0.102 - 0.004 * (ns - 1), 0.094 - 0.004 * (ns - 1)), v(0.008, 0.006, 0.0055) * u * ns),
+        ], 0.008 * u)
+        head = Union([head, nose], 0.016 * u)
         # very shallow eye sockets so the painted eyes sit in the face, and the mouth line
-        sockets = Union([Ellipsoid(P(sx * 0.037, -0.118, 0.121), v(0.03, 0.018, 0.021) * u) for sx in (1, -1)])
-        head = sdf.Subtract(head, sockets, 0.02 * u)
+        sockets = Union([Ellipsoid(P(sx * 0.037, -0.113, 0.121), v(0.026, 0.01, 0.017) * u) for sx in (1, -1)])
+        head = sdf.Subtract(head, sockets, 0.016 * u)
         # ears: thin along x, tall, tilted back; a bowl carved in the outer face
         ears = []
         for sx in (1, -1):
@@ -221,16 +222,29 @@ class Body:
             el = sk.j[f'elbow.{side}']
             wr = sk.j[f'wrist.{side}']
             ua = norm(el - sh)
-            # upper arm loft (X = forward): (t, r_fwd, r_side, o_fwd, o_side, n)
-            ukeys = [(0.0, 0.050, 0.052, 0, 0.004), (0.3, 0.045, 0.046, 0.004, 0), (0.6, 0.041, 0.043, 0.005, 0),
+            # 'up and out' across the arm in the arm's vertical plane: the deltoid swells this way
+            lat = norm(np.cross(np.cross(ua, v(0, 0, 1)), ua)) if abs(ua[2]) < 0.99 else v(sx, 0, 0)
+            if lat[2] < 0:
+                lat = -lat
+            # upper arm loft (X = forward): (t, r_fwd, r_side, o_fwd, o_side, n). It starts a little way down
+            # the arm so its rounded end sits inside the shoulder instead of capping the joint like a ball.
+            ukeys = [(0.14, 0.037, 0.039, 0, 0.002), (0.32, 0.045, 0.046, 0.004, 0), (0.6, 0.041, 0.043, 0.005, 0),
                      (0.86, 0.035, 0.037, 0.002, 0), (1.0, 0.033, 0.033, 0, 0)]
             self.add(f'upperarm.{side}', self._limb(sh, el, ukeys, sc * lt, m), 'upperarm')
             fkeys = [(0.0, 0.034, 0.036, 0, 0), (0.25, 0.036, 0.040, -0.002, 0.002), (0.6, 0.029, 0.033, 0, 0),
                      (1.0, 0.027, 0.0195, 0, 0)]
             self.add(f'forearm.{side}', self._limb(el, wr, fkeys, sc * lt, 0.6 + 0.4 * m), 'forearm')
-            # deltoid cap
-            self.add(f'upperarm.{side}', Ellipsoid(sh + ua * 0.028 * sc + v(sx * 0.004, 0.002, 0.014) * sc,
-                                                   v(0.043 + 0.012 * b - 0.006 * fem, 0.047 + 0.01 * b, 0.06) * sc * lt, look_rot(ua)), 'deltoid')
+            # deltoid: a long muscle wrapping the top and outside of the upper arm from the shoulder point to a
+            # third of the way down, its top a little below the line of the trapezius (no ball on the joint)
+            dr = min(1.08, 1 + 0.1 * (b - 0.5)) - 0.08 * fem
+            self.add(f'upperarm.{side}', Ellipsoid(sh + ua * 0.05 * sc + lat * 0.004 * sc,
+                                                   v(0.04 * dr, 0.04 * dr, 0.07) * sc * lt, look_rot(ua)), 'deltoid')
+            # trapezius: from the side of the neck down to the shoulder point, so the shoulder line falls
+            # smoothly from the neck into the deltoid
+            nk = sk.j['neck']
+            tr0 = v(sx * 0.034 * sc, nk[1] + 0.024 * sc, nk[2] + 0.004 * sc)
+            tr1 = sh + v(-sx * 0.024, 0.008, -0.006) * sc
+            self.add('chest', RoundCone(tr0, tr1, (0.03 + 0.006 * b) * sc, (0.022 + 0.004 * b) * sc), 'trapezius')
             self.add(f'forearm.{side}', Sphere(el + v(0, 0.006, 0) * sc, 0.029 * sc * lt), 'elbow')
             self._hand(side, sx)
 

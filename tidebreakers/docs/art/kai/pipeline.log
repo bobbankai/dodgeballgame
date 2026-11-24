@@ -2,24 +2,24 @@ stage 1 reference analysis written
 stage 2 parametric blockout
 stage 3 cage: 1706 verts, 1704 quads, non-manifold edges 0
 stage 4 subdivided x1 + projected: 6818 verts
-stage 5 relaxed: non-manifold 0, surface deviation mean 0.00 mm max 0.1 mm
-  garment tank: 951 quads extracted, 3804 after refinement
-  garment jacket: 830 quads extracted, 3320 after refinement
-  garment collar: 6 quads extracted, 24 after refinement
+stage 5 relaxed: non-manifold 0, surface deviation mean 0.00 mm max 0.5 mm
+  garment tank: 975 quads extracted, 3900 after refinement
+  garment jacket: 857 quads extracted, 3428 after refinement
+  garment collar: 4 quads extracted, 16 after refinement
   garment pants: 1328 quads extracted, 5312 after refinement
   garment cuffs: 48 quads extracted, 192 after refinement
   garment sash: 96 quads extracted, 384 after refinement
   garment wrapL: 120 quads extracted, 480 after refinement
   garment wrapR: 120 quads extracted, 480 after refinement
   garment headband: 128 quads extracted, 512 after refinement
-  garment haircap: 662 quads extracted, 2648 after refinement
+  garment haircap: 660 quads extracted, 2640 after refinement
   garment soleL: 84 quads extracted, 336 after refinement
   garment soleR: 84 quads extracted, 336 after refinement
-  skin after culling hidden faces: 3496 of 6816 quads
+  skin after culling hidden faces: 3480 of 6816 quads
   !! piece hair: max distance from body 0.169 after solidify
-  !! piece bandL: max distance from body 0.140 after solidify
-  !! piece bandR: max distance from body 0.138 after solidify
+  !! piece bandL: max distance from body 0.137 after solidify
+  !! piece bandR: max distance from body 0.135 after solidify
 stage 6 materials (albedo, class, AO, face UVs) + stage 7 weights
-rig: 62 deform bones; mesh 20767 verts, 40806 tris
-stage 10 LOD1: 18362 tris (LOD0 40806)
-exported /home/user/dodgeballgame/tidebreakers/tools/blender/../../public/assets/chars/kai.glb (2380 KB) in 27s
+rig: 62 deform bones; mesh 20898 verts, 41066 tris
+stage 10 LOD1: 18477 tris (LOD0 41066)
+exported /home/user/dodgeballgame/tidebreakers/tools/blender/../../public/assets/chars/kai.glb (2395 KB) in 25s

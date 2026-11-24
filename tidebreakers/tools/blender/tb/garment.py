@@ -40,6 +40,19 @@ def flare(f, base, grow, z_top, z_bot):
     return Func(g, f.lo - base - grow, f.hi + base + grow)
 
 
+def split_legs(left, right, both, z_split, blend=0.05):
+    """Trouser shape kept as two separate legs below the crotch: each side uses only its own leg's field
+    (so loose legs never merge into a web between the knees that tears when the legs part), the hips and
+    seat above `z_split` use the joined field, blended over `blend`."""
+    def g(p):
+        side = np.where(p[:, 0] >= 0, left.eval(p), right.eval(p))
+        t = np.clip((p[:, 2] - (z_split - blend)) / (2 * blend), 0, 1)
+        return side * (1 - t) + both.eval(p) * t
+    lo = np.minimum(np.minimum(left.lo, right.lo), both.lo)
+    hi = np.maximum(np.maximum(left.hi, right.hi), both.hi)
+    return Func(g, lo, hi)
+
+
 def folds(f, amp=0.004, freq=40.0, axis=(0, 0, 1), noise=0.5, seed=0):
     """Soft cloth folds: ripples across `axis` broken up by noise."""
     ax = norm(np.asarray(axis, float))

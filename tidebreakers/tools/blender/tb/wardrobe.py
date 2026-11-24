@@ -119,8 +119,13 @@ def shirt(c, color, sleeves=1.0, neck='round', offset=0.007, hem=None, name='shi
 def trousers(c, color, cuff=None, flare=0.012, loose=0.012, top=None, name='trousers', paint=None, thick=0.004):
     cuff = c.ankle_z + 0.05 if cuff is None else cuff
     top = c.waist + 0.01 if top is None else top
-    base = G.folds(G.flare(c.legs, loose, flare, c.sk.s['leg'], cuff), 0.002, 30, noise=0.7, seed=4)
-    return P.Garment(name, base, Intersect([G.below(top), G.above(cuff)]), hexc(color), thickness=thick, paint=paint)
+    leg = lambda s: c.bd.region([f'thigh.{s}', f'shin.{s}', 'hips'], 0.03)
+    split = G.split_legs(G.flare(leg('L'), loose, flare, c.sk.s['leg'], cuff), G.flare(leg('R'), loose, flare, c.sk.s['leg'], cuff),
+                         G.flare(c.legs, loose, flare, c.sk.s['leg'], cuff), c.z0 - 0.12 * c.sc, blend=0.05)
+    base = G.folds(split, 0.002, 30, noise=0.7, seed=4)
+    # loose trouser legs fold over a long stretch at the knee instead of pinching into the calf
+    soft = 4 + int(round((loose + flare) / 0.006))
+    return P.Garment(name, base, Intersect([G.below(top), G.above(cuff)]), hexc(color), thickness=thick, paint=paint, soft=soft)
 
 
 def boots(c, color, top=None, name='boots', loose=0.014, paint=None):
@@ -303,7 +308,8 @@ def hat_cap(c, color, band='#23305c', badge='#d8a93c', name='cap'):
     top = c.fa['cranium'] + v(0, 0, 0.07) * c.u
     crown = pc.quad_sphere(top + v(0, 0.0, 0.0), (0.105 * c.u, 0.118 * c.u, 0.05 * c.u))
     brim = disc(top + v(0, 0, -0.035 * c.u), 0.108 * c.u, 0.06 * c.u, squash=(1.0, 1.1))
-    visor = pc.box_mesh(top + v(0, -0.12 * c.u, -0.04 * c.u), (0.06 * c.u, 0.035 * c.u, 0.006), sdf.rot_x(0.35), bevel=0.004)
+    # a short visor at the brow, angled only slightly, so the eyes stay readable from above
+    visor = pc.box_mesh(top + v(0, -0.118 * c.u, -0.03 * c.u), (0.055 * c.u, 0.026 * c.u, 0.005), sdf.rot_x(0.18), bevel=0.004)
     badgeM = pc.quad_sphere(top + v(0, -0.115 * c.u, 0.0), (0.018 * c.u, 0.008, 0.016 * c.u), res=2)
     return [P.Part(name, *_merge([crown, brim]), hexc(color), weights=('rigid', 'head')),
             P.Part(name + 'visor', *visor, hexc(band), cls='leather', weights=('rigid', 'head')),
@@ -364,10 +370,28 @@ def helmet(c, color, crest=None, name='helmet'):
 
 def epaulettes(c, color='#d8b24a', fringe=True, name='epaulette'):
     out = []
+    skin = c.bd.field()
+
+    def top(x, y, z0):
+        # highest point of the body on a vertical line (the shoulder's upper surface)
+        zs = np.arange(z0 + 0.2, z0 - 0.2, -0.002)
+        d = skin.eval(np.stack([np.full_like(zs, x), np.full_like(zs, y), zs], 1))
+        ins = np.nonzero(d < 0)[0]
+        return zs[ins[0]] if len(ins) else z0
+
     for s, sx in (('L', 1), ('R', -1)):
         sh = c.j[f'shoulder.{s}']
-        cen = sh + v(sx * 0.01, 0.0, 0.05) * c.sc
-        pad = pc.quad_sphere(cen, (0.07 * c.sc, 0.06 * c.sc, 0.02 * c.sc), res=3)
+        # sit on the shoulder (over the coat), tilted to the shoulder's slope
+        xi, xo = sh[0] - sx * 0.035 * c.sc, sh[0] + sx * 0.03 * c.sc
+        zi, zo = top(xi, sh[1], sh[2]), top(xo, sh[1], sh[2])
+        # centred over the inner shoulder (it moves with the collarbone this is attached to; the outer part
+        # drops with the arm), resting on the coat
+        tilt = 0.6 * math.atan2(zo - zi, abs(xo - xi))
+        cen = v(sh[0] - sx * 0.022 * c.sc, sh[1], zi + 0.016 * c.sc)
+        pV, pF = pc.quad_sphere(v(0, 0, 0), (0.07 * c.sc, 0.06 * c.sc, 0.02 * c.sc), res=3)
+        ct, st = math.cos(tilt), math.sin(tilt)
+        R = np.array([[ct, 0, -st * sx], [0, 1, 0], [st * sx, 0, ct]])
+        pad = (pV @ R.T + cen, pF)
         parts = [pad]
         if fringe:
             for k in range(7):
@@ -405,11 +429,68 @@ def goggles(c, lens='#7fd8ff', frame='#7a5230', name='goggles'):
 
 # ------------------------------------------------------------------------------------------ hair
 
-def hair_cap(c, color, front=0.2, sides=0.13, back=0.07, thick=0.016, dark=None, light=None, name='haircap'):
+def strand_grooves(c, n=30, depth=0.0026, whorl=None):
+    """Strands sculpted into the hair volume: shallow ridges and sharper grooves fanning out from the crown
+    whorl, so the toon shading and ink lines pick out locks instead of a smooth helmet."""
+    fa, u = c.fa, c.u
+    w = fa['crown'] + v(0, 0.035, -0.01) * u if whorl is None else whorl
+
+    def disp(V, N):
+        rel = V - w
+        ang = np.arctan2(rel[:, 0], -rel[:, 1])
+        # the fan gets a slight swirl with distance from the whorl, like hair growing round it
+        r = np.linalg.norm(rel, axis=1)
+        a = ang + 2.2 * r / u
+        ridge = np.abs(np.sin(a * n * 0.5)) ** 0.55 - 0.62
+        fade = np.clip((r - 0.02 * u) / (0.04 * u), 0, 1)
+        return depth * u * ridge * fade
+    return disp
+
+
+def hair_cap(c, color, front=0.2, sides=0.13, back=0.07, thick=0.02, dark=None, light=None, name='haircap', strands=30):
     capf = G.hair_cap(c.bd, thick, front=front, sides=sides, back=back)
     paint = hair_paint(dark or color, light or color)
     return P.Garment(name, Offset(c.bd.head_field, thick * c.u), capf.items[1], hexc(color), cls='hair', thickness=0.0, covers=True,
-                     region=lambda p: p[:, 2] > c.chin + 0.05 * c.u, weights=('rigid', 'head'), paint=paint)
+                     region=lambda p: p[:, 2] > c.chin + 0.05 * c.u, weights=('rigid', 'head'), paint=paint,
+                     displace=strand_grooves(c, strands) if strands else None)
+
+
+def lock_mesh(pts, ws, ts, ns, n=10):
+    """An anime hair lock: arched on its outer face, flatter underneath, with blade-thin edges that bend
+    back toward the head, tapering to a point. (pts, widths, thicknesses, outward normals) per ring."""
+    pts = np.asarray(pts, float)
+    V, F, rings = [], [], []
+    for i, p in enumerate(pts):
+        t = pts[min(i + 1, len(pts) - 1)] - pts[max(i - 1, 0)]
+        t = t / max(np.linalg.norm(t), 1e-9)
+        X = np.asarray(ns[i], float)
+        X = X - t * np.dot(X, t)
+        X = X / max(np.linalg.norm(X), 1e-9)
+        Y = np.cross(t, X)
+        w, th = max(ws[i], 1e-4), max(ts[i], 1e-4)
+        ring = []
+        for k in range(n):
+            a = 2 * math.pi * k / n
+            s, co = math.sin(a), math.cos(a)
+            out = th * co * (1.0 if co > 0 else 0.4) - th * 0.6 * s ** 4
+            ring.append(len(V))
+            V.append(p + X * out + Y * w * s)
+        rings.append(ring)
+    for r0, r1 in zip(rings[:-1], rings[1:]):
+        for k in range(n):
+            k1 = (k + 1) % n
+            F.append((r0[k], r0[k1], r1[k1], r1[k]))
+    tip = len(V)
+    V.append(pts[-1] + (pts[-1] - pts[-2]) * 0.35)
+    last = rings[-1]
+    for k in range(0, n, 2):
+        F.append((last[k], last[(k + 1) % n], last[(k + 2) % n], tip))
+    root = len(V)
+    V.append(pts[0] - (pts[1] - pts[0]) * 0.3)
+    first = rings[0]
+    for k in range(0, n, 2):
+        F.append((first[(k + 2) % n], first[(k + 1) % n], first[k], root))
+    return np.array(V), F
 
 
 def hair_paint(dark, light):
@@ -421,12 +502,74 @@ def hair_paint(dark, light):
     return paint
 
 
+def comb_lock(c, theta, phi, length, width, direction, thick=0.3, droop=0.5, lift=0.0, curl=0.3, twist=0.0,
+              cap=0.02, layer=0.0, release=None, steps=12, **_):
+    """A lock combed over the head: rooted in the hair volume, it follows the scalp at the hair's thickness
+    (each layer a little further out, the tip standing off so locks overlap like shingles), bends with gravity,
+    leaves the head below `release` (height above the chin, head units) and falls free, its tip curling in.
+    Returns (points, widths, thicknesses, outward normals) for lock_mesh."""
+    head = c.bd.head_field
+    u, fa = c.u, c.fa
+    rel_z = fa['chin'] + (0.1 if release is None else release) * u
+    root, n0 = G.scalp_point(fa, theta, phi)
+    d = norm(np.asarray(direction, float))
+    seg = length * u / (steps - 1)
+    p = root.copy()
+    pts, ns = [], []
+    hug = True
+    for i in range(steps):
+        t = i / (steps - 1)
+        g = sdf.gradient(head, p[None], 0.001)[0]
+        n = norm(g)
+        h = (cap * 0.85 + layer + lift * 0.25) * u + t * 0.012 * u
+        if hug:
+            p = p - n * (head.eval(p[None])[0] - h)
+            if p[2] < rel_z and i > 1:
+                hug = False
+        else:
+            dd = head.eval(p[None])[0]
+            if dd < h:
+                p = p + n * (h - dd)
+        pts.append(p.copy())
+        ns.append(n)
+        # next direction: along the surface while hugging, gravity pulling harder toward the tip, tips curl in
+        down = v(0, 0, -1)
+        d = norm(d + down * droop * (0.15 + 0.5 * t))
+        if t > 0.6:
+            d = norm(d - n * curl * 0.35 * (t - 0.6) / 0.4)
+        if hug:
+            d = norm(d - n * np.dot(d, n))
+        p = p + d * seg
+    pts = np.array(pts)
+    tt = np.linspace(0, 1, steps)
+    ws = width * u * (0.62 + 0.55 * np.sin(np.pi * np.minimum(tt * 1.15, 1))) * (1 - tt) ** 0.7
+    ws = np.maximum(ws, 0.0008)
+    ts = np.maximum(ws * thick, 0.0006)
+    ns = np.array(ns)
+    if twist:
+        for i in range(steps):
+            tg = pts[min(i + 1, steps - 1)] - pts[max(i - 1, 0)]
+            tg = norm(tg)
+            side = np.cross(tg, ns[i])
+            a = twist * tt[i]
+            ns[i] = norm(ns[i] * math.cos(a) + side * math.sin(a))
+    return pts, ws, ts, ns
+
+
 def clumps(c, specs, color, dark=None, light=None, name='hair', weights=('rigid', 'head')):
     Vs, Fs, off = [], [], 0
     for sp in specs:
-        pts, ws, ts, ns = G.clump_data(c.fa, *sp[:5], **(sp[5] if len(sp) > 5 else {}))
-        flat = float(np.mean(ts / np.maximum(ws, 1e-6)))
-        V, F = pc.tube(pts, ws, n=6, normals=ns, flat=flat, cap_tip=True, cap_root=True)
+        kw = dict(sp[5]) if len(sp) > 5 else {}
+        if kw.pop('comb', True):
+            # combed over the head (see comb_lock): the hair mass is made of overlapping locks
+            kw.pop('steps', None)
+            pts, ws, ts, ns = comb_lock(c, *sp[:5], **kw)
+        else:
+            # free-standing (spikes): at least ten rings; roots sink a little into the hair volume
+            kw['steps'] = max(kw.get('steps', 7), 10)
+            kw['lift'] = kw.get('lift', 0.004) - 0.004
+            pts, ws, ts, ns = G.clump_data(c.fa, *sp[:5], **kw)
+        V, F = lock_mesh(pts, ws, ts, ns)
         Vs.append(V)
         Fs += [tuple(i + off for i in f) for f in F]
         off += len(V)

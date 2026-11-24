@@ -16,11 +16,16 @@ class Garment:
     """Extracted from the body topology and inflated onto `base` (its outer surface) where cut < 0."""
 
     def __init__(self, name, base, cut, color, cls='cloth', thickness=0.004, paint=None, covers=True,
-                 relax=2, region=None, weights='body', snap=True, cover_margin=0.006, refine=True, folds=1.0):
+                 relax=2, region=None, weights='body', snap=True, cover_margin=0.006, refine=True, folds=1.0, displace=None,
+                 soft=2):
         self.name, self.base, self.cut, self.color, self.cls = name, base, cut, color, cls
         self.thickness, self.paint, self.covers, self.relax = thickness, paint, covers, relax
         self.region, self.weights, self.snap, self.cover_margin = region, weights, snap, cover_margin
         self.refine, self.folds = refine, folds
+        # displace(V, N) -> offset along the surface normal per vertex (sculpted detail such as hair strands)
+        self.displace = displace
+        # extra weight smoothing passes: loose cloth bends over a wider band than the skin under it
+        self.soft = soft
 
 
 class Part:
@@ -150,6 +155,48 @@ def smooth_hem(V, F, base, iters=4, amount=0.5):
         V[idx] = V[idx] * (1 - amount) + avg * amount
         V[idx] = pm.project(base, V[idx], 2)
     return V
+
+
+def hem_rings(F, nv, max_ring=5):
+    """For each vertex, how many edge rings it sits from the mesh boundary (0 on a hem), capped."""
+    nb = boundary_neighbours(F)
+    ring = np.full(nv, max_ring + 1, int)
+    if not nb:
+        return ring
+    adj = [[] for _ in range(nv)]
+    for f in F:
+        for i in range(len(f)):
+            a, b = f[i], f[(i + 1) % len(f)]
+            adj[a].append(b)
+            adj[b].append(a)
+    front = list(nb)
+    for i in front:
+        ring[i] = 0
+    for r in range(1, max_ring + 1):
+        nxt = []
+        for i in front:
+            for j in adj[i]:
+                if ring[j] > r:
+                    ring[j] = r
+                    nxt.append(j)
+        front = nxt
+    return ring
+
+
+def trim_paint(col, ring):
+    """Hems read as finished edges: a darker, richer piping on the outer two rings and a light stitch line
+    just inside it."""
+    col = col.copy()
+    lum = col.mean(1, keepdims=True)
+    rich = np.clip(lum + (col - lum) * 1.35, 0, 1) * 0.58
+    pip = ring <= 2
+    col[pip] = rich[pip]
+    st = ring == 3
+    col[st] = np.clip(col[st] * 1.22 + 0.04, 0, 1)
+    return col
+
+
+TRIM_SKIP = ('belt', 'sash', 'strap', 'band', 'wrap', 'glove', 'buckle', 'skin', 'haircap')
 
 
 def transfer_weights(Vsrc, Wsrc, Vdst, k=3):
@@ -306,9 +353,15 @@ def build(spec, out_glb, art, renders=True):
             Vr = smooth_hem(Vr, Fr, g.base, iters=3)
             if Wg is not None:
                 Wg = transfer_weights(Vg, Wg, Vr)
+                if g.soft:
+                    Wg = pc.smooth_weights(Wg, Fr, iters=g.soft, amount=0.5)
             if g.folds and g.cls not in ('hair', 'metal'):
                 Vr = joint_folds(sk, Vr, g.base, sk.j['spine'][2] - 0.04 * H / 1.7, g.folds)
             Vg, Fg = Vr, Fr
+        if g.displace is not None:
+            Ng = sdf.gradient(g.base, Vg, 0.002)
+            Ng /= np.maximum(np.linalg.norm(Ng, axis=1, keepdims=True), 1e-9)
+            Vg = Vg + Ng * g.displace(Vg, Ng)[:, None]
         pieces.append((g.name, Vg, Fg, g.color, g.cls, g.weights, g.paint, g.thickness, Wg))
         log(f'  garment {g.name}: {n0} quads extracted, {len(Fg)} after refinement')
     # skin minus covered faces (keep a rim so there are no gaps)
@@ -329,10 +382,15 @@ def build(spec, out_glb, art, renders=True):
     arm = build_armature(sk)
     objs = []
     for name, Vp, Fp, color, cls, weights, paint, thick, Wsrc in pieces:
+        trim = None
+        if cls in ('cloth', 'leather') and not any(k in name for k in TRIM_SKIP):
+            trim = hem_rings(Fp, len(Vp))
         if thick and thick > 0:
             Vp, Fp = pc.shell(Vp, Fp, thick)
             if Wsrc is not None:
                 Wsrc = np.concatenate([Wsrc, Wsrc])
+            if trim is not None:
+                trim = np.concatenate([trim, trim])
         ob = _make(f'{spec.name}_{name}', Vp, Fp)
         Vp2, F2 = pc.mesh_to_arrays(ob)
         fd = float(np.abs(full.eval(Vp2)).max())
@@ -346,6 +404,8 @@ def build(spec, out_glb, art, renders=True):
         col = _color(color, Vp2, N)
         if paint:
             col = paint(Vp2, N, col)
+        if trim is not None and len(trim) == len(col):
+            col = trim_paint(col, trim)
         ao = sdf_ao(ao_field, Vp2 + N * 0.0015, N)
         u = fa['u']
         if name == 'skin':

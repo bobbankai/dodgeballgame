@@ -91,6 +91,15 @@ tools/play.mjs  headless runner (software WebGPU) for screenshots and scripted p
   face mask) → rig with anatomy-based weights → deformation tests → LOD1 → GLB. Each stage renders
   evidence into `docs/art/<name>/` (blockout, cage, topology, final front/side/back/three-quarter, face,
   arm raised, elbow and knee bent, action pose). 18 characters: `chars.py` (Kai) and `cast.py`.
+  Anatomy (`tb/body.py`): the shoulder line falls from the neck along a trapezius into a deltoid that wraps
+  the upper arm (the arm's rounded end sits inside the shoulder), so sleeves and coats drape instead of
+  sitting on pads; broad shallow pecs; heads have a clean face plane, a small nose ridge, shallow eye
+  hollows (the eyes are drawn by the shader) and a soft V jaw. Hair (`tb/wardrobe.py`): a volume with
+  strand grooves sculpted from the crown whorl, covered by locks combed over the head (they follow the
+  scalp at the hair's thickness, layer outward like shingles, leave the head below a release height and fall
+  with gravity, tips curling in), each lock arched on top with blade-thin edges. Trousers keep their legs
+  separate below the thigh (no web between the knees); loose cloth gets wider weight smoothing; every
+  cloth and leather edge gets a darker piping and a light stitch line.
 - Animation: `blender -b -P tools/blender/anims.py -- --export` writes `public/assets/anims/humanoid.glb`.
   Combat moves are hand-keyed (`anims.py`: key poses → FK interpolation with easing → two-bone IK contact
   solving → overlap). Locomotion and acting come from motion capture (`mocap_anims.py`, `tb/mocap.py`):
@@ -129,6 +138,7 @@ headless measurement matches real play. `__r.globals.set('counts', n, k, 2, 0)` 
 - Shader code: about 2,630 lines of WGSL across 35 files, every line in use. It has not been padded toward
   the requested 20,000. Effects were added where they visibly improve the game and are reported at their
   real size.
-- Characters are stylized and fully rigged with deformation tests, but they are not at the level of a
-  hand-sculpted AAA production: shoulders on shirts and coats still read boxy, and hands are simple.
+- Characters are stylized and fully rigged with deformation tests, with proper shoulder anatomy, anime
+  hair built from combed locks and finished hems, but they are procedural, not hand-sculpted by an artist:
+  hands are simple and garments have no texture detail beyond painted trims.
 - Scenery is built from procedural pieces; the look comes mostly from the shaders and lighting.

@@ -41,6 +41,8 @@ def spiky_short(c, color, dark, light):
         cl.append((th, ph, L, 0.034, v(math.sin(a) * 0.6, 0.7, 0.4 if abs(th) < 90 else -0.4), dict(curl=0.2, lift=0.012)))
     for sx in (1, -1):
         cl.append((95 * sx, 35, 0.08, 0.03, v(sx, 0.3, -0.4), dict(curl=0.2, droop=0.2, lift=0.012)))
+    # spikes stand free of the head (not combed down over it)
+    cl = [(*s[:5], {**(s[5] if len(s) > 5 else {}), 'comb': False}) for s in cl]
     return [W.hair_cap(c, color, front=0.2, sides=0.12, back=0.06, dark=dark, light=light), W.clumps(c, cl, color, dark, light)]
 
 
@@ -205,7 +207,7 @@ def mira():
 
 def bram():
     sk = skeleton.Skeleton(height=2.0, head=0.25, shoulder=0.245, hip=0.11, leg=0.95, knee=0.51, upperarm=0.33, forearm=0.3, hand=0.21)
-    bd = bodymod.Body(sk, face='man', build=0.95, fat=0.45, belly=0.6, chest=1.15, limb=1.2, hand=1.25, nose=1.2)
+    bd = bodymod.Body(sk, face='man', build=0.95, fat=0.45, belly=0.6, chest=1.15, limb=1.1, hand=1.25, nose=1.2)
     c = Ctx(sk, bd)
     stripes = lambda V, N, col: col * (1 - (np.sin(V[:, 2] * 90) > 0.4)[:, None] * 0.55)  # noqa
     g = [W.shirt(c, '#f0f2f6', sleeves=0.9, neck='round', offset=0.01, name='shirt', paint=lambda V, N, col: col * (1 - (np.sin(V[:, 2] * 90) > 0.35)[:, None] * np.array([0.6, 0.45, 0.15]))),
@@ -232,8 +234,8 @@ def nell():
          W.boots(c, '#c23a2a', top=c.knee_z - 0.03)]
     parts = [W.skirt_loft(c, '#f2c230', c.waist - 0.02, c.knee_z + 0.02, offset=0.03, flare=0.07, front_open=0.2, name='raincoatskirt')]
     parts += W.goggles(c)
-    cl = W.fringe(c, '#b8562c', n=6, length=0.08, spread=40, droop=0.35, curl=0.4)
-    cl += W.crown_layer(c, n=11, length=0.11, width=0.05, skip_front=50, droop=0.5, curl=0.7, seed=2)
+    cl = W.fringe(c, '#b8562c', n=7, length=0.105, spread=44, droop=0.35, curl=0.4)
+    cl += W.crown_layer(c, n=13, length=0.16, width=0.04, skip_front=50, droop=0.7, curl=0.6, seed=2)
     for th in (150, 180, 210):
         cl.append((th, 30, 0.1, 0.035, v(math.sin(math.radians(th)) * 0.4, 0.5, -0.6), dict(curl=0.2, droop=0.4, lift=0.012)))
     for sx in (1, -1):
