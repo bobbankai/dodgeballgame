@@ -127,7 +127,11 @@ export class Prologue extends Level {
       this.r.globals.set('sea', 0, 0.85, 1.4, 0.6);
     }
     // ---------------------------------------------------------------- the shore
-    const shore = V(-2, GULLS_HEIGHT(-2, -58), -58);
+    // the beach at the waterline (found from the terrain, so it stays right if the island is reshaped): Kai stands
+    // on the wet sand and wades in until the sea is round his knees
+    const along = (zFrom: number, below: number) => { let z = zFrom; while (z > -90 && GULLS_HEIGHT(-2, z) > below) z -= 0.25; return z; };
+    const zShore = along(-30, 0.25);
+    const shore = V(-2, GULLS_HEIGHT(-2, zShore), zShore);
     const life = this.boats[1] ?? new Boat(this.kit, ROWBOAT, this.sea, g.collision, V(-1, 0, -70), 2.8);
     if (!this.boats.length) this.boats.push(life);
     life.pos.copyFrom(V(-1.5, 0, -66));
@@ -153,7 +157,8 @@ export class Prologue extends Level {
     await d.say('kai', 'Mum? MUM!', 'cry');
     d.release(kai);
     kai.walkSpeed = 1.2;
-    const into = shore.add(V(0, 0, -4.5));
+    const zInto = along(zShore, -0.3);
+    const into = V(-2, GULLS_HEIGHT(-2, zInto), zInto);
     d.wide(into, 0.4, 7, 1.5, 0, 0.65);
     await d.walk(kai, into, false, 0.4);
     d.act(kai, 'idle', true);
@@ -205,8 +210,7 @@ export class Prologue extends Level {
     this.r.fx.memory = 0;
     d.cine(false);
     this.ctx.ui.showHud(false);
-    void ui.fade(0, 0.01);
+    // the title over black, after the cold open
     await d.card('', 'TIDEBREAKERS', 'The Song Beneath the Sea', 4.5);
-    void ui.fade(1, 0.01);
   }
 }

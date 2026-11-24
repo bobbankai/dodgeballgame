@@ -66,7 +66,7 @@
 @keyframes bob { to { transform: translateY(4px); } }
 
 /* chapter card */
-.card { position: absolute; inset: 0; display: grid; place-content: center; text-align: center; opacity: 0; transition: opacity .8s; }
+.card { position: absolute; inset: 0; display: grid; place-content: center; text-align: center; opacity: 0; transition: opacity .8s; z-index: 3; }
 .card.show { opacity: 1; }
 .card .num { font-family: 'Bangers'; font-size: 30px; letter-spacing: 8px; color: #ffb14d; text-shadow: 0 2px 0 #1a1020; }
 .card .title { font-family: 'Bangers'; font-size: clamp(54px, 9vw, 120px); letter-spacing: 4px; -webkit-text-stroke: 3px #1a1020; text-shadow: 6px 6px 0 #1a1020; }
@@ -85,10 +85,10 @@
   border: none; font-weight: 700; font-size: 17px; opacity: 0; transition: opacity .3s; text-shadow: 0 1px 2px rgba(0, 0, 0, .7); }
 .hint.show { opacity: 1; }
 .hint b { color: #ffe34d; }
-.fade { position: absolute; inset: 0; background: #000; opacity: 0; }
+.fade { position: absolute; inset: 0; background: #000; opacity: 0; z-index: 2; }
 
 /* menus */
-.pause { position: absolute; inset: 0; display: none; place-content: center; text-align: center; background: rgba(8, 12, 22, .72); pointer-events: auto; }
+.pause { position: absolute; inset: 0; display: none; place-content: center; text-align: center; background: rgba(8, 12, 22, .72); pointer-events: auto; z-index: 4; }
 .pause.show { display: grid; }
 /* title: the live 3D scene behind, the logo and menu on the left over a soft dark gradient */
 .pause.titlescreen { place-content: center start; text-align: left; padding: 0 0 0 clamp(28px, 7vw, 120px);

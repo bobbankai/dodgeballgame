@@ -340,7 +340,14 @@ export class Director {
     const [pos] = this.unblock(head, head.add(dir.scale(dist)).add(new Vector3(0, opts.height ?? 0.05, 0)));
     // tracks the head: an actor who kneels, sits or turns as the line starts stays in frame; when they crouch
     // (kneeling over something, head bowed) the camera drops below their eyeline to see the face
-    const crouchOf = () => Math.max(0, Math.min(1, (A.pos.y + A.height * 0.92 - this.headOf(A).y) / (A.height * 0.3)));
+    // only a bowed head (looking down at something in their lap or on the ground) needs a low camera; someone
+    // sitting upright in a boat or on a chair is filmed at their eyeline
+    const crouchOf = () => {
+      const hb = A.model?.bones?.get('head');
+      if (!hb) return 0;
+      const fy = hb.getDirection(new Vector3(0, 0, 1)).y;
+      return Math.max(0, Math.min(1, (-fy - 0.25) / 0.45));
+    };
     const crouchCam = () => this.headOf(A).add(new Vector3(0, -0.42 * crouchOf(), 0));
     // already crouched when the shot starts: start low
     const p0 = pos.add(new Vector3(0, -0.42 * crouchOf(), 0));

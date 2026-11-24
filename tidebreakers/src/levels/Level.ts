@@ -165,6 +165,9 @@ export abstract class Level {
 
   makeSea(): Sea {
     this.sea = new Sea(this.r, this.terrain);
+    // cameras never go under the waves (a low shot in a storm swell would end up below the surface)
+    const sea = this.sea;
+    this.game.cam.waterAt = (x, z) => sea.heightAt(x, z, this.game.time);
     return this.sea;
   }
 
@@ -397,6 +400,7 @@ export abstract class Level {
   }
 
   dispose(): void {
+    this.game.cam.waterAt = null;
     this.dir.stop();
     this.r.clearSky();
     this.terrain?.dispose();

@@ -32,6 +32,8 @@ export class CameraRig {
   /** distance from `from` toward `to` to the first visible surface in between (null: clear). Scripted shots use
    *  it to step in front of walls and roofs the camera would otherwise be behind or inside. */
   occlude: ((from: Vector3, to: Vector3) => number | null) | null = null;
+  /** sea surface height at (x, z), when the level has a sea: the camera stays above it */
+  waterAt: ((x: number, z: number) => number) | null = null;
   /** size (height) of the locked-on target: big ones (the serpent) pull the camera back and up */
   lockSize: (() => number) | null = null;
   private followAt: Vector3 | null = null;
@@ -76,11 +78,13 @@ export class CameraRig {
     this.occT -= dt;
     if (this.occT <= 0) {
       this.occT = 0.1;
-      // start a little off the subject so a target point sitting just inside a surface doesn't count
+      // start off the subject (further for wider shots) so whatever the subject stands in or sits in (a boat's
+      // hull round its centre) doesn't count as being in front of the lens
       const dir = pos.subtract(target).scale(1 / len);
-      const start = target.add(dir.scale(0.25));
+      const off = Math.min(1.6, Math.max(0.25, len * 0.22));
+      const start = target.add(dir.scale(off));
       const d = this.occlude(start, pos);
-      this.occWant = d === null ? 1 : Math.max(0.12, (d + 0.25 - 0.3) / len);
+      this.occWant = d === null ? 1 : Math.max(0.12, (d + off - 0.3) / len);
     }
     this.occFrac = this.occFrac < 0 ? this.occWant : this.occFrac + (this.occWant - this.occFrac) * Math.min(1, dt * 6);
     return this.occFrac >= 0.999 ? pos : Vector3.Lerp(target, pos, this.occFrac);
@@ -192,7 +196,16 @@ export class CameraRig {
     this.applyShake(dt);
   }
 
+  /** Lifts the lens clear of the sea surface (scripted or not). */
+  private aboveWater(): void {
+    if (!this.waterAt) return;
+    const p = this.cam.position;
+    const w = this.waterAt(p.x, p.z) + 0.3;
+    if (p.y < w) p.y = w;
+  }
+
   private applyShake(dt: number): void {
+    this.aboveWater();
     if (this.trauma <= 0) return;
     const s = this.trauma * this.trauma;
     const t = this.t * 38;
