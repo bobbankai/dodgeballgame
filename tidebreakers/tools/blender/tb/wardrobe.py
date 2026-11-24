@@ -305,9 +305,10 @@ def cylinder(center, r, h, n=16, axis=(0, 0, 1)):
     return pc.tube(pts, [r, r, r], n=n, cap_tip=True, cap_root=True)
 
 
-def hat_cap(c, color, band='#23305c', badge='#d8a93c', name='cap'):
-    top = c.fa['cranium'] + v(0, 0, 0.07) * c.u
-    crown = pc.quad_sphere(top + v(0, 0.0, 0.0), (0.105 * c.u, 0.118 * c.u, 0.05 * c.u))
+def hat_cap(c, color, band='#23305c', badge='#d8a93c', name='cap', lift=0.0):
+    """lift (head units): raise the cap to sit over a head of hair (taller child heads, thick hair)."""
+    top = c.fa['cranium'] + v(0, 0, 0.07 + lift) * c.u
+    crown = pc.quad_sphere(top + v(0, 0.0, 0.005 * c.u), (0.114 * c.u, 0.126 * c.u, 0.058 * c.u))
     brim = disc(top + v(0, 0, -0.035 * c.u), 0.108 * c.u, 0.06 * c.u, squash=(1.0, 1.1))
     # a short visor at the brow, angled only slightly, so the eyes stay readable from above
     visor = pc.box_mesh(top + v(0, -0.118 * c.u, -0.03 * c.u), (0.055 * c.u, 0.026 * c.u, 0.005), sdf.rot_x(0.18), bevel=0.004)
@@ -351,9 +352,10 @@ def hat_bicorne(c, color, trim='#d8b24a', name='bicorne'):
 
 def hat_top(c, color, band='#7a1f2a', name='tophat'):
     top = c.fa['cranium'] + v(0, 0.01, 0.07) * c.u
-    crown = cylinder(top + v(0, 0, -0.02 * c.u), 0.085 * c.u, 0.2 * c.u, n=18)
-    brim = disc(top + v(0, 0, -0.02 * c.u), 0.16 * c.u, 0.08 * c.u, n=24, thick=0.008)
-    bandM = cylinder(top + v(0, 0, -0.012 * c.u), 0.088 * c.u, 0.035 * c.u, n=18)
+    # the crown is as wide as the head it sits on (narrower, the scalp shows between brim and band)
+    crown = cylinder(top + v(0, 0, -0.02 * c.u), 0.106 * c.u, 0.2 * c.u, n=24)
+    brim = disc(top + v(0, 0, -0.02 * c.u), 0.18 * c.u, 0.1 * c.u, n=28, thick=0.008)
+    bandM = cylinder(top + v(0, 0, -0.012 * c.u), 0.109 * c.u, 0.035 * c.u, n=24)
     return [P.Part(name, *_merge([crown, brim]), hexc(color), weights=('rigid', 'head')),
             P.Part(name + 'band', *bandM, hexc(band), weights=('rigid', 'head'))]
 

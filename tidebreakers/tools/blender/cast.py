@@ -289,9 +289,15 @@ def teo():
     c = Ctx(sk, bd)
     g = [W.shirt(c, '#9a8a72', sleeves=0.8, neck='round', offset=0.008, name='shirt', paint=shade_z(c.waist, c.neck_base, 0.3)),
          W.trousers(c, '#4a4036', cuff=c.knee_z - 0.05, loose=0.014), W.shoes(c, '#3a2e24')]
-    parts = W.hat_cap(c, '#5a5046', band='#3a342e', badge='#5a5046')
-    parts += [W.hair_cap(c, '#c9d2dc', front=0.2, sides=0.12, back=0.06, dark='#9aa4b4', light='#eef2f6'),
-              W.clumps(c, W.fringe(c, '#c9d2dc', n=5, length=0.07, spread=34) + W.crown_layer(c, n=10, length=0.09, width=0.045, droop=0.4, curl=0.8, seed=5), '#c9d2dc', '#9aa4b4', '#eef2f6')]
+    parts = W.hat_cap(c, '#5a5046', band='#3a342e', badge='#5a5046', lift=0.035)
+    # under the cap: thin hair, a fringe and a few locks poking out at the sides and back
+    # rooted just under the cap's rim (a fringe rooted on the crown combs out over the cap)
+    tufts = [(th, 30, L, w, d, {**kw, 'cap': 0.012}) for th, ph, L, w, d, kw in W.fringe(c, '#c9d2dc', n=5, length=0.065, spread=36)]
+    for th in (95, 140, 180, 220, 265):
+        a = math.radians(th)
+        tufts.append((th, 18, 0.07, 0.035, v(math.sin(a) * 0.5, 0.3, -0.9), dict(curl=0.3, droop=0.4, release=0.12, cap=0.012)))
+    parts += [W.hair_cap(c, '#c9d2dc', front=0.2, sides=0.12, back=0.06, dark='#9aa4b4', light='#eef2f6', thick=0.012, strands=0),
+              W.clumps(c, tufts, '#c9d2dc', '#9aa4b4', '#eef2f6')]
     ref = dict(title='Teo Sorrel', summary="Mira's little brother. Eleven when the Baron sealed the flooded tunnel. Appears as a memory.",
                palette={'shirt': '#9a8a72', 'cap': '#5a5046', 'hair': '#c9d2dc (like Mira)'}, shapes=['Small, cap too big'], motion=['Bouncy'])
     return spec('teo', sk, bd, '#eec6a6', g, parts, ref)
