@@ -21,5 +21,5 @@ stage 5 relaxed: non-manifold 0, surface deviation mean 0.00 mm max 0.5 mm
   !! piece bandR: max distance from body 0.135 after solidify
 stage 6 materials (albedo, class, AO, face UVs) + stage 7 weights
 rig: 62 deform bones; mesh 20898 verts, 41066 tris
-stage 10 LOD1: 18477 tris (LOD0 41066)
-exported /home/user/dodgeballgame/tidebreakers/tools/blender/../../public/assets/chars/kai.glb (2395 KB) in 25s
+stage 10 LOD1: 18479 tris (LOD0 41066)
+exported /home/user/dodgeballgame/tidebreakers/tools/blender/../../public/assets/chars/kai.glb (2395 KB) in 44s

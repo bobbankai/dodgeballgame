@@ -25,15 +25,17 @@ export class Grass {
 
   constructor(readonly r: Renderer, readonly terrain: Terrain, density: (x: number, z: number, h: number) => number, readonly look: GrassLook,
     readonly fieldSize = 44, readonly spacing = 0.5) {
-    // one clump: four curved blades, three segments each
+    // one clump: curved blades rooted across a small disc (not one point, which reads as a cone), three
+    // segments each. x: how far from the clump centre the blade's root is (0..1), z: its curve / identity
     const pos: number[] = [], uv: number[] = [], idx: number[] = [];
-    const blades = 6, segs = 3;
+    const blades = 9, segs = 3;
     for (let b = 0; b < blades; b++) {
       const base = pos.length / 3;
       const curve = (b % 2 ? 1 : -1) * (0.3 + 0.5 * b / blades);
+      const radial = Math.sqrt((b + 0.5) / blades);
       for (let s = 0; s <= segs; s++) {
         const t = s / segs;
-        for (const side of [-1, 1]) { pos.push(0, t, curve); uv.push(side, t); }
+        for (const side of [-1, 1]) { pos.push(radial, t, curve); uv.push(side, t); }
       }
       for (let s = 0; s < segs; s++) { const i = base + s * 2; idx.push(i, i + 1, i + 2, i + 1, i + 3, i + 2); }
     }

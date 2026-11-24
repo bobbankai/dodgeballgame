@@ -281,7 +281,17 @@ class Body:
                 t = sk.tail_of(bn)
                 r0 = base_r * (1.0 - 0.1 * (i - 1))
                 r1 = base_r * (1.0 - 0.1 * i) * (0.92 if i == 3 else 1.0)
-                self.add(bn, RoundCone(a, t, r0, r1), f'{f}{i}')
+                # each phalanx slims a little between its joints (fingers aren't tubes)
+                mid = lerp(a, t, 0.5)
+                rm = (r0 + r1) * 0.5 * 0.9
+                self.add(bn, Union([RoundCone(a, mid, r0, rm), RoundCone(mid, t, rm, r1)], 0.002 * hsc), f'{f}{i}')
+                # the joint at the head of the phalanx: a soft knuckle on the back of the finger
+                if i > 1 or f == 'thumb':
+                    self.add(bn, Sphere(a + back * r0 * 0.25, r0 * 1.04), f'{f}{i}knuckle')
+            if f != 'thumb':
+                # the big knuckle at the base of each finger, standing up on the back of the hand
+                b0 = sk.head_of(f'{f}1.{side}')
+                self.add(f'hand.{side}', Sphere(b0 + back * base_r * 0.55 - along * base_r * 0.3, base_r * 1.08), f'{f}knuckle')
 
     # ------------------------------------------------------------------------------------------ legs
     def _legs(self):

@@ -85,8 +85,25 @@ fn surfaceDetail(cls: i32, p: vec3f, n: vec3f, albedo: vec3f) -> vec3f {
   else if (cls == ECLS_BRICK) { a = a * bricks(p, n); }
   else if (cls == ECLS_SAND) { a = a * (0.94 + 0.08 * gnoise2(p.xz * 3.0)); }
   else if (cls == ECLS_MARBLE) {
-    let v = warpFbm2(p.xz * 0.6 + p.y * 0.3, 0.0);
-    a = mix(a, a * vec3f(0.82, 0.8, 0.86), smoothstep(0.1, 0.0, abs(v)) * 0.6);
+    // polished marble: 1.5 m tiles on floors (fine dark joints, each tile its own tone and vein angle),
+    // sharp grey-blue veins with soft clouding around them, and a faint warm mottle
+    let up = smoothstep(0.7, 0.9, n.y);
+    let tc = p.xz / 1.5;
+    let ti = floor(tc);
+    let tf = fract(tc);
+    let th = hash22(ti);
+    let rot = rot2(th.x * 3.14159);
+    let q = rot * (p.xz + th * 17.0);
+    let wq = mix(p.xz * 0.6 + p.y * 0.3, q * 0.55, up);
+    let vein = warpFbm2(wq, th.y * 4.0);
+    let sharp = smoothstep(0.045, 0.0, abs(vein));
+    let cloud = smoothstep(0.25, 0.0, abs(vein)) * 0.35;
+    a = a * mix(1.0, 0.93 + 0.1 * th.y, up);
+    a = mix(a, a * vec3f(0.86, 0.85, 0.9), cloud);
+    a = mix(a, vec3f(0.42, 0.45, 0.55), sharp * 0.75);
+    a = a * (0.97 + 0.05 * gnoise2(p.xz * 3.7 + p.y));
+    let joint = 1.0 - smoothstep(0.0, 0.012, min(min(tf.x, 1.0 - tf.x), min(tf.y, 1.0 - tf.y)));
+    a = mix(a, a * 0.55, joint * up);
   }
   else if (cls == ECLS_CORAL) { a = a * (0.8 + 0.3 * voronoi3(p * 6.0).x); }
   return a;

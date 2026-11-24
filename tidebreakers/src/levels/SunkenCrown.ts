@@ -38,10 +38,10 @@ function mask(x: number, z: number, h: number): [number, number, number, number]
 const LOOK: LookDef = {
   sun: [-0.45, 0.6, -0.55], sunIntensity: 1.1, sunColor: [1.0, 0.93, 0.8],
   sky: { zenith: '#3a7ad8', horizon: '#dcefff', glow: '#fff2d0', cloudLit: '#ffffff', cloudShade: '#a8bce0', cover: 0.35, cloudHeight: 1.1, sunSize: 0.002, stars: 0, moon: false },
-  skyColor: [0.5, 0.6, 0.85], groundColor: [0.55, 0.5, 0.44], shadowTint: [0.45, 0.5, 0.85, 0.36], rim: [1.0, 0.95, 0.85, 0.7],
+  skyColor: [0.52, 0.58, 0.78], groundColor: [0.6, 0.52, 0.42], shadowTint: [0.56, 0.56, 0.8, 0.3], rim: [1.0, 0.95, 0.85, 0.7],
   fog: [0.85, 0.9, 1.0, 0.003], fogParams: [0.03, 0, 40, 0.8],
   sea: { color: [0.02, 0.2, 0.42, 0.6], shallow: [0.15, 0.65, 0.7, 1.2], level: 0, amp: 0.8, chop: 1, storm: 0 },
-  grade: [0.9, 1.06, 1.12, 0.2], wind: [0.6, 0, 0.3],
+  grade: [0.88, 1.08, 1.2, 0.32], wind: [0.6, 0, 0.3],
   fx: { bloom: 0.42, vignette: 0.24, gain: [1.02, 1.01, 0.98] },
 };
 

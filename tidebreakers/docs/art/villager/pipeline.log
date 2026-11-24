@@ -10,5 +10,5 @@ stage 5 relaxed: non-manifold 0, surface deviation mean 0.00 mm max 1.0 mm
   skin after culling hidden faces: 2605 of 6816 quads
 stage 6 materials (albedo, class, AO, face UVs) + stage 7 weights
 rig: 51 deform bones; mesh 17937 verts, 35397 tris
-stage 10 LOD1: 15927 tris (LOD0 35397)
-exported /home/user/dodgeballgame/tidebreakers/tools/blender/../../public/assets/chars/villager.glb (2052 KB) in 21s
+stage 10 LOD1: 15925 tris (LOD0 35397)
+exported /home/user/dodgeballgame/tidebreakers/tools/blender/../../public/assets/chars/villager.glb (2052 KB) in 37s

@@ -210,7 +210,9 @@ def bram():
     bd = bodymod.Body(sk, face='man', build=0.95, fat=0.45, belly=0.6, chest=1.15, limb=1.1, hand=1.25, nose=1.2)
     c = Ctx(sk, bd)
     stripes = lambda V, N, col: col * (1 - (np.sin(V[:, 2] * 90) > 0.4)[:, None] * 0.55)  # noqa
-    g = [W.shirt(c, '#f0f2f6', sleeves=0.9, neck='round', offset=0.01, name='shirt', paint=lambda V, N, col: col * (1 - (np.sin(V[:, 2] * 90) > 0.35)[:, None] * np.array([0.6, 0.45, 0.15]))),
+    # sailor's stripes: crisp navy bands, evenly spaced, with clean edges
+    stripes = lambda V, N, col: col * (1 - np.clip((np.sin(V[:, 2] * 95) - 0.3) * 6, 0, 1)[:, None] * np.array([0.72, 0.58, 0.2]))  # noqa
+    g = [W.shirt(c, '#f0f2f6', sleeves=0.9, neck='round', offset=0.01, name='shirt', paint=stripes),
          W.trousers(c, '#5a4632', cuff=c.ankle_z + 0.1, loose=0.016),
          W.boots(c, '#2e231c', top=c.ankle_z + 0.15)]
     parts = [W.skirt_loft(c, '#efe4c8', c.waist + 0.15, c.knee_z - 0.02, offset=0.02, flare=0.03, back_slit=1.0, name='apron', n=24,

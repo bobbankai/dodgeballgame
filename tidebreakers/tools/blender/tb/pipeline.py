@@ -199,6 +199,18 @@ def trim_paint(col, ring):
 TRIM_SKIP = ('belt', 'sash', 'strap', 'band', 'wrap', 'glove', 'buckle', 'skin', 'haircap')
 
 
+def cel_normals(V, F, N, iters=6, amount=0.5):
+    """Shading normals for cel-shaded cloth: the mesh normals averaged over the surface, so the hard light/shadow
+    edge follows the garment's big forms instead of every small bump (which reads as shiny plastic)."""
+    nb = pm.adjacency(F, len(V))
+    M = N.copy()
+    for _ in range(iters):
+        avg = np.array([M[n].mean(0) if len(n) else M[i] for i, n in enumerate(nb)])
+        M = M * (1 - amount) + avg * amount
+        M /= np.maximum(np.linalg.norm(M, axis=1, keepdims=True), 1e-9)
+    return M
+
+
 def transfer_weights(Vsrc, Wsrc, Vdst, k=3):
     """Inverse-distance blend of the k nearest source vertices' weights (keeps the body-derived weights
     that stop trousers webbing between the legs)."""
@@ -426,6 +438,18 @@ def build(spec, out_glb, art, renders=True):
             Ns = N * (1 - wgt) + hn * wgt
             Ns /= np.maximum(np.linalg.norm(Ns, axis=1), 1e-9)[:, None]
             me.normals_split_custom_set_from_vertices([tuple(x) for x in Ns])
+        elif cls in ('cloth', 'leather', 'white'):
+            Fc = T.reshape(-1, 3).tolist()
+            me.normals_split_custom_set_from_vertices([tuple(x) for x in cel_normals(Vp2, Fc, N)])
+        elif cls == 'hair':
+            # hair shades as one smooth volume round the head (clean highlight band), its locks keep a little
+            # of their own form
+            hc = fa['cranium'] + np.array([0, 0.01, -0.01]) * u
+            sph = Vp2 - hc
+            sph /= np.maximum(np.linalg.norm(sph, axis=1, keepdims=True), 1e-9)
+            Nh = N * 0.4 + sph * 0.6
+            Nh /= np.maximum(np.linalg.norm(Nh, axis=1, keepdims=True), 1e-9)
+            me.normals_split_custom_set_from_vertices([tuple(x) for x in Nh])
         _set_uv(me, 'UVMap', np.stack([Vp2[:, 0] / u, (Vp2[:, 2] - fa['chin']) / u], 1))
         _set_uv(me, 'UV1', np.stack([ao, np.full(len(Vp2), CLS[cls] / 10.0)], 1))
         # weights

@@ -20,9 +20,13 @@ varying vShade: vec4f;         // x root occlusion, y tint mix, z dry, w alive
 
 @vertex
 fn main(input: VertexInputs) -> FragmentInputs {
-  let root = vertexInputs.cell.xyz;
-  let hgt = vertexInputs.cell.w;
   let r0 = vertexInputs.cell2.x;
+  // each blade roots somewhere in a disc round the clump centre, at its own height
+  let bid = vertexInputs.position.z;
+  let ang = bid * 7.31 + r0 * 6.2831853;
+  let off = vec2f(cos(ang), sin(ang)) * vertexInputs.position.x * 0.2;
+  let root = vertexInputs.cell.xyz + vec3f(off.x, -0.01, off.y);
+  let hgt = vertexInputs.cell.w * (0.7 + 0.55 * fract(bid * 13.17 + r0 * 3.1));
   let r1 = fract(r0 * 17.31);
   let wid = vertexInputs.cell2.w * (0.7 + 0.6 * r1);
   let yaw = r0 * 6.2831853 + vertexInputs.position.z * 2.1;

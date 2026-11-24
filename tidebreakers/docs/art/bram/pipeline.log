@@ -12,4 +12,4 @@ stage 5 relaxed: non-manifold 0, surface deviation mean 0.00 mm max 0.5 mm
 stage 6 materials (albedo, class, AO, face UVs) + stage 7 weights
 rig: 51 deform bones; mesh 17160 verts, 33595 tris
 stage 10 LOD1: 15116 tris (LOD0 33595)
-exported /home/user/dodgeballgame/tidebreakers/tools/blender/../../public/assets/chars/bram.glb (1942 KB) in 21s
+exported /home/user/dodgeballgame/tidebreakers/tools/blender/../../public/assets/chars/bram.glb (1942 KB) in 34s

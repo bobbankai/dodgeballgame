@@ -58,11 +58,16 @@ fn main(input: FragmentInputs) -> FragmentOutputs {
     // falloff: (r^2 - d^2)^3 style smooth window, scaled by the tangent-plane term
     let f = max(r2 - vv, 0.0);
     sum = sum + f * f * f * max((vn - bias) / (0.01 + vv), 0.0);
-    // very close occluders only: contact creases
-    if (t.z < 0.35) { contact = contact + saturate((vn - bias * 0.5) / (0.02 + vv)) * saturate(1.0 - vv / (r2 * 0.12)); }
+    // very close occluders only, and only from other objects (feet on the ground, a hand on a hip): a body's
+    // own folds are in its baked AO already and double-darkening them blotches flat cloth
+    let otherObj = abs(sg.w - g.w) > 0.002;
+    if (t.z < 0.35 && otherObj) { contact = contact + saturate((vn - bias * 0.5) / (0.02 + vv)) * saturate(1.0 - vv / (r2 * 0.12)); }
   }
   let k = 5.0 * uniforms.proj.w / (r2 * r2 * r2 * f32(TAPS));
   var ao = max(0.0, 1.0 - sum * k);
+  // characters carry baked AO (exact, per vertex): screen-space AO on them stays a light touch
+  let isChar = g.w > 0.0005 && g.w < 0.5;
+  if (isChar) { ao = mix(1.0, ao, 0.3); }
   // fade out far away and on near-grazing surfaces where the estimate is unreliable
   ao = mix(ao, 1.0, smoothstep(uniforms.texel.w * 0.6, uniforms.texel.w, z));
   let c = 1.0 - saturate(contact / 5.0) * 0.8;

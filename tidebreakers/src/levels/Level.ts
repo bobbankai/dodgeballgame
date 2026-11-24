@@ -157,7 +157,7 @@ export abstract class Level {
 
   makeGrass(density: (x: number, z: number, h: number) => number, look: GrassLook): Grass | null {
     if (!this.terrain || this.r.quality === 'low') return null;
-    this.grass = new Grass(this.r, this.terrain, density, look);
+    this.grass = new Grass(this.r, this.terrain, density, look, 44, 0.42);
     return this.grass;
   }
 

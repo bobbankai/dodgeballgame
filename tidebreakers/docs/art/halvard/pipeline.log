@@ -14,5 +14,5 @@ stage 5 relaxed: non-manifold 0, surface deviation mean 0.01 mm max 6.8 mm
   !! piece bicorne: max distance from body 0.146 after solidify
 stage 6 materials (albedo, class, AO, face UVs) + stage 7 weights
 rig: 63 deform bones; mesh 19461 verts, 38446 tris
-stage 10 LOD1: 17300 tris (LOD0 38446)
-exported /home/user/dodgeballgame/tidebreakers/tools/blender/../../public/assets/chars/halvard.glb (2227 KB) in 24s
+stage 10 LOD1: 17299 tris (LOD0 38446)
+exported /home/user/dodgeballgame/tidebreakers/tools/blender/../../public/assets/chars/halvard.glb (2226 KB) in 40s

@@ -4,20 +4,23 @@
 /* HUD */
 .hud { opacity: 0; transition: opacity .4s; }
 .hud.show { opacity: 1; }
-.hero { position: absolute; left: 28px; top: 24px; display: flex; gap: 12px; align-items: center; }
-.portrait { width: 64px; height: 64px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #ffb14d, #c2541c); border: 3px solid #fff;
-  box-shadow: 0 3px 0 #1a1020, 0 0 0 5px #1a1020; display: grid; place-items: center; font-family: 'Bangers'; font-size: 34px; color: #1a1020; }
-.bars .name { font-family: 'Bangers'; letter-spacing: 2px; font-size: 22px; text-shadow: 0 2px 0 #1a1020, 2px 0 0 #1a1020, -2px 0 0 #1a1020, 0 -2px 0 #1a1020; }
-.bar { position: relative; width: 300px; height: 16px; background: #1a1020; border: 2px solid #fff; border-radius: 9px; overflow: hidden; margin-top: 4px; transform: skewX(-12deg); }
-.bar.storm { width: 240px; height: 11px; }
+.hero { position: absolute; left: 22px; top: 20px; display: flex; gap: 14px; align-items: center; padding: 10px 40px 12px 12px;
+  background: linear-gradient(90deg, rgba(8, 12, 26, .62), rgba(8, 12, 26, .35) 70%, transparent); }
+.portrait { width: 58px; height: 58px; clip-path: polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%);
+  background: radial-gradient(circle at 35% 30%, #ffc56b, #c2541c 70%, #7a2c10); display: grid; place-items: center;
+  font-family: 'Bangers'; font-size: 30px; color: #fff; text-shadow: 0 2px 0 rgba(0, 0, 0, .45); }
+.bars .name { font-family: 'Bangers'; letter-spacing: 3px; font-size: 20px; text-shadow: 0 2px 2px rgba(0, 0, 0, .6); }
+.bar { position: relative; width: 300px; height: 13px; background: rgba(5, 8, 18, .8); border: none; border-radius: 0; overflow: hidden; margin-top: 5px;
+  clip-path: polygon(6px 0, 100% 0, calc(100% - 6px) 100%, 0 100%); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .25); }
+.bar.storm { width: 236px; height: 8px; }
 .bar .fill, .bar .lag { position: absolute; left: 0; top: 0; bottom: 0; width: 100%; transition: width .12s; }
-.bar.hp .fill { background: linear-gradient(#8ef06a, #3fbf3c); }
+.bar.hp .fill { background: linear-gradient(180deg, #c6ff9a 0%, #5fd84a 45%, #2f9a34 100%); box-shadow: 0 0 10px rgba(120, 255, 120, .5); }
 .bar.hp .fill.low { background: linear-gradient(#ff8b6a, #e0362c); animation: pulse .6s infinite alternate; }
 .bar.hp .lag { background: #ffef9a; transition: width .5s .25s; }
-.bar.storm .fill { background: linear-gradient(90deg, #3ad7ff, #a8f6ff); }
+.bar.storm .fill { background: linear-gradient(90deg, #2a8cff, #3ad7ff 60%, #c8fbff); box-shadow: 0 0 10px rgba(80, 220, 255, .7); }
 .bar .glow { position: absolute; inset: 0; opacity: 0; background: linear-gradient(90deg, transparent, #fff, transparent); }
 .bar .glow.full { animation: sweep 1.1s infinite; opacity: .8; }
-.bar i { position: absolute; top: 0; bottom: 0; width: 2px; background: #1a1020; }
+.bar i { position: absolute; top: 0; bottom: 0; width: 3px; background: rgba(5, 8, 18, .9); }
 @keyframes pulse { to { filter: brightness(1.5); } }
 @keyframes sweep { from { transform: translateX(-100%); } to { transform: translateX(100%); } }
 
@@ -27,16 +30,19 @@
 .combo span { font-size: 30px; letter-spacing: 4px; -webkit-text-stroke: 2px #1a1020; }
 .combo.pop b { animation: pop .18s ease-out; }
 @keyframes pop { from { transform: scale(1.5); } to { transform: scale(1); } }
-.objective { position: absolute; left: 32px; top: 112px; font-weight: 800; font-size: 16px; padding: 6px 14px; background: rgba(15,10,25,.55);
-  border-left: 4px solid #ffb14d; opacity: 0; transition: opacity .4s; }
+.objective { position: absolute; left: 22px; top: 112px; font-weight: 700; font-size: 15px; letter-spacing: .3px; padding: 7px 40px 7px 16px;
+  background: linear-gradient(90deg, rgba(8, 12, 26, .62), transparent); border-left: 3px solid #ffb14d; opacity: 0; transition: opacity .4s, transform .4s;
+  transform: translateX(-10px); text-shadow: 0 1px 2px rgba(0, 0, 0, .7); }
+.objective.show { transform: none; }
 .objective.show { opacity: 1; }
 
 .boss { position: absolute; left: 50%; top: 26px; transform: translateX(-50%); width: min(640px, 70vw); opacity: 0; transition: opacity .5s; text-align: center; }
 .boss.show { opacity: 1; }
-.bname { font-family: 'Bangers'; font-size: 28px; letter-spacing: 3px; -webkit-text-stroke: 1.5px #1a1020; text-shadow: 0 3px 0 #1a1020; }
-.bbar { position: relative; height: 18px; background: #1a1020; border: 2px solid #fff; transform: skewX(-14deg); overflow: hidden; }
+.bname { font-family: 'Bangers'; font-size: 26px; letter-spacing: 4px; text-shadow: 0 2px 3px rgba(0, 0, 0, .7); margin-bottom: 4px; }
+.bbar { position: relative; height: 12px; background: rgba(5, 8, 18, .8); overflow: hidden; clip-path: polygon(8px 0, calc(100% - 8px) 0, 100% 50%, calc(100% - 8px) 100%, 8px 100%, 0 50%);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .25); }
 .bbar .fill, .bbar .lag { position: absolute; left: 0; top: 0; bottom: 0; width: 100%; }
-.bbar .fill { background: linear-gradient(#ff6a5a, #b8182c); transition: width .1s; }
+.bbar .fill { background: linear-gradient(180deg, #ff9a7a, #e8344a 50%, #8a1024); transition: width .1s; box-shadow: 0 0 12px rgba(255, 60, 60, .6); }
 .bbar .lag { background: #ffd6a0; transition: width .6s .3s; }
 
 /* dialogue: a dark translucent band that fades in from above, the speaker's colour on the name bar and a hairline
@@ -74,8 +80,9 @@
 .subtitle { position: absolute; left: 50%; bottom: 9vh; transform: translateX(-50%); max-width: 80vw; text-align: center; font-size: 24px; font-weight: 700;
   font-style: italic; text-shadow: 0 2px 8px #000, 0 0 2px #000; opacity: 0; transition: opacity .6s; }
 .subtitle.show { opacity: 1; }
-.hint { position: absolute; left: 50%; bottom: 24vh; transform: translateX(-50%); padding: 10px 20px; background: rgba(15,10,25,.72); border: 2px solid #ffb14d;
-  border-radius: 10px; font-weight: 800; font-size: 18px; opacity: 0; transition: opacity .3s; }
+.hint { position: absolute; left: 50%; bottom: 24vh; transform: translateX(-50%); padding: 10px 26px; max-width: min(620px, 86vw); text-align: center;
+  background: linear-gradient(90deg, transparent, rgba(8, 12, 26, .78) 12%, rgba(8, 12, 26, .78) 88%, transparent);
+  border: none; font-weight: 700; font-size: 17px; opacity: 0; transition: opacity .3s; text-shadow: 0 1px 2px rgba(0, 0, 0, .7); }
 .hint.show { opacity: 1; }
 .hint b { color: #ffe34d; }
 .fade { position: absolute; inset: 0; background: #000; opacity: 0; }
