@@ -20,7 +20,7 @@
 
 | part | colour |
 |---|---|
-| shirt | `#f0f2f6 / navy stripes` |
+| sweater | `#2c3d63` |
 | apron | `#efe4c8` |
 | beard | `#6a4026` |
 

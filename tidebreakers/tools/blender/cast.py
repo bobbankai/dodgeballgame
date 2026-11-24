@@ -211,16 +211,20 @@ def bram():
     c = Ctx(sk, bd)
     stripes = lambda V, N, col: col * (1 - (np.sin(V[:, 2] * 90) > 0.4)[:, None] * 0.55)  # noqa
     # sailor's stripes: crisp navy bands, evenly spaced, with clean edges
-    stripes = lambda V, N, col: col * (1 - np.clip((np.sin(V[:, 2] * 95) - 0.3) * 6, 0, 1)[:, None] * np.array([0.72, 0.58, 0.2]))  # noqa
-    g = [W.shirt(c, '#f0f2f6', sleeves=0.9, neck='round', offset=0.01, name='shirt', paint=stripes),
+    stripes = lambda V, N, col: col * (1 - np.clip((np.sin(V[:, 2] * 52) - 0.25) * 4, 0, 1)[:, None] * np.array([0.72, 0.58, 0.2]))  # noqa
+    # a navy fisherman's knit with a cream band at the collar and cuffs (thin stripes can't be held crisply in
+    # vertex colour, they smear)
+    g = [W.shirt(c, '#2c3d63', sleeves=0.9, neck='round', offset=0.012, hem=c.waist - 0.22, name='shirt',
+                 paint=chain(lambda V, N, col: col * (0.94 + 0.06 * (np.sin(V[:, 0] * 120) > 0)[:, None]), shade_z(c.waist - 0.2, c.neck_base, 0.1))),
          W.trousers(c, '#5a4632', cuff=c.ankle_z + 0.1, loose=0.016),
          W.boots(c, '#2e231c', top=c.ankle_z + 0.15)]
-    parts = [W.skirt_loft(c, '#efe4c8', c.waist + 0.15, c.knee_z - 0.02, offset=0.02, flare=0.03, back_slit=1.0, name='apron', n=24,
-                          paint=shade_z(c.knee_z, c.waist, 0.15))]
-    parts += W.beard(c, '#6a4026', length=0.08)
+    # a cook's bib apron over the shirt and belly, front only
+    parts = [W.skirt_loft(c, '#efe4c8', c.waist + 0.24, c.knee_z + 0.05, offset=0.052, flare=0.07, back_slit=1.0, name='apron', n=28,
+                          paint=shade_z(c.knee_z, c.waist, 0.15), around=bd.region(['torso', 'chest', 'spine', 'hips', 'thigh.L', 'thigh.R'], 0.03))]
+    parts += W.full_beard(c, '#6a4026', dark='#4a2a18', light='#8a5a36', length=0.1)
     parts += W.scarf(c, '#c95a3a', tails=False)
     ref = dict(title='Bram Oakhart', summary='34, ex-Armada sergeant turned cook of the Drowned Market. A gentle giant who feeds every refugee for free and has never forgiven himself '
-               'for the ship he fired on. Bald, big brown beard, striped shirt, apron.', palette={'shirt': '#f0f2f6 / navy stripes', 'apron': '#efe4c8', 'beard': '#6a4026'},
+               'for the ship he fired on. Bald, big brown beard, striped shirt, apron.', palette={'sweater': '#2c3d63', 'apron': '#efe4c8', 'beard': '#6a4026'},
                shapes=['A big soft circle: round belly and shoulders, tiny bald head'], motion=['Heavy, deliberate; sudden terrifying power'])
     return spec('bram', sk, bd, '#cf9874', g, parts, ref)
 

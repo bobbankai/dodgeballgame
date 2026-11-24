@@ -155,10 +155,11 @@ def sash(c, color, z=None, offset=0.03, name='sash'):
 
 
 def skirt_loft(c, color, z_top, z_bot, offset=0.03, flare=0.12, name='skirt', front_open=0.0, back_slit=0.0, n=28, rings=9,
-               paint=None, cls='cloth', thick=0.006):
+               paint=None, cls='cloth', thick=0.006, around=None):
     """A garment that hangs free of the legs (coat skirt, dress, apron): rings around the hips/legs'
     outer silhouette, flaring toward the hem. Weighted to the hips, blending onto each thigh lower down."""
-    field = Offset(c.legs, offset)
+    # `around`: the body the garment hangs round (default hips and legs; a bib apron also wraps the belly)
+    field = Offset(around if around is not None else c.legs, offset)
     V, F, rings_idx = [], [], []
     for i in range(rings):
         t = i / (rings - 1)
@@ -664,6 +665,41 @@ def beard(c, color, length=0.06, mustache=True, name='beard'):
             tufts.append(pc.tube([m0, m0 + v(sx * 0.025, 0.0, -0.004) * u, m0 + v(sx * 0.045, 0.01, -0.02) * u], [0.009 * u, 0.008 * u, 0.002], n=6, cap_tip=True, cap_root=True))
     out.append(P.Part(name + 'tufts', *_merge(tufts), hexc(color), cls='hair', weights=('rigid', 'head')))
     return out
+
+
+def full_beard(c, color, dark=None, light=None, length=0.09, name='beard', mouth_open=True):
+    """A full beard sculpted as one volume: sideburns from the ears down along the jaw, cheeks below the
+    cheekbones, a mass hanging under the chin that narrows to a rounded point, a heavy mustache, and an
+    opening for the mouth. Meshed from its field (one continuous surface), shaded as hair."""
+    fa, u = c.fa, c.u
+    head = c.bd.head_field
+    chin, mouth = fa['chin'], fa['mouth']
+    shell = Offset(head, 0.016 * u)
+    # keep the lower face: below a line from the top of the ears down to under the cheekbones, in front of the ears
+    cheek = Plane(norm(v(0, -0.45, 1)), v(0, -0.1 * u, chin + 0.085 * u))
+    front = Plane(v(0, 1, 0), v(0, 0.035 * u, 0))
+    jaw = Intersect([shell, cheek, front], 0.008 * u)
+    # the hanging mass under the chin: a loft from the jaw down to a rounded point
+    hang = sdf.Loft([v(0, -0.05 * u, chin + 0.03 * u), v(0, -0.062 * u, chin - 0.02 * u), v(0, -0.06 * u, chin - length * u * 0.65),
+                     v(0, -0.05 * u, chin - length * u)],
+                    [(0.07 * u, 0.05 * u, 0, 0, 2.0), (0.062 * u, 0.045 * u, 0, 0, 2.0), (0.04 * u, 0.032 * u, 0, 0, 2.0), (0.012 * u, 0.012 * u, 0, 0, 2.0)],
+                    side=(1, 0, 0))
+    vol = Union([jaw, hang], 0.02 * u)
+    # mustache: a thick roll over the upper lip
+    must = sdf.Loft([mouth + v(-0.05, -0.012, 0.004) * u, mouth + v(0, -0.022, 0.016) * u, mouth + v(0.05, -0.012, 0.004) * u],
+                    [(0.012 * u, 0.012 * u, 0, 0, 2.0), (0.016 * u, 0.014 * u, 0, 0, 2.0), (0.012 * u, 0.012 * u, 0, 0, 2.0)], side=(0, 1, 0))
+    vol = Union([vol, must], 0.012 * u)
+    if mouth_open:
+        vol = Subtract(vol, Ellipsoid(mouth + v(0, -0.03, -0.004) * u, v(0.03, 0.04, 0.012) * u), 0.006 * u)
+    lo = v(-0.13 * u, -0.17 * u, chin - (length + 0.06) * u)
+    hi = v(0.13 * u, 0.06 * u, chin + 0.14 * u)
+    V, F = sdf.mesh_field(vol, res=0.0055 * u, lo=lo, hi=hi, verbose=False)
+    # strands combed downward: shallow vertical grooves
+    def paint(Vp, N, col):
+        g = np.abs(np.sin(Vp[:, 0] * 260 + np.sin(Vp[:, 2] * 40) * 1.5)) ** 0.6
+        return col * (0.86 + 0.14 * g[:, None])
+    return [P.Part(name, V, [tuple(f) for f in F], hexc(color), cls='hair', weights=('rigid', 'head'),
+                   paint=chain(hair_paint(dark or color, light or color), paint), field=vol)]
 
 
 def mustache(c, color, curl=True, name='mustache'):
