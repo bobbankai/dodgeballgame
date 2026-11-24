@@ -17,6 +17,8 @@ import { DrownedMarket } from './levels/DrownedMarket';
 import { WeepingShoals } from './levels/WeepingShoals';
 import { SunkenCrown } from './levels/SunkenCrown';
 import { Epilogue } from './levels/Epilogue';
+import { TitleScene } from './levels/TitleScene';
+import { drop } from './game/Props';
 
 export const ORDER = ['prologue', 'gulls', 'ashport', 'market', 'shoals', 'crown', 'epilogue'] as const;
 export type LevelId = typeof ORDER[number];
@@ -51,6 +53,8 @@ export class Flow implements FlowApi {
   test = false;
   inCredits = false;
   finished = false;
+  /** the title menu is up, with its 3D backdrop running as the level */
+  onTitle = false;
 
   constructor(readonly r: Renderer, readonly game: Game, readonly ui: UI, readonly audio: Audio, readonly input: Input, readonly pc: PlayerController) {
     this.props = new EnvKit(r);
@@ -80,6 +84,7 @@ export class Flow implements FlowApi {
   // ------------------------------------------------------------------------------------------ menus
   title(): void {
     this.unload();
+    this.onTitle = true;
     this.audio.play('title');
     this.ui.showHud(false);
     const s = this.read();
@@ -88,6 +93,17 @@ export class Flow implements FlowApi {
       s ? () => { this.flags = s.flags ?? {}; void this.start(s.level, s.at); } : null,
       () => this.chapters(),
     );
+    void this.backdrop();
+  }
+
+  /** The title screen's live scene (levels/TitleScene.ts), torn down by start(). */
+  private async backdrop(): Promise<void> {
+    const scene = new TitleScene({ r: this.r, game: this.game, ui: this.ui, audio: this.audio, input: this.input, pc: this.pc, flow: this });
+    this.level = scene;
+    try { await scene.load(''); } catch (e) { console.error(e); return; }
+    if (this.level !== scene) { scene.dispose(); return; }
+    void this.ui.fade(0, 1.2);
+    void scene.script().catch(() => { /* stopped when play starts */ });
   }
 
   chapters(): void {
@@ -100,7 +116,7 @@ export class Flow implements FlowApi {
   }
 
   pause(on: boolean): void {
-    if (!this.level || this.loading) return;
+    if (!this.level || this.loading || this.onTitle) return;
     this.paused = on;
     this.game.paused = on;
     if (!on) { this.ui.closeMenu(); return; }
@@ -125,6 +141,7 @@ export class Flow implements FlowApi {
   async start(id: LevelId, at: string): Promise<void> {
     if (this.loading) return;
     this.loading = true;
+    this.onTitle = false;
     this.paused = false;
     this.game.paused = false;
     this.ui.closeMenu();
@@ -140,6 +157,7 @@ export class Flow implements FlowApi {
     k.floorHp = 0;
     k.model.setFx(0, 0);
     k.model.root.setEnabled(true);
+    drop(k);
     this.pc.enabled = true;
     this.pc.locked = null;
     const level = MAKE[id]({ r: this.r, game: this.game, ui: this.ui, audio: this.audio, input: this.input, pc: this.pc, flow: this });
@@ -177,6 +195,7 @@ export class Flow implements FlowApi {
 
   // ------------------------------------------------------------------------------------------ frame
   update(dt: number): void {
+    if (this.onTitle) { if (!this.loading) this.level?.update(dt); return; }
     if (this.input.consume('pause')) this.pause(!this.paused);
     if (this.paused || this.loading || !this.level) return;
     if (this.input.consume('confirm') && this.level.dir.cineActive) this.ui.advance();

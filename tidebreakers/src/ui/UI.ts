@@ -126,7 +126,9 @@ export class UI {
     this.dlg.classList.toggle('walk', auto > 0);
     this.dlg.classList.add('show');
     this.dlgName.textContent = sp.name;
-    this.dlgName.style.background = sp.color;
+    // the speaker's colour drives the name bar and the accent line along the top of the panel
+    this.dlg.style.setProperty('--sp', sp.color === 'transparent' ? '#9aa6c0' : sp.color);
+    this.dlgName.style.display = sp.name ? '' : 'none';
     this.dlgText.textContent = '';
     this.dlgNext.classList.remove('show');
     this.typing = { full: text, shown: 0, done: false };
