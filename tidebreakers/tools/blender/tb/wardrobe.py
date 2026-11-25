@@ -392,7 +392,7 @@ def epaulettes(c, color='#d8b24a', fringe=True, name='epaulette'):
         # drops with the arm), resting on the coat
         tilt = 0.6 * math.atan2(zo - zi, abs(xo - xi))
         cen = v(sh[0] - sx * 0.022 * c.sc, sh[1], zi + 0.016 * c.sc)
-        pV, pF = pc.quad_sphere(v(0, 0, 0), (0.07 * c.sc, 0.06 * c.sc, 0.02 * c.sc), res=3)
+        pV, pF = pc.quad_sphere(v(0, 0, 0), (0.062 * c.sc, 0.052 * c.sc, 0.017 * c.sc), res=3)
         ct, st = math.cos(tilt), math.sin(tilt)
         R = np.array([[ct, 0, -st * sx], [0, 1, 0], [st * sx, 0, ct]])
         pad = (pV @ R.T + cen, pF)
@@ -402,7 +402,16 @@ def epaulettes(c, color='#d8b24a', fringe=True, name='epaulette'):
                 a = (k / 6 - 0.5) * math.pi * 0.9
                 p0 = cen + v(sx * math.cos(a) * 0.06, math.sin(a) * 0.05, -0.01) * c.sc
                 parts.append(pc.tube([p0, p0 + v(sx * 0.01, 0, -0.05 * c.sc)], [0.004, 0.003], n=4, cap_tip=True, cap_root=True))
-        out.append(P.Part(f'{name}{s}', *_merge(parts), hexc(color), cls='metal', weights=('rigid', f'shoulder.{s}')))
+        # the inner end rides the collarbone; the outer end and the fringe go part of the way with the arm, so
+        # the board lies on the shoulder when the arm hangs down instead of standing out from it like a shelf
+        def weights(Vp, sx=sx, x0=float(sh[0]), s=s):
+            bones = c.sk.deform_names()
+            W = np.zeros((len(Vp), len(bones)))
+            t = np.clip((Vp[:, 0] * sx - (x0 * sx - 0.06 * c.sc)) / (0.11 * c.sc), 0, 1)
+            W[:, bones.index(f'shoulder.{s}')] = 1 - 0.6 * t
+            W[:, bones.index(f'upperarm.{s}')] = 0.6 * t
+            return bones, W
+        out.append(P.Part(f'{name}{s}', *_merge(parts), hexc(color), cls='metal', weights=('custom', weights)))
     return out
 
 

@@ -117,7 +117,8 @@ export class WeepingShoals extends Level {
       await d.say('mira', 'The Armada\'s charts end here too. Whatever Vale wants with the Crown, the way to Ys-Marrow goes through this.', 'determined');
       d.close(kai, 1);
       await d.say('kai', 'Look. There. A light!', 'shock', 'point');
-      d.wide(P(0, 64).add(V(0, 7, 0)), 2.8, 40, 6, 0, 0.45);
+      // (close enough to see it through the storm: at 40 m the fog turned the frame white)
+      d.wide(P(0, 64).add(V(0, 6, 0)), 2.8, 22, 3.5, 0, 0.5);
       await d.wait(2.4);
       await d.say('kai', 'Someone\'s keeping a lighthouse. Out here. In this.', 'tender');
       await d.fade(1, 1);
@@ -372,9 +373,15 @@ export class WeepingShoals extends Level {
       void d.fade(0, 1.5);
       await d.wait(2);
       await d.say('nell', 'I\'ll leave it lit. For whoever\'s still out there. Tomorrow I\'ll teach the wreckers\' kids to trim the wick. They\'re not bad. Just hungry.', 'tender');
+      // she turns from the light to him
+      d.face(nell, kai);
+      d.face(kai, nell);
+      d.listen('kai', 'nell', 'mira', 'bram');
       d.close(nell, 1);
       await d.say('nell', 'You need a navigator. You don\'t have a single chart. I checked.', 'smirk');
+      d.close(kai, -1);
       await d.say('kai', 'Is that a yes?!', 'joy');
+      d.two(kai, nell, 1, 0);
       await d.say('nell', 'It\'s a "you\'d be dead by Thursday." But yes.', 'smile');
       d.act(kai, 'victory');
       flags.nell = true;
