@@ -454,15 +454,25 @@ export class Ashport extends Level {
       await d.walk(mira, wall.add(V(1.4, 0, -1.4)), false, 0.25);
       d.face(mira, wall, true);
       d.act(mira, 'kneel_hold', true);
+      // she kneels a metre from the wall: her close-ups are profiles against Teo's drawings (from in front the
+      // lens would be inside the rock, and from behind there is only her hair)
+      const profile = (s: number) => {
+        const h = d.headOf(mira!);
+        const to = wall.subtract(mira!.pos); to.y = 0; to.normalize();
+        const side = new Vector3(to.z, 0, -to.x);
+        const t = h.add(V(0, -0.04, 0));
+        // (low and a little ahead of her: her head is bowed and her fringe hides her eyes from level)
+        d.clearShot(t, [s, -s].map((k) => t.add(side.scale(1.1 * k)).add(to.scale(0.6)).add(V(0, -0.36, 0))), 0.5, () => d.headOf(mira!));
+      };
       d.shot(wall.add(V(2.4, 1.6, -2.4)), wall.add(V(-0.3, 1.1, 0)), 0, 0.55);
       await d.say('kai', 'There are drawings. Somebody drew on the rock.', 'worried');
-      d.close(mira, 1, 0, { dist: 1.3, height: -0.1 });
+      profile(1);
       await d.say('mira', '...That\'s me. With the harpoon. He always drew me bigger than I am.', 'cry');
       await d.say('kai', 'What does it say? Under the boats?', 'sad');
       d.shot(wall.add(V(1.0, 1.4, -2.2)), wall.add(V(0.8, 1.2, 0)), 0, 0.45);
       await d.say('mira', '"Mira will come."', 'sob');
       d.act(mira, 'cry', true);
-      d.close(mira, -1, 0, { dist: 1.5 });
+      profile(-1);
       await d.say('mira', 'He waited. He sat in the dark and drew pictures and waited for me, and I...', 'sob');
       await d.say('mira', 'Three years I\'ve been blowing up the Baron\'s mines one bolt at a time. And I never once came down here. I was so scared of what I\'d find.', 'sob');
       d.release(kai);
@@ -482,7 +492,9 @@ export class Ashport extends Level {
       // Gorrick's voice through the pit
       g.sfx('slam'); g.shake(0.5);
       audio.play('tension');
-      d.wide(P(0, 124).add(V(0, 4, 0)), Math.PI + 0.5, 22, 7, 0, 0.6);
+      // the furnace he is shouting from, seen from the pit floor (aimed at the ground in front of it: aimed at a
+      // point inside its mesh, the camera was pulled in through the wall and the frame went white)
+      d.wide(P(0, 118).add(V(0, 2.5, 0)), Math.PI + 0.3, 14, 2.5, 0, 0.65);
       await d.say('gorrick', 'SORREL! Come for the little rat at last, have you? You\'re three years late, girl!', 'laugh');
       d.close(mira, 1);
       mira.model.face.set('angry');
