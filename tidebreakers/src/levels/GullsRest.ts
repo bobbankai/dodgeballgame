@@ -260,6 +260,15 @@ export class GullsRest extends Level {
       const chat = async (who: Fighter, key: string, lines: [string, string, string][]) => {
         await this.reach(who.pos, 2.4, 'Say good morning to the village');
         d.cine(true);
+        // a conversational distance, whatever distance he arrived at (running right up to someone, or the
+        // test bot's teleport onto the marker, left them standing in each other)
+        const away = kai.pos.subtract(who.pos); away.y = 0;
+        if (away.length() < 1.4) {
+          const dir = away.length() > 0.05 ? away.normalize() : who.forward;
+          d.place(kai, this.standAt(who.pos.add(dir.scale(1.6)), 1.5));
+        }
+        d.face(kai, who, true);
+        d.face(who, kai, true);
         d.face(kai, who);
         d.face(who, kai);
         d.listen('kai', key);
@@ -493,7 +502,8 @@ export class GullsRest extends Level {
       g.slow(0.25, 1.6);
       g.impactFrame(0.1);
       g.sfx('blade_heavy'); g.shake(0.8);
-      d.close(kai, 1, 0, { dist: 1.3, fov: 0.55 });
+      // (from high and to his side: Ines falls between him and Halvard, right where a front close-up would be)
+      d.close(kai, 1, 0, { dist: 1.5, height: 0.55, angle: 1.0, fov: 0.55 });
       kai.model.face.set('shock');
       d.act(ines, 'death');
       ines.model.face.set('pain');

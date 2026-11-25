@@ -77,7 +77,13 @@ async function story(r: Renderer, input: Input, ui: UI, audio: Audio): Promise<S
   const bot = (w: any) => {
     const L = flow.level;
     if (!w.__autoplay || !L) return;
-    if (L.marker && !L.dir.cineActive) kai.place(L.marker, kai.yaw);
+    // (to just inside the objective's radius, from the side he is coming from, as a player arrives: placed on
+    // the marker itself he stood inside whoever was waiting there)
+    if (L.marker && !L.dir.cineActive) {
+      const d = kai.pos.subtract(L.marker); d.y = 0;
+      const k = Math.min(d.length(), L.markerR * 0.7, 1.6);
+      kai.place(d.length() > 0.01 ? L.marker.add(d.normalize().scale(k)) : L.marker, kai.yaw);
+    }
     if (game.combatActive && !L.dir.cineActive) {
       for (const e of game.enemies()) {
         if (e.floorHp > 0 && e.onFloor) { e.hp = e.floorHp; const cb = e.onFloor; e.onFloor = undefined; cb(); continue; }

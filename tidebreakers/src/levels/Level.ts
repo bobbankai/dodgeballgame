@@ -341,12 +341,15 @@ export abstract class Level {
   async reach(p: Vector3, r: number, objective?: string): Promise<void> {
     if (objective) this.ctx.ui.setObjective(objective);
     this.marker = p;
+    this.markerR = r;
     await this.dir.until(() => Math.hypot(this.kai.pos.x - p.x, this.kai.pos.z - p.z) < r);
     this.marker = null;
     if (objective) this.ctx.ui.setObjective(null);
   }
 
   marker: Vector3 | null = null;
+  /** how close counts as reaching the marker */
+  markerR = 1;
   private markerT = 0;
   /** burning points (flames, smoke, flickering light) */
   fires: { pos: Vector3; size: number; light: number }[] = [];
