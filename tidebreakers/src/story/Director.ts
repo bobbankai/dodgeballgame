@@ -396,6 +396,18 @@ export class Director {
       if (free > bestFree + 0.1) { pos = p; bestFree = free; }
       if (free > 0.97) break;
     }
+    // somewhere cramped (an alley, a cabin): any clear direction round the actor, the most frontal first
+    if (bestFree < 0.6) {
+      let bestScore = -Infinity;
+      for (let i = 0; i < 16; i++) {
+        const a = ang + (i / 16) * Math.PI * 2;
+        const dir = new Vector3(fwd.x * Math.cos(a) - fwd.z * Math.sin(a), 0, fwd.x * Math.sin(a) + fwd.z * Math.cos(a));
+        const [p, free0] = this.unblock(head, head.add(dir.scale(dist)).add(new Vector3(0, opts.height ?? 0.05, 0)));
+        const free = this.actorBlocks(p, head, [A]) ? free0 * 0.4 : free0;
+        const score = free + 0.35 * Math.cos(a);
+        if (free > 0.75 && score > bestScore) { bestScore = score; pos = p; }
+      }
+    }
     // tracks the head: an actor who kneels, sits or turns as the line starts stays in frame; when they crouch
     // (kneeling over something, head bowed) the camera drops below their eyeline to see the face
     // only a bowed head (looking down at something in their lap or on the ground) needs a low camera; someone

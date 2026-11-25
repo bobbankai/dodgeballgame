@@ -293,6 +293,21 @@ export abstract class Level {
     return true;
   }
 
+  /** The nearest spot to `p` (within `radius`) where someone can stand clear of the scenery; `p` if none is. */
+  standAt(p: Vector3, radius = 3): Vector3 {
+    const at = (x: number, z: number) => new Vector3(x, this.game.collision.groundAt(x, z, p.y + 1.5), z);
+    if (this.headroom(at(p.x, p.z))) return p;
+    for (let r = 0.5; r <= radius + 1e-6; r += 0.5) {
+      const n = Math.max(8, Math.round(r * 8));
+      for (let i = 0; i < n; i++) {
+        const a = (i / n) * Math.PI * 2;
+        const q = at(p.x + Math.cos(a) * r, p.z + Math.sin(a) * r);
+        if (this.headroom(q)) return q;
+      }
+    }
+    return p;
+  }
+
   /** A child's chalk drawing on the ground (world/Chalk.ts). */
   chalk(name: string, at: Vector3, yaw = 0, scale = 1): void {
     const m = chalkDrawing(this.r, this.game.collision, name, at, yaw, scale);

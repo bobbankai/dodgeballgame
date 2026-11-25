@@ -23,11 +23,12 @@ const startLevel = await page.evaluate(() => window.__flow.level?.id ?? null);
 const out = [];
 let t = 0, last = '', since = 0, shot = true, n = 0;
 const STEP = 0.3;
+const STOP_AT = process.env.STOP_AT ? +process.env.STOP_AT : Infinity;
 while (t < +maxT) {
   await page.evaluate(async (s) => { await window.__advance(s, false); }, STEP);
   t += STEP;
   const st = await page.evaluate(() => ({ line: window.__flow.ui.line?.text ?? '', level: window.__flow.level?.id ?? null, credits: !!window.__flow.inCredits }));
-  if (st.level !== startLevel || st.credits) break;
+  if (st.level !== startLevel || st.credits || n >= STOP_AT) break;
   if (st.line && st.line !== last) { last = st.line; since = 0; shot = false; }
   since += STEP;
   if (st.line && !shot && since >= 0.9) {

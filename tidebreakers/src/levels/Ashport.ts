@@ -297,7 +297,8 @@ export class Ashport extends Level {
       g.shake(0.3);
       g.vfx.burst(thug.center, [0.6, 2.4, 1.6], 16, 6, 'star', 0.2, 0.4);
       d.act(thug, 'hit_front');
-      mira = await this.npc('mira', 'mira', P(-6, -20), Math.PI * 0.85);
+      // (she steps out from between the houses: clear of their walls, or no camera can see her face)
+      mira = await this.npc('mira', 'mira', this.standAt(P(-6, -20)), Math.PI * 0.85);
       d.two(thug, mira, -1, 0, { dist: 4 });
       await d.say('mira', 'He said move it. So move it. Away from them.', 'determined');
       await d.say('thug', 'Sorrel! You crazy... the Baron\'s gonna hang you off a stack!', 'shock');
@@ -308,6 +309,8 @@ export class Ashport extends Level {
       await d.wait(0.8);
       d.release(thug);
       thug.team = 'neutral';
+      // she recovers from the lunge (held, the pose left her head a metre forward, inside the house wall)
+      d.act(mira, 'idle', true, 0.4);
       void d.walk(thug, P(30, -20), true);
       d.listen('kai', 'mira');
       await d.walk(kai, P(-2, -24), false);
