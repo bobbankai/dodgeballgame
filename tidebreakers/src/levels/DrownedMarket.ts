@@ -177,10 +177,13 @@ export class DrownedMarket extends Level {
       g.sfx('cannon');
       g.shake(0.4);
       audio.play('tension');
-      d.wide(V(0, 6, 64), Math.PI + 0.4, 50, 12, 0, 0.5);
+      // Halvard's frigate off the market, its broadside lit (from the market's side, past the stalls)
+      d.wide(V(0, 4, 64), Math.PI + 0.25, 30, 6, 0, 0.55);
       await d.wait(2);
       await d.say('marine', 'By order of Commodore Halvard Crane! Deliver the deserter Bram Oakhart and no one else need be hurt!', 'shout');
-      d.close(bram, 1);
+      // he turns to look out at the frigate: filmed from the water's side, his face toward it
+      d.face(bram, V(0, 0, 64), true);
+      d.close(bram, 1, 0, { angle: 0.35 });
       await d.say('bram', '...He found me.', 'shock');
       d.release(kai);
       d.cine(false);
@@ -227,9 +230,10 @@ export class DrownedMarket extends Level {
       await d.say('bram', 'Every bowl I\'ve ladled since has been an apology to people who can\'t hear it. Halvard wants me. He can have me, and the market lives.', 'determined');
       d.release(bram);
       await d.walk(bram, P(0, 2), false);
+      d.face(kai, bram, true);
+      d.close(kai, 1);
       await d.say('kai', 'No.', 'determined');
       d.face(bram, kai, true);
-      d.close(kai, 1);
       await d.say('kai', 'You threw one lifebuoy. Okay. So throw the rest of them. Every person on these boats is in the water right now, Bram.', 'angry');
       await d.say('kai', 'Halvard doesn\'t get to drown anybody else. Not them, and not you.', 'determined');
       d.close(mira, -1);
@@ -429,10 +433,21 @@ export class DrownedMarket extends Level {
       d.face(hana, bram, true);
       d.face(bram, hana, true);
       d.two(hana, bram, -1, 0, { dist: 3.0 });
+      // (her close-ups are taken from the deck side of her: from the other side the lens is off the pier's
+      // edge over open water and finds nothing to frame her against)
+      const hanaClose = () => {
+        const h = d.headOf(hana);
+        const fwd = hana.facing;
+        const t = h.add(V(0, -0.05, 0));
+        d.clearShot(t, [0.5, -0.5, 0.9, -0.9].map((a) => {
+          const dir = V(fwd.x * Math.cos(a) - fwd.z * Math.sin(a), 0, fwd.x * Math.sin(a) + fwd.z * Math.cos(a));
+          return t.add(dir.scale(1.4)).add(V(0, 0.02, 0));
+        }).sort((p, q) => Math.abs(p.x) - Math.abs(q.x)), 0.5, () => d.headOf(hana));
+      };
       await d.say('hana', 'Mister Bram. The lifebuoy. Did it have a name painted on it?', 'worried');
       d.close(bram, 1);
       await d.say('bram', '..."Gilded Sparrow." Halvard\'s old ship. How do you...', 'shock');
-      d.close(hana, -1, 0, { dist: 1.3 });
+      hanaClose();
       await d.say('hana', 'It was red and white, and it smelled of tar, and I held on to it for a whole night. I was eleven.', 'cry');
       await d.say('hana', 'I was the girl in the water, Bram.', 'cry');
       d.act(bram, 'kneel_hold', true);
