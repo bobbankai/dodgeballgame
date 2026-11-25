@@ -293,16 +293,17 @@ export abstract class Level {
     return true;
   }
 
-  /** The nearest spot to `p` (within `radius`) where someone can stand clear of the scenery; `p` if none is. */
-  standAt(p: Vector3, radius = 3): Vector3 {
+  /** The nearest spot to `p` (within `radius`) where someone can stand clear of the scenery; `p` if none is.
+   *  `room`: how far round their head must be clear (more for a spot where a conversation will be filmed). */
+  standAt(p: Vector3, radius = 3, room = 0.32): Vector3 {
     const at = (x: number, z: number) => new Vector3(x, this.game.collision.groundAt(x, z, p.y + 1.5), z);
-    if (this.headroom(at(p.x, p.z))) return p;
+    if (this.headroom(at(p.x, p.z), 1.85, room)) return p;
     for (let r = 0.5; r <= radius + 1e-6; r += 0.5) {
       const n = Math.max(8, Math.round(r * 8));
       for (let i = 0; i < n; i++) {
         const a = (i / n) * Math.PI * 2;
         const q = at(p.x + Math.cos(a) * r, p.z + Math.sin(a) * r);
-        if (this.headroom(q)) return q;
+        if (this.headroom(q, 1.85, room)) return q;
       }
     }
     return p;

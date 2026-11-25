@@ -84,7 +84,8 @@ export class CameraRig {
       const off = Math.min(1.6, Math.max(0.25, len * 0.22));
       const start = target.add(dir.scale(off));
       const d = this.occlude(start, pos);
-      this.occWant = d === null ? 1 : Math.max(0.12, (d + off - 0.3) / len);
+      // never closer than 0.8 m: past that a face is cropped to a chin, worse than a sliver of whatever is in the way
+      this.occWant = d === null ? 1 : Math.max(Math.min(1, 0.8 / len), 0.12, (d + off - 0.3) / len);
     }
     this.occFrac = this.occFrac < 0 ? this.occWant : this.occFrac + (this.occWant - this.occFrac) * Math.min(1, dt * 6);
     return this.occFrac >= 0.999 ? pos : Vector3.Lerp(target, pos, this.occFrac);
