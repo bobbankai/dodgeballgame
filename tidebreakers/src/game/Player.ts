@@ -27,15 +27,20 @@ export class PlayerController {
     return fwd.scale(m.y).add(right.scale(m.x));
   }
 
+  private handedOver = false;
+
   update(dt: number): void {
     const f = this.f, inp = this.input, g = this.game;
     const it = f.intent;
     if (!this.enabled || f.state === 'cine') {
       it.move.setAll(0);
       it.guard = false;
-      it.face = undefined;
+      // the facing is cleared once, as control is handed to a cutscene; after that it belongs to the Director
+      // (clearing it every frame stopped Kai ever turning to face whoever he was talking to)
+      if (!this.handedOver) { it.face = undefined; this.handedOver = true; }
       return;
     }
+    this.handedOver = false;
     const dir = this.moveDir();
     it.move.copyFrom(dir);
     it.run = true;

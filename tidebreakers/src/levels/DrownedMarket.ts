@@ -272,6 +272,31 @@ export class DrownedMarket extends Level {
         [P(15.8, 15.5), V(20.5, 0, 15.5), 'villager', 'My boy! Take my boy first, please!'],
         [P(-11.5, 21.2), V(-12.5, 0, 26), 'villager', '...Thank you. Thank you. I can\'t swim. I never could.'],
       ];
+      // the people in the water: chest-deep, waving for help until a lifebuoy reaches them
+      const swimmers: Fighter[] = [];
+      for (let i = 0; i < buoys.length; i++) {
+        const [spot, wanted] = buoys[i];
+        // in open water, not under a moored boat or a jetty
+        let water = wanted;
+        search: for (let r = 0; r <= 2.5; r += 0.5) {
+          for (let k = 0; k < (r ? 10 : 1); k++) {
+            const a = (k / 10) * Math.PI * 2;
+            const q = wanted.add(V(Math.cos(a) * r, 0, Math.sin(a) * r));
+            if (this.headroom(V(q.x, -1.05, q.z), 1.75, 0.6)) { water = q; break search; }
+          }
+        }
+        buoys[i][1] = water;
+        // (spawned on the pier and then put in the water: spawning onto open water drops them to the seabed,
+        // below the level's fall limit, and they are taken as drowned before the scene starts)
+        const s = await this.npc('villager', `swimmer${i}`, spot, Math.atan2(spot.x - water.x, spot.z - water.z),
+          { look: { tint: ([[0.9, 0.82, 0.74], [0.8, 0.86, 0.95], [0.95, 0.85, 0.85]] as [number, number, number][])[i] } });
+        s.gravity = 0;
+        s.pos.set(water.x, -0.92, water.z);
+        s.vel.setAll(0);
+        d.act(s, 'wave', true);
+        s.model.face.set('shock');
+        swimmers.push(s);
+      }
       for (let i = 0; i < buoys.length; i++) {
         const [spot, water, who, line] = buoys[i];
         await this.reach(spot, 2.2, `Throw lifebuoys to the people in the water (${i}/3)`);
@@ -283,12 +308,28 @@ export class DrownedMarket extends Level {
         d.shot(spot.add(back.scale(2.6)).add(side.scale(1.0)).add(V(0, 2.0, 0)), Vector3.Lerp(spot, water, 0.55).add(V(0, 0.9, 0)), 0, 0.62);
         d.act(kai, 'throw');
         await d.wait(0.45);
-        g.vfx.splash(water, 26);
+        // the buoy lands beside them and they get an arm through it
+        const toKai = spot.subtract(water); toKai.y = 0; toKai.normalize();
+        const buoy = this.lifebuoy(water.add(toKai.scale(0.32)).add(V(0, 0.05, 0)), Math.atan2(toKai.x, toKai.z));
+        buoy.rotation.x = 0.25;
+        g.vfx.splash(buoy.position, 26);
         g.sfx('splash', water);
+        const sw = swimmers[i];
+        // holding on, chest-deep, looking up at the boy who threw it
+        d.act(sw, 'idle', true);
+        sw.pos.set(water.x, -0.92, water.z);
+        sw.proc.lookTarget = d.headOf(kai);
+        sw.proc.lookWeight = 0.8;
+        sw.model.face.set(i === 2 ? 'cry' : 'worried');
         await d.wait(0.6);
+        // (from above: a lens near the water looks into the swell, not at them)
+        d.close(sw, 1, 0, { dist: 2.0, height: 0.9 });
+        d.add(who, sw);  // (the line is spoken as 'villager': this swimmer's face and mouth)
         await d.say(who, line, i === 2 ? 'cry' : 'shock');
         d.act(kai, 'idle', true);
         d.cine(false);
+        // out of the cutscene they keep to the water: still waving, or holding on
+        swimmers.forEach((o, j) => d.act(o, j <= i ? 'idle' : 'wave', true));
       }
       d.cine(true);
       d.place(bram, P(-9.5, 20.2), 0.6);
@@ -297,6 +338,7 @@ export class DrownedMarket extends Level {
       await d.say('bram', '...That\'s three more than I threw.', 'cry');
       await d.say('kai', 'Then that\'s three more people who get to be hungry tomorrow. Come on. Your soup\'s still on.', 'tender');
       d.cine(false);
+      for (const o of swimmers) g.removeFighter(o);
       await this.reach(P(0, 21.5), 2.5, 'To the gangway');
       await this.reach(P(0, 33), 3, 'To the gangway');
     }

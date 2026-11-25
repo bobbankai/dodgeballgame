@@ -1,7 +1,8 @@
 // A level: its world (terrain, sea, scenery kit, lights, sky and grade), its cast, and its story script.
 // Scripts are split into named beats; every beat is a checkpoint, and `script(at)` starts from any of
 // them (death and Continue restart at the last one; `?at=` jumps there for testing).
-import { Vector3, ShaderMaterial, Ray } from '@babylonjs/core';
+import { Vector3, ShaderMaterial, Ray, MeshBuilder, VertexBuffer } from '@babylonjs/core';
+import type { Mesh } from '@babylonjs/core';
 import type { AbstractMesh } from '@babylonjs/core';
 import type { Renderer, PostFx } from '../render/Renderer';
 import type { Game } from '../game/Game';
@@ -307,6 +308,26 @@ export abstract class Level {
       }
     }
     return p;
+  }
+
+  /** A red and white ring lifebuoy (scenery material, so it is lit and outlined like the world). */
+  lifebuoy(at: Vector3, yaw = 0): Mesh {
+    const m = MeshBuilder.CreateTorus('lifebuoy', { diameter: 0.6, thickness: 0.15, tessellation: 28 }, this.r.scene);
+    const pos = m.getVerticesData(VertexBuffer.PositionKind)!;
+    const col: number[] = [], uv2: number[] = [];
+    for (let i = 0; i < pos.length; i += 3) {
+      const band = Math.floor(((Math.atan2(pos[i + 2], pos[i]) + Math.PI) / (Math.PI / 2)) + 0.5) % 2;
+      if (band) col.push(0.86, 0.14, 0.1, 0); else col.push(0.95, 0.93, 0.88, 0);
+      uv2.push(1, 1);
+    }
+    m.setVerticesData(VertexBuffer.ColorKind, col, false, 4);
+    m.setVerticesData('uv2', uv2, false, 2);
+    m.material = EnvKit.material(this.r, 'lifebuoyMat', 0);
+    m.isPickable = false;
+    m.position.copyFrom(at);
+    m.rotation.y = yaw;
+    this.meshes.push(m);
+    return m;
   }
 
   /** A child's chalk drawing on the ground (world/Chalk.ts). */
